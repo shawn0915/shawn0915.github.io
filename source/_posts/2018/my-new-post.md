@@ -6,6 +6,7 @@ tags: [t1,t2]
 cover: cover.jpeg
 author: ShawnYan
 summary: 'my first blog'
+top: 1
 ---
 
 [toc]
