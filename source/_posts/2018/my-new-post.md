@@ -1,8 +1,11 @@
 ---
 title: My New Post
 date: 2018-01-01 23:21:16
-categories: mysql
-tags: [oracle,mysql]
+categories: [c1,c2]
+tags: [t1,t2]
+cover: cover.jpeg
+author: ShawnYan
+summary: 'my first blog'
 ---
 
 [toc]
@@ -19,6 +22,7 @@ tags: [oracle,mysql]
 
 ###### H6
 
-hi
+Hello, Blog~
 
 ![](img/tidb-t.jpg)
+![](cover.jpeg)
