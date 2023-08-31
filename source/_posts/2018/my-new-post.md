@@ -9,7 +9,7 @@ summary: 'my first blog'
 top: 1
 ---
 
-[toc]
+@[toc]
 
 # H1
 
@@ -24,6 +24,27 @@ top: 1
 ###### H6
 
 Hello, Blog~
+
+```
+111
+111
+111
+select 1
+from 1
+where 1
+order by 1
+desc
+```
+
+```1c
+echo 1
+```
+
+```shell
+echo 1
+```
+
+`aaaa`
 
 ![](img/tidb-t.jpg)
 ![](cover.jpeg)

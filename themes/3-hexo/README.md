@@ -1,4 +1,4 @@
-hexo-theme-3-hexo
+hexo-theme-3-hexo plus
 ================
 3-hexo 是为 [hexo](https://github.com/tommy351/hexo) 制作的主题。三段式设计、方便。你可以点击: [我的博客](https://yelog.org/) 查看效果
 

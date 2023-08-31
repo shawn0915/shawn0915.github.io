@@ -7,7 +7,6 @@ author: ShawnYan
 summary: 'openGauss每日一练打卡汇总'
 ---
 
-[toc]
 
 本文是每日打卡课程[每日一练：openGauss数据库在线实训课程](https://www.modb.pro/course/133)的汇总篇，整理所有打卡文章链接，以便索引。
 

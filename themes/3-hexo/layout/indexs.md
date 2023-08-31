@@ -2,7 +2,13 @@
 
 ## 个人介绍
 
-野生 DBA 一枚。
+DBA 一枚，10年+ DBA、DevOps 经验，原创技术博客百余篇。
+
+拥有 MySQL OCP 5.6 / 5.7 / 8.0 认证。
+
+TiDB PCTA / PCTP / PCSD 认证，TiDB AskTUG 社区 MOV，布道师组委会成员，《TiDB 6.x in Action》共同作者。
+
+GBase GDCA 认证，openGauss OGCA 认证。
 
 ## 关于本站
 
@@ -14,6 +20,4 @@
 
 ## 联系方式
 
-WeChat: yanyoga_
-
-<img src="/img/wechat.jpg" width=300px>
+微信公众号: 少安事务所
