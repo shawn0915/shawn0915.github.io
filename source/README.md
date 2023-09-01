@@ -1,0 +1,9 @@
+---
+title: 少安事务所
+permalink: /about.html
+date: 2018-01-01 00:35:25
+---
+
+ShawnYan's Tech Blog.
+
+A blog about MySQL, MariaDB, TiDB, PostgreSQL and other databases.
