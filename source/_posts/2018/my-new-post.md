@@ -3,11 +3,12 @@ title: My New Post
 date: 2018-01-01 23:21:16
 categories: [c1,c2]
 tags: [t1,t2]
-cover: cover.jpeg
 author: ShawnYan
-summary: 'my first blog'
+description: 'my first blog'
 top: 1
 ---
+
+<meta property="og:image" content="cover.jpeg">
 
 @[toc]
 
@@ -46,5 +47,6 @@ echo 1
 
 `aaaa`
 
-![](img/tidb-t.jpg)
+<img src="/img/tidb-t.jpg" width=450px>
+
 ![](cover.jpeg)
