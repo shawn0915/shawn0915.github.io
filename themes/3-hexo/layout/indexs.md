@@ -1,6 +1,6 @@
 # 少安事务所
 
-## 个人介绍
+## 🇦 个人介绍
 
 DBA 一枚，10年+ DBA、DevOps 经验，原创技术博客百余篇。
 
@@ -11,7 +11,7 @@ TiDB PCTA / PCTP / PCSD 认证，TiDB AskTUG 社区 MOV，布道师组委会成�
 GBase GDCA 认证，openGauss OGCA 认证。
 
 
-## 文章严选
+## 🇨 严选文章
 
 ### 🇲 墨天轮 公众号
 
@@ -20,14 +20,14 @@ GBase GDCA 认证，openGauss OGCA 认证。
 - [2023-08-29, 如何成为一名国产数据库DBA? (共建)](https://mp.weixin.qq.com/s?__biz=MzU0NTk1MTc2Ng==&mid=2247491070&idx=1&sn=d15d3e510816c2989c318258a31b8635)
 
 
-### 🇬 GBase培训中心 公众号
+### 💽 GBase培训中心 公众号
 
 - [2022-01-24, 征文 | 资深DBA带您了解GBase培训](https://mp.weixin.qq.com/s?__biz=MzI2ODU2NDUzMQ==&mid=2247490215&idx=3&sn=88a1587ba380840697e50cd7faf6c07d)
 - [2022-04-15, GBase有奖征文2 | 搭建基于GBase 8a的博客系统遇到的若干问题](https://mp.weixin.qq.com/s?__biz=MzI2ODU2NDUzMQ==&mid=2247490976&idx=3&sn=c517f78034310b3a5a5117ff10a96b29)
 - [2023-04-26, 征文 | 再遇GBase 如沐春风](https://mp.weixin.qq.com/s?__biz=MzI2ODU2NDUzMQ==&mid=2247493448&idx=5&sn=97c4d97e4f3eefb31a17ee9fab7fbf39)
 
 
-### 🇵 PingCAP 公众号
+### 🏓 PingCAP 公众号
 
 - [2022-04-14, TiUP：TiDBAer 必备利器](https://mp.weixin.qq.com/s?__biz=MzI3NDIxNTQyOQ==&mid=2247501434&idx=1&sn=14089c6b65e31436f7b39bd44985d7ba)
 - [2022-05-09, TiDB 6.0 新特性解读丨 Collation 规则](https://mp.weixin.qq.com/s?__biz=MzI3NDIxNTQyOQ==&mid=2247501974&idx=1&sn=bd2350242a4eb944b20955e64c13b756)
@@ -35,22 +35,22 @@ GBase GDCA 认证，openGauss OGCA 认证。
 - [2022-11-02, PingCAP Education 四周年，100 个 PCTA 认证考试兑换码限量赠送，先到先得！（节选）](https://mp.weixin.qq.com/s?__biz=MzI3NDIxNTQyOQ==&mid=2247507034&idx=2&sn=cca94657a0644df5f565d47a5ebd25d2)
 
 
-### 🇴 openGauss 公众号
+### ⭕ openGauss 公众号
 
 - [2023-07-14, 【我和openGauss的故事】浅尝 openGauss v5.0.0 的 MySQL 语法兼容性](https://mp.weixin.qq.com/s?__biz=MzIyMDE3ODk1Nw==&mid=2247510030&idx=5&sn=0742406cbe3bf3d0d002fdca326392a1)
 - [2023-07-17, 【我和openGauss的故事】openGauss 5.0.0 资源管控功能介绍](https://mp.weixin.qq.com/s?__biz=MzIyMDE3ODk1Nw==&mid=2247510060&idx=4&sn=8a073e1eaa3e8f0c28754937b3928b6e)
 - [2023-08-28, 【好文推荐】openGauss 5.0.0 资源管控功能介绍](https://mp.weixin.qq.com/s?__biz=MzIyMDE3ODk1Nw==&mid=2247511266&idx=1&sn=a86c4bc257c5df272b5efd4d49f35f7c)
 
 
+## 🇪 联系方式
+
+微信公众号: 少安事务所
+
 
 ## 关于本站
 
-个人博客。
+严少安的个人博客。
 
-共 <code class="article_number"></code> 篇文章，共 <code class="site_word_count"></code> 字。
+共 <code class="article_number"></code> 篇文章，合计 <code class="site_word_count"></code> 字。
 
-访问人数：<code class="site_uv"></code> 人，访问量：<code class="site_pv"></code> 次。
-
-## 联系方式
-
-微信公众号: 少安事务所
+本站总访问人数：<code class="site_uv"></code> 人，总访问量：<code class="site_pv"></code> 次。

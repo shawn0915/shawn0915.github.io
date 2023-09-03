@@ -1,5 +1,5 @@
 ---
-title: About
+title: 少安事务所
 permalink: /about.html
 date: 2018-01-01 00:00:01
 description: 
