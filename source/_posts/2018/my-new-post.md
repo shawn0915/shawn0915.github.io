@@ -5,12 +5,12 @@ categories: [c1,c2]
 tags: [t1,t2]
 author: ShawnYan
 description: 'my first blog'
-top: 1
+thumbnail: "/img/cloud.png"
+excerpt: false
+#top: 1
 ---
 
-<meta property="og:image" content="cover.jpeg">
 
-@[toc]
 
 # H1
 
