@@ -12,12 +12,8 @@ thumbnail: "/img/gbase/gbase-8c.png"
 ![banner-xt.jpg](/img/gbase/banner-xt.jpg)
 
 
-::: hljs-center
-
-**与 GBase 8c 的再次相遇
-—— 记录“我和南大通用 GBase 数据库”的故事**
-
-:::
+**<center>与 GBase 8c 的再次相遇
+—— 记录“我和南大通用 GBase 数据库”的故事</center>**
 
 
 时隔一年多，再次与南大通用 GBase 数据库培训相遇，不过这次的上课体验完全不同，因为这是 GBase 8c 首次公开培训课程，也是近 500 人在线学习的大课堂。

@@ -5,7 +5,7 @@ categories: [opengauss]
 tags: [opengauss,course]
 author: ShawnYan
 summary: 'openGauss每日一练打卡汇总'
-thumbnail: "/img/elephant.jpg"
+thumbnail: "/img/head/elephant.jpg"
 excerpt: false
 ---
 

@@ -20,9 +20,9 @@ DBA 一枚，10年+ DBA、DevOps 经验，原创技术博客百余篇。
 
 拥有 MySQL OCP 5.6 / 5.7 / 8.0 认证。
 
-TiDB PCTA / PCTP / PCSD 认证，TiDB AskTUG 社区 MOV，布道师组委会成员，《TiDB 6.x in Action》共同作者。
+TiDB Practitioner / PCTA / PCTP / PCSD 认证，TiDB AskTUG 社区 MOV，布道师组委会成员，《TiDB 6.x in Action》共同作者。
 
-GBase GDCA 认证，openGauss OGCA 认证。
+GBase GDCA 认证。openGauss OGCA 认证。
 
 
 ## 严选文章

@@ -5,7 +5,7 @@ categories: [c1,c2]
 tags: [t1,t2]
 author: ShawnYan
 description: 'my first blog'
-thumbnail: "/img/cloud.png"
+thumbnail: "/img/head/cloud.png"
 excerpt: false
 #top: 1
 ---
@@ -47,6 +47,6 @@ echo 1
 
 `aaaa`
 
-<img src="/img/tidb-t.jpg" width=450px>
+<img src="/img/tidb/tidb-t.jpg" width=450px>
 
 ![](cover.jpeg)
