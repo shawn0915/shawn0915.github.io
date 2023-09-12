@@ -1,5 +1,5 @@
 ---
-title: TiDB 认证 | 新版 PingCAP PCTP 认证考试 备考指南
+title: "TiDB 认证 | 新版 PingCAP PCTP 认证考试 备考指南"
 date: 2022-01-27 10:01:29
 categories: [pingcap,education]
 tags: [tidb,pctp,pingcap,pcta,pingcap认证]

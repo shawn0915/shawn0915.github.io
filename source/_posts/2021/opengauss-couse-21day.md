@@ -1,5 +1,5 @@
 ---
-title: openGauss每日一练 | by 少安 | 汇总
+title: "openGauss每日一练 | by 少安 | 汇总"
 date: 2021-12-15 20:12:43
 categories: [opengauss]
 tags: [opengauss,course]

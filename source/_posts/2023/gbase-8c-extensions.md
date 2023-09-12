@@ -1,5 +1,5 @@
 ---
-title: GBase 8c 预装的扩展插件有哪些？
+title: "GBase 8c 预装的扩展插件有哪些？"
 date: 2023-03-30 14:03:01
 categories: [gbase,gbase8c]
 tags: [gbase,gdca,gbase 8c,南大通用,extensions]

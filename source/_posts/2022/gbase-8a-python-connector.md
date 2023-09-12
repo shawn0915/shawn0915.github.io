@@ -1,5 +1,5 @@
 ---
-title: 源码阅读 | 浅析 GBase 8a Python 连接器的源码
+title: "源码阅读 | 浅析 GBase 8a Python 连接器的源码"
 date: 2022-02-22 19:02:19
 categories: [gbase,gbase8a]
 tags: [gbase,python,gbase 8a,南大通用]
