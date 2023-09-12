@@ -4,8 +4,6 @@ date: 2023-03-30 14:03:01
 categories: [gbase,gbase8c]
 tags: [gbase,gdca,gbase 8c,南大通用,extensions]
 author: 严少安
-description: 'GBase 8c 预装的扩展插件有哪些？'
-excerpt: false
 thumbnail: "/img/gbase/gbase-8c.png"
 ---
 

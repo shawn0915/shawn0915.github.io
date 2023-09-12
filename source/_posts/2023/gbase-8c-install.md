@@ -4,8 +4,6 @@ date: 2023-03-14 23:03:32
 categories: [gbase,gbase8c]
 tags: [gbase,gdca,gbase 8c,南大通用,数据库认证]
 author: 严少安
-description: '快速搭建 GBase 8c 集群环境'
-excerpt: false
 thumbnail: "/img/gbase/gbase-8c.png"
 ---
 

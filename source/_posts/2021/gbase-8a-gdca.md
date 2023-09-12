@@ -5,7 +5,6 @@ categories: [gbase,gbase8a]
 tags: [gbase,gdca,gbase 8a,南大通用]
 author: 严少安
 description: '资深 DBA 带您了解 GBase 培训'
-excerpt: false
 thumbnail: "/img/gbase/gbase-8a.png"
 ---
 

@@ -4,8 +4,6 @@ date: 2023-03-19 17:03:42
 categories: [gbase,gbase8c]
 tags: [gbase,gdca,gbase 8c,南大通用]
 author: 严少安
-description: 'GBase 8c 分布式数据库 常用命令 & 常见问题 集锦'
-excerpt: false
 thumbnail: "/img/gbase/gbase-8c.png"
 ---
 

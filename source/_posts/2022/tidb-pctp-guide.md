@@ -4,8 +4,6 @@ date: 2022-01-27 10:01:29
 categories: [pingcap,education]
 tags: [tidb,pctp,pingcap,pcta,pingcap认证]
 author: 严少安
-description: ''
-excerpt: false
 thumbnail: "/img/tidb/pingcap-certified.png"
 ---
 

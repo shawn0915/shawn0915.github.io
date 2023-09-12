@@ -4,8 +4,6 @@ date: 2022-02-22 19:02:19
 categories: [gbase,gbase8a]
 tags: [gbase,python,gbase 8a,南大通用]
 author: 严少安
-description: '源码阅读 | 浅析 GBase 8a Python 连接器的源码'
-excerpt: false
 thumbnail: "/img/gbase/gbase-8a.png"
 ---
 

@@ -4,8 +4,6 @@ date: 2022-02-21 00:02:55
 categories: [gbase,gbase8a]
 tags: [gbase,wordpress,gbase 8a,南大通用]
 author: 严少安
-description: '案例分析 | 搭建基于 GBase8a 的博客系统遇到的若干问题'
-excerpt: false
 thumbnail: "/img/gbase/gbase-8a.png"
 ---
 

@@ -4,8 +4,6 @@ date: 2023-04-09 11:04:04
 categories: [gbase,gbase8c]
 tags: [gbase,gdca,gbase 8c,南大通用,数据库认证]
 author: 严少安
-description: '再遇 GBase 如沐春风'
-excerpt: false
 thumbnail: "/img/gbase/gbase-8c.png"
 ---
 

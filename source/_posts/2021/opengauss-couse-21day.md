@@ -6,7 +6,6 @@ tags: [opengauss,course]
 author: ShawnYan
 summary: 'openGauss每日一练打卡汇总'
 thumbnail: "/img/head/elephant.jpg"
-excerpt: false
 ---
 
 

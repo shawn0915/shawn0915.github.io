@@ -4,8 +4,6 @@ date: 2022-01-12 23:01:22
 categories: [墨天轮]
 tags: [墨天轮,postgres,postgres_fdw]
 author: 严少安
-description: ''
-excerpt: false
 thumbnail: "/img/modb/modb-logo.png"
 ---
 

@@ -24,6 +24,7 @@ TiDB Practitioner / PCTA / PCTP / PCSD 认证，TiDB AskTUG 社区 MOV，布道�
 
 GBase GDCA 认证。openGauss OGCA 认证。
 
+业余爱好：Reading, Traveling and Yoga.
 
 ## 严选文章
 
@@ -58,4 +59,4 @@ GBase GDCA 认证。openGauss OGCA 认证。
 
 ## 📧 联系方式
 
-微信公众号: 少安事务所
+微信公众号: 少安事务所 (mysqloffice)
