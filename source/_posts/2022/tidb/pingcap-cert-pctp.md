@@ -1,7 +1,7 @@
 ---
 title: "TiDB 认证 | 新版 PingCAP PCTP 认证考试 备考指南"
 date: 2022-01-27 10:01:29
-categories: [pingcap,education]
+categories: [tidb,education]
 tags: [tidb,pctp,pingcap,pcta,pingcap认证]
 author: 严少安
 thumbnail: "/img/tidb/pingcap-certified.png"
@@ -129,3 +129,4 @@ PCTP 考试费已上调至￥900
 
 ---
 https://www.modb.pro/db/242972
+https://tidb.net/blog/ea7a1acb

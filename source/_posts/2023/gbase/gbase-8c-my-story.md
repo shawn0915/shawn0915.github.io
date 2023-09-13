@@ -29,3 +29,4 @@ GBase 8c 是南大通用面对新业态、新挑战所适时推出的新一代�
 
 ---
 https://www.modb.pro/db/622578
+https://mp.weixin.qq.com/s?__biz=MzI2ODU2NDUzMQ==&mid=2247493448&idx=5&sn=97c4d97e4f3eefb31a17ee9fab7fbf39

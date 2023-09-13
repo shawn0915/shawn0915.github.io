@@ -39,3 +39,4 @@ thumbnail: "/img/gbase/gbase-8a.png"
 
 ---
 https://www.modb.pro/db/224213
+https://mp.weixin.qq.com/s?__biz=MzI2ODU2NDUzMQ==&mid=2247490215&idx=3&sn=88a1587ba380840697e50cd7faf6c07d

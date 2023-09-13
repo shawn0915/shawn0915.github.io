@@ -25,12 +25,32 @@ thumbnail: "/img/head/cloud.png"
 ###### H6
 
 Hello, Blog~
+
+https://markdown-it.github.io/#fn3
+https://github.blog/changelog/2021-09-30-footnotes-now-supported-in-markdown-fields/
+
+测试 footnote
+
 Hello, Blog~ [^1][^2]
 
 [^1]: shawnyan.cn
 
 &#x23F0;&#x1f17e;
 &#x24c2;
+
+Footnote 1 link[^first].
+
+Footnote 2 link[^second].
+
+Inline footnote^[Text of inline footnote] definition.
+
+Duplicated footnote reference[^second].
+
+[^first]: Footnote **can have markup**
+
+    and multiple paragraphs.
+
+[^second]: Footnote text.
 
 ```
 111
@@ -59,4 +79,4 @@ echo 1
 
 ---
 
-[^2]: hello, blog~ `啊`
+[^2]: hello, blog~ `啊` &#x1F310;
