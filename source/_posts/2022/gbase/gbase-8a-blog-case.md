@@ -7,8 +7,6 @@ author: 严少安
 thumbnail: "/img/gbase/gbase-8a.png"
 ---
 
-![](2023-02-20-01.jpg)
-
 
 ## 关于 GBase 8a 数据库
 

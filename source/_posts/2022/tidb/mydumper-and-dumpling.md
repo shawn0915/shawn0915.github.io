@@ -85,22 +85,22 @@ mydumper 0.11.5, built against MySQL 5.7.37
 
 摘取了一些重要的选项，列举如下：
 
-| <center> Options | <center> Desc |
-|-|-|-|
-| -B, --database | 导出的源库 |
-| -T, --tables-list | 导出的表，以逗号分隔（不排除正则选项） |
-| -o, --outputdir | 输出文件到目标目录 |
+| Options              | Desc |
+|----------------------|---|
+| -B, --database       | 导出的源库 |
+| -T, --tables-list    | 导出的表，以逗号分隔（不排除正则选项） |
+| -o, --outputdir      | 输出文件到目标目录 |
 | -F, --chunk-filesize | 将表按指定块大小（单位为MB）拆分成若干文件 |
-| -c, --compress | 压缩输出文件 |
-| -x, --regex | 正则表达式去匹配 'db.table' |
-| -m, --no-schemas | 只备份表数据，不备份表结构 |
-| -d, --no-data | 不备份表数据 |
-| -k, --no-locks | 不执行临时共享读锁。警告：这将导致不一致的备份 |
-| -t, --threads | 使用的线程数，默认值为4 |
-|--|--|
-| --sync-wait | WSREP_SYNC_WAIT value to set at SESSION level |
-|--|--|
-| -z, --tidb-snapshot | Snapshot to use for TiDB |
+| -c, --compress       | 压缩输出文件 |
+| -x, --regex          | 正则表达式去匹配 'db.table' |
+| -m, --no-schemas     | 只备份表数据，不备份表结构 |
+| -d, --no-data        | 不备份表数据 |
+| -k, --no-locks       | 不执行临时共享读锁。警告：这将导致不一致的备份 |
+| -t, --threads        | 使用的线程数，默认值为4 |
+| --                   |--|
+| --sync-wait          | WSREP_SYNC_WAIT value to set at SESSION level |
+| --                   |--|
+| -z, --tidb-snapshot  | Snapshot to use for TiDB |
 
 注：
 
