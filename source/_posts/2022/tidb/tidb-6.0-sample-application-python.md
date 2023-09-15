@@ -4,7 +4,7 @@ date: 2022-05-14 15:05:23
 categories: [tidb,tidb 6.x]
 tags: [tidb,pingcap,tidb 6.x,python,mariadb]
 author: ShawnYan
-thumbnail: /img/tidb/tidb-6.0-new-feature.jpg
+thumbnail: /img/tidb/tidb-6.x-new-feature-banner.jpg
 ---
 
 

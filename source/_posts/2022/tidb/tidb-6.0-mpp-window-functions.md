@@ -4,7 +4,7 @@ date: 2022-06-21 20:06:49
 categories: [tidb,tidb 6.x]
 tags: [tidb,tidb 6.x,tiflash,mpp,窗口函数]
 author: ShawnYan
-thumbnail: /img/tidb/tidb-6.0-new-feature.jpg
+thumbnail: /img/tidb/tidb-6.x-new-feature-banner.jpg
 ---
 
 

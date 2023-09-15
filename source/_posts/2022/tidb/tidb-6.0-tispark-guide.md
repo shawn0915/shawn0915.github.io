@@ -4,7 +4,7 @@ date: 2022-06-14 18:06:37
 categories: [tidb,tidb 6.x]
 tags: [tidb,tidb 6.x,tispark,spark,pyspark]
 author: ShawnYan
-thumbnail: /img/tidb/tidb-6.0-new-feature.jpg
+thumbnail: /img/tidb/tidb-6.x-new-feature-banner.jpg
 ---
 
 

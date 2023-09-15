@@ -4,7 +4,7 @@ date: 2022-05-11 21:05:42
 categories: [tidb,tidb 6.x]
 tags: [tidb,pingcap,asktug,tidb 6.x,package]
 author: ShawnYan
-thumbnail: /img/tidb/tidb-6.0-new-feature.jpg
+thumbnail: /img/tidb/tidb-6.x-new-feature-banner.jpg
 ---
 
 <img alt="IMG_2005.JPG" src="https://oss-emcsprod-public.modb.pro/image/editor/20220621-bb3e332e-01d5-4149-9dc9-a5e060a2eccd.JPG" referrerpolicy="no-referrer"/>

@@ -2,9 +2,9 @@
 title: "我和 TiDB 的故事 | 横看成岭侧成峰"
 date: 2022-08-04 19:08:25
 categories: [tidb,book]
-tags: [tidb,tidb 6.x,TiJuaner]
+tags: [tidb,tidb 6.x,TiJuaner,pingcap,TiExplorer,story]
 author: ShawnYan
-thumbnail: /img/tidb/tidb-6.x-in-action-banner.jpg
+thumbnail: /img/tidb/my-story-with-tidb-banner.png
 ---
 
 ## Hello, TiDB!
@@ -91,6 +91,9 @@ A: 不止黑客帝国里有先知，TiDB 里也有，这就是 TSO（Timestamp O
 
 <img alt="8.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/8-1659593481556.png"/>
 
+
+---
+特别鸣谢：@YY 友情设计的 banner.
 
 ---
 https://www.modb.pro/db/452257

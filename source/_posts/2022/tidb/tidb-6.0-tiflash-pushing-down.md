@@ -4,7 +4,7 @@ date: 2022-05-07 18:05:14
 categories: [tidb,tidb 6.x]
 tags: [tidb,asktug,tidb 6.x,tiflash,mpp]
 author: ShawnYan
-thumbnail: /img/tidb/tidb-6.0-new-feature.jpg
+thumbnail: /img/tidb/tidb-6.x-new-feature-banner.jpg
 ---
 
 TiDB 6.0 对 TiFlash 的功能做了进一步增强，其中新增支持了 12 个函数和 2 个算子下推到 TiFlash 层的 MPP 引擎进行计算。
