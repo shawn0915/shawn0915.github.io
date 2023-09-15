@@ -94,4 +94,4 @@ A: 不止黑客帝国里有先知，TiDB 里也有，这就是 TSO（Timestamp O
 
 ---
 https://www.modb.pro/db/452257
-https://tidb.net/blog/64694b36
+https://tidb.net/blog/64694b36?shareId=efb99145

@@ -1,7 +1,7 @@
 ---
 title: "TiDB 6.0 新特性解读 | Collation 规则"
 date: 2022-05-05 11:05:17
-categories: [tidb,book]
+categories: [tidb,tidb 6.x]
 tags: [tidb,pingcap,asktug,tidb 6.x]
 author: ShawnYan
 thumbnail: /img/tidb/tidb-6.0-new-feature.jpg
@@ -222,6 +222,6 @@ TiDB [test] 00:04:03> select charset('1');
 
 ---
 https://www.modb.pro/db/399619
-https://tidb.net/blog/82d7530c
+https://tidb.net/blog/82d7530c?shareId=2a395d20
 https://tidb.net/book/book-rush/features/new-features/new-collation
 https://mp.weixin.qq.com/s?__biz=MzI3NDIxNTQyOQ==&mid=2247501974&idx=1&sn=bd2350242a4eb944b20955e64c13b756

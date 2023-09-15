@@ -416,5 +416,5 @@ Select Many Rows: [{'DB': 'bookshop', 'TABLE': 'books', 'REGION_ID': 4028065, 'T
 
 ---
 https://www.modb.pro/db/403262
-https://tidb.net/blog/ef4c1f65
+https://tidb.net/blog/ef4c1f65?shareId=2923d1b6
 https://tidb.net/book/book-rush/developer-guide/simple-crud/sample-application-python

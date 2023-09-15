@@ -217,5 +217,5 @@ ERROR 8200 (HY000): Unsupported ALTER table replica for table contain gbk charse
 
 ---
 https://www.modb.pro/db/400382
-https://tidb.net/blog/2188d936
+https://tidb.net/blog/2188d936?shareId=286bbfd2
 https://tidb.net/book/book-rush/performance/mpp-engine/tiflash-pushing-down

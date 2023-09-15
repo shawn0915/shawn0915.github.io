@@ -615,5 +615,5 @@ log4j.logger.com.pingcap.tispark=WARN
 
 ---
 https://www.modb.pro/db/414883 	
-https://tidb.net/blog/5e697bac
+https://tidb.net/blog/5e697bac?shareId=2d29b9cf
 https://tidb.net/book/book-rush/best-practice/tispark-practice/tispark-guide

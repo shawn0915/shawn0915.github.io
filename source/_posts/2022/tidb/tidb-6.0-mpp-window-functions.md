@@ -313,5 +313,5 @@ TiDB [test] 22:13:25> explain SELECT LAG(mark) OVER w AS `lag`, LEAD(mark) OVER 
 
 ---
 https://www.modb.pro/db/421791
-https://tidb.net/blog/aafc201b
+https://tidb.net/blog/aafc201b?shareId=a380735e
 https://tidb.net/book/book-rush/performance/mpp-engine/mpp-window-functions

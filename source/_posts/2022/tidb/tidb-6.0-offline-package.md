@@ -138,5 +138,5 @@ TiDB v6.0 离线包的调整，是 TiDB 可管理性增强的具体体现。对�
 
 ---
 https://www.modb.pro/db/401830
-https://tidb.net/blog/3a05d13c
+https://tidb.net/blog/3a05d13c?shareId=fdf35157
 https://tidb.net/book/book-rush/manageability/other-features/offline-package
