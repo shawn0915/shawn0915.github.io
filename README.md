@@ -1,5 +1,7 @@
 # 少安事务所 | ShawnYan's Blog
 
+> update: 2023-09-15
+
 ```shell
 git clone git@github.com:shawn0915/shawn0915.github.io.git --depth=1
 git clone https://gitee.com/shawnyan/redefine.git -b br-shawnyan --depth=1
