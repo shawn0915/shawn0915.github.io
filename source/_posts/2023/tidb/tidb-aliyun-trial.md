@@ -4,7 +4,7 @@ date: 2023-02-23 01:02:48
 categories: [tidb,tidb 6.x]
 tags: [tidb,tidb 6.x,aliyun,tiflash,dashboard]
 author: ShawnYan
-thumbnail: tidb-aliyun-trial-banner.jpg
+thumbnail: /img/tidb/tidb-aliyun-trial-banner.jpg
 ---
 
 ![](tidb-aliyun-trial-banner.jpg)
