@@ -2,9 +2,9 @@
 title: "openGauss 5.0.0 分区表增强"
 date: 2023-07-11 20:10:27
 categories: [opengauss,og v5]
-tags: [opengauss,华为,og v5,partition]
+tags: [opengauss,og v5,partition]
 author: 秋秋
-thumbnail: /img/opengauss/opengauss-title.png
+thumbnail: /img/opengauss/my-story-with-opengauss-banner.png
 ---
 
 

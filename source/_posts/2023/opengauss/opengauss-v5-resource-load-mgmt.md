@@ -2,9 +2,9 @@
 title: "openGauss 5.0.0 资源管控功能介绍"
 date: 2023-07-12 14:07:46
 categories: [opengauss,og v5]
-tags: [opengauss,华为,og v5,mysql]
+tags: [opengauss,og v5,cgroups,资源负载,资源池]
 author: 严少安
-thumbnail: /img/opengauss/opengauss-title.png
+thumbnail: /img/opengauss/my-story-with-opengauss-banner.png
 ---
 
 <img alt="ogbanner.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20230712-97f91762-f04e-41eb-95b7-49337141fc0d.png" referrerpolicy="no-referrer"/>

@@ -2,9 +2,9 @@
 title: "浅尝 openGauss v5.0.0 的 MySQL 语法兼容性"
 date: 2023-07-07 16:07:07
 categories: [opengauss,og v5]
-tags: [opengauss,华为,og v5,mysql,mariadb,postgresql]
+tags: [opengauss,og v5,mysql,mariadb,postgresql]
 author: 严少安
-thumbnail: /img/opengauss/opengauss-title.png
+thumbnail: /img/opengauss/my-story-with-opengauss-banner.png
 ---
 
 <img alt="ogbanner.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20230707-3141c49c-5099-49bb-bc9b-057487be5c8d.png" referrerpolicy="no-referrer"/>
