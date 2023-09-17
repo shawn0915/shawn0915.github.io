@@ -3,10 +3,9 @@ title: "腾讯云数据库 TDSQL -- 备份工具 binlogproducter 解析"
 date: 2022-04-30 12:31:25
 author: mysqloffice
 categories: [tdsql]
-tags: [tdsql,tencentcloud,tencent,binlog,percona]
-thumbnail: "/img/centos/centos-stackscale.jpg"
+tags: [tdsql,tencentcloud,tencent,binlog,percona,backup]
+thumbnail: "/img/tdsql/tencentcloud.png"
 ---
-
 
 
 ## 概要

@@ -52,7 +52,9 @@ TiDB 是具有信创资质的国产数据库，在数据安全性、合规性和
 
 <img alt="20230815-e3694d7a-3c2c-43eb-8064-d969e7226497.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/20230815-e3694d7a-3c2c-43eb-8064-d969e7226497-1692114650829.png" referrerpolicy="no-referrer"/>
 
-这里，还是希望将 TiDB 入门级认证引入 PE 中文站，让更多人（不只是 DBA 或开发者）来了解 TiDB，了解这个业界领先的企业级开源分布式数据库。
+这里，~~还是希望将 TiDB 入门级认证引入 PE 中文站~~，让更多人（不只是 DBA 或开发者）来了解 TiDB，了解这个业界领先的企业级开源分布式数据库。
+
+> 2023-09-17, **TiDB 从业者认证** 已推出中文版，快来卷呀~ [即刻预约｜零技术基础、0 元考取 TiDB 从业者认证！](https://mp.weixin.qq.com/s?__biz=Mzg3NTU3NTMxNg==&mid=2247488368&idx=1&sn=072b874dd47f635e54df3fb4e27c0dfd)
 
 补充一点，据说，那些 OCM 大师们都喜欢晒“战袍”，我也浅晒一张我的 PingCAP Certified T-shirt。
 

@@ -2,7 +2,6 @@
 title: 少安事务所
 permalink: /about.html
 date: 2018-01-01 00:00:01
-description: 
 ---
 
 ## 少安事务所
@@ -22,7 +21,9 @@ DBA 一枚，10年+ DBA、DevOps 经验，原创技术博客百余篇。
 
 TiDB Practitioner / PCTA / PCTP / PCSD 认证，TiDB AskTUG 社区 MOV，布道师组委会成员，《TiDB 6.x in Action》共同作者。
 
-GBase GDCA 认证。openGauss OGCA 认证。
+GBase GDCA (8a / 8s / 8c) 认证。
+
+openGauss OGCA / MogDB MGCA 认证。
 
 业余爱好：Reading, Traveling and Yoga.
 
@@ -62,3 +63,9 @@ GBase GDCA 认证。openGauss OGCA 认证。
 ## 📧 联系方式
 
 微信公众号: 少安事务所 (mysqloffice)
+
+## Bay me a café ~
+
+![](/img/wexin.jpg)
+
+Merci ~
