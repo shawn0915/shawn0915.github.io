@@ -4,10 +4,10 @@ date: 2023-07-05 01:07:41
 categories: [tidb,tidb 7.x]
 tags: [tidb,tidb 7.x,tidb server,resource control,tikv]
 author: ShawnYan
-thumbnail: /img/tidb/tidb-7.x-feature-banner.png
+thumbnail: /img/tidb/tidb-7.x-new-feature-banner.png
 ---
 
-<img alt="no-alt" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/1-1688490606719.jpg"/>
+![](/img/tidb/tidb-7.x-new-feature-banner.png)
 
 
 [TiDB 7.1.0 LTS](https://docs.pingcap.com/zh/tidb/stable/release-7.1.0) 已经发布一个多月了，相信很多同学都已经抢先使用了起来，甚至都已然经过一些列验证推向了生产环境。面对 TiDB 7.1 若干重要特性，刚刚 GA 的 [资源管控 (Resource Control)](https://docs.pingcap.com/zh/tidb/stable/tidb-resource-control) 是必须要充分理解、测试的一个重量级特性。对于常年奋斗在一线 DBA 岗位的我来说，学术方面的精进已经力不从心，大部分的时间都在强化“术”的方面，所以 TiDB 每更（新）必追，每个新 GA 的特性都要熟悉，这样当生产环境 TiDB 升级到目标版本后，才不至于手忙脚乱，新建 TiDB 集群后才能对新特性驾轻就熟。相信本文会给读者朋友们带来一些实质性的收获。言归正传，本文将围绕“资源管控”主题，详细说说关于 “资源管控” 您应该知道的 6 件事。
@@ -29,8 +29,7 @@ thumbnail: /img/tidb/tidb-7.x-feature-banner.png
 
 - 可以将若干 MySQL 数据库合并进一个 TiDB 集群，比如读写峰值常出现于日间的 OA 系统，读写峰值常出现于夜间的 Batch 系统，以及 24 小时运行但负载持续稳定的数据采集系统，这种“三合一”的方式，使得各系统“错峰出行”，借助资源管控的能力“按需分配”，以此达到降低综合成本的目标。
 
-<img alt="no-alt" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/2-1688490615118.png"/>
-
+<img alt="no-alt" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/2-1688490615118.png" referrerpolicy="no-referrer"/>
 
 
 - 在一个 TiDB 集群，为不同测试环境 (Env) 创建不同测试用户 (User)，然后依据测试所需资源规格创建不同资源组 (Resource Group)，并将用户与对应的资源组做绑定。如此做到了不同用户的资源隔离，由于是测试环境，可将资源组设置为 **超限 (**`BURSTABLE`**)**，或者理解为“超卖”，某个或某几个用户使用的资源超过了资源组规定的限制，依旧可以正常使用，而不影响测试，可以最大化利用硬件资源。不过，这里的测试应该理解为业务测试，而非标准的性能测试，不然需要更加严谨的考虑资源分配以及 **超限 (**`BURSTABLE`**)** 的使用。
@@ -186,7 +185,7 @@ SELECT /*+ RESOURCE_GROUP(rg1) */ * FROM t1 limit 10;
 EXPLAIN ANALYZE SELECT /*+ RESOURCE_GROUP(rg1) */ * FROM t1 limit 10;
 ```
 
-<img alt="no-alt" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/3-1688490634363.png"/>
+<img alt="no-alt" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/3-1688490634363.png" referrerpolicy="no-referrer"/>
 
 
 
@@ -217,7 +216,7 @@ mysql> SELECT USER, RESOURCE_GROUP, INFO from INFORMATION_SCHEMA.PROCESSLIST ORD
 4 rows in set (0.00 sec)
 ```
 
-<img alt="no-alt" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/4-1688490643879.png"/>
+<img alt="no-alt" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/4-1688490643879.png" referrerpolicy="no-referrer"/>
 
 相关讨论见此（感谢 @db_user 的提示）：[resource control, 如何查看session级别变量](https://asktug.com/t/topic/1008357)
 
@@ -236,7 +235,7 @@ mysql> SELECT USER, RESOURCE_GROUP, INFO from INFORMATION_SCHEMA.PROCESSLIST ORD
 2 rows in set (0.00 sec)
 ```
 
-<img alt="no-alt" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/5-1688490651998.png"/>
+<img alt="no-alt" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/5-1688490651998.png" referrerpolicy="no-referrer"/>
 
 这里的推断是，`PROCESSLIST` 作为既存表，权限设定都是延用之前的逻辑，这里只是增加了字段，所以很好的继承了权限隔离，即普通用户无权、无法看到其他用户，如用户 u1 正在使用的资源组。
 
@@ -286,7 +285,7 @@ CALIBRATE RESOURCE WORKLOAD OLTP_READ_ONLY;
 
 在 TiDB Dashboard v7.1.0 面板上，我们可以看到新增了【资源管控】菜单，如图，
 
-<img alt="no-alt" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/6-1688490663320.png"/>
+<img alt="no-alt" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/6-1688490663320.png" referrerpolicy="no-referrer"/>
 
 这里也可以查看资源预估情况，但实际上，Dashboard 也是调用上面的 SQL 进行预测，可以从 TiDB-Server 的日志中进行确认。
 
@@ -307,7 +306,7 @@ CALIBRATE RESOURCE WORKLOAD OLTP_READ_ONLY;
 
 上文提到，TiDB Dashboard 增加了 [【资源管控】](https://docs.pingcap.com/zh/tidb/stable/dashboard-resource-manager) 菜单，在页面下半部分，展示了 RU 相关图表，可以一目了解查看 TiDB 集群的 RU 负载情况，也可以选中图表的某个时间段，来使用 [“根据实际负载估算容量”](https://docs.pingcap.com/zh/tidb/stable/sql-statement-calibrate-resource#%E6%A0%B9%E6%8D%AE%E5%AE%9E%E9%99%85%E8%B4%9F%E8%BD%BD%E4%BC%B0%E7%AE%97%E5%AE%B9%E9%87%8F) 功能。
 
-<img alt="no-alt" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/7-1688490671170.png"/>
+<img alt="no-alt" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/7-1688490671170.png" referrerpolicy="no-referrer"/>
 
 ### 2) Grafana
 
@@ -329,10 +328,10 @@ CALIBRATE RESOURCE WORKLOAD OLTP_READ_ONLY;
 
 其中，对于 RU 余量监控，TiDB 7.1 只能从 Grafana 面板上看到 RU 使用量，没有直观展示 RU 余量情况，所以在 TiDB 7.2 中得到了增强，具体实现可参考 PR: [resource_manager: add metrics for avaiable RU #6523](https://github.com/tikv/pd/pull/6523)
 
-<img alt="8.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/8-1688490712475.png"/>
+<img alt="8.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/8-1688490712475.png" referrerpolicy="no-referrer"/>
 图 -- TiDB 7.1 的 Grafana 面板
 
-<img alt="9.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/9-1688490716846.png"/>
+<img alt="9.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/9-1688490716846.png" referrerpolicy="no-referrer"/>
 图 -- TiDB 7.2 的 Grafana 面板
 
 ### 4) Log
@@ -374,7 +373,7 @@ FROM t;
 
 SQL 执行结果如图所示，从 TiKV 读取数据的 SQL， RU 值约 40， 而 TiFlash 的 RU 值则为 0，说明当前版本的 TiFlash 并不支持 RU 的计算。
 
-<img alt="10.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/10-1688490723000.png"/>
+<img alt="10.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/10-1688490723000.png" referrerpolicy="no-referrer"/>
 
 ### 实验二：从日志中观测是否调用资源组控制器
 
@@ -391,9 +390,9 @@ EXPLAIN ANALYZE FORMAT = 'verbose' SELECT /*+ RESOURCE_GROUP(rg2), read_from_sto
 EXPLAIN ANALYZE FORMAT = 'verbose' SELECT /*+ RESOURCE_GROUP(rg3), read_from_storage(tiflash[t]) */ COUNT(*) FROM t;
 ```
 
-<img alt="11.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/11-1688490730215.png"/>
+<img alt="11.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/11-1688490730215.png" referrerpolicy="no-referrer"/>
 
-<img alt="12.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/12-1688490733340.png"/>
+<img alt="12.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/12-1688490733340.png" referrerpolicy="no-referrer"/>
 
 从截图中可以直观的看到，资源控制器为上面的 SQL 创建了一个资源组消费控制器 (resource group cost controller)，资源组名称为 rg2 。而下面的 SQL 由于从 TiFlash 读取数据，所以并不会调用资源控制器创建新的资源组消费控制器。
 

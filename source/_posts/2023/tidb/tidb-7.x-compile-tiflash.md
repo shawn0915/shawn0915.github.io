@@ -4,16 +4,16 @@ date: 2023-08-15 16:03:23
 categories: [tidb,tidb 7.x]
 tags: [tidb,tidb 7.x,compile,tiflash,cmake]
 author: ShawnYan
-thumbnail: /img/tidb/tidb-7.x-feature-banner.png
+thumbnail: /img/tidb/tidb-7.x-new-feature-banner.png
 ---
 
-<img alt="20230724-7a955b59-c8fe-46fb-a046-4b4122df91b7.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/20230724-7a955b59-c8fe-46fb-a046-4b4122df91b7-1692106817813.png"/>
+![](/img/tidb/tidb-7.x-new-feature-banner.png)
 
 ## 导言
 
 TiFlash 从去年四月一日开源至今已经过去将近一年半，这段时间里 TiFlash 从 [v6.0.0-DMR](https://docs.pingcap.com/zh/tidb/stable/release-6.0.0-dmr) 升级到了 [v7.3.0-DMR](https://docs.pingcap.com/zh/tidb/v7.3/release-7.3.0) ，并增加了若干新特性，比如支持[ MPP 实现窗口函数框架](https://tidb.net/blog/aafc201b) ，新增支持若干[算子和函数下推](https://tidb.net/blog/2188d936) ，支持 AWS S3 算存分离等。先来回顾一下 TiFlash 资源精华帖，[【重磅消息】TiFlash 终于开源啦！](https://asktug.com/t/topic/632816) ，和 TiFlash 时间线。
 
-<img alt="20230815-7667aa84-e6e4-4213-8ea5-5dccd9a8a4cf.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/20230815-7667aa84-e6e4-4213-8ea5-5dccd9a8a4cf-1692106826893.png"/>
+<img alt="20230815-7667aa84-e6e4-4213-8ea5-5dccd9a8a4cf.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/20230815-7667aa84-e6e4-4213-8ea5-5dccd9a8a4cf-1692106826893.png" referrerpolicy="no-referrer"/>
 
 前两篇文章 [《TiDB 源码编译之 PD/TiDB Dashboard 篇》](https://tidb.net/blog/a16b1d46) 和 [《TiDB 源码编译之 TiUP 篇》](https://tidb.net/blog/1970f2ba) 分别阐述了如何编译 TiUP、PD 以及 TiDB Dashboard。本文将介绍如何编译 TiFlash，只是本文使用的技术栈与前两篇文章有所不同，建议熟练掌握 Linux 知识和有一定编译经验的小伙伴继续往下浏览。
 
@@ -242,7 +242,7 @@ root@centos7:/data/tiflash/build$ ll -h ./dbms/src/Server/tiflash
 
 老规矩，尝试自定义版本号，编译完成后，查看 `tiflash` 可执行二进制文件的版本信息。
 
-<img alt="20230815-d3618dc3-f9c0-4f28-bc01-367fb171cb2d.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/20230815-d3618dc3-f9c0-4f28-bc01-367fb171cb2d-1692106845635.png"/>
+<img alt="20230815-d3618dc3-f9c0-4f28-bc01-367fb171cb2d.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/20230815-d3618dc3-f9c0-4f28-bc01-367fb171cb2d-1692106845635.png" referrerpolicy="no-referrer"/>
 
 ## 遗留问题
 

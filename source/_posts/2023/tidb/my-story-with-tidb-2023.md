@@ -4,7 +4,7 @@ date: 2023-08-15 22:56:05
 categories: [tidb,book]
 tags: [tidb,pingcap,TiExplorer,education,story]
 author: ShawnYan
-thumbnail: /img/tidb/my-story-with-tidb-banner.png
+thumbnail: /img/tidb/my-story-with-tidb-banner.jpg
 ---
 
 ## Hi, TiDB, Again!

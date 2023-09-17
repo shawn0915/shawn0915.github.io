@@ -4,10 +4,10 @@ date: 2023-07-31 17:09:43
 categories: [tidb,tidb 7.x]
 tags: [tidb,tidb 7.x,compile,pd,dashboard]
 author: ShawnYan
-thumbnail: /img/tidb/tidb-7.x-feature-banner.png
+thumbnail: /img/tidb/tidb-7.x-new-feature-banner.png
 ---
 
-![no-alt](https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/1-1690947475451.png)
+![](/img/tidb/tidb-7.x-new-feature-banner.png)
 
 
 ## TiDB
@@ -297,7 +297,7 @@ pflag: help requested
 
 为了验证编译效果，本例中对 TiDB Dashboard 做了小小改动，版本号增加了 `-ShawnYan` 后缀，在【概况】、【监控指标】页面有文档链接，实际产品中指向了 `stable` 版本，这里修改为 `v7.2`。
 
-<img alt="no-alt" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/2-1690947491356.png"/>
+<img alt="no-alt" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/2-1690947491356.png" referrerpolicy="no-referrer"/>
 
 
 修改的代码位置为：
@@ -306,7 +306,7 @@ pflag: help requested
 
 修改完成后，再次打包。待打包完成后启动 TiDB Dashboard。可以看到如下效果：
 
-<img alt="no-alt" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/3-1690947496287.png"/>
+<img alt="no-alt" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/3-1690947496287.png" referrerpolicy="no-referrer"/>
 
 
 

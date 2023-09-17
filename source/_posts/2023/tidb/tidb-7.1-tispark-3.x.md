@@ -4,33 +4,33 @@ date: 2023-07-24 22:40:56
 categories: [tidb,tidb 7.x]
 tags: [tidb,tidb 7.x,tispark,spark,python]
 author: ShawnYan
-thumbnail: /img/tidb/tidb-7.x-feature-banner.png
+thumbnail: /img/tidb/tidb-7.x-new-feature-banner.png
 ---
 
-<img alt="01.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/01-1690214624817.png"/>
+![](/img/tidb/tidb-7.x-new-feature-banner.png)
 
 [TiDB 6.x in Action](https://tidb.net/book/book-rush) 已经发布一年了，去年撰写的 [TiSpark 实践](https://tidb.net/book/book-rush/best-practice/tispark-practice/) 文章便有一篇收录其中，一年时间过去了，TiSpark 版本也从当时的 v3.0.0 升到了现在的 v3.2.2，本文将综合浅析这些版本带来的诸多变化。
 
-<img alt="02.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/02-1690214631542.png"/>
+<img alt="02.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/02-1690214631542.png" referrerpolicy="no-referrer"/>
 图 -- TiSpark v3.x New Feature Mind Map
 
 ## 发版时间表
 
 从去年六月至今，TiSpark v3.x 系列已经发布了 11 个版本。目前，最新版本为 TiSpark v3.2.2。从 TiSpark 3.0 开始，全部使用 Scala 2.12 (2.12.10) 版本，不再支持 Scala 2.11。具体各版本的发版时间参见下表。
 
-<img alt="03.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/03-1690214637246.png"/>
+<img alt="03.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/03-1690214637246.png" referrerpolicy="no-referrer"/>
 
 ## TiSpark 新变化
 
 ### Spark 兼容性
 
-从 TiSpark 3.1 开始，支持 Spark 3.0 \~ 3.3。不过各个小版本对 Spark 的依赖还是有略微区别，主要在于 Spark 的版本升级和安全威胁 (Vulnerabilities) 解决情况。具体信息参加下表。
+从 TiSpark 3.1 开始，支持 Spark 3.0 ~ 3.3。不过各个小版本对 Spark 的依赖还是有略微区别，主要在于 Spark 的版本升级和安全威胁 (Vulnerabilities) 解决情况。具体信息参加下表。
 
-<img alt="04.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/04-1690214643114.png"/>
+<img alt="04.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/04-1690214643114.png" referrerpolicy="no-referrer"/>
 
 对比最新 Spark 的 Release 和 Vulnerability 信息，笔者推测近期 TiSpark 或将支持 Spark v3.4.1 及 Scala 2.13.x，并升级大版本号到 TiSpark v3.3.x。
 
-<img alt="05.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/05-1690214648656.png"/>
+<img alt="05.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/05-1690214648656.png" referrerpolicy="no-referrer"/>
 
 需要注意的是，在开始使用 TiSpark 之前，建议检查各组件的版本匹配情况，例如，目前尚不建议使用更高版本的 Scala 和 Spark，不然或可看到如下报错信息。([1009677](https://asktug.com/t/topic/1009677))
 
@@ -110,7 +110,7 @@ py4j.protocol.Py4JJavaError: An error occurred while calling o51.load.
 
 在 [TiSpark v2.5 开发入门实践及 TiSpark v3.0.0 新功能解读](https://tidb.net/blog/5e697bac#TiSpark%20%E5%AE%89%E8%A3%85/TiSpark%20%E7%89%88%E6%9C%AC%E8%AF%B4%E6%98%8E) 文中已经提及，从 TiSpark 2.4.0 开始支持 TiDB 5.0，目前 TiDB 版本已发布至 7.1 LTS，下图显示了 TiSpark 对 TiDB 版本的支持情况，数据均来自于 TiSpark Release Notes。
 
-<img alt="06.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/06-1690214656896.png"/>
+<img alt="06.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/06-1690214656896.png" referrerpolicy="no-referrer"/>
 
 从 TiDB 6.0 开始有一项非常特殊的变化，默认启用新字符校验规则，具体在文章 [TiDB 6.0 新特性解读 | Collation 规则](https://tidb.net/blog/82d7530c) 中有表述。
 
@@ -216,9 +216,9 @@ n: { RangeFilter: [], Range: [([t\200\000\000\000\000\000\000^_r\000\000\000\000
 
 1. 支持写入带有 `AUTO_RANDOM` 为主键的表。([#2545](https://github.com/pingcap/tispark/pull/2545))
 
-<img alt="07.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/07-1690214668408.png"/>
+<img alt="07.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/07-1690214668408.png" referrerpolicy="no-referrer"/>
 
-<img alt="08.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/08-1690214673674.png"/>
+<img alt="08.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/08-1690214673674.png" referrerpolicy="no-referrer"/>
 
 2. 支持写入带有新字符集的分区表。([#2565](https://github.com/pingcap/tispark/pull/2565))
 

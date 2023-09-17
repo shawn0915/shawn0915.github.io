@@ -4,7 +4,7 @@ date: 2022-08-04 19:08:25
 categories: [tidb,book]
 tags: [tidb,tidb 6.x,TiJuaner,pingcap,TiExplorer,story]
 author: ShawnYan
-thumbnail: /img/tidb/my-story-with-tidb-banner.png
+thumbnail: /img/tidb/my-story-with-tidb-banner.jpg
 ---
 
 ## Hello, TiDB!
