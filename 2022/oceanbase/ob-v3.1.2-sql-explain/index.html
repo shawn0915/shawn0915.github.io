@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="shawnyan,dba,oracle,mysql,tidb,mariadb,postgresql,gbase,proxysql">
+    
+    <meta name="author" content="Shawn Yan">
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+        
+        
+        
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://shawnyan.cn/2022/oceanbase/ob-v3.1.2-sql-explain/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+        <meta name="description" content="本文是OceanBase练习题的解题记录，所涉及的主要知识点：BenchmarkSQL、OB租户创建、OB执行计划，和OB SQL限流。  练习目的 本次练习目的掌握 OceanBase 的执行计划查看方法，包括 explain 命令和查看实际执行计划。 练习条件  CentOS 7.9 VM: 8c16g OB CE v3.1.2 单副本集群 JDK 1.8  环境准备 启动集群 OB搭建集群方">
+<meta property="og:type" content="article">
+<meta property="og:title" content="【OBCP蓝宝书】 OceanBase 社区版 v3.1.2 如何查看执行计划">
+<meta property="og:url" content="https://shawnyan.cn/2022/oceanbase/ob-v3.1.2-sql-explain/index.html">
+<meta property="og:site_name" content="少安事务所">
+<meta property="og:description" content="本文是OceanBase练习题的解题记录，所涉及的主要知识点：BenchmarkSQL、OB租户创建、OB执行计划，和OB SQL限流。  练习目的 本次练习目的掌握 OceanBase 的执行计划查看方法，包括 explain 命令和查看实际执行计划。 练习条件  CentOS 7.9 VM: 8c16g OB CE v3.1.2 单副本集群 JDK 1.8  环境准备 启动集群 OB搭建集群方">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20220305-fe90cc9f-08df-4b1e-b4d1-6f8518ff6106.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20220305-eadf4a4a-1962-4593-af12-1e69ba4d39d5.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20220305-634e6ac4-aa98-4c06-ab3e-e3598a95c100.png">
+<meta property="article:published_time" content="2022-03-05T15:03:13.000Z">
+<meta property="article:modified_time" content="2022-03-05T15:03:13.000Z">
+<meta property="article:author" content="Shawn Yan">
+<meta property="article:tag" content="oceanbase">
+<meta property="article:tag" content="obcp">
+<meta property="article:tag" content="oceanbase 社区版">
+<meta property="article:tag" content="ob v3">
+<meta property="article:tag" content="obd">
+<meta property="article:tag" content="explain">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20220305-fe90cc9f-08df-4b1e-b4d1-6f8518ff6106.png">
+    
+    
+        <!-- Google tag (gtag.js) -->
+        <script src="https://www.googletagmanager.com/gtag/js?id=G-ZH71L5F7X2"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-ZH71L5F7X2');
+        </script>
+    
+    <!-- baidu tongji -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?2fa794d82f74c0bb3617ba62ee962b46";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/img/favicon.ico" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon.ico">
+    <meta name="theme-color" content="#767FF6">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <!--- Page Info-->
+    
+    <title>
+        
+            【OBCP蓝宝书】 OceanBase 社区版 v3.1.2 如何查看执行计划 -
+        
+        少安事务所
+    </title>
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+<!--- use 2.5.0
+    
+        
+<link rel="stylesheet" href="/assets/build/styles.css">
+
+    
+-->
+    <link rel="stylesheet" href="//cdn.staticfile.org/hexo-theme-redefine/2.5.0/assets/build/styles.min.css">
+
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/fonts.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Satoshi/satoshi.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Chillax/chillax.css">
+    <!--- Font Part-->
+    
+    
+    
+    
+
+    <!--- Inject Part-->
+    
+    <script id="hexo-configurations">
+    let Global = window.Global || {};
+    Global.hexo_config = {"hostname":"shawnyan.cn","root":"/","language":"en","path":"search.xml"};
+    Global.theme_config = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":true,"list":[]},"code_block":{"copy":true,"style":"mac","font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":4,"number":false,"expand":true,"init_open":true},"copyright":true,"lazyload":true,"recommendation":{"enable":true,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#767FF6","secondary":null},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"open_graph":true,"google_analytics":{"enable":true,"id":"G-ZH71L5F7X2"},"root_color_mode":"dark"},"home_banner":{"enable":true,"style":"fixed","image":{"light":"https://asktug.com/uploads/default/original/4X/4/b/d/4bd94f804719672dd7e3cb29150ea6f777eb0aec.jpeg","dark":"/img/wallpaper/dark.webp"},"title":"Shawn Yan's Tech Blog.","subtitle":{"text":["A blog about MySQL, Oracle, TiDB, PostgreSQL and other databases."],"hitokoto":{"enable":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":500,"backing_delay":1500,"loop":true,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"links":{"github":"https://github.com/shawn0915","instagram":null,"zhihu":null,"twitter":null,"email":"admin@shawnyan.cn"},"qrs":{"weixin":null}}},"plugins":{"feed":{"enable":true},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":"回忆的沙漏 (10周年版)","artist":"回忆的沙漏 (10周年版)","url":"https://music.163.com/song/media/outer/url?id=1329122067.mp3","cover":"https://p1.music.126.net/oJorrgJ3IotZUAbZkBMuFw==/109951167771736533.jpg?param=68y68"}]},"mermaid":{"enable":false,"version":"9.3.0"}},"version":"2.4.4","navbar":{"auto_hide":false,"color":{"left":"#f78736","right":"#367df7","transparency":35},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Blog":{"path":"/archives","icon":"fa-regular fa-archive"},"Categories":{"path":"/categories","icon":"fa-regular fa-stream"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Links":{"icon":"fa-regular fa-link","submenus":{"My-params":"/my-params","Friends":"/links","Q":"/q"}}},"search":{"enable":true,"preload":true}},"page_templates":{"friends_column":3,"tags_style":"cloud"},"home":{"sidebar":{"enable":true,"position":"left","first_item":"info","announcement":null,"links":null},"article_date_format":"YYYY-MM-DD","categories":{"enable":true,"limit":10},"tags":{"enable":true,"limit":10}},"footerStart":"2017/11/27 00:00:00"};
+    Global.language_ago = {"second":"%s seconds ago","minute":"%s minutes ago","hour":"%s hours ago","day":"%s days ago","week":"%s weeks ago","month":"%s months ago","year":"%s years ago"};
+    Global.data_config = {"masonry":false};
+  </script>
+
+    <!--- Fontawesome Part-->
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/fontawesome.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/brands.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/solid.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/regular.min.css">
+    
+    
+    
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+
+
+<body>
+<div class="progress-bar-container">
+    
+
+    
+        <span class="pjax-progress-bar"></span>
+        <span class="swup-progress-icon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+    
+</div>
+
+
+<main class="page-container" id="swup">
+
+    
+
+    <div class="main-content-container">
+
+
+        <div class="main-content-header">
+            <header class="navbar-container">
+    
+    <div class="navbar-content">
+        <div class="left">
+            
+                <a class="logo-image" href="https://shawnyan.cn/">
+                    <img src="/img/favicon.ico">
+                </a>
+            
+            <a class="logo-title" href="https://shawnyan.cn/">
+                
+                少安事务所
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-house"></i>
+                                        
+                                        HOME
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/archives"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-archive"></i>
+                                        
+                                        BLOG
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/categories"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-stream"></i>
+                                        
+                                        CATEGORIES
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/tags"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-tags"></i>
+                                        
+                                        TAGS
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/about"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-user"></i>
+                                        
+                                        ABOUT
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="has-dropdown" 
+                                    href="#" onClick="return false;">
+                                    
+                                        
+                                            <i class="fa-regular fa-link"></i>
+                                        
+                                        LINKS&nbsp;<i class="fa-solid fa-chevron-down"></i>
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                                    <ul class="sub-menu">
+                                    
+                                        <li>
+                                        <a href="/my-params">MY-PARAMS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/links">FRIENDS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/q">Q
+                                        </a>
+                                        </li>
+                                    
+                                    </ul>
+                                
+                            </li>
+                    
+                    
+                        <li class="navbar-item search search-popup-trigger">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </li>
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                    <div class="icon-item search search-popup-trigger"><i class="fa-solid fa-magnifying-glass"></i></div>
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="navbar-drawer w-full absolute top-0 left-0 bg-background-color">
+        <ul class="drawer-navbar-list flex flex-col justify-start items-center">
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/"  >
+                             
+                                
+                                    <i class="fa-regular fa-house"></i>
+                                
+                                HOME
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/archives"  >
+                             
+                                
+                                    <i class="fa-regular fa-archive"></i>
+                                
+                                BLOG
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/categories"  >
+                             
+                                
+                                    <i class="fa-regular fa-stream"></i>
+                                
+                                CATEGORIES
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/tags"  >
+                             
+                                
+                                    <i class="fa-regular fa-tags"></i>
+                                
+                                TAGS
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/about"  >
+                             
+                                
+                                    <i class="fa-regular fa-user"></i>
+                                
+                                ABOUT
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group has-dropdown" 
+                        href="#" onClick="return false;">
+                            
+                                
+                                    <i class="fa-regular fa-link"></i>
+                                
+                                LINKS&nbsp;<i class="group-hover:rotate-180 transition-transform fa-solid fa-chevron-down"></i>
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                              
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/my-params">MY-PARAMS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/links">FRIENDS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/q">Q</a>
+                            </li>
+                        
+                    
+            
+
+        </ul>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+        </div>
+
+        <div class="main-content-body">
+
+            
+
+            <div class="main-content">
+
+                
+                    <div class="post-page-container">
+    <div class="article-content-container">
+
+        <div class="article-title">
+            
+                
+                
+                <!-- 2023-10-03, edit by shawnyan. -->
+                <img src="/img/oceanbase/oceanbase-banner.png" alt="【OBCP蓝宝书】 OceanBase 社区版 v3.1.2 如何查看执行计划" class="max-w-none" referrerpolicy="no-referrer"/>
+                
+                <h1 class="article-title-cover">【OBCP蓝宝书】 OceanBase 社区版 v3.1.2 如何查看执行计划</h1>
+            
+            </div>
+
+
+
+        
+            <div class="article-header">
+                <div class="avatar">
+                    
+                        <img src="/img/avatar.jpg">
+                    
+                </div>
+                <div class="info">
+                    <div class="author">
+                        
+                            <span class="name">严少安</span>
+                        
+                        
+                            
+                                <span class="author-label">Lv.6</span>
+                            
+                        
+                    </div>
+                    <div class="meta-info">
+                        <div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2022-03-05 23:03:13</span>
+        <span class="mobile">2022-03-05 23:03:13</span>
+        <span class="hover-info">Created</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2022-03-05 23:03:13</span>
+            <span class="mobile">2022-03-05 23:03:13</span>
+            <span class="hover-info">Updated</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/oceanbase/">OceanBase</a>&nbsp;
+                        </li>
+                    
+                    
+                
+                    
+                        
+                            <li>></li>
+                        
+                        <li>
+                            <a href="/categories/oceanbase/ob-v3/">OB v3</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/oceanbase/">oceanbase</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/obcp/">obcp</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/oceanbase-%E7%A4%BE%E5%8C%BA%E7%89%88/">oceanbase 社区版</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/ob-v3/">ob v3</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/obd/">obd</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/explain/">explain</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+        <span class="article-wordcount article-meta-item">
+            <i class="fa-regular fa-typewriter"></i>&nbsp;<span>2.5k Words</span>
+        </span>
+    
+    
+        <span class="article-min2read article-meta-item">
+            <i class="fa-regular fa-clock"></i>&nbsp;<span>13 Mins</span>
+        </span>
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+                    </div>
+                </div>
+            </div>
+        
+
+        
+
+
+        <div class="article-content markdown-body">
+            <p>本文是OceanBase练习题的解题记录，所涉及的主要知识点：BenchmarkSQL、OB租户创建、OB执行计划，和OB SQL限流。</p>
+<img  alt="ob-bmsql-word-art.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20220305-fe90cc9f-08df-4b1e-b4d1-6f8518ff6106.png"
+                      referrerpolicy="no-referrer"
+                >
+<h2 id="练习目的">练习目的</h2>
+<p>本次练习目的掌握 OceanBase 的执行计划查看方法，包括 explain 命令和查看实际执行计划。</p>
+<h2 id="练习条件">练习条件</h2>
+<blockquote>
+<p>CentOS 7.9<br>
+VM: 8c16g<br>
+OB CE v3.1.2 单副本集群<br>
+JDK 1.8</p>
+</blockquote>
+<h2 id="环境准备">环境准备</h2>
+<h3 id="启动集群">启动集群</h3>
+<p>OB搭建集群方法，可参考我之前的文章：<br>
+<a href="https://shawnyan.cn/2022/oceanbase/ob-v3.1.2-install-single-node/">【OBCP蓝宝书】 基于 OceanBase 社区版 v3.1.2 搭建单机测试环境的三种方法</a></p>
+<p>启动集群:</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">obd cluster start obce</span><br></pre></td></tr></table></figure></div>
+<p>OB运行状态：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">obd cluster list</span></span><br><span class="line">+--------------------------------------------------------+</span><br><span class="line">|                   Cluster List                         |</span><br><span class="line">+------+-------------------------------+-----------------+</span><br><span class="line">| Name | Configuration Path            | Status (Cached) |</span><br><span class="line">+------+-------------------------------+-----------------+</span><br><span class="line">| obce | /home/admin/.obd/cluster/obce | running         |</span><br><span class="line">+------+-------------------------------+-----------------+</span><br></pre></td></tr></table></figure></div>
+<p>修改OB资源分配，以满足基本测试需求：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">obd cluster edit-config obce</span><br></pre></td></tr></table></figure></div>
+<p>–&gt; 配置如下：</p>
+<div class="highlight-container" data-rel="Yaml"><figure class="iseeu highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">oceanbase-ce:</span></span><br><span class="line">  <span class="attr">servers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="number">192.168</span><span class="number">.0</span><span class="number">.36</span></span><br><span class="line">  <span class="attr">global:</span></span><br><span class="line">    <span class="attr">home_path:</span> <span class="string">/data/ob/ob_local_data</span></span><br><span class="line">    <span class="attr">datafile_size:</span> <span class="string">15G</span></span><br><span class="line">    <span class="attr">memory_limit:</span> <span class="string">10G</span></span><br><span class="line">    <span class="attr">system_memory:</span> <span class="string">2G</span></span><br><span class="line">    <span class="attr">cpu_count:</span> <span class="number">8</span></span><br></pre></td></tr></table></figure></div>
+<p>–&gt; 重载配置：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">obd cluster reload obce</span><br></pre></td></tr></table></figure></div>
+<p>–&gt; 重载配置后，查看当前OB资源分配情况：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">(root<span class="variable">@127</span><span class="number">.1</span>) [(<span class="keyword">none</span>)] <span class="number">13</span>:<span class="number">47</span>:<span class="number">05</span><span class="operator">&gt;</span> <span class="keyword">SELECT</span> a.zone, CONCAT(a.svr_ip,<span class="string">&#x27;:&#x27;</span>,a.svr_port) observer,  </span><br><span class="line">cpu_total, cpu_assigned, (cpu_total<span class="operator">-</span>cpu_assigned) cpu_free,  </span><br><span class="line">mem_total<span class="operator">/</span><span class="number">1024</span><span class="operator">/</span><span class="number">1024</span><span class="operator">/</span><span class="number">1024</span> mem_total_gb, mem_assigned<span class="operator">/</span><span class="number">1024</span><span class="operator">/</span><span class="number">1024</span><span class="operator">/</span><span class="number">1024</span> mem_assigned_gb, </span><br><span class="line">(mem_total<span class="operator">-</span>mem_assigned)<span class="operator">/</span><span class="number">1024</span><span class="operator">/</span><span class="number">1024</span><span class="operator">/</span><span class="number">1024</span> mem_free_gb, </span><br><span class="line">disk_total<span class="operator">/</span><span class="number">1024</span><span class="operator">/</span><span class="number">1024</span><span class="operator">/</span><span class="number">1024</span> disk_total_gb, disk_assigned<span class="operator">/</span><span class="number">1024</span><span class="operator">/</span><span class="number">1024</span><span class="operator">/</span><span class="number">1024</span> disk_assigned_gb,  </span><br><span class="line">(disk_total<span class="operator">-</span>disk_assigned)<span class="operator">/</span><span class="number">1024</span><span class="operator">/</span><span class="number">1024</span><span class="operator">/</span><span class="number">1024</span> disk_free_gb  </span><br><span class="line"><span class="keyword">FROM</span> oceanbase.__all_virtual_server_stat a </span><br><span class="line"><span class="keyword">JOIN</span> oceanbase.__all_server b </span><br><span class="line"><span class="keyword">ON</span> (a.svr_ip<span class="operator">=</span>b.svr_ip <span class="keyword">AND</span> a.svr_port<span class="operator">=</span>b.svr_port) </span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> a.zone, a.svr_ip;</span><br><span class="line"><span class="operator">+</span><span class="comment">-------+-------------------+-----------+--------------+----------+----------------+-----------------+----------------+-----------------+------------------+----------------+</span></span><br><span class="line"><span class="operator">|</span> zone  <span class="operator">|</span> observer          <span class="operator">|</span> cpu_total <span class="operator">|</span> cpu_assigned <span class="operator">|</span> cpu_free <span class="operator">|</span> mem_total_gb   <span class="operator">|</span> mem_assigned_gb <span class="operator">|</span> mem_free_gb    <span class="operator">|</span> disk_total_gb   <span class="operator">|</span> disk_assigned_gb <span class="operator">|</span> disk_free_gb   <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-------+-------------------+-----------+--------------+----------+----------------+-----------------+----------------+-----------------+------------------+----------------+</span></span><br><span class="line"><span class="operator">|</span> zone1 <span class="operator">|</span> <span class="number">192.168</span><span class="number">.0</span><span class="number">.36</span>:<span class="number">2882</span> <span class="operator">|</span>         <span class="number">4</span> <span class="operator">|</span>          <span class="number">2.5</span> <span class="operator">|</span>      <span class="number">1.5</span> <span class="operator">|</span> <span class="number">8.000000000000</span> <span class="operator">|</span>  <span class="number">1.250000000000</span> <span class="operator">|</span> <span class="number">6.750000000000</span> <span class="operator">|</span> <span class="number">15.000000000000</span> <span class="operator">|</span>  <span class="number">10.000000000000</span> <span class="operator">|</span> <span class="number">5.000000000000</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-------+-------------------+-----------+--------------+----------+----------------+-----------------+----------------+-----------------+------------------+----------------+</span></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.011</span> sec)</span><br></pre></td></tr></table></figure></div>
+<h3 id="创建测试租户">创建测试租户</h3>
+<p>新建一个规格单元、资源池，以及租户、数据库：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">#<span class="keyword">create</span> resource unit</span><br><span class="line"><span class="keyword">create</span> resource unit tpcc_unit max_cpu<span class="operator">=</span><span class="number">1</span>, min_cpu<span class="operator">=</span><span class="number">1</span>, max_memory<span class="operator">=</span><span class="string">&#x27;2g&#x27;</span>, min_memory<span class="operator">=</span><span class="string">&#x27;2g&#x27;</span>, max_iops<span class="operator">=</span><span class="number">10000</span>, min_iops<span class="operator">=</span><span class="number">1000</span>, max_session_num<span class="operator">=</span><span class="number">1000</span>, max_disk_size<span class="operator">=</span><span class="string">&#x27;2g&#x27;</span>;</span><br><span class="line"></span><br><span class="line">#<span class="keyword">create</span> resource pool</span><br><span class="line"><span class="keyword">create</span> resource pool tpcc_pool unit <span class="operator">=</span> <span class="string">&#x27;tpcc_unit&#x27;</span>, unit_num <span class="operator">=</span> <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">#<span class="keyword">create</span> tenant</span><br><span class="line"><span class="keyword">create</span> tenant tpcc resource_pool_list<span class="operator">=</span>(<span class="string">&#x27;tpcc_pool&#x27;</span>);</span><br><span class="line"></span><br><span class="line">#login tenant tpcc</span><br><span class="line">mysql <span class="operator">-</span>uroot<span class="variable">@tpcc</span> <span class="operator">-</span>h127<span class="number">.1</span> <span class="operator">-</span>P2881</span><br><span class="line"></span><br><span class="line">#<span class="keyword">create</span> schema tpcc</span><br><span class="line"><span class="keyword">create</span> database tpcc;</span><br></pre></td></tr></table></figure></div>
+<h2 id="练习内容">练习内容</h2>
+<ol>
+<li>使用 BenchmarkSQL 运行 TPC-C ，并发数=5。</li>
+<li>分析 TPC-C TOP SQL，并查看 3条 SQL 的 解析执行计划 和 实际执行计划。</li>
+<li>使用 OceanBase 的 Outline 对 其中一条 SQL 进行限流（限制并发为 1 ）。</li>
+</ol>
+<h2 id="过程记录">过程记录</h2>
+<h3 id="Practice-1-使用-BenchmarkSQL-运行-TPC-C">Practice 1: 使用 BenchmarkSQL 运行 TPC-C</h3>
+<h4 id="改造-BenchmarkSQL-适配-OceanBase">改造 BenchmarkSQL 适配 OceanBase</h4>
+<p>BenchmarkSQL 代码库：<a class="link"   target="_blank" rel="noopener" href="https://sourceforge.net/projects/benchmarksql/" >https://sourceforge.net/projects/benchmarksql/ <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<p>说明：<br>
+这份源码不适配OB，且需要编译。<br>
+所以我根据官网的<a class="link"   target="_blank" rel="noopener" href="https://open.oceanbase.com/docs/community/oceanbase-database/V3.1.0/test-the-tpc-c-of-apsaradb-for-oceanbase" >相关文档 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>进行了修改、编译，并上传到我的Gitee代码库：<br>
+<a class="link"   target="_blank" rel="noopener" href="https://gitee.com/shawnyan/benchmarksql4ob" >https://gitee.com/shawnyan/benchmarksql4ob <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<p>详细修改内容，可参考提交记录。</p>
+<img  alt="1.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20220305-eadf4a4a-1962-4593-af12-1e69ba4d39d5.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>另注：</p>
+<ol>
+<li>修改过程中遇到了乱码问题，删掉了乱码注释。</li>
+</ol>
+<img  alt="2.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20220305-634e6ac4-aa98-4c06-ab3e-e3598a95c100.png"
+                      referrerpolicy="no-referrer"
+                >
+<ol start="2">
+<li>这里使用了 MariaDB Connector/J:</li>
+</ol>
+<p>1）下载最新版jar包</p>
+<p><a class="link"   target="_blank" rel="noopener" href="https://mariadb.com/kb/en/mariadb-connector-j-303-release-notes/" >https://mariadb.com/kb/en/mariadb-connector-j-303-release-notes/ <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<p>2）修改配置文件driver信息</p>
+<div class="highlight-container" data-rel="Yaml"><figure class="iseeu highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">db=oceanbase</span></span><br><span class="line"><span class="string">driver=org.mariadb.jdbc.Driver</span></span><br></pre></td></tr></table></figure></div>
+<h4 id="使用-BenchmarkSQL-进行测试">使用 BenchmarkSQL 进行测试</h4>
+<p>修改配置文件，确认数据库连接信息，以及测试压力参数：</p>
+<div class="highlight-container" data-rel="Yaml"><figure class="iseeu highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># conn info</span></span><br><span class="line"><span class="string">driver=org.mariadb.jdbc.Driver</span></span><br><span class="line"><span class="string">conn=jdbc:mysql://127.1:2881/tpcc?rewriteBatchedStatements=true&amp;allowMultiQueries=true&amp;useLocalSessionState=true&amp;useUnicode=true&amp;characterEncoding=utf-8&amp;socketTimeout=30000000&amp;useSSL=false</span></span><br><span class="line"><span class="string">user=root@tpcc</span></span><br><span class="line"><span class="string">password=</span></span><br><span class="line"><span class="string">database=tpcc</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># benchmark info</span></span><br><span class="line"><span class="string">warehouses=1</span></span><br><span class="line"><span class="string">loadWorkers=2</span></span><br><span class="line"><span class="string">terminals=5</span></span><br><span class="line"><span class="string">runMins=2</span></span><br></pre></td></tr></table></figure></div>
+<p>构建测试数据：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./runDatabaseBuild.sh props.ob</span><br></pre></td></tr></table></figure></div>
+<p>日志如下：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">Starting BenchmarkSQL LoadData</span><br><span class="line"></span><br><span class="line">driver=org.mariadb.jdbc.Driver</span><br><span class="line">conn=jdbc:mysql://127.1:2881/tpcc?rewriteBatchedStatements=true&amp;allowMultiQueries=true&amp;useLocalSessionState=true&amp;useUnicode=true&amp;characterEncoding=utf-8&amp;socketTimeout=30000000&amp;useSSL=false</span><br><span class="line">user=root@tpcc</span><br><span class="line">password=***********</span><br><span class="line">warehouses=1</span><br><span class="line">loadWorkers=2</span><br><span class="line">fileLocation (not defined)</span><br><span class="line">csvNullValue (not defined - using default &#x27;NULL&#x27;)</span><br><span class="line"></span><br><span class="line">Worker 000: Loading ITEM</span><br><span class="line">Worker 001: Loading Warehouse      1</span><br><span class="line">Worker 000: Loading ITEM done</span><br><span class="line">Worker 001: Loading Warehouse      1 done</span><br><span class="line"># ------------------------------------------------------------</span><br><span class="line"># Loading SQL file ./sql.common/indexCreates.sql</span><br><span class="line"># ------------------------------------------------------------</span><br><span class="line">create index bmsql_customer_idx1 on bmsql_customer (c_w_id, c_d_id, c_last, c_first) local;</span><br><span class="line">create index bmsql_oorder_idx1 on bmsql_oorder (o_w_id, o_d_id, o_carrier_id, o_id) local;</span><br><span class="line"># ------------------------------------------------------------</span><br><span class="line"># Loading SQL file ./sql.common/buildFinish.sql</span><br><span class="line"># ------------------------------------------------------------</span><br><span class="line">-- ----</span><br><span class="line">-- Extra commands to run after the tables are created, loaded,</span><br><span class="line">-- indexes built and extra&#x27;s created.</span><br><span class="line">-- ----</span><br></pre></td></tr></table></figure></div>
+<p>运行压力测试：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./runBenchmark.sh props.ob</span><br></pre></td></tr></table></figure></div>
+<p>输出日志如下：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line">$ date; time ./runBenchmark.sh props.ob; date</span><br><span class="line">Fri Mar  4 15:15:23 JST 2022</span><br><span class="line">15:15:24,524 [main] INFO   jTPCC : Term-00,</span><br><span class="line">15:15:24,528 [main] INFO   jTPCC : Term-00, +-------------------------------------------------------------+</span><br><span class="line">15:15:24,528 [main] INFO   jTPCC : Term-00,      BenchmarkSQL v5.0</span><br><span class="line">15:15:24,528 [main] INFO   jTPCC : Term-00, +-------------------------------------------------------------+</span><br><span class="line">15:15:24,528 [main] INFO   jTPCC : Term-00,  (c) 2003, Raul Barbosa</span><br><span class="line">15:15:24,528 [main] INFO   jTPCC : Term-00,  (c) 2004-2016, Denis Lussier</span><br><span class="line">15:15:24,532 [main] INFO   jTPCC : Term-00,  (c) 2016, Jan Wieck</span><br><span class="line">15:15:24,533 [main] INFO   jTPCC : Term-00, +-------------------------------------------------------------+</span><br><span class="line">15:15:24,533 [main] INFO   jTPCC : Term-00,</span><br><span class="line">15:15:24,533 [main] INFO   jTPCC : Term-00, db=oceanbase</span><br><span class="line">15:15:24,533 [main] INFO   jTPCC : Term-00, driver=org.mariadb.jdbc.Driver</span><br><span class="line">15:15:24,533 [main] INFO   jTPCC : Term-00, conn=jdbc:mysql://127.1:2881/tpcc?rewriteBatchedStatements=true&amp;allowMultiQueries=true&amp;useLocalSessionState=true&amp;useUnicode=true&amp;characterEncoding=utf-8&amp;socketTimeout=30000000&amp;useSSL=false</span><br><span class="line">15:15:24,533 [main] INFO   jTPCC : Term-00, user=root@tpcc</span><br><span class="line">15:15:24,533 [main] INFO   jTPCC : Term-00,</span><br><span class="line">15:15:24,533 [main] INFO   jTPCC : Term-00, warehouses=1</span><br><span class="line">15:15:24,533 [main] INFO   jTPCC : Term-00, terminals=5</span><br><span class="line">15:15:24,534 [main] INFO   jTPCC : Term-00, runMins=2</span><br><span class="line">15:15:24,534 [main] INFO   jTPCC : Term-00, limitTxnsPerMin=0</span><br><span class="line">15:15:24,535 [main] INFO   jTPCC : Term-00, terminalWarehouseFixed=true</span><br><span class="line">15:15:24,535 [main] INFO   jTPCC : Term-00,</span><br><span class="line">15:15:24,535 [main] INFO   jTPCC : Term-00, newOrderWeight=45</span><br><span class="line">15:15:24,535 [main] INFO   jTPCC : Term-00, paymentWeight=43</span><br><span class="line">15:15:24,535 [main] INFO   jTPCC : Term-00, orderStatusWeight=4</span><br><span class="line">15:15:24,535 [main] INFO   jTPCC : Term-00, deliveryWeight=4</span><br><span class="line">15:15:24,535 [main] INFO   jTPCC : Term-00, stockLevelWeight=4</span><br><span class="line">15:15:24,535 [main] INFO   jTPCC : Term-00,</span><br><span class="line">15:15:24,535 [main] INFO   jTPCC : Term-00, resultDirectory=my_result_%tY-%tm-%td_%tH%tM%tS</span><br><span class="line">15:15:24,535 [main] INFO   jTPCC : Term-00, osCollectorScript=./misc/os_collector_linux.py</span><br><span class="line">15:15:24,535 [main] INFO   jTPCC : Term-00,</span><br><span class="line">15:15:24,605 [main] INFO   jTPCC : Term-00, copied props.ob to my_result_2022-03-04_151524/run.properties</span><br><span class="line">15:15:24,605 [main] INFO   jTPCC : Term-00, created my_result_2022-03-04_151524/data/runInfo.csv for runID 3</span><br><span class="line">15:15:24,606 [main] INFO   jTPCC : Term-00, writing per transaction results to my_result_2022-03-04_151524/data/result.csv</span><br><span class="line">15:15:24,607 [main] INFO   jTPCC : Term-00, osCollectorScript=./misc/os_collector_linux.py</span><br><span class="line">15:15:24,607 [main] INFO   jTPCC : Term-00, osCollectorInterval=1</span><br><span class="line">15:15:24,608 [main] INFO   jTPCC : Term-00, osCollectorSSHAddr=null</span><br><span class="line">15:15:24,608 [main] INFO   jTPCC : Term-00, osCollectorDevices=null</span><br><span class="line">15:15:24,715 [main] INFO   jTPCC : Term-00,</span><br><span class="line">15:15:25,069 [main] INFO   jTPCC : Term-00, C value for C_LAST during load: 15</span><br><span class="line">15:15:25,069 [main] INFO   jTPCC : Term-00, C value for C_LAST this run:    115</span><br><span class="line">15:15:25,069 [main] INFO   jTPCC : Term-00,                                                                        Term-00, Running Average tpmTOTAL: 4934.50    Current tpmTOTAL: 65376    Memory Usage: 38MB / 203MB                      15:17:25,186 [Thread-1] INFO   jTPCC : Term-00,                                                           </span><br><span class="line">15:17:25,186 [Thread-1] INFO   jTPCC : Term-00,</span><br><span class="line">15:17:25,186 [Thread-1] INFO   jTPCC : Term-00, Measured tpmC (NewOrders) = 2224.33</span><br><span class="line">15:17:25,186 [Thread-1] INFO   jTPCC : Term-00, Measured tpmTOTAL = 4934.4</span><br><span class="line">15:17:25,186 [Thread-1] INFO   jTPCC : Term-00, Session Start     = 2022-03-04 15:15:25</span><br><span class="line">15:17:25,186 [Thread-1] INFO   jTPCC : Term-00, Session End       = 2022-03-04 15:17:25</span><br><span class="line">15:17:25,186 [Thread-1] INFO   jTPCC : Term-00, Transaction Count = 9873</span><br><span class="line"></span><br><span class="line">real    2m2.717s</span><br><span class="line">user    0m22.000s</span><br><span class="line">sys    0m11.070s</span><br><span class="line">Fri Mar  4 15:17:26 JST 2022</span><br></pre></td></tr></table></figure></div>
+<h3 id="Practice-2-分析-TPC-C-TOP-SQL，并查看-3条-SQL-的解析执行计划和实际执行计划">Practice 2: 分析 TPC-C TOP SQL，并查看 3条 SQL 的解析执行计划和实际执行计划</h3>
+<p>按SQL执行时间逆序排序，查询前5条的SQL_EXEC_ID，并依据ID查询具体的SQL语句:</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> SQL_EXEC_ID, USER_NAME, USER_CLIENT_IP, DB_NAME, QUEUE_TIME, ELAPSED_TIME, PLAN_ID</span><br><span class="line"><span class="keyword">FROM</span> oceanbase.v$sql_audit</span><br><span class="line"><span class="keyword">WHERE</span> TENANT_ID <span class="operator">=</span> <span class="number">1001</span></span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> QUEUE_TIME <span class="keyword">DESC</span></span><br><span class="line">LIMIT <span class="number">5</span>;</span><br><span class="line"></span><br><span class="line"><span class="operator">+</span><span class="comment">-------------+-----------+----------------+---------+------------+--------------+---------+</span></span><br><span class="line"><span class="operator">|</span> SQL_EXEC_ID <span class="operator">|</span> USER_NAME <span class="operator">|</span> USER_CLIENT_IP <span class="operator">|</span> DB_NAME <span class="operator">|</span> QUEUE_TIME <span class="operator">|</span> ELAPSED_TIME <span class="operator">|</span> PLAN_ID <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-------------+-----------+----------------+---------+------------+--------------+---------+</span></span><br><span class="line"><span class="operator">|</span>       <span class="number">67074</span> <span class="operator">|</span> root      <span class="operator">|</span> <span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span>      <span class="operator">|</span> tpcc    <span class="operator">|</span>      <span class="number">27992</span> <span class="operator">|</span>        <span class="number">29698</span> <span class="operator">|</span>      <span class="number">30</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span>       <span class="number">92863</span> <span class="operator">|</span> root      <span class="operator">|</span> <span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span>      <span class="operator">|</span> tpcc    <span class="operator">|</span>      <span class="number">27955</span> <span class="operator">|</span>        <span class="number">28210</span> <span class="operator">|</span>      <span class="number">10</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span>      <span class="number">166866</span> <span class="operator">|</span> root      <span class="operator">|</span> <span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span>      <span class="operator">|</span> tpcc    <span class="operator">|</span>      <span class="number">23659</span> <span class="operator">|</span>        <span class="number">24209</span> <span class="operator">|</span>      <span class="number">40</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span>      <span class="number">164905</span> <span class="operator">|</span> root      <span class="operator">|</span> <span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span>      <span class="operator">|</span> tpcc    <span class="operator">|</span>      <span class="number">22896</span> <span class="operator">|</span>        <span class="number">23053</span> <span class="operator">|</span>       <span class="number">8</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span>      <span class="number">170810</span> <span class="operator">|</span> root      <span class="operator">|</span> <span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span>      <span class="operator">|</span> tpcc    <span class="operator">|</span>      <span class="number">22774</span> <span class="operator">|</span>        <span class="number">24642</span> <span class="operator">|</span>      <span class="number">33</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-------------+-----------+----------------+---------+------------+--------------+---------+</span></span><br><span class="line"><span class="number">5</span> <span class="keyword">rows</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.151</span> sec)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> QUERY_SQL</span><br><span class="line"><span class="keyword">FROM</span> v$sql_audit</span><br><span class="line"><span class="keyword">WHERE</span> SQL_EXEC_ID <span class="keyword">in</span> (<span class="number">67074</span>,<span class="number">92863</span>,<span class="number">166866</span>);</span><br><span class="line"></span><br><span class="line"><span class="operator">+</span><span class="comment">------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+</span></span><br><span class="line"><span class="operator">|</span> QUERY_SQL                                                                                                                                                                                                                                <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+</span></span><br><span class="line"><span class="operator">|</span> <span class="keyword">SELECT</span> s_quantity, s_data,        s_dist_01, s_dist_02, s_dist_03, s_dist_04,        s_dist_05, s_dist_06, s_dist_07, s_dist_08,        s_dist_09, s_dist_10     <span class="keyword">FROM</span> bmsql_stock     <span class="keyword">WHERE</span> s_w_id <span class="operator">=</span> <span class="number">1</span> <span class="keyword">AND</span> s_i_id <span class="operator">=</span> <span class="number">97058</span>     <span class="keyword">FOR</span> <span class="keyword">UPDATE</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> <span class="keyword">SELECT</span> d_name, d_street_1, d_street_2, d_city,        d_state, d_zip     <span class="keyword">FROM</span> bmsql_district     <span class="keyword">WHERE</span> d_w_id <span class="operator">=</span> <span class="number">1</span> <span class="keyword">AND</span> d_id <span class="operator">=</span> <span class="number">7</span>                                                                                                           <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> <span class="keyword">SELECT</span> <span class="built_in">sum</span>(ol_amount) <span class="keyword">AS</span> sum_ol_amount     <span class="keyword">FROM</span> bmsql_order_line     <span class="keyword">WHERE</span> ol_w_id <span class="operator">=</span> <span class="number">1</span> <span class="keyword">AND</span> ol_d_id <span class="operator">=</span> <span class="number">7</span> <span class="keyword">AND</span> ol_o_id <span class="operator">=</span> <span class="number">2572</span>                                                                                                                <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+</span></span><br><span class="line"><span class="number">3</span> <span class="keyword">rows</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.077</span> sec)</span><br><span class="line"></span><br></pre></td></tr></table></figure></div>
+<h4 id="SQL-1">SQL 1</h4>
+<p>解析执行计划:</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">(root<span class="variable">@127</span><span class="number">.1</span>) [tpcc] <span class="number">21</span>:<span class="number">19</span>:<span class="number">11</span><span class="operator">&gt;</span> EXPLAIN <span class="keyword">SELECT</span> s_quantity, s_data, s_dist_01, s_dist_02, s_dist_03, s_dist_04, s_dist_05, s_dist_06, s_dist_07, s_dist_08, s_dist_09, s_dist_10 <span class="keyword">FROM</span> bmsql_stock <span class="keyword">WHERE</span> s_w_id <span class="operator">=</span> <span class="number">1</span> <span class="keyword">AND</span> s_i_id <span class="operator">=</span> <span class="number">97058</span>  <span class="keyword">FOR</span> <span class="keyword">UPDATE</span>\G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">Query Plan: <span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span></span><br><span class="line"><span class="operator">|</span>ID<span class="operator">|</span>OPERATOR <span class="operator">|</span>NAME       <span class="operator">|</span>EST. <span class="keyword">ROWS</span><span class="operator">|</span>COST<span class="operator">|</span></span><br><span class="line"><span class="comment">-----------------------------------------</span></span><br><span class="line"><span class="operator">|</span><span class="number">0</span> <span class="operator">|</span><span class="keyword">TABLE</span> <span class="keyword">GET</span><span class="operator">|</span>bmsql_stock<span class="operator">|</span><span class="number">1</span>        <span class="operator">|</span><span class="number">54</span>  <span class="operator">|</span></span><br><span class="line"><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span></span><br><span class="line"></span><br><span class="line">Outputs <span class="operator">&amp;</span> filters:</span><br><span class="line"><span class="comment">-------------------------------------</span></span><br><span class="line">  <span class="number">0</span> <span class="operator">-</span> output([bmsql_stock.s_quantity], [bmsql_stock.s_data], [bmsql_stock.s_dist_01], [bmsql_stock.s_dist_02], [bmsql_stock.s_dist_03], [bmsql_stock.s_dist_04], [bmsql_stock.s_dist_05], [bmsql_stock.s_dist_06], [bmsql_stock.s_dist_07], [bmsql_stock.s_dist_08], [bmsql_stock.s_dist_09], [bmsql_stock.s_dist_10]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      access([bmsql_stock.s_w_id], [bmsql_stock.s_i_id], [bmsql_stock.s_quantity], [bmsql_stock.s_data], [bmsql_stock.s_dist_01], [bmsql_stock.s_dist_02], [bmsql_stock.s_dist_03], [bmsql_stock.s_dist_04], [bmsql_stock.s_dist_05], [bmsql_stock.s_dist_06], [bmsql_stock.s_dist_07], [bmsql_stock.s_dist_08], [bmsql_stock.s_dist_09], [bmsql_stock.s_dist_10]), partitions(p1)</span><br><span class="line"></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.002</span> sec)</span><br></pre></td></tr></table></figure></div>
+<p>实际执行计划:</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> plan_id, plan_depth, plan_line_id, operator, name, <span class="keyword">rows</span>, cost, property</span><br><span class="line"><span class="keyword">FROM</span> oceanbase.gv$plan_cache_plan_explain</span><br><span class="line"><span class="keyword">WHERE</span> tenant_id<span class="operator">=</span><span class="number">1001</span> <span class="keyword">AND</span> ip <span class="operator">=</span> <span class="string">&#x27;127.0.0.1&#x27;</span> <span class="keyword">AND</span> port<span class="operator">=</span><span class="number">2882</span> <span class="keyword">AND</span> plan_id<span class="operator">=</span><span class="number">30</span>;</span><br></pre></td></tr></table></figure></div>
+<h4 id="SQL-2">SQL 2</h4>
+<p>解析执行计划:</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">(root<span class="variable">@127</span><span class="number">.1</span>) [tpcc] <span class="number">21</span>:<span class="number">19</span>:<span class="number">21</span><span class="operator">&gt;</span> EXPLAIN</span><br><span class="line">    <span class="operator">-</span><span class="operator">&gt;</span> <span class="keyword">SELECT</span> d_name, d_street_1, d_street_2, d_city, d_state, d_zip</span><br><span class="line">    <span class="operator">-</span><span class="operator">&gt;</span> <span class="keyword">FROM</span> bmsql_district</span><br><span class="line">    <span class="operator">-</span><span class="operator">&gt;</span> <span class="keyword">WHERE</span> d_w_id <span class="operator">=</span> <span class="number">1</span> <span class="keyword">AND</span> d_id <span class="operator">=</span> <span class="number">7</span></span><br><span class="line">    <span class="operator">-</span><span class="operator">&gt;</span> \G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">Query Plan: <span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span></span><br><span class="line"><span class="operator">|</span>ID<span class="operator">|</span>OPERATOR <span class="operator">|</span>NAME          <span class="operator">|</span>EST. <span class="keyword">ROWS</span><span class="operator">|</span>COST<span class="operator">|</span></span><br><span class="line"><span class="comment">--------------------------------------------</span></span><br><span class="line"><span class="operator">|</span><span class="number">0</span> <span class="operator">|</span><span class="keyword">TABLE</span> <span class="keyword">GET</span><span class="operator">|</span>bmsql_district<span class="operator">|</span><span class="number">1</span>        <span class="operator">|</span><span class="number">53</span>  <span class="operator">|</span></span><br><span class="line"><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span></span><br><span class="line"></span><br><span class="line">Outputs <span class="operator">&amp;</span> filters:</span><br><span class="line"><span class="comment">-------------------------------------</span></span><br><span class="line">  <span class="number">0</span> <span class="operator">-</span> output([bmsql_district.d_name], [bmsql_district.d_street_1], [bmsql_district.d_street_2], [bmsql_district.d_city], [bmsql_district.d_state], [bmsql_district.d_zip]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      access([bmsql_district.d_name], [bmsql_district.d_street_1], [bmsql_district.d_street_2], [bmsql_district.d_city], [bmsql_district.d_state], [bmsql_district.d_zip]), partitions(p1)</span><br><span class="line"></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.009</span> sec)</span><br></pre></td></tr></table></figure></div>
+<p>实际执行计划:</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> plan_id, plan_depth, plan_line_id, operator, name, <span class="keyword">rows</span>, cost, property</span><br><span class="line"><span class="keyword">FROM</span> oceanbase.gv$plan_cache_plan_explain</span><br><span class="line"><span class="keyword">WHERE</span> tenant_id<span class="operator">=</span><span class="number">1001</span> <span class="keyword">AND</span> ip <span class="operator">=</span> <span class="string">&#x27;127.0.0.1&#x27;</span> <span class="keyword">AND</span> port<span class="operator">=</span><span class="number">2882</span> <span class="keyword">AND</span> plan_id<span class="operator">=</span><span class="number">10</span>;</span><br></pre></td></tr></table></figure></div>
+<h4 id="SQL-3">SQL 3</h4>
+<p>解析执行计划:</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">(root<span class="variable">@127</span><span class="number">.1</span>) [tpcc] <span class="number">21</span>:<span class="number">20</span>:<span class="number">14</span><span class="operator">&gt;</span> EXPLAIN</span><br><span class="line">    <span class="operator">-</span><span class="operator">&gt;</span> <span class="keyword">SELECT</span> <span class="built_in">SUM</span>(ol_amount) <span class="keyword">AS</span> sum_ol_amount</span><br><span class="line">    <span class="operator">-</span><span class="operator">&gt;</span> <span class="keyword">FROM</span> bmsql_order_line</span><br><span class="line">    <span class="operator">-</span><span class="operator">&gt;</span> <span class="keyword">WHERE</span> ol_w_id <span class="operator">=</span> <span class="number">1</span> <span class="keyword">AND</span> ol_d_id <span class="operator">=</span> <span class="number">7</span> <span class="keyword">AND</span> ol_o_id <span class="operator">=</span> <span class="number">2572</span></span><br><span class="line">    <span class="operator">-</span><span class="operator">&gt;</span> \G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">Query Plan: <span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span></span><br><span class="line"><span class="operator">|</span>ID<span class="operator">|</span>OPERATOR       <span class="operator">|</span>NAME            <span class="operator">|</span>EST. <span class="keyword">ROWS</span><span class="operator">|</span>COST<span class="operator">|</span></span><br><span class="line"><span class="comment">----------------------------------------------------</span></span><br><span class="line"><span class="operator">|</span><span class="number">0</span> <span class="operator">|</span>SCALAR <span class="keyword">GROUP</span> <span class="keyword">BY</span><span class="operator">|</span>                <span class="operator">|</span><span class="number">1</span>        <span class="operator">|</span><span class="number">45</span>  <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">1</span> <span class="operator">|</span> <span class="keyword">TABLE</span> SCAN    <span class="operator">|</span>bmsql_order_line<span class="operator">|</span><span class="number">13</span>       <span class="operator">|</span><span class="number">43</span>  <span class="operator">|</span></span><br><span class="line"><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span></span><br><span class="line"></span><br><span class="line">Outputs <span class="operator">&amp;</span> filters:</span><br><span class="line"><span class="comment">-------------------------------------</span></span><br><span class="line">  <span class="number">0</span> <span class="operator">-</span> output([T_FUN_SUM(bmsql_order_line.ol_amount)]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      <span class="keyword">group</span>(nil), agg_func([T_FUN_SUM(bmsql_order_line.ol_amount)])</span><br><span class="line">  <span class="number">1</span> <span class="operator">-</span> output([bmsql_order_line.ol_amount]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      access([bmsql_order_line.ol_amount]), partitions(p1)</span><br><span class="line"></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.024</span> sec)</span><br></pre></td></tr></table></figure></div>
+<p>实际执行计划:</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> plan_id, plan_depth, plan_line_id, operator, name, <span class="keyword">rows</span>, cost, property</span><br><span class="line"><span class="keyword">FROM</span> oceanbase.gv$plan_cache_plan_explain</span><br><span class="line"><span class="keyword">WHERE</span> tenant_id<span class="operator">=</span><span class="number">1001</span> <span class="keyword">AND</span> ip <span class="operator">=</span> <span class="string">&#x27;127.0.0.1&#x27;</span> <span class="keyword">AND</span> port<span class="operator">=</span><span class="number">2882</span> <span class="keyword">AND</span> plan_id<span class="operator">=</span><span class="number">40</span>;</span><br></pre></td></tr></table></figure></div>
+<p>注：实际执行计划并未记录，问题仍在调查中。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">(root<span class="variable">@127</span><span class="number">.1</span>) [oceanbase] <span class="number">21</span>:<span class="number">28</span>:<span class="number">14</span><span class="operator">&gt;</span> <span class="keyword">show</span> variables <span class="keyword">like</span> <span class="string">&#x27;%plan_cache%&#x27;</span>;</span><br><span class="line"><span class="operator">+</span><span class="comment">-------------------------------------+-------+</span></span><br><span class="line"><span class="operator">|</span> Variable_name                       <span class="operator">|</span> <span class="keyword">Value</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-------------------------------------+-------+</span></span><br><span class="line"><span class="operator">|</span> ob_enable_plan_cache                <span class="operator">|</span> <span class="keyword">ON</span>    <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> ob_plan_cache_evict_high_percentage <span class="operator">|</span> <span class="number">90</span>    <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> ob_plan_cache_evict_low_percentage  <span class="operator">|</span> <span class="number">50</span>    <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> ob_plan_cache_percentage            <span class="operator">|</span> <span class="number">5</span>     <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-------------------------------------+-------+</span></span><br><span class="line"><span class="number">4</span> <span class="keyword">rows</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.004</span> sec)</span><br><span class="line"></span><br><span class="line">(root<span class="variable">@127</span><span class="number">.1</span>) [oceanbase] <span class="number">21</span>:<span class="number">39</span>:<span class="number">14</span><span class="operator">&gt;</span> <span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> oceanbase.gv$plan_cache_plan_explain limit <span class="number">1</span>;</span><br><span class="line"><span class="keyword">Empty</span> <span class="keyword">set</span> (<span class="number">0.001</span> sec)</span><br><span class="line"></span><br><span class="line">(root<span class="variable">@127</span><span class="number">.1</span>) [oceanbase] <span class="number">21</span>:<span class="number">43</span>:<span class="number">59</span><span class="operator">&gt;</span> <span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> oceanbase.__all_virtual_plan_cache_plan_explain limit <span class="number">1</span>;</span><br><span class="line">ERROR <span class="number">1146</span> (<span class="number">42</span>S02): <span class="keyword">Table</span> <span class="string">&#x27;oceanbase.__all_virtual_plan_cache_plan_explain&#x27;</span> doesn<span class="string">&#x27;t exist</span></span><br></pre></td></tr></table></figure></div>
+<h3 id="Practice-3-使用-OceanBase-的-Outline-对-其中一条-SQL-进行限流（限制并发为-1）">Practice 3: 使用 OceanBase 的 Outline 对 其中一条 SQL 进行限流（限制并发为 1）</h3>
+<p>以 SQL 3 为例，创建outline，并限定并发为1:</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">use tpcc;</span><br><span class="line"><span class="keyword">create</span> outline ol_bmsql_order_line <span class="keyword">on</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="comment">/*+ max_concurrent(1) */</span> <span class="built_in">SUM</span>(ol_amount) <span class="keyword">AS</span> sum_ol_amount</span><br><span class="line"><span class="keyword">FROM</span> bmsql_order_line</span><br><span class="line"><span class="keyword">WHERE</span> ol_w_id <span class="operator">=</span> <span class="number">1</span> <span class="keyword">AND</span> ol_d_id <span class="operator">=</span> <span class="number">7</span> <span class="keyword">AND</span> ol_o_id <span class="operator">=</span> <span class="number">2572</span></span><br><span class="line">;</span><br></pre></td></tr></table></figure></div>
+<p>到此，测试基本完成，流程全部跑通，但由于资源有限，以后再找机会在3-3-3集群进行测试。</p>
+<h2 id="相关资料">相关资料</h2>
+<ul>
+<li><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/327631" >OceanBase 技术征文大赛第二期正式开启！快来释放你的原力！ <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li><a href="https://shawnyan.cn/2021/oceanbase-obcp-v2-exam/">OceanBase OBCP 考试经验小结</a></li>
+<li><a href="https://shawnyan.cn/2022/oceanbase/ob-v3.1.2-install-single-node/">【OBCP蓝宝书】 基于 OceanBase 社区版 v3.1.2 搭建单机测试环境的三种方法</a></li>
+<li><a href="https://shawnyan.cn/2022/oceanbase/ob-v3.1.2-compile-observer/">【OBCP蓝宝书】 基于 CentOS 7.9 编译 OceanBase 社区版 v3.1.2 的 observer 源码</a></li>
+<li><a href="https://shawnyan.cn/2022/oceanbase/ob-v3.1.2-perf-testing-with-databench-t/">OB测试 | 使用 Databench-T 对 OceanBase 社区版 v3.1.2 进行性能测试</a></li>
+</ul>
+<p>本文零零洒洒写了四天，自己动手写技术文章才发现想要做到日更确实是一件蛮有挑战的事情。</p>
+<p>2022-03-05<br>
+ShawnYan</p>
+<hr>
+<p><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/337531" >https://www.modb.pro/db/337531 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+
+        </div>
+
+        
+            <div class="post-copyright-info">
+                <div class="article-copyright-info-container">
+    <ul>
+    <!-- 2023-10-03, edit by shawnyan. -->
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Title:</strong> 【OBCP蓝宝书】 OceanBase 社区版 v3.1.2 如何查看执行计划</li>
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Author:</strong>
+            
+                严少安
+            
+        </li>
+        <li><strong>Created at:</strong> 2022-03-05 23:03:13</li>
+        
+            <li><strong>Updated at:</strong> 2022-03-05 23:03:13</li>
+        
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Link:</strong> https://shawnyan.cn/2022/oceanbase/ob-v3.1.2-sql-explain/</li>
+        <li style="word-wrap: break-word; white-space: normal;">
+            <strong>
+                License:
+            </strong>
+            
+            This work is licensed under <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>.
+            
+
+        </li>
+    </ul>
+</div>
+
+            </div>
+        
+
+        
+            <ul class="post-tags-box">
+                
+                    <li class="tag-item">
+                        <a href="/tags/oceanbase/">#oceanbase</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/obcp/">#obcp</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/oceanbase-%E7%A4%BE%E5%8C%BA%E7%89%88/">#oceanbase 社区版</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/ob-v3/">#ob v3</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/obd/">#obd</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/explain/">#explain</a>&nbsp;
+                    </li>
+                
+            </ul>
+        
+
+        
+  <div class="recommended-article">
+   <div class="recommended-desktop">
+    <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+    </div>
+    <div class="recommended-article-group"><a class="recommended-article-item" href="/2022/oceanbase/ob-v3.1.2-install-single-node/" title="【OBCP蓝宝书】 基于 OceanBase 社区版 v3.1.2 搭建单机测试环境的三种方法" rel="bookmark">
+  <img src="/img/oceanbase/oceanbase-banner.png" alt="【OBCP蓝宝书】 基于 OceanBase 社区版 v3.1.2 搭建单机测试环境的三种方法" class="!max-w-none">
+  <span class="title">【OBCP蓝宝书】 基于 OceanBase 社区版 v3.1.2 搭建单机测试环境的三种方法</span>
+</a><a class="recommended-article-item" href="/2023/yashan/yashandb-benchmarksql/" title="「YashanDB个人版体验」YashanDB 23.1 与 BenchmarkSQL 6 兼容性适配" rel="bookmark">
+  <img src="/img/head/lucas.speyer_the_texture_inside_a_database_rig_orange_colors.png" alt="「YashanDB个人版体验」YashanDB 23.1 与 BenchmarkSQL 6 兼容性适配" class="!max-w-none">
+  <span class="title">「YashanDB个人版体验」YashanDB 23.1 与 BenchmarkSQL 6 兼容性适配</span>
+</a><a class="recommended-article-item" href="/2024/tidb/tidb-test-with-hybench/" title="使用 HyBench 测试 TiDB" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231207-ea124805-d3bc-43ee-8115-79b85b203df6.jpeg" alt="使用 HyBench 测试 TiDB" class="!max-w-none">
+  <span class="title">使用 HyBench 测试 TiDB</span>
+</a></div>
+   </div>
+   <div class="recommended-mobile">
+   <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+   </div>
+   <div class="recommended-article-group"><a class="recommended-article-item" href="/2022/oceanbase/ob-v3.1.2-install-single-node/" title="【OBCP蓝宝书】 基于 OceanBase 社区版 v3.1.2 搭建单机测试环境的三种方法" rel="bookmark">
+  <img src="/img/oceanbase/oceanbase-banner.png" alt="【OBCP蓝宝书】 基于 OceanBase 社区版 v3.1.2 搭建单机测试环境的三种方法" class="!max-w-none">
+  <span class="title">【OBCP蓝宝书】 基于 OceanBase 社区版 v3.1.2 搭建单机测试环境的三种方法</span>
+</a><a class="recommended-article-item" href="/2023/yashan/yashandb-benchmarksql/" title="「YashanDB个人版体验」YashanDB 23.1 与 BenchmarkSQL 6 兼容性适配" rel="bookmark">
+  <img src="/img/head/lucas.speyer_the_texture_inside_a_database_rig_orange_colors.png" alt="「YashanDB个人版体验」YashanDB 23.1 与 BenchmarkSQL 6 兼容性适配" class="!max-w-none">
+  <span class="title">「YashanDB个人版体验」YashanDB 23.1 与 BenchmarkSQL 6 兼容性适配</span>
+</a></div>
+   </div>
+  </div>
+
+        
+            <div class="article-nav">
+                
+                    <div class="article-prev">
+                        <a class="prev"
+                        rel="prev"
+                        href="/2022/mariadb/fanyi-get-started-using-mariadb-json-capabilities-in-under-2-minutes/"
+                        >
+                            <span class="left arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </span>
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">[译] 2分钟开始使用 MairaDB JSON 功能</span>
+                                <span class="post-nav-item">Prev posts</span>
+                            </span>
+                        </a>
+                    </div>
+                
+                
+                    <div class="article-next">
+                        <a class="next"
+                        rel="next"
+                        href="/2022/oceanbase/ob-v3.1.2-perf-testing-with-databench-t/"
+                        >
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">OB测试 | 使用 Databench-T 对 OceanBase 社区版 v3.1.2 进行性能测试</span>
+                                <span class="post-nav-item">Next posts</span>
+                            </span>
+                            <span class="right arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </a>
+                    </div>
+                
+            </div>
+        
+
+
+        
+            <div class="comment-container">
+                <div class="comments-container pjax">
+    <div id="comment-anchor"></div>
+    <div class="comment-area-title">
+        <i class="fa-solid fa-comments"></i>&nbsp;Comments
+    </div>
+    
+
+        
+            
+    <div id="gitalk-container"></div>
+    <script data-swup-reload-script
+            src="//cdn.staticfile.org/gitalk/1.8.0/gitalk.min.js"></script>
+    <script data-swup-reload-script>
+
+        function loadGitalk() {
+            let __gitalk__pathname = decodeURI(location.pathname);
+            const __gitalk__pathnameLength = __gitalk__pathname.length;
+            const __gitalk__pathnameMaxLength = 50;
+            if (__gitalk__pathnameLength > __gitalk__pathnameMaxLength) {
+                __gitalk__pathname = __gitalk__pathname.substring(0, __gitalk__pathnameMaxLength - 3) + '...';
+            }
+
+            try {
+                Gitalk && new Gitalk({
+                    clientID: '32d049bf3701e6791070',
+                    clientSecret: '36c295ad3dad4c739b530ef113d0a979d8c35c5d',
+                    repo: 'gitalk',
+                    owner: 'shawn0915',
+                    admin: ['shawn0915'],
+                    id: __gitalk__pathname,
+                    language: 'en'
+                }).render('gitalk-container');
+
+            } catch (e) {
+                window.Gitalk = null;
+            }
+        }
+
+        if ('true') {
+            const loadGitalkTimeout = setTimeout(() => {
+                loadGitalk();
+                clearTimeout(loadGitalkTimeout);
+            }, 1000);
+        } else {
+            window.addEventListener('DOMContentLoaded', loadGitalk);
+        }
+    </script>
+
+
+
+        
+    
+</div>
+
+            </div>
+        
+    </div>
+
+    
+        <div class="toc-content-container">
+            <div class="post-toc-wrap">
+    <div class="post-toc">
+        <div class="toc-title">On this page</div>
+<!--         <div class="page-title">【OBCP蓝宝书】 OceanBase 社区版 v3.1.2 如何查看执行计划</div> -->
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BB%83%E4%B9%A0%E7%9B%AE%E7%9A%84"><span class="nav-text">练习目的</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BB%83%E4%B9%A0%E6%9D%A1%E4%BB%B6"><span class="nav-text">练习条件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%8E%AF%E5%A2%83%E5%87%86%E5%A4%87"><span class="nav-text">环境准备</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%90%AF%E5%8A%A8%E9%9B%86%E7%BE%A4"><span class="nav-text">启动集群</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%9B%E5%BB%BA%E6%B5%8B%E8%AF%95%E7%A7%9F%E6%88%B7"><span class="nav-text">创建测试租户</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BB%83%E4%B9%A0%E5%86%85%E5%AE%B9"><span class="nav-text">练习内容</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%BF%87%E7%A8%8B%E8%AE%B0%E5%BD%95"><span class="nav-text">过程记录</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Practice-1-%E4%BD%BF%E7%94%A8-BenchmarkSQL-%E8%BF%90%E8%A1%8C-TPC-C"><span class="nav-text">Practice 1: 使用 BenchmarkSQL 运行 TPC-C</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%94%B9%E9%80%A0-BenchmarkSQL-%E9%80%82%E9%85%8D-OceanBase"><span class="nav-text">改造 BenchmarkSQL 适配 OceanBase</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8-BenchmarkSQL-%E8%BF%9B%E8%A1%8C%E6%B5%8B%E8%AF%95"><span class="nav-text">使用 BenchmarkSQL 进行测试</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Practice-2-%E5%88%86%E6%9E%90-TPC-C-TOP-SQL%EF%BC%8C%E5%B9%B6%E6%9F%A5%E7%9C%8B-3%E6%9D%A1-SQL-%E7%9A%84%E8%A7%A3%E6%9E%90%E6%89%A7%E8%A1%8C%E8%AE%A1%E5%88%92%E5%92%8C%E5%AE%9E%E9%99%85%E6%89%A7%E8%A1%8C%E8%AE%A1%E5%88%92"><span class="nav-text">Practice 2: 分析 TPC-C TOP SQL，并查看 3条 SQL 的解析执行计划和实际执行计划</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#SQL-1"><span class="nav-text">SQL 1</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#SQL-2"><span class="nav-text">SQL 2</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#SQL-3"><span class="nav-text">SQL 3</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Practice-3-%E4%BD%BF%E7%94%A8-OceanBase-%E7%9A%84-Outline-%E5%AF%B9-%E5%85%B6%E4%B8%AD%E4%B8%80%E6%9D%A1-SQL-%E8%BF%9B%E8%A1%8C%E9%99%90%E6%B5%81%EF%BC%88%E9%99%90%E5%88%B6%E5%B9%B6%E5%8F%91%E4%B8%BA-1%EF%BC%89"><span class="nav-text">Practice 3: 使用 OceanBase 的 Outline 对 其中一条 SQL 进行限流（限制并发为 1）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%9B%B8%E5%85%B3%E8%B5%84%E6%96%99"><span class="nav-text">相关资料</span></a></li></ol>
+
+    </div>
+</div>
+
+        </div>
+    
+</div>
+
+
+
+                
+
+            </div>
+
+            
+
+        </div>
+
+        <div class="main-content-footer">
+            <footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2017</span>
+              -
+            
+            2024&nbsp;&nbsp;<i class="fa-solid fa-heart fa-beat" style="--fa-animation-duration: 0.5s; color: #f54545"></i>&nbsp;&nbsp;<a href="/">Shawn Yan</a>
+        </div>
+        
+            <script data-swup-reload-script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">VISITOR COUNT</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">TOTAL PAGE VIEWS</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">POWERED BY <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a></span>
+            <span class="text-sm lg:block">THEME&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.4.4</a></span>
+        </div>
+        
+        
+            <div>
+                Blog up for <span class="odometer" id="runtime_days" ></span> days <span class="odometer" id="runtime_hours"></span> hrs <span class="odometer" id="runtime_minutes"></span> Min <span class="odometer" id="runtime_seconds"></span> Sec
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+
+    </div>
+</footer>
+
+        </div>
+    </div>
+
+    
+        <div class="post-tools">
+            <div class="post-tools-container">
+    <ul class="article-tools-list">
+        <!-- TOC aside toggle -->
+        
+            <li class="right-bottom-tools page-aside-toggle">
+                <i class="fa-regular fa-outdent"></i>
+            </li>
+        
+
+        <!-- go comment -->
+        
+            <li class="go-comment">
+                <i class="fa-regular fa-comments"></i>
+            </li>
+        
+    </ul>
+</div>
+
+        </div>
+    
+
+    <div class="right-side-tools-container">
+        <div class="side-tools-container">
+    <ul class="hidden-tools-list">
+        <li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-plus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-minus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-expand-width flex justify-center items-center">
+            <i class="fa-regular fa-expand"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+            <i class="fa-regular fa-moon"></i>
+        </li>
+
+        <!-- rss -->
+        
+            <li class="right-bottom-tools rss flex justify-center items-center">
+                <a class="flex justify-center items-center"
+                   href="/atom.xml"
+                   target="_blank"
+                >
+                <i class="fa-regular fa-rss"></i>
+                </a>
+            </li>
+        
+
+        
+
+        <li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+            <i class="fa-regular fa-arrow-down"></i>
+        </li>
+    </ul>
+
+    <ul class="visible-tools-list">
+        <li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+            <i class="fa-regular fa-cog fa-spin"></i>
+        </li>
+        
+            <li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+                <i class="arrow-up fas fa-arrow-up"></i>
+                <span class="percent"></span>
+            </li>
+        
+        
+    </ul>
+</div>
+
+    </div>
+
+    <div class="image-viewer-container">
+    <img src="">
+</div>
+
+
+    
+        <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+          <span class="search-input-field-pre">
+            <i class="fa-solid fa-keyboard"></i>
+          </span>
+            <div class="search-input-container">
+                <input autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       placeholder="Search..."
+                       spellcheck="false"
+                       type="search"
+                       class="search-input"
+                >
+            </div>
+            <span class="popup-btn-close">
+                <i class="fa-solid fa-times"></i>
+            </span>
+        </div>
+        <div id="search-result">
+            <div id="no-result">
+                <i class="fa-solid fa-spinner fa-spin-pulse fa-5x fa-fw"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+
+</main>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Swup.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupSlideTheme.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScriptsPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupProgressPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScrollPlugin.min.js"></script>
+<script>
+    const swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+        ],
+        containers: ["#swup"],
+    });
+
+    swup.hooks.on("page:view", () => {
+        Global.refresh();
+    });
+
+    // if (document.readyState === "complete") {
+    //
+    // } else {
+    //     document.addEventListener("DOMContentLoaded", () => init());
+    // }
+</script>
+
+
+
+
+
+<script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/utils.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/main.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/navbarShrink.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/scrollTopBottom.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/lightDarkSwitch.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/categoryList.js"></script>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/localSearch.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/codeBlock.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/lazyload.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/runtime.js"></script>
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/odometer.min.js"></script>
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/assets/odometer-theme-minimal.css">
+
+
+
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Typed.min.js"></script>
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/typed.js"></script>
+
+
+
+
+
+
+<div class="post-scripts" data-swup-reload-script>
+    
+        <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/anime.min.js"></script>
+        <script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/tocToggle.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/toc.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/tabs.js"></script>
+    
+</div>
+
+
+</body>
+</html>

@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="shawnyan,dba,oracle,mysql,tidb,mariadb,postgresql,gbase,proxysql">
+    
+    <meta name="author" content="Shawn Yan">
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+        
+        
+        
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://shawnyan.cn/2023/postgresql/pg-15-jsonlog/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+        <meta name="description" content="题记 对于某个技能点、知识点，没有实验或者没有质量的实验，都只是纸上谈兵。 今天在群里请教了一个问题， pg里日志轮转有什么比较优雅的办法？ 手动触发日志轮转除了 pg_rotate_logfile()还有别的方法么？ 手动触发日志归档，而不用等定时轮转 log_roration_age，或者测试只看新的日志，我现在就只能把老的删掉，再触发生成新的。 当时的情况其实是，日志文件命名的粒度为“小时">
+<meta property="og:type" content="article">
+<meta property="og:title" content="【PG15】PostgreSQL 15 新日志格式 jsonlog">
+<meta property="og:url" content="https://shawnyan.cn/2023/postgresql/pg-15-jsonlog/index.html">
+<meta property="og:site_name" content="少安事务所">
+<meta property="og:description" content="题记 对于某个技能点、知识点，没有实验或者没有质量的实验，都只是纸上谈兵。 今天在群里请教了一个问题， pg里日志轮转有什么比较优雅的办法？ 手动触发日志轮转除了 pg_rotate_logfile()还有别的方法么？ 手动触发日志归档，而不用等定时轮转 log_roration_age，或者测试只看新的日志，我现在就只能把老的删掉，再触发生成新的。 当时的情况其实是，日志文件命名的粒度为“小时">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230308-7ef9ccd8-a46b-4e6f-ad6c-5794963b3e75.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230309-51fc13c8-1221-4d95-b57b-b767b65086c4.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230309-68e5e06f-f058-47f9-abb8-2eb463a49904.png">
+<meta property="article:published_time" content="2023-03-08T15:03:07.000Z">
+<meta property="article:modified_time" content="2023-03-08T15:03:07.000Z">
+<meta property="article:author" content="Shawn Yan">
+<meta property="article:tag" content="log">
+<meta property="article:tag" content="json">
+<meta property="article:tag" content="postgresql">
+<meta property="article:tag" content="postgresql 15">
+<meta property="article:tag" content="jsonlog">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230308-7ef9ccd8-a46b-4e6f-ad6c-5794963b3e75.png">
+    
+    
+        <!-- Google tag (gtag.js) -->
+        <script src="https://www.googletagmanager.com/gtag/js?id=G-ZH71L5F7X2"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-ZH71L5F7X2');
+        </script>
+    
+    <!-- baidu tongji -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?2fa794d82f74c0bb3617ba62ee962b46";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/img/favicon.ico" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon.ico">
+    <meta name="theme-color" content="#767FF6">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <!--- Page Info-->
+    
+    <title>
+        
+            【PG15】PostgreSQL 15 新日志格式 jsonlog -
+        
+        少安事务所
+    </title>
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+<!--- use 2.5.0
+    
+        
+<link rel="stylesheet" href="/assets/build/styles.css">
+
+    
+-->
+    <link rel="stylesheet" href="//cdn.staticfile.org/hexo-theme-redefine/2.5.0/assets/build/styles.min.css">
+
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/fonts.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Satoshi/satoshi.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Chillax/chillax.css">
+    <!--- Font Part-->
+    
+    
+    
+    
+
+    <!--- Inject Part-->
+    
+    <script id="hexo-configurations">
+    let Global = window.Global || {};
+    Global.hexo_config = {"hostname":"shawnyan.cn","root":"/","language":"en","path":"search.xml"};
+    Global.theme_config = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":true,"list":[]},"code_block":{"copy":true,"style":"mac","font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":4,"number":false,"expand":true,"init_open":true},"copyright":true,"lazyload":true,"recommendation":{"enable":true,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#767FF6","secondary":null},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"open_graph":true,"google_analytics":{"enable":true,"id":"G-ZH71L5F7X2"},"root_color_mode":"dark"},"home_banner":{"enable":true,"style":"fixed","image":{"light":"https://asktug.com/uploads/default/original/4X/4/b/d/4bd94f804719672dd7e3cb29150ea6f777eb0aec.jpeg","dark":"/img/wallpaper/dark.webp"},"title":"Shawn Yan's Tech Blog.","subtitle":{"text":["A blog about MySQL, Oracle, TiDB, PostgreSQL and other databases."],"hitokoto":{"enable":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":500,"backing_delay":1500,"loop":true,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"links":{"github":"https://github.com/shawn0915","instagram":null,"zhihu":null,"twitter":null,"email":"admin@shawnyan.cn"},"qrs":{"weixin":null}}},"plugins":{"feed":{"enable":true},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":"回忆的沙漏 (10周年版)","artist":"回忆的沙漏 (10周年版)","url":"https://music.163.com/song/media/outer/url?id=1329122067.mp3","cover":"https://p1.music.126.net/oJorrgJ3IotZUAbZkBMuFw==/109951167771736533.jpg?param=68y68"}]},"mermaid":{"enable":false,"version":"9.3.0"}},"version":"2.4.4","navbar":{"auto_hide":false,"color":{"left":"#f78736","right":"#367df7","transparency":35},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Blog":{"path":"/archives","icon":"fa-regular fa-archive"},"Categories":{"path":"/categories","icon":"fa-regular fa-stream"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Links":{"icon":"fa-regular fa-link","submenus":{"My-params":"/my-params","Friends":"/links","Q":"/q"}}},"search":{"enable":true,"preload":true}},"page_templates":{"friends_column":3,"tags_style":"cloud"},"home":{"sidebar":{"enable":true,"position":"left","first_item":"info","announcement":null,"links":null},"article_date_format":"YYYY-MM-DD","categories":{"enable":true,"limit":10},"tags":{"enable":true,"limit":10}},"footerStart":"2017/11/27 00:00:00"};
+    Global.language_ago = {"second":"%s seconds ago","minute":"%s minutes ago","hour":"%s hours ago","day":"%s days ago","week":"%s weeks ago","month":"%s months ago","year":"%s years ago"};
+    Global.data_config = {"masonry":false};
+  </script>
+
+    <!--- Fontawesome Part-->
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/fontawesome.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/brands.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/solid.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/regular.min.css">
+    
+    
+    
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+
+
+<body>
+<div class="progress-bar-container">
+    
+
+    
+        <span class="pjax-progress-bar"></span>
+        <span class="swup-progress-icon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+    
+</div>
+
+
+<main class="page-container" id="swup">
+
+    
+
+    <div class="main-content-container">
+
+
+        <div class="main-content-header">
+            <header class="navbar-container">
+    
+    <div class="navbar-content">
+        <div class="left">
+            
+                <a class="logo-image" href="https://shawnyan.cn/">
+                    <img src="/img/favicon.ico">
+                </a>
+            
+            <a class="logo-title" href="https://shawnyan.cn/">
+                
+                少安事务所
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-house"></i>
+                                        
+                                        HOME
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/archives"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-archive"></i>
+                                        
+                                        BLOG
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/categories"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-stream"></i>
+                                        
+                                        CATEGORIES
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/tags"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-tags"></i>
+                                        
+                                        TAGS
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/about"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-user"></i>
+                                        
+                                        ABOUT
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="has-dropdown" 
+                                    href="#" onClick="return false;">
+                                    
+                                        
+                                            <i class="fa-regular fa-link"></i>
+                                        
+                                        LINKS&nbsp;<i class="fa-solid fa-chevron-down"></i>
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                                    <ul class="sub-menu">
+                                    
+                                        <li>
+                                        <a href="/my-params">MY-PARAMS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/links">FRIENDS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/q">Q
+                                        </a>
+                                        </li>
+                                    
+                                    </ul>
+                                
+                            </li>
+                    
+                    
+                        <li class="navbar-item search search-popup-trigger">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </li>
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                    <div class="icon-item search search-popup-trigger"><i class="fa-solid fa-magnifying-glass"></i></div>
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="navbar-drawer w-full absolute top-0 left-0 bg-background-color">
+        <ul class="drawer-navbar-list flex flex-col justify-start items-center">
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/"  >
+                             
+                                
+                                    <i class="fa-regular fa-house"></i>
+                                
+                                HOME
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/archives"  >
+                             
+                                
+                                    <i class="fa-regular fa-archive"></i>
+                                
+                                BLOG
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/categories"  >
+                             
+                                
+                                    <i class="fa-regular fa-stream"></i>
+                                
+                                CATEGORIES
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/tags"  >
+                             
+                                
+                                    <i class="fa-regular fa-tags"></i>
+                                
+                                TAGS
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/about"  >
+                             
+                                
+                                    <i class="fa-regular fa-user"></i>
+                                
+                                ABOUT
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group has-dropdown" 
+                        href="#" onClick="return false;">
+                            
+                                
+                                    <i class="fa-regular fa-link"></i>
+                                
+                                LINKS&nbsp;<i class="group-hover:rotate-180 transition-transform fa-solid fa-chevron-down"></i>
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                              
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/my-params">MY-PARAMS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/links">FRIENDS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/q">Q</a>
+                            </li>
+                        
+                    
+            
+
+        </ul>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+        </div>
+
+        <div class="main-content-body">
+
+            
+
+            <div class="main-content">
+
+                
+                    <div class="post-page-container">
+    <div class="article-content-container">
+
+        <div class="article-title">
+            
+                
+                
+                <!-- 2023-10-03, edit by shawnyan. -->
+                <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG15】PostgreSQL 15 新日志格式 jsonlog" class="max-w-none" referrerpolicy="no-referrer"/>
+                
+                <h1 class="article-title-cover">【PG15】PostgreSQL 15 新日志格式 jsonlog</h1>
+            
+            </div>
+
+
+
+        
+            <div class="article-header">
+                <div class="avatar">
+                    
+                        <img src="/img/avatar.jpg">
+                    
+                </div>
+                <div class="info">
+                    <div class="author">
+                        
+                            <span class="name">严少安</span>
+                        
+                        
+                            
+                                <span class="author-label">Lv.6</span>
+                            
+                        
+                    </div>
+                    <div class="meta-info">
+                        <div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2023-03-08 23:03:07</span>
+        <span class="mobile">2023-03-08 23:03:07</span>
+        <span class="hover-info">Created</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2023-03-08 23:03:07</span>
+            <span class="mobile">2023-03-08 23:03:07</span>
+            <span class="hover-info">Updated</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/postgresql/">PostgreSQL</a>&nbsp;
+                        </li>
+                    
+                    
+                
+                    
+                        
+                            <li>></li>
+                        
+                        <li>
+                            <a href="/categories/postgresql/postgresql-15/">PostgreSQL 15</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/log/">log</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/json/">json</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/postgresql/">postgresql</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/postgresql-15/">postgresql 15</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/jsonlog/">jsonlog</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+        <span class="article-wordcount article-meta-item">
+            <i class="fa-regular fa-typewriter"></i>&nbsp;<span>2.5k Words</span>
+        </span>
+    
+    
+        <span class="article-min2read article-meta-item">
+            <i class="fa-regular fa-clock"></i>&nbsp;<span>12 Mins</span>
+        </span>
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+                    </div>
+                </div>
+            </div>
+        
+
+        
+
+
+        <div class="article-content markdown-body">
+            <img  alt="day-by-day.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230308-7ef9ccd8-a46b-4e6f-ad6c-5794963b3e75.png"
+                      referrerpolicy="no-referrer"
+                >
+<h2 id="题记">题记</h2>
+<p>对于某个技能点、知识点，没有实验或者没有质量的实验，都只是纸上谈兵。</p>
+<p>今天在群里请教了一个问题，</p>
+<p>pg里日志轮转有什么比较优雅的办法？<br>
+手动触发日志轮转除了 pg_rotate_logfile()还有别的方法么？<br>
+手动触发日志归档，而不用等定时轮转 log_roration_age，或者测试只看新的日志，我现在就只能把老的删掉，再触发生成新的。</p>
+<p>当时的情况其实是，日志文件命名的粒度为“小时” (<code>log_filename = postgresql-%Y-%m-%d_%H.log</code>)。<br>
+所以执行 pg_rotate_logfile 时，并没任何反应。</p>
+<h2 id="日志轮转">日志轮转</h2>
+<p>PostgreSQL 提供了两种方式进行日志轮转：</p>
+<ol>
+<li><code>pg_ctl logrotate</code> – PG工具，可在 postgres 用户直接执行，日志会自动轮转并生成新日志文件。也可以加 <code>-s</code> 参数，静默执行。</li>
+</ol>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[postgres@centos7 log]$ pg_ctl logrotate</span><br><span class="line">server signaled to rotate log file</span><br><span class="line">[postgres@centos7 log]$ </span><br><span class="line">[postgres@centos7 log]$ pg_ctl logrotate -s</span><br><span class="line">[postgres@centos7 log]$ </span><br></pre></td></tr></table></figure></div>
+<ol start="2">
+<li><code>pg_rotate_logfile()</code> – PG系统方法，需要 superuser 权限。</li>
+</ol>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">(postgres@[<span class="keyword">local</span>]) [postgres] <span class="number">23</span>:<span class="number">01</span>:<span class="number">45</span># <span class="keyword">select</span> pg_rotate_logfile();</span><br><span class="line"><span class="operator">+</span><span class="comment">-------------------+</span></span><br><span class="line"><span class="operator">|</span> pg_rotate_logfile <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-------------------+</span></span><br><span class="line"><span class="operator">|</span> t                 <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-------------------+</span></span><br><span class="line">(<span class="number">1</span> <span class="type">row</span>)</span><br><span class="line"></span><br><span class="line">[postgres<span class="variable">@centos7</span> log]$ psql <span class="operator">-</span>U sbtest <span class="operator">-</span>d postgres</span><br><span class="line">psql (<span class="number">15.2</span><span class="operator">-</span>Yan)</span><br><span class="line">Type &quot;help&quot; <span class="keyword">for</span> help.</span><br><span class="line"></span><br><span class="line">(sbtest@[<span class="keyword">local</span>]) [postgres] <span class="number">23</span>:<span class="number">03</span>:<span class="number">20</span><span class="operator">&gt;</span> <span class="keyword">select</span> pg_rotate_logfile();</span><br><span class="line">ERROR:  permission denied <span class="keyword">for</span> <span class="keyword">function</span> pg_rotate_logfile</span><br><span class="line"><span class="type">Time</span>: <span class="number">0.726</span> ms</span><br><span class="line">(sbtest@[<span class="keyword">local</span>]) [postgres] <span class="number">23</span>:<span class="number">03</span>:<span class="number">53</span><span class="operator">&gt;</span> \dg</span><br><span class="line">                                    List <span class="keyword">of</span> roles</span><br><span class="line"><span class="operator">+</span><span class="comment">-----------+------------------------------------------------------------+-----------+</span></span><br><span class="line"><span class="operator">|</span> Role name <span class="operator">|</span>                         Attributes                         <span class="operator">|</span> <span class="keyword">Member</span> <span class="keyword">of</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-----------+------------------------------------------------------------+-----------+</span></span><br><span class="line"><span class="operator">|</span> postgres  <span class="operator">|</span> Superuser, <span class="keyword">Create</span> role, <span class="keyword">Create</span> DB, Replication, Bypass RLS <span class="operator">|</span> &#123;&#125;        <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> sbtest    <span class="operator">|</span>                                                            <span class="operator">|</span> &#123;&#125;        <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-----------+------------------------------------------------------------+-----------+</span></span><br></pre></td></tr></table></figure></div>
+<p>不过，需要注意，需要 PostgreSQL 已经开启 <code>logging_collector</code>。</p>
+<p>此外，还可以通过插件 <code>adminpack</code> 或者 pgAdmin 工具进行日志文件管理。</p>
+<p>再者，可以使用操作系统层工具 logrotate 对日志文件进行定时轮转。</p>
+<h2 id="一般-JSON-日志">一般 JSON 日志</h2>
+<p>JSON 格式的日志非常适合记录结构化数据，因为它易于读取和处理。另外，由于 JSON 格式的日志只是普通的文本文件，所以可以使用任何文本编辑器或命令行工具来查看和处理。<br>
+以下是一个示例 JSON 格式的日志条目：</p>
+<div class="highlight-container" data-rel="Json"><figure class="iseeu highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;timestamp&quot;</span><span class="punctuation">:</span> <span class="string">&quot;2022-02-23T14:30:00Z&quot;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;level&quot;</span><span class="punctuation">:</span> <span class="string">&quot;INFO&quot;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;message&quot;</span><span class="punctuation">:</span> <span class="string">&quot;User login&quot;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;user_id&quot;</span><span class="punctuation">:</span> <span class="string">&quot;1234&quot;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;ip_address&quot;</span><span class="punctuation">:</span> <span class="string">&quot;192.168.1.1&quot;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure></div>
+<p>在这个示例中，日志包含了时间戳、日志级别、事件消息、用户ID和IP地址。这些属性可以通过解析JSON格式的日志条目来轻松地提取和分析。<br>
+使用 JSON 格式的日志有许多优点，例如易于使用、易于读取和解析、可扩展性好等。因此，JSON 格式的日志在现代应用程序中非常流行。</p>
+<p>这里介绍一个格式化 JSON 的工具 - - <code>jq</code>。</p>
+<p>jq 可以以各种方式转换 JSON，可以选择、迭代、缩减或分解 JSON 文档。例如，运行命令 <code>jq ´map(.price) | add´</code> 将接受一个 JSON 对象数组作为输入，并返回它们的 “price” 字段的和。<br>
+jq 也可以接受文本输入，但默认情况下，jq 从 stdin 读取 JSON 实体流(包括数字和其他文字)。<br>
+例如，上例就可由 jq 将普通文本从 stdin 读取，并进行格式化。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash"><span class="built_in">echo</span> <span class="string">&#x27;&#123;&quot;timestamp&quot;: &quot;2022-02-23T14:30:00Z&quot;,&quot;level&quot;: &quot;INFO&quot;,&quot;message&quot;: &quot;User login&quot;,&quot;user_id&quot;: &quot;1234&quot;,&quot;ip_address&quot;: &quot;192.168.1.1&quot;&#125;&#x27;</span> | jq</span> </span><br><span class="line">&#123;</span><br><span class="line">  &quot;timestamp&quot;: &quot;2022-02-23T14:30:00Z&quot;,</span><br><span class="line">  &quot;level&quot;: &quot;INFO&quot;,</span><br><span class="line">  &quot;message&quot;: &quot;User login&quot;,</span><br><span class="line">  &quot;user_id&quot;: &quot;1234&quot;,</span><br><span class="line">  &quot;ip_address&quot;: &quot;192.168.1.1&quot;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></div>
+<h2 id="PostgreSQL-15-中的-jsonlog-日志文件">PostgreSQL 15 中的 jsonlog 日志文件</h2>
+<p>JSON 格式的日志文件，是 PostgreSQL 15 的新特性之一<sup class="footnote-ref"><a href="#fn1" id="fnref1">[1]</a></sup>。</p>
+<blockquote>
+<p>PostgreSQL 15 contains many new features and enhancements, including:<br>
+…<br>
+Support for structured server log output using the JSON format.<br>
+…<br>
+Allow log output in JSON format (Sehrope Sarkuni, Michael Paquier)<br>
+The new setting is log_destination = jsonlog.</p>
+</blockquote>
+<p><strong>“实践是检验真理的唯一标准”</strong></p>
+<p>先来看日志输出格式示例：</p>
+<div class="highlight-container" data-rel="Json"><figure class="iseeu highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span><span class="attr">&quot;timestamp&quot;</span><span class="punctuation">:</span><span class="string">&quot;2023-03-08 20:29:31.596 CST&quot;</span><span class="punctuation">,</span><span class="attr">&quot;pid&quot;</span><span class="punctuation">:</span><span class="number">1254</span><span class="punctuation">,</span><span class="attr">&quot;session_id&quot;</span><span class="punctuation">:</span><span class="string">&quot;64087fab.4e6&quot;</span><span class="punctuation">,</span><span class="attr">&quot;line_num&quot;</span><span class="punctuation">:</span><span class="number">1</span><span class="punctuation">,</span><span class="attr">&quot;session_start&quot;</span><span class="punctuation">:</span><span class="string">&quot;2023-03-08 20:29:31 CST&quot;</span><span class="punctuation">,</span><span class="attr">&quot;txid&quot;</span><span class="punctuation">:</span><span class="number">0</span><span class="punctuation">,</span><span class="attr">&quot;error_severity&quot;</span><span class="punctuation">:</span><span class="string">&quot;LOG&quot;</span><span class="punctuation">,</span><span class="attr">&quot;message&quot;</span><span class="punctuation">:</span><span class="string">&quot;ending log output to stderr&quot;</span><span class="punctuation">,</span><span class="attr">&quot;hint&quot;</span><span class="punctuation">:</span><span class="string">&quot;Future log output will go to log destination \&quot;csvlog, jsonlog\&quot;.&quot;</span><span class="punctuation">,</span><span class="attr">&quot;backend_type&quot;</span><span class="punctuation">:</span><span class="string">&quot;postmaster&quot;</span><span class="punctuation">,</span><span class="attr">&quot;query_id&quot;</span><span class="punctuation">:</span><span class="number">0</span><span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#123;</span><span class="attr">&quot;timestamp&quot;</span><span class="punctuation">:</span><span class="string">&quot;2023-03-08 20:54:29.431 CST&quot;</span><span class="punctuation">,</span><span class="attr">&quot;pid&quot;</span><span class="punctuation">:</span><span class="number">1945</span><span class="punctuation">,</span><span class="attr">&quot;remote_host&quot;</span><span class="punctuation">:</span><span class="string">&quot;192.168.8.121&quot;</span><span class="punctuation">,</span><span class="attr">&quot;remote_port&quot;</span><span class="punctuation">:</span><span class="number">47620</span><span class="punctuation">,</span><span class="attr">&quot;session_id&quot;</span><span class="punctuation">:</span><span class="string">&quot;64088585.799&quot;</span><span class="punctuation">,</span><span class="attr">&quot;line_num&quot;</span><span class="punctuation">:</span><span class="number">1</span><span class="punctuation">,</span><span class="attr">&quot;ps&quot;</span><span class="punctuation">:</span><span class="string">&quot;&quot;</span><span class="punctuation">,</span><span class="attr">&quot;session_start&quot;</span><span class="punctuation">:</span><span class="string">&quot;2023-03-08 20:54:29 CST&quot;</span><span class="punctuation">,</span><span class="attr">&quot;txid&quot;</span><span class="punctuation">:</span><span class="number">0</span><span class="punctuation">,</span><span class="attr">&quot;error_severity&quot;</span><span class="punctuation">:</span><span class="string">&quot;LOG&quot;</span><span class="punctuation">,</span><span class="attr">&quot;message&quot;</span><span class="punctuation">:</span><span class="string">&quot;connection received: host=192.168.8.121 port=47620&quot;</span><span class="punctuation">,</span><span class="attr">&quot;backend_type&quot;</span><span class="punctuation">:</span><span class="string">&quot;not initialized&quot;</span><span class="punctuation">,</span><span class="attr">&quot;query_id&quot;</span><span class="punctuation">:</span><span class="number">0</span><span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#123;</span><span class="attr">&quot;timestamp&quot;</span><span class="punctuation">:</span><span class="string">&quot;2023-03-08 20:54:29.432 CST&quot;</span><span class="punctuation">,</span><span class="attr">&quot;user&quot;</span><span class="punctuation">:</span><span class="string">&quot;sbtest&quot;</span><span class="punctuation">,</span><span class="attr">&quot;dbname&quot;</span><span class="punctuation">:</span><span class="string">&quot;postgres&quot;</span><span class="punctuation">,</span><span class="attr">&quot;pid&quot;</span><span class="punctuation">:</span><span class="number">1945</span><span class="punctuation">,</span><span class="attr">&quot;remote_host&quot;</span><span class="punctuation">:</span><span class="string">&quot;192.168.8.121&quot;</span><span class="punctuation">,</span><span class="attr">&quot;remote_port&quot;</span><span class="punctuation">:</span><span class="number">47620</span><span class="punctuation">,</span><span class="attr">&quot;session_id&quot;</span><span class="punctuation">:</span><span class="string">&quot;64088585.799&quot;</span><span class="punctuation">,</span><span class="attr">&quot;line_num&quot;</span><span class="punctuation">:</span><span class="number">2</span><span class="punctuation">,</span><span class="attr">&quot;ps&quot;</span><span class="punctuation">:</span><span class="string">&quot;authentication&quot;</span><span class="punctuation">,</span><span class="attr">&quot;session_start&quot;</span><span class="punctuation">:</span><span class="string">&quot;2023-03-08 20:54:29 CST&quot;</span><span class="punctuation">,</span><span class="attr">&quot;vxid&quot;</span><span class="punctuation">:</span><span class="string">&quot;3/83&quot;</span><span class="punctuation">,</span><span class="attr">&quot;txid&quot;</span><span class="punctuation">:</span><span class="number">0</span><span class="punctuation">,</span><span class="attr">&quot;error_severity&quot;</span><span class="punctuation">:</span><span class="string">&quot;LOG&quot;</span><span class="punctuation">,</span><span class="attr">&quot;message&quot;</span><span class="punctuation">:</span><span class="string">&quot;connection authorized: user=sbtest database=postgres application_name=psql&quot;</span><span class="punctuation">,</span><span class="attr">&quot;backend_type&quot;</span><span class="punctuation">:</span><span class="string">&quot;client backend&quot;</span><span class="punctuation">,</span><span class="attr">&quot;query_id&quot;</span><span class="punctuation">:</span><span class="number">0</span><span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#123;</span><span class="attr">&quot;timestamp&quot;</span><span class="punctuation">:</span><span class="string">&quot;2023-03-08 20:54:29.434 CST&quot;</span><span class="punctuation">,</span><span class="attr">&quot;user&quot;</span><span class="punctuation">:</span><span class="string">&quot;sbtest&quot;</span><span class="punctuation">,</span><span class="attr">&quot;dbname&quot;</span><span class="punctuation">:</span><span class="string">&quot;postgres&quot;</span><span class="punctuation">,</span><span class="attr">&quot;pid&quot;</span><span class="punctuation">:</span><span class="number">1943</span><span class="punctuation">,</span><span class="attr">&quot;remote_host&quot;</span><span class="punctuation">:</span><span class="string">&quot;192.168.8.121&quot;</span><span class="punctuation">,</span><span class="attr">&quot;remote_port&quot;</span><span class="punctuation">:</span><span class="number">47618</span><span class="punctuation">,</span><span class="attr">&quot;session_id&quot;</span><span class="punctuation">:</span><span class="string">&quot;64088579.797&quot;</span><span class="punctuation">,</span><span class="attr">&quot;line_num&quot;</span><span class="punctuation">:</span><span class="number">3</span><span class="punctuation">,</span><span class="attr">&quot;ps&quot;</span><span class="punctuation">:</span><span class="string">&quot;idle&quot;</span><span class="punctuation">,</span><span class="attr">&quot;session_start&quot;</span><span class="punctuation">:</span><span class="string">&quot;2023-03-08 20:54:17 CST&quot;</span><span class="punctuation">,</span><span class="attr">&quot;txid&quot;</span><span class="punctuation">:</span><span class="number">0</span><span class="punctuation">,</span><span class="attr">&quot;error_severity&quot;</span><span class="punctuation">:</span><span class="string">&quot;LOG&quot;</span><span class="punctuation">,</span><span class="attr">&quot;message&quot;</span><span class="punctuation">:</span><span class="string">&quot;disconnection: session time: 0:00:11.618 user=sbtest database=postgres host=192.168.8.121 port=47618&quot;</span><span class="punctuation">,</span><span class="attr">&quot;application_name&quot;</span><span class="punctuation">:</span><span class="string">&quot;psql&quot;</span><span class="punctuation">,</span><span class="attr">&quot;backend_type&quot;</span><span class="punctuation">:</span><span class="string">&quot;client backend&quot;</span><span class="punctuation">,</span><span class="attr">&quot;query_id&quot;</span><span class="punctuation">:</span><span class="number">0</span><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure></div>
+<p>对照传统日志文件和 csv 格式日志文件查看。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">- log</span><br><span class="line">a:, u:, d:, r:, h:, b:postmaster, p:1254, P:, t:2023-03-08 20:29:31 CST, m:2023-03-08 20:29:31.596 CST, n:1678278571.596, Q:0, i:, e:00000, c:64087fab.4e6, l:3, s:2023-03-08 20:29:31 CST, v:, x:0, q:LOG:  ending log output to stderr</span><br><span class="line">a:, u:, d:, r:, h:, b:postmaster, p:1254, P:, t:2023-03-08 20:29:31 CST, m:2023-03-08 20:29:31.596 CST, n:1678278571.596, Q:0, i:, e:00000, c:64087fab.4e6, l:4, s:2023-03-08 20:29:31 CST, v:, x:0, q:HINT:  Future log output will go to log destination &quot;csvlog, jsonlog&quot;.</span><br><span class="line"></span><br><span class="line">- csv</span><br><span class="line">2023-03-08 20:29:31.596 CST,,,1254,,64087fab.4e6,1,,2023-03-08 20:29:31 CST,,0,LOG,00000,&quot;ending log output to stderr&quot;,,&quot;Future log output will go to log destination &quot;&quot;csvlog, jsonlog&quot;&quot;.&quot;,,,,,,,&quot;&quot;,&quot;postmaster&quot;,,0</span><br></pre></td></tr></table></figure></div>
+<p>至少可以观测到三点：</p>
+<ol>
+<li>json 格式日志由于自身属性原因，日志大小会大于 csv 格式，甚至大小翻倍。</li>
+<li>但是，json 格式的有点也很明显，对于各种日志分析系统友好，不需要再转格式，也不会出现 csv 多行转换的问题。</li>
+<li>json/csv 的格式相对固定，而传统日志的格式可以自定义。</li>
+</ol>
+<p>由于我目前还是 PG 入门级选手，对于第三点，也是在反复实验中发现，<code>log_line_prefix</code> 参数设定并不会影响到 json/csv 格式文件。<br>
+同时，查阅源码 (src\backend\utils\error*log.c) 后这一推测得到验证。</p>
+<p>传统日志文件可以自定义格式，同时指定了一些特殊值，便于定制化编排日志格式，上文的实例中就是按照这种格式进行编排：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">log_line_prefix = &#x27;a:%a, u:%u, d:%d, r:%r, h:%h, b:%b, p:%p, P:%P, t:%t, m:%m, n:%n, Q:%Q, i:%i, e:%e, c:%c, l:%l, s:%s, v:%v, x:%x, q:%q&#x27;</span><br></pre></td></tr></table></figure></div>
+<p>经过若干小时的梳理，已将传统日志和 json 日志的字段对应整理如下：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"># special values:</span><br><span class="line">#   %a = application name                               -&gt; json : application_name (psql, HeidiSQL)</span><br><span class="line">#   %u = user name                                      -&gt; json : user</span><br><span class="line">#   %d = database name                                  -&gt; json : dbname</span><br><span class="line">#   %r = remote host and port                           -&gt; json : remote_host, remote_port</span><br><span class="line">#   %h = remote host                                    -&gt; json : remote_host ([local])</span><br><span class="line">#   %b = backend type                                   -&gt; json : backend_type (postmaster, not initialized, client backend)</span><br><span class="line">#   %p = process ID                                     -&gt; json : pid</span><br><span class="line">#   %P = process ID of parallel group leader            -&gt; json : leader_pid</span><br><span class="line">#   %t = timestamp without milliseconds                 -&gt; json : --</span><br><span class="line">#   %m = timestamp with milliseconds                    -&gt; json : timestamp</span><br><span class="line">#   %n = timestamp with milliseconds (as a Unix epoch)  -&gt; json : --</span><br><span class="line">#   %Q = query ID (0 if none or not computed)           -&gt; json : query_id</span><br><span class="line">#   %i = command tag                                    -&gt; json : ps (authentication, idle, ALTER SYSTEM, SELECT)</span><br><span class="line">#   %e = SQL state                                      -&gt; json : state_code</span><br><span class="line">#   %c = session ID                                     -&gt; json : session_id (%lx.%x)</span><br><span class="line">#   %l = session line number                            -&gt; json : line_num</span><br><span class="line">#   %s = session start timestamp                        -&gt; json : session_start</span><br><span class="line">#   %v = virtual transaction ID                         -&gt; json : vxid (%d/%u)</span><br><span class="line">#   %x = transaction ID (0 if none)                     -&gt; json : txid</span><br><span class="line">#   %q = stop here in non-session                       -&gt; json : message, hint, detail, context</span><br></pre></td></tr></table></figure></div>
+<p>json 日志仍有若干字段未匹配：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">error_severity (LOG, ERROR)</span><br><span class="line">internal_query, internal_position</span><br><span class="line">statement, cursor_position</span><br><span class="line">func_name, file_name, file_line_num</span><br></pre></td></tr></table></figure></div>
+<p>关于 json 日志，上文提到的多行展示，可以参考如下示例：</p>
+<ul>
+<li>截取一段日志内容</li>
+</ul>
+<div class="highlight-container" data-rel="Json"><figure class="iseeu highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span><span class="attr">&quot;timestamp&quot;</span><span class="punctuation">:</span><span class="string">&quot;2023-03-08 23:41:48.152 CST&quot;</span><span class="punctuation">,</span><span class="attr">&quot;user&quot;</span><span class="punctuation">:</span><span class="string">&quot;postgres&quot;</span><span class="punctuation">,</span><span class="attr">&quot;dbname&quot;</span><span class="punctuation">:</span><span class="string">&quot;postgres&quot;</span><span class="punctuation">,</span><span class="attr">&quot;pid&quot;</span><span class="punctuation">:</span><span class="number">4601</span><span class="punctuation">,</span><span class="attr">&quot;remote_host&quot;</span><span class="punctuation">:</span><span class="string">&quot;[local]&quot;</span><span class="punctuation">,</span><span class="attr">&quot;session_id&quot;</span><span class="punctuation">:</span><span class="string">&quot;6408ac11.11f9&quot;</span><span class="punctuation">,</span><span class="attr">&quot;line_num&quot;</span><span class="punctuation">:</span><span class="number">6</span><span class="punctuation">,</span><span class="attr">&quot;ps&quot;</span><span class="punctuation">:</span><span class="string">&quot;idle&quot;</span><span class="punctuation">,</span><span class="attr">&quot;session_start&quot;</span><span class="punctuation">:</span><span class="string">&quot;2023-03-08 23:38:57 CST&quot;</span><span class="punctuation">,</span><span class="attr">&quot;vxid&quot;</span><span class="punctuation">:</span><span class="string">&quot;3/5&quot;</span><span class="punctuation">,</span><span class="attr">&quot;txid&quot;</span><span class="punctuation">:</span><span class="number">0</span><span class="punctuation">,</span><span class="attr">&quot;error_severity&quot;</span><span class="punctuation">:</span><span class="string">&quot;LOG&quot;</span><span class="punctuation">,</span><span class="attr">&quot;message&quot;</span><span class="punctuation">:</span><span class="string">&quot;statement: SELECT d.datname as \&quot;Name\&quot;,\n       pg_catalog.pg_get_userbyid(d.datdba) as \&quot;Owner\&quot;,\n       pg_catalog.pg_encoding_to_char(d.encoding) as \&quot;Encoding\&quot;,\n       d.datcollate as \&quot;Collate\&quot;,\n       d.datctype as \&quot;Ctype\&quot;,\n       d.daticulocale as \&quot;ICU Locale\&quot;,\n       CASE d.datlocprovider WHEN &#x27;c&#x27; THEN &#x27;libc&#x27; WHEN &#x27;i&#x27; THEN &#x27;icu&#x27; END AS \&quot;Locale Provider\&quot;,\n       pg_catalog.array_to_string(d.datacl, E&#x27;\\n&#x27;) AS \&quot;Access privileges\&quot;\nFROM pg_catalog.pg_database d\nORDER BY 1;&quot;</span><span class="punctuation">,</span><span class="attr">&quot;application_name&quot;</span><span class="punctuation">:</span><span class="string">&quot;psql&quot;</span><span class="punctuation">,</span><span class="attr">&quot;backend_type&quot;</span><span class="punctuation">:</span><span class="string">&quot;client backend&quot;</span><span class="punctuation">,</span><span class="attr">&quot;query_id&quot;</span><span class="punctuation">:</span><span class="number">0</span><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>将日志中的 message 字段中的 statement 查询语句提取出来，并进行过滤、转化，可得到以下结果。</li>
+</ul>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">[root@centos7 log]# grep pg_get_userbyid postgresql-2023-03-08_233853.json | jq &#x27;.message | split(&quot;: &quot;)[1] | .[:-1]&#x27; | json</span><br><span class="line">SELECT d.datname as &quot;Name&quot;,</span><br><span class="line">       pg_catalog.pg_get_userbyid(d.datdba) as &quot;Owner&quot;,</span><br><span class="line">       pg_catalog.pg_encoding_to_char(d.encoding) as &quot;Encoding&quot;,</span><br><span class="line">       d.datcollate as &quot;Collate&quot;,</span><br><span class="line">       d.datctype as &quot;Ctype&quot;,</span><br><span class="line">       d.daticulocale as &quot;ICU Locale&quot;,</span><br><span class="line">       CASE d.datlocprovider WHEN &#x27;c&#x27; THEN &#x27;libc&#x27; WHEN &#x27;i&#x27; THEN &#x27;icu&#x27; END AS &quot;Locale Provider&quot;,</span><br><span class="line">       pg_catalog.array_to_string(d.datacl, E&#x27;\n&#x27;) AS &quot;Access privileges&quot;</span><br><span class="line">FROM pg_catalog.pg_database d</span><br><span class="line">ORDER BY 1</span><br><span class="line">[root@centos7 log]# </span><br></pre></td></tr></table></figure></div>
+<img  alt="p1.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230309-51fc13c8-1221-4d95-b57b-b767b65086c4.png"
+                      referrerpolicy="no-referrer"
+                >
+<ul>
+<li>将格式化好的 SQL 语句放到 psql 中执行，得到如下结果。</li>
+</ul>
+<img  alt="p2.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230309-68e5e06f-f058-47f9-abb8-2eb463a49904.png"
+                      referrerpolicy="no-referrer"
+                >
+<h2 id="End">End</h2>
+<p>到此，先告一段落，夜深了要休息了。</p>
+<hr>
+<p><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/617900" >https://www.modb.pro/db/617900 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a><br>
+<a class="link"   target="_blank" rel="noopener" href="https://pgfans.cn/a/2263" >https://pgfans.cn/a/2263 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<hr class="footnotes-sep">
+<section class="footnotes">
+<ol class="footnotes-list">
+<li id="fn1" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://www.postgresql.org/docs/release/15.0/" >https://www.postgresql.org/docs/release/15.0/ <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref1" class="footnote-backref">↩︎</a></p>
+</li>
+</ol>
+</section>
+
+        </div>
+
+        
+            <div class="post-copyright-info">
+                <div class="article-copyright-info-container">
+    <ul>
+    <!-- 2023-10-03, edit by shawnyan. -->
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Title:</strong> 【PG15】PostgreSQL 15 新日志格式 jsonlog</li>
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Author:</strong>
+            
+                严少安
+            
+        </li>
+        <li><strong>Created at:</strong> 2023-03-08 23:03:07</li>
+        
+            <li><strong>Updated at:</strong> 2023-03-08 23:03:07</li>
+        
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Link:</strong> https://shawnyan.cn/2023/postgresql/pg-15-jsonlog/</li>
+        <li style="word-wrap: break-word; white-space: normal;">
+            <strong>
+                License:
+            </strong>
+            
+            This work is licensed under <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>.
+            
+
+        </li>
+    </ul>
+</div>
+
+            </div>
+        
+
+        
+            <ul class="post-tags-box">
+                
+                    <li class="tag-item">
+                        <a href="/tags/log/">#log</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/json/">#json</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/postgresql/">#postgresql</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/postgresql-15/">#postgresql 15</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/jsonlog/">#jsonlog</a>&nbsp;
+                    </li>
+                
+            </ul>
+        
+
+        
+  <div class="recommended-article">
+   <div class="recommended-desktop">
+    <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+    </div>
+    <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/postgresql/pg-15-psqlrc/" title="【PG15】有趣的 psqlrc 你真的学废了麽" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG15】有趣的 psqlrc 你真的学废了麽" class="!max-w-none">
+  <span class="title">【PG15】有趣的 psqlrc 你真的学废了麽</span>
+</a><a class="recommended-article-item" href="/2024/postgresql/pg-env-vars/" title="PG Style! 盘点几个常用的 Postgres 环境变量" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="PG Style! 盘点几个常用的 Postgres 环境变量" class="!max-w-none">
+  <span class="title">PG Style! 盘点几个常用的 Postgres 环境变量</span>
+</a><a class="recommended-article-item" href="/2023/postgresql/pg-15-check-txid-with-python/" title="【PG15】Python 脚本定时查询当前 txid" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG15】Python 脚本定时查询当前 txid" class="!max-w-none">
+  <span class="title">【PG15】Python 脚本定时查询当前 txid</span>
+</a></div>
+   </div>
+   <div class="recommended-mobile">
+   <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+   </div>
+   <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/postgresql/pg-15-psqlrc/" title="【PG15】有趣的 psqlrc 你真的学废了麽" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG15】有趣的 psqlrc 你真的学废了麽" class="!max-w-none">
+  <span class="title">【PG15】有趣的 psqlrc 你真的学废了麽</span>
+</a><a class="recommended-article-item" href="/2024/postgresql/pg-env-vars/" title="PG Style! 盘点几个常用的 Postgres 环境变量" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="PG Style! 盘点几个常用的 Postgres 环境变量" class="!max-w-none">
+  <span class="title">PG Style! 盘点几个常用的 Postgres 环境变量</span>
+</a></div>
+   </div>
+  </div>
+
+        
+            <div class="article-nav">
+                
+                    <div class="article-prev">
+                        <a class="prev"
+                        rel="prev"
+                        href="/2023/gbase/gbase-8c-install/"
+                        >
+                            <span class="left arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </span>
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">快速搭建 GBase 8c 集群环境</span>
+                                <span class="post-nav-item">Prev posts</span>
+                            </span>
+                        </a>
+                    </div>
+                
+                
+                    <div class="article-next">
+                        <a class="next"
+                        rel="next"
+                        href="/2023/postgresql/pg-15-progress-memory/"
+                        >
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">【PG15】如何查看 PostgreSQL 进程占用内存情况</span>
+                                <span class="post-nav-item">Next posts</span>
+                            </span>
+                            <span class="right arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </a>
+                    </div>
+                
+            </div>
+        
+
+
+        
+            <div class="comment-container">
+                <div class="comments-container pjax">
+    <div id="comment-anchor"></div>
+    <div class="comment-area-title">
+        <i class="fa-solid fa-comments"></i>&nbsp;Comments
+    </div>
+    
+
+        
+            
+    <div id="gitalk-container"></div>
+    <script data-swup-reload-script
+            src="//cdn.staticfile.org/gitalk/1.8.0/gitalk.min.js"></script>
+    <script data-swup-reload-script>
+
+        function loadGitalk() {
+            let __gitalk__pathname = decodeURI(location.pathname);
+            const __gitalk__pathnameLength = __gitalk__pathname.length;
+            const __gitalk__pathnameMaxLength = 50;
+            if (__gitalk__pathnameLength > __gitalk__pathnameMaxLength) {
+                __gitalk__pathname = __gitalk__pathname.substring(0, __gitalk__pathnameMaxLength - 3) + '...';
+            }
+
+            try {
+                Gitalk && new Gitalk({
+                    clientID: '32d049bf3701e6791070',
+                    clientSecret: '36c295ad3dad4c739b530ef113d0a979d8c35c5d',
+                    repo: 'gitalk',
+                    owner: 'shawn0915',
+                    admin: ['shawn0915'],
+                    id: __gitalk__pathname,
+                    language: 'en'
+                }).render('gitalk-container');
+
+            } catch (e) {
+                window.Gitalk = null;
+            }
+        }
+
+        if ('true') {
+            const loadGitalkTimeout = setTimeout(() => {
+                loadGitalk();
+                clearTimeout(loadGitalkTimeout);
+            }, 1000);
+        } else {
+            window.addEventListener('DOMContentLoaded', loadGitalk);
+        }
+    </script>
+
+
+
+        
+    
+</div>
+
+            </div>
+        
+    </div>
+
+    
+        <div class="toc-content-container">
+            <div class="post-toc-wrap">
+    <div class="post-toc">
+        <div class="toc-title">On this page</div>
+<!--         <div class="page-title">【PG15】PostgreSQL 15 新日志格式 jsonlog</div> -->
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%A2%98%E8%AE%B0"><span class="nav-text">题记</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%97%A5%E5%BF%97%E8%BD%AE%E8%BD%AC"><span class="nav-text">日志轮转</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E8%88%AC-JSON-%E6%97%A5%E5%BF%97"><span class="nav-text">一般 JSON 日志</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#PostgreSQL-15-%E4%B8%AD%E7%9A%84-jsonlog-%E6%97%A5%E5%BF%97%E6%96%87%E4%BB%B6"><span class="nav-text">PostgreSQL 15 中的 jsonlog 日志文件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#End"><span class="nav-text">End</span></a></li></ol>
+
+    </div>
+</div>
+
+        </div>
+    
+</div>
+
+
+
+                
+
+            </div>
+
+            
+
+        </div>
+
+        <div class="main-content-footer">
+            <footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2017</span>
+              -
+            
+            2024&nbsp;&nbsp;<i class="fa-solid fa-heart fa-beat" style="--fa-animation-duration: 0.5s; color: #f54545"></i>&nbsp;&nbsp;<a href="/">Shawn Yan</a>
+        </div>
+        
+            <script data-swup-reload-script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">VISITOR COUNT</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">TOTAL PAGE VIEWS</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">POWERED BY <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a></span>
+            <span class="text-sm lg:block">THEME&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.4.4</a></span>
+        </div>
+        
+        
+            <div>
+                Blog up for <span class="odometer" id="runtime_days" ></span> days <span class="odometer" id="runtime_hours"></span> hrs <span class="odometer" id="runtime_minutes"></span> Min <span class="odometer" id="runtime_seconds"></span> Sec
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+
+    </div>
+</footer>
+
+        </div>
+    </div>
+
+    
+        <div class="post-tools">
+            <div class="post-tools-container">
+    <ul class="article-tools-list">
+        <!-- TOC aside toggle -->
+        
+            <li class="right-bottom-tools page-aside-toggle">
+                <i class="fa-regular fa-outdent"></i>
+            </li>
+        
+
+        <!-- go comment -->
+        
+            <li class="go-comment">
+                <i class="fa-regular fa-comments"></i>
+            </li>
+        
+    </ul>
+</div>
+
+        </div>
+    
+
+    <div class="right-side-tools-container">
+        <div class="side-tools-container">
+    <ul class="hidden-tools-list">
+        <li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-plus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-minus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-expand-width flex justify-center items-center">
+            <i class="fa-regular fa-expand"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+            <i class="fa-regular fa-moon"></i>
+        </li>
+
+        <!-- rss -->
+        
+            <li class="right-bottom-tools rss flex justify-center items-center">
+                <a class="flex justify-center items-center"
+                   href="/atom.xml"
+                   target="_blank"
+                >
+                <i class="fa-regular fa-rss"></i>
+                </a>
+            </li>
+        
+
+        
+
+        <li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+            <i class="fa-regular fa-arrow-down"></i>
+        </li>
+    </ul>
+
+    <ul class="visible-tools-list">
+        <li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+            <i class="fa-regular fa-cog fa-spin"></i>
+        </li>
+        
+            <li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+                <i class="arrow-up fas fa-arrow-up"></i>
+                <span class="percent"></span>
+            </li>
+        
+        
+    </ul>
+</div>
+
+    </div>
+
+    <div class="image-viewer-container">
+    <img src="">
+</div>
+
+
+    
+        <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+          <span class="search-input-field-pre">
+            <i class="fa-solid fa-keyboard"></i>
+          </span>
+            <div class="search-input-container">
+                <input autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       placeholder="Search..."
+                       spellcheck="false"
+                       type="search"
+                       class="search-input"
+                >
+            </div>
+            <span class="popup-btn-close">
+                <i class="fa-solid fa-times"></i>
+            </span>
+        </div>
+        <div id="search-result">
+            <div id="no-result">
+                <i class="fa-solid fa-spinner fa-spin-pulse fa-5x fa-fw"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+
+</main>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Swup.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupSlideTheme.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScriptsPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupProgressPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScrollPlugin.min.js"></script>
+<script>
+    const swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+        ],
+        containers: ["#swup"],
+    });
+
+    swup.hooks.on("page:view", () => {
+        Global.refresh();
+    });
+
+    // if (document.readyState === "complete") {
+    //
+    // } else {
+    //     document.addEventListener("DOMContentLoaded", () => init());
+    // }
+</script>
+
+
+
+
+
+<script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/utils.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/main.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/navbarShrink.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/scrollTopBottom.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/lightDarkSwitch.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/categoryList.js"></script>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/localSearch.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/codeBlock.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/lazyload.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/runtime.js"></script>
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/odometer.min.js"></script>
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/assets/odometer-theme-minimal.css">
+
+
+
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Typed.min.js"></script>
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/typed.js"></script>
+
+
+
+
+
+
+<div class="post-scripts" data-swup-reload-script>
+    
+        <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/anime.min.js"></script>
+        <script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/tocToggle.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/toc.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/tabs.js"></script>
+    
+</div>
+
+
+</body>
+</html>

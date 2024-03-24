@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="shawnyan,dba,oracle,mysql,tidb,mariadb,postgresql,gbase,proxysql">
+    
+    <meta name="author" content="Shawn Yan">
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+        
+        
+        
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://shawnyan.cn/2023/linux/centos-7.9-upgrade-to-rocky-9.2/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+        <meta name="description" content="概述 前文(《 【PG16】 后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行  》) 说到，PG16 已经对 CentOS 7 停止支持，不再提供相应的 RPM 包，或许也是时候考虑将 CentOS 7 系统进行升级了。 本文将演示如何将 CentOS 7.9 升级到 Rocky Linux 9.2。 由于某些不可控因素，无法从 CentOS 7.9 直接升级到 Rock">
+<meta property="og:type" content="article">
+<meta property="og:title" content="【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2">
+<meta property="og:url" content="https://shawnyan.cn/2023/linux/centos-7.9-upgrade-to-rocky-9.2/index.html">
+<meta property="og:site_name" content="少安事务所">
+<meta property="og:description" content="概述 前文(《 【PG16】 后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行  》) 说到，PG16 已经对 CentOS 7 停止支持，不再提供相应的 RPM 包，或许也是时候考虑将 CentOS 7 系统进行升级了。 本文将演示如何将 CentOS 7.9 升级到 Rocky Linux 9.2。 由于某些不可控因素，无法从 CentOS 7.9 直接升级到 Rock">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20231024-387674d4-6bf9-4517-bb04-e0c9212ceae4.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20231018-7f6b05f1-9872-4765-8d26-9b821ab4afef.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20231025-d78458aa-45e8-4929-95b1-95b15b1ec4b6.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20231006-eabb6b24-a8fb-4f52-93e4-e1d3119879f7.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20231025-1767c4aa-158d-4856-b393-85764e6b9f65.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20231006-007a55a9-4ea1-492d-a77f-510a6db43284.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20231025-14687b2b-3c88-4b73-88d4-fe0bd86d5716.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20231025-e3f7cc02-8891-4ac5-8586-e22ff0fe0acc.png">
+<meta property="article:published_time" content="2023-10-25T07:57:02.000Z">
+<meta property="article:modified_time" content="2023-10-25T07:57:02.000Z">
+<meta property="article:author" content="Shawn Yan">
+<meta property="article:tag" content="centos">
+<meta property="article:tag" content="redhat">
+<meta property="article:tag" content="rocky">
+<meta property="article:tag" content="linux">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20231024-387674d4-6bf9-4517-bb04-e0c9212ceae4.png">
+    
+    
+        <!-- Google tag (gtag.js) -->
+        <script src="https://www.googletagmanager.com/gtag/js?id=G-ZH71L5F7X2"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-ZH71L5F7X2');
+        </script>
+    
+    <!-- baidu tongji -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?2fa794d82f74c0bb3617ba62ee962b46";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/img/favicon.ico" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon.ico">
+    <meta name="theme-color" content="#767FF6">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <!--- Page Info-->
+    
+    <title>
+        
+            【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2 -
+        
+        少安事务所
+    </title>
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+<!--- use 2.5.0
+    
+        
+<link rel="stylesheet" href="/assets/build/styles.css">
+
+    
+-->
+    <link rel="stylesheet" href="//cdn.staticfile.org/hexo-theme-redefine/2.5.0/assets/build/styles.min.css">
+
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/fonts.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Satoshi/satoshi.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Chillax/chillax.css">
+    <!--- Font Part-->
+    
+    
+    
+    
+
+    <!--- Inject Part-->
+    
+    <script id="hexo-configurations">
+    let Global = window.Global || {};
+    Global.hexo_config = {"hostname":"shawnyan.cn","root":"/","language":"en","path":"search.xml"};
+    Global.theme_config = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":true,"list":[]},"code_block":{"copy":true,"style":"mac","font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":4,"number":false,"expand":true,"init_open":true},"copyright":true,"lazyload":true,"recommendation":{"enable":true,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#767FF6","secondary":null},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"open_graph":true,"google_analytics":{"enable":true,"id":"G-ZH71L5F7X2"},"root_color_mode":"dark"},"home_banner":{"enable":true,"style":"fixed","image":{"light":"https://asktug.com/uploads/default/original/4X/4/b/d/4bd94f804719672dd7e3cb29150ea6f777eb0aec.jpeg","dark":"/img/wallpaper/dark.webp"},"title":"Shawn Yan's Tech Blog.","subtitle":{"text":["A blog about MySQL, Oracle, TiDB, PostgreSQL and other databases."],"hitokoto":{"enable":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":500,"backing_delay":1500,"loop":true,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"links":{"github":"https://github.com/shawn0915","instagram":null,"zhihu":null,"twitter":null,"email":"admin@shawnyan.cn"},"qrs":{"weixin":null}}},"plugins":{"feed":{"enable":true},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":"回忆的沙漏 (10周年版)","artist":"回忆的沙漏 (10周年版)","url":"https://music.163.com/song/media/outer/url?id=1329122067.mp3","cover":"https://p1.music.126.net/oJorrgJ3IotZUAbZkBMuFw==/109951167771736533.jpg?param=68y68"}]},"mermaid":{"enable":false,"version":"9.3.0"}},"version":"2.4.4","navbar":{"auto_hide":false,"color":{"left":"#f78736","right":"#367df7","transparency":35},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Blog":{"path":"/archives","icon":"fa-regular fa-archive"},"Categories":{"path":"/categories","icon":"fa-regular fa-stream"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Links":{"icon":"fa-regular fa-link","submenus":{"My-params":"/my-params","Friends":"/links","Q":"/q"}}},"search":{"enable":true,"preload":true}},"page_templates":{"friends_column":3,"tags_style":"cloud"},"home":{"sidebar":{"enable":true,"position":"left","first_item":"info","announcement":null,"links":null},"article_date_format":"YYYY-MM-DD","categories":{"enable":true,"limit":10},"tags":{"enable":true,"limit":10}},"footerStart":"2017/11/27 00:00:00"};
+    Global.language_ago = {"second":"%s seconds ago","minute":"%s minutes ago","hour":"%s hours ago","day":"%s days ago","week":"%s weeks ago","month":"%s months ago","year":"%s years ago"};
+    Global.data_config = {"masonry":false};
+  </script>
+
+    <!--- Fontawesome Part-->
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/fontawesome.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/brands.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/solid.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/regular.min.css">
+    
+    
+    
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+
+
+<body>
+<div class="progress-bar-container">
+    
+
+    
+        <span class="pjax-progress-bar"></span>
+        <span class="swup-progress-icon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+    
+</div>
+
+
+<main class="page-container" id="swup">
+
+    
+
+    <div class="main-content-container">
+
+
+        <div class="main-content-header">
+            <header class="navbar-container">
+    
+    <div class="navbar-content">
+        <div class="left">
+            
+                <a class="logo-image" href="https://shawnyan.cn/">
+                    <img src="/img/favicon.ico">
+                </a>
+            
+            <a class="logo-title" href="https://shawnyan.cn/">
+                
+                少安事务所
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-house"></i>
+                                        
+                                        HOME
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/archives"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-archive"></i>
+                                        
+                                        BLOG
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/categories"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-stream"></i>
+                                        
+                                        CATEGORIES
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/tags"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-tags"></i>
+                                        
+                                        TAGS
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/about"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-user"></i>
+                                        
+                                        ABOUT
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="has-dropdown" 
+                                    href="#" onClick="return false;">
+                                    
+                                        
+                                            <i class="fa-regular fa-link"></i>
+                                        
+                                        LINKS&nbsp;<i class="fa-solid fa-chevron-down"></i>
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                                    <ul class="sub-menu">
+                                    
+                                        <li>
+                                        <a href="/my-params">MY-PARAMS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/links">FRIENDS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/q">Q
+                                        </a>
+                                        </li>
+                                    
+                                    </ul>
+                                
+                            </li>
+                    
+                    
+                        <li class="navbar-item search search-popup-trigger">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </li>
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                    <div class="icon-item search search-popup-trigger"><i class="fa-solid fa-magnifying-glass"></i></div>
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="navbar-drawer w-full absolute top-0 left-0 bg-background-color">
+        <ul class="drawer-navbar-list flex flex-col justify-start items-center">
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/"  >
+                             
+                                
+                                    <i class="fa-regular fa-house"></i>
+                                
+                                HOME
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/archives"  >
+                             
+                                
+                                    <i class="fa-regular fa-archive"></i>
+                                
+                                BLOG
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/categories"  >
+                             
+                                
+                                    <i class="fa-regular fa-stream"></i>
+                                
+                                CATEGORIES
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/tags"  >
+                             
+                                
+                                    <i class="fa-regular fa-tags"></i>
+                                
+                                TAGS
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/about"  >
+                             
+                                
+                                    <i class="fa-regular fa-user"></i>
+                                
+                                ABOUT
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group has-dropdown" 
+                        href="#" onClick="return false;">
+                            
+                                
+                                    <i class="fa-regular fa-link"></i>
+                                
+                                LINKS&nbsp;<i class="group-hover:rotate-180 transition-transform fa-solid fa-chevron-down"></i>
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                              
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/my-params">MY-PARAMS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/links">FRIENDS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/q">Q</a>
+                            </li>
+                        
+                    
+            
+
+        </ul>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+        </div>
+
+        <div class="main-content-body">
+
+            
+
+            <div class="main-content">
+
+                
+                    <div class="post-page-container">
+    <div class="article-content-container">
+
+        <div class="article-title">
+            
+                
+                
+                <!-- 2023-10-03, edit by shawnyan. -->
+                <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231024-387674d4-6bf9-4517-bb04-e0c9212ceae4.png" alt="【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2" class="max-w-none" referrerpolicy="no-referrer"/>
+                
+                <h1 class="article-title-cover">【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2</h1>
+            
+            </div>
+
+
+
+        
+            <div class="article-header">
+                <div class="avatar">
+                    
+                        <img src="/img/avatar.jpg">
+                    
+                </div>
+                <div class="info">
+                    <div class="author">
+                        
+                            <span class="name">ShawnYan</span>
+                        
+                        
+                            
+                                <span class="author-label">Lv.6</span>
+                            
+                        
+                    </div>
+                    <div class="meta-info">
+                        <div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2023-10-25 15:57:02</span>
+        <span class="mobile">2023-10-25 15:57:02</span>
+        <span class="hover-info">Created</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2023-10-25 15:57:02</span>
+            <span class="mobile">2023-10-25 15:57:02</span>
+            <span class="hover-info">Updated</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/red-hat/">Red Hat</a>&nbsp;
+                        </li>
+                    
+                    
+                
+                    
+                        
+                            <li>></li>
+                        
+                        <li>
+                            <a href="/categories/red-hat/rocky/">Rocky</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/centos/">centos</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/redhat/">redhat</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/rocky/">rocky</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/linux/">linux</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+        <span class="article-wordcount article-meta-item">
+            <i class="fa-regular fa-typewriter"></i>&nbsp;<span>5.3k Words</span>
+        </span>
+    
+    
+        <span class="article-min2read article-meta-item">
+            <i class="fa-regular fa-clock"></i>&nbsp;<span>30 Mins</span>
+        </span>
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+                    </div>
+                </div>
+            </div>
+        
+
+        
+
+
+        <div class="article-content markdown-body">
+            <img  alt="rocky-linux.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20231024-387674d4-6bf9-4517-bb04-e0c9212ceae4.png"
+                      referrerpolicy="no-referrer"
+                >
+<h2 id="概述">概述</h2>
+<p>前文(《 <a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/1708651177100013568" >【PG16】 后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 》) 说到，PG16 已经对 CentOS 7 停止支持，不再提供相应的 RPM 包，或许也是时候考虑将 CentOS 7 系统进行升级了。</p>
+<p>本文将演示如何将 CentOS 7.9 升级到 Rocky Linux 9.2。</p>
+<p>由于某些不可控因素，无法从 CentOS 7.9 直接升级到 Rocky Linux 9.2，而是选择这样一个路径：</p>
+<p><code>CentOS 7.9 --&gt; CentOS 8.5 --&gt; Rocky Linux 8.8 --&gt; Rocky Linux 9.2</code></p>
+<h2 id="检查">检查</h2>
+<p>检查系统 Kernel 及 OS 版本。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">uname -r</span><br><span class="line">cat /etc/redhat-release</span><br></pre></td></tr></table></figure></div>
+<p>输出日志：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~]# uname -r</span><br><span class="line">3.10.0-1160.95.1.el7.x86_64</span><br><span class="line">[root@shawnyan ~]# cat /etc/redhat-release</span><br><span class="line">CentOS Linux release 7.9.2009 (Core)</span><br></pre></td></tr></table></figure></div>
+<h2 id="安装-dnf">安装 dnf</h2>
+<p>从 RHEL 8 开始，系统默认安装并使用 dnf 作为包管理器，这里先安装 dnf，以替代 yum。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">yum install dnf -y</span><br><span class="line">dnf --version</span><br></pre></td></tr></table></figure></div>
+<p>输出日志：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~]# yum install dnf -y</span><br><span class="line">Loaded plugins: fastestmirror, langpacks</span><br><span class="line">...</span><br><span class="line">Dependencies Resolved</span><br><span class="line"></span><br><span class="line">============================================================================================================================================================================================================================================</span><br><span class="line">Package                                                     Arch                                              Version                                                      Repository                                                 Size</span><br><span class="line">============================================================================================================================================================================================================================================</span><br><span class="line">Installing:</span><br><span class="line">dnf                                                         noarch                                            4.0.9.2-2.el7_9                                              extras-aliyun                                             357 k</span><br><span class="line">Installing for dependencies:</span><br><span class="line">dnf-data                                                    noarch                                            4.0.9.2-2.el7_9                                              extras-aliyun                                              51 k</span><br><span class="line">libcomps                                                    x86_64                                            0.1.8-14.el7                                                 extras-aliyun                                              75 k</span><br><span class="line">libdnf                                                      x86_64                                            0.22.5-2.el7_9                                               extras-aliyun                                             535 k</span><br><span class="line">libmodulemd                                                 x86_64                                            1.6.3-1.el7                                                  extras-aliyun                                             141 k</span><br><span class="line">librepo                                                     x86_64                                            1.8.1-8.el7_9                                                updates-aliyun                                             82 k</span><br><span class="line">libsolv                                                     x86_64                                            0.6.34-4.el7                                                 base-aliyun                                               329 k</span><br><span class="line">python2-dnf                                                 noarch                                            4.0.9.2-2.el7_9                                              extras-aliyun                                             414 k</span><br><span class="line">python2-hawkey                                              x86_64                                            0.22.5-2.el7_9                                               extras-aliyun                                              71 k</span><br><span class="line">python2-libcomps                                            x86_64                                            0.1.8-14.el7                                                 extras-aliyun                                              47 k</span><br><span class="line">python2-libdnf                                              x86_64                                            0.22.5-2.el7_9                                               extras-aliyun                                             611 k</span><br><span class="line"></span><br><span class="line">Transaction Summary</span><br><span class="line">============================================================================================================================================================================================================================================</span><br><span class="line">Install  1 Package (+10 Dependent packages)</span><br><span class="line"></span><br><span class="line">Total download size: 2.6 M</span><br><span class="line">Installed size: 10 M</span><br><span class="line">Downloading packages:</span><br><span class="line">(1/11): dnf-data-4.0.9.2-2.el7_9.noarch.rpm                                                                                                                                                                          |  51 kB  00:00:00     </span><br><span class="line">(2/11): dnf-4.0.9.2-2.el7_9.noarch.rpm                                                                                                                                                                               | 357 kB  00:00:00     </span><br><span class="line">(3/11): libcomps-0.1.8-14.el7.x86_64.rpm                                                                                                                                                                             |  75 kB  00:00:00     </span><br><span class="line">(4/11): libmodulemd-1.6.3-1.el7.x86_64.rpm                                                                                                                                                                           | 141 kB  00:00:00     </span><br><span class="line">(5/11): libdnf-0.22.5-2.el7_9.x86_64.rpm                                                                                                                                                                             | 535 kB  00:00:00     </span><br><span class="line">(6/11): librepo-1.8.1-8.el7_9.x86_64.rpm                                                                                                                                                                             |  82 kB  00:00:00     </span><br><span class="line">(7/11): python2-hawkey-0.22.5-2.el7_9.x86_64.rpm                                                                                                                                                                     |  71 kB  00:00:00     </span><br><span class="line">(8/11): python2-dnf-4.0.9.2-2.el7_9.noarch.rpm                                                                                                                                                                       | 414 kB  00:00:00     </span><br><span class="line">(9/11): python2-libcomps-0.1.8-14.el7.x86_64.rpm                                                                                                                                                                     |  47 kB  00:00:00     </span><br><span class="line">(10/11): libsolv-0.6.34-4.el7.x86_64.rpm                                                                                                                                                                             | 329 kB  00:00:00     </span><br><span class="line">(11/11): python2-libdnf-0.22.5-2.el7_9.x86_64.rpm                                                                                                                                                                    | 611 kB  00:00:00     </span><br><span class="line">--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------</span><br><span class="line">Total                                                                                                                                                                                                       1.2 MB/s | 2.6 MB  00:00:02     </span><br><span class="line">...</span><br><span class="line">[root@shawnyan ~]# dnf --version</span><br><span class="line">4.0.9</span><br><span class="line">  Installed: dnf-0:4.0.9.2-2.el7_9.noarch at Thu 05 Oct 2023 02:54:34 PM CST</span><br><span class="line">  Built    : CentOS BuildSystem &lt;http://bugs.centos.org&gt; at Wed 07 Apr 2021 03:52:38 PM CST</span><br><span class="line"></span><br><span class="line">  Installed: rpm-0:4.11.3-48.el7_9.x86_64 at Fri 10 Feb 2023 02:11:48 PM CST</span><br><span class="line">  Built    : CentOS BuildSystem &lt;http://bugs.centos.org&gt; at Wed 24 Nov 2021 04:33:39 PM CST</span><br><span class="line">[root@shawnyan ~]#</span><br></pre></td></tr></table></figure></div>
+<h2 id="检查包冲突，并卸载冲突的包">检查包冲突，并卸载冲突的包</h2>
+<p>在升级之前，需要先解决包冲突的问题，不然升级过程中会遇到报错。这一步也是在后续整理文章时加入的。</p>
+<p>具体命令如下：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">yum install -y yum-utils rpmconf</span><br><span class="line">rpmconf -a</span><br><span class="line">package-cleanup --leaves</span><br><span class="line">package-cleanup --orphans</span><br><span class="line">yum remove -y &lt;package&gt;</span><br></pre></td></tr></table></figure></div>
+<!--
+package-cleanup --leaves | grep el7 | xargs dnf remove -y
+package-cleanup --orphans | grep el7 | xargs dnf remove -y
+dnf remove openssl11-* libgfortran5-* vim-* python36-* -y
+-->
+<p>输出日志：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~]# dnf install yum-utils</span><br><span class="line">Last metadata expiration check: 0:02:42 ago on Sun 15 Oct 2023 02:32:45 PM CST.</span><br><span class="line">Dependencies resolved.</span><br><span class="line">============================================================================================================================================================================================================================================</span><br><span class="line">Package                                                           Arch                                            Version                                                       Repository                                            Size</span><br><span class="line">============================================================================================================================================================================================================================================</span><br><span class="line">Installing:</span><br><span class="line">yum-utils                                                         noarch                                          1.1.31-54.el7_8                                               base-aliyun                                          122 k</span><br><span class="line">Installing dependencies:</span><br><span class="line">yum                                                               noarch                                          3.4.3-168.el7.centos                                          base-aliyun                                          1.2 M</span><br><span class="line">yum-metadata-parser                                               x86_64                                          1.1.4-10.el7                                                  base-aliyun                                           28 k</span><br><span class="line">yum-plugin-fastestmirror                                          noarch                                          1.1.31-54.el7_8                                               base-aliyun                                           34 k</span><br><span class="line"></span><br><span class="line">Transaction Summary</span><br><span class="line">============================================================================================================================================================================================================================================</span><br><span class="line">Install  4 Packages</span><br><span class="line"></span><br><span class="line">Total download size: 1.4 M</span><br><span class="line">Installed size: 6.0 M</span><br><span class="line">Is this ok [y/N]: y</span><br><span class="line">Downloading Packages:</span><br><span class="line">(1/4): yum-plugin-fastestmirror-1.1.31-54.el7_8.noarch.rpm                                                                                                                                                   84 kB/s |  34 kB     00:00    </span><br><span class="line">(2/4): yum-metadata-parser-1.1.4-10.el7.x86_64.rpm                                                                                                                                                           54 kB/s |  28 kB     00:00    </span><br><span class="line">(3/4): yum-utils-1.1.31-54.el7_8.noarch.rpm                                                                                                                                                                 543 kB/s | 122 kB     00:00    </span><br><span class="line">(4/4): yum-3.4.3-168.el7.centos.noarch.rpm                                                                                                                                                                  899 kB/s | 1.2 MB     00:01    </span><br><span class="line">--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------</span><br><span class="line">Total                                                                                                                                                                                                       1.0 MB/s | 1.4 MB     00:01     </span><br><span class="line">Running transaction check</span><br><span class="line">Transaction check succeeded.</span><br><span class="line">Running transaction test</span><br><span class="line">Transaction test succeeded.</span><br><span class="line">Running transaction</span><br><span class="line">  Preparing        :                                                                                                                                                                                                                    1/1</span><br><span class="line">  Installing       : yum-metadata-parser-1.1.4-10.el7.x86_64                                                                                                                                                                            1/4</span><br><span class="line">  Installing       : yum-plugin-fastestmirror-1.1.31-54.el7_8.noarch                                                                                                                                                                    2/4</span><br><span class="line">  Installing       : yum-3.4.3-168.el7.centos.noarch                                                                                                                                                                                    3/4</span><br><span class="line">  Installing       : yum-utils-1.1.31-54.el7_8.noarch                                                                                                                                                                                   4/4</span><br><span class="line">  Verifying        : yum-3.4.3-168.el7.centos.noarch                                                                                                                                                                                    1/4</span><br><span class="line">  Verifying        : yum-metadata-parser-1.1.4-10.el7.x86_64                                                                                                                                                                            2/4</span><br><span class="line">  Verifying        : yum-plugin-fastestmirror-1.1.31-54.el7_8.noarch                                                                                                                                                                    3/4</span><br><span class="line">  Verifying        : yum-utils-1.1.31-54.el7_8.noarch                                                                                                                                                                                   4/4</span><br><span class="line"></span><br><span class="line">Installed:</span><br><span class="line">  yum-utils-1.1.31-54.el7_8.noarch                     yum-3.4.3-168.el7.centos.noarch                     yum-metadata-parser-1.1.4-10.el7.x86_64                     yum-plugin-fastestmirror-1.1.31-54.el7_8.noarch                    </span><br><span class="line"></span><br><span class="line">Complete!</span><br></pre></td></tr></table></figure></div>
+<h2 id="卸载-yum">卸载 yum</h2>
+<p>确认没有包冲突之后，就可以卸载 yum 了，之后就完全使用 dnf 作为替代。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">dnf remove -y yum*</span><br><span class="line">rm -Rf /etc/yum</span><br></pre></td></tr></table></figure></div>
+<p>输出日志：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~]# dnf remove -y yum*</span><br><span class="line">Dependencies resolved.</span><br><span class="line">============================================================================================================================================================================================================================================</span><br><span class="line">Package                                                            Arch                                           Version                                                            Repository                                       Size</span><br><span class="line">============================================================================================================================================================================================================================================</span><br><span class="line">Removing:</span><br><span class="line">yum                                                                noarch                                         3.4.3-168.el7.centos                                               @System                                         5.6 M</span><br><span class="line">yum-langpacks                                                      noarch                                         0.4.2-7.el7                                                        @System                                          71 k</span><br><span class="line">yum-metadata-parser                                                x86_64                                         1.1.4-10.el7                                                       @System                                          57 k</span><br><span class="line">yum-plugin-fastestmirror                                           noarch                                         1.1.31-54.el7_8                                                    @System                                          53 k</span><br><span class="line">yum-utils                                                          noarch                                         1.1.31-54.el7_8                                                    @System                                         337 k</span><br><span class="line">Removing dependent packages:</span><br><span class="line">firstboot                                                          x86_64                                         19.12-1.el7                                                        @System                                         294 k</span><br><span class="line">gnome-packagekit                                                   x86_64                                         3.28.0-1.el7                                                       @System                                           0  </span><br><span class="line">gnome-software                                                     x86_64                                         3.28.2-3.el7                                                       @System                                         8.4 M</span><br><span class="line">initial-setup-gui                                                  x86_64                                         0.3.9.45-1.el7.centos                                              @System                                          32 k</span><br><span class="line">Removing unused dependencies:</span><br><span class="line">PackageKit                                                         x86_64                                         1.1.10-2.el7.centos                                                @System                                         2.6 M</span><br><span class="line">PackageKit-yum                                                     x86_64                                         1.1.10-2.el7.centos                                                @System                                         301 k</span><br><span class="line">anaconda-core                                                      x86_64                                         21.48.22.159-1.el7.centos                                          @System                                         8.2 M</span><br><span class="line">anaconda-gui                                                       x86_64                                         21.48.22.159-1.el7.centos                                          @System                                         1.5 M</span><br><span class="line">anaconda-tui                                                       x86_64                                         21.48.22.159-1.el7.centos                                          @System                                         447 k</span><br><span class="line">createrepo                                                         noarch                                         0.9.9-28.el7                                                       @System                                         302 k</span><br><span class="line">gnome-packagekit-common                                            x86_64                                         3.28.0-1.el7                                                       @System                                         6.4 M</span><br><span class="line">gnome-packagekit-installer                                         x86_64                                         3.28.0-1.el7                                                       @System                                         202 k</span><br><span class="line">gnome-packagekit-updater                                           x86_64                                         3.28.0-1.el7                                                       @System                                         194 k</span><br><span class="line">initial-setup                                                      x86_64                                         0.3.9.45-1.el7.centos                                              @System                                         222 k</span><br><span class="line">python-meh                                                         noarch                                         0.25.3-1.el7                                                       @System                                         254 k</span><br><span class="line">python-meh-gui                                                     noarch                                         0.25.3-1.el7                                                       @System                                          24 k</span><br><span class="line"></span><br><span class="line">Transaction Summary</span><br><span class="line">============================================================================================================================================================================================================================================</span><br><span class="line">Remove  21 Packages</span><br><span class="line"></span><br><span class="line">Freed space: 35 M</span><br><span class="line">Running transaction check</span><br><span class="line">Transaction check succeeded.</span><br><span class="line">Running transaction test</span><br><span class="line">Transaction test succeeded.</span><br><span class="line">Running transaction</span><br><span class="line">  Preparing        :                                                                                                                                                                                                                    1/1</span><br><span class="line">  Running scriptlet: initial-setup-gui-0.3.9.45-1.el7.centos.x86_64                                                                                                                                                                    1/21</span><br><span class="line">  Erasing          : initial-setup-gui-0.3.9.45-1.el7.centos.x86_64                                                                                                                                                                    1/21</span><br><span class="line">  Running scriptlet: initial-setup-gui-0.3.9.45-1.el7.centos.x86_64                                                                                                                                                                    1/21</span><br><span class="line">  Erasing          : anaconda-gui-21.48.22.159-1.el7.centos.x86_64                                                                                                                                                                     2/21</span><br><span class="line">  Erasing          : gnome-packagekit-3.28.0-1.el7.x86_64                                                                                                                                                                              3/21</span><br><span class="line">  Running scriptlet: gnome-packagekit-3.28.0-1.el7.x86_64                                                                                                                                                                              3/21</span><br><span class="line">  Erasing          : python-meh-gui-0.25.3-1.el7.noarch                                                                                                                                                                                4/21</span><br><span class="line">  Running scriptlet: initial-setup-0.3.9.45-1.el7.centos.x86_64                                                                                                                                                                        5/21</span><br><span class="line">  Erasing          : initial-setup-0.3.9.45-1.el7.centos.x86_64                                                                                                                                                                        5/21</span><br><span class="line">  Running scriptlet: initial-setup-0.3.9.45-1.el7.centos.x86_64                                                                                                                                                                        5/21</span><br><span class="line">  Erasing          : anaconda-tui-21.48.22.159-1.el7.centos.x86_64                                                                                                                                                                     6/21</span><br><span class="line">  Erasing          : anaconda-core-21.48.22.159-1.el7.centos.x86_64                                                                                                                                                                    7/21</span><br><span class="line">  Erasing          : createrepo-0.9.9-28.el7.noarch                                                                                                                                                                                    8/21</span><br><span class="line">  Erasing          : yum-utils-1.1.31-54.el7_8.noarch                                                                                                                                                                                  9/21</span><br><span class="line">  Erasing          : yum-langpacks-0.4.2-7.el7.noarch                                                                                                                                                                                 10/21</span><br><span class="line">warning: /etc/yum/pluginconf.d/langpacks.conf saved as /etc/yum/pluginconf.d/langpacks.conf.rpmsave</span><br><span class="line"></span><br><span class="line">  Running scriptlet: firstboot-19.12-1.el7.x86_64                                                                                                                                                                                     11/21</span><br><span class="line">  Erasing          : firstboot-19.12-1.el7.x86_64                                                                                                                                                                                     11/21</span><br><span class="line">  Running scriptlet: firstboot-19.12-1.el7.x86_64                                                                                                                                                                                     11/21</span><br><span class="line">  Erasing          : python-meh-0.25.3-1.el7.noarch                                                                                                                                                                                   12/21</span><br><span class="line">  Erasing          : gnome-packagekit-installer-3.28.0-1.el7.x86_64                                                                                                                                                                   13/21</span><br><span class="line">  Erasing          : gnome-packagekit-updater-3.28.0-1.el7.x86_64                                                                                                                                                                     14/21</span><br><span class="line">  Erasing          : gnome-packagekit-common-3.28.0-1.el7.x86_64                                                                                                                                                                      15/21</span><br><span class="line">  Erasing          : gnome-software-3.28.2-3.el7.x86_64                                                                                                                                                                               16/21</span><br><span class="line">  Running scriptlet: gnome-software-3.28.2-3.el7.x86_64                                                                                                                                                                               16/21</span><br><span class="line">  Erasing          : PackageKit-yum-1.1.10-2.el7.centos.x86_64                                                                                                                                                                        17/21</span><br><span class="line">  Erasing          : PackageKit-1.1.10-2.el7.centos.x86_64                                                                                                                                                                            18/21</span><br><span class="line">  Erasing          : yum-plugin-fastestmirror-1.1.31-54.el7_8.noarch                                                                                                                                                                  19/21</span><br><span class="line">  Erasing          : yum-3.4.3-168.el7.centos.noarch                                                                                                                                                                                  20/21</span><br><span class="line">  Erasing          : yum-metadata-parser-1.1.4-10.el7.x86_64                                                                                                                                                                          21/21</span><br><span class="line">  Verifying        : PackageKit-1.1.10-2.el7.centos.x86_64                                                                                                                                                                             1/21</span><br><span class="line">  Verifying        : PackageKit-yum-1.1.10-2.el7.centos.x86_64                                                                                                                                                                         2/21</span><br><span class="line">  Verifying        : anaconda-core-21.48.22.159-1.el7.centos.x86_64                                                                                                                                                                    3/21</span><br><span class="line">  Verifying        : anaconda-gui-21.48.22.159-1.el7.centos.x86_64                                                                                                                                                                     4/21</span><br><span class="line">  Verifying        : anaconda-tui-21.48.22.159-1.el7.centos.x86_64                                                                                                                                                                     5/21</span><br><span class="line">  Verifying        : createrepo-0.9.9-28.el7.noarch                                                                                                                                                                                    6/21</span><br><span class="line">  Verifying        : firstboot-19.12-1.el7.x86_64                                                                                                                                                                                      7/21</span><br><span class="line">  Verifying        : gnome-packagekit-3.28.0-1.el7.x86_64                                                                                                                                                                              8/21</span><br><span class="line">  Verifying        : gnome-packagekit-common-3.28.0-1.el7.x86_64                                                                                                                                                                       9/21</span><br><span class="line">  Verifying        : gnome-packagekit-installer-3.28.0-1.el7.x86_64                                                                                                                                                                   10/21</span><br><span class="line">  Verifying        : gnome-packagekit-updater-3.28.0-1.el7.x86_64                                                                                                                                                                     11/21</span><br><span class="line">  Verifying        : gnome-software-3.28.2-3.el7.x86_64                                                                                                                                                                               12/21</span><br><span class="line">  Verifying        : initial-setup-0.3.9.45-1.el7.centos.x86_64                                                                                                                                                                       13/21</span><br><span class="line">  Verifying        : initial-setup-gui-0.3.9.45-1.el7.centos.x86_64                                                                                                                                                                   14/21</span><br><span class="line">  Verifying        : python-meh-0.25.3-1.el7.noarch                                                                                                                                                                                   15/21</span><br><span class="line">  Verifying        : python-meh-gui-0.25.3-1.el7.noarch                                                                                                                                                                               16/21</span><br><span class="line">  Verifying        : yum-3.4.3-168.el7.centos.noarch                                                                                                                                                                                  17/21</span><br><span class="line">  Verifying        : yum-langpacks-0.4.2-7.el7.noarch                                                                                                                                                                                 18/21</span><br><span class="line">  Verifying        : yum-metadata-parser-1.1.4-10.el7.x86_64                                                                                                                                                                          19/21</span><br><span class="line">  Verifying        : yum-plugin-fastestmirror-1.1.31-54.el7_8.noarch                                                                                                                                                                  20/21</span><br><span class="line">  Verifying        : yum-utils-1.1.31-54.el7_8.noarch                                                                                                                                                                                 21/21</span><br><span class="line"></span><br><span class="line">Removed:</span><br><span class="line">  yum-3.4.3-168.el7.centos.noarch               yum-langpacks-0.4.2-7.el7.noarch                 yum-metadata-parser-1.1.4-10.el7.x86_64         yum-plugin-fastestmirror-1.1.31-54.el7_8.noarch   yum-utils-1.1.31-54.el7_8.noarch       </span><br><span class="line">  firstboot-19.12-1.el7.x86_64                  gnome-packagekit-3.28.0-1.el7.x86_64             gnome-software-3.28.2-3.el7.x86_64              initial-setup-gui-0.3.9.45-1.el7.centos.x86_64    PackageKit-1.1.10-2.el7.centos.x86_64  </span><br><span class="line">  PackageKit-yum-1.1.10-2.el7.centos.x86_64     anaconda-core-21.48.22.159-1.el7.centos.x86_64   anaconda-gui-21.48.22.159-1.el7.centos.x86_64   anaconda-tui-21.48.22.159-1.el7.centos.x86_64     createrepo-0.9.9-28.el7.noarch         </span><br><span class="line">  gnome-packagekit-common-3.28.0-1.el7.x86_64   gnome-packagekit-installer-3.28.0-1.el7.x86_64   gnome-packagekit-updater-3.28.0-1.el7.x86_64    initial-setup-0.3.9.45-1.el7.centos.x86_64        python-meh-0.25.3-1.el7.noarch         </span><br><span class="line">  python-meh-gui-0.25.3-1.el7.noarch           </span><br><span class="line"></span><br><span class="line">Complete!</span><br><span class="line">[root@shawnyan ~]# rm -Rf /etc/yum</span><br><span class="line">[root@shawnyan ~]#</span><br></pre></td></tr></table></figure></div>
+<h2 id="切换-yum-源到-Rocky-Linux-8，并升级-–-FAILED">切换 yum 源到 Rocky Linux 8，并升级 – FAILED</h2>
+<p>将现有的 yum 源文件进行备份，并上传 Rocky Linux 8 的仓库文件。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">cd /etc/yum.repos.d</span><br><span class="line">mkdir el7</span><br><span class="line">mv *.repo el7</span><br><span class="line">vi rocky.repo</span><br></pre></td></tr></table></figure></div>
+<p>然后执行升级命令。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dnf upgrade</span><br></pre></td></tr></table></figure></div>
+<p>不过这样从 CentOS 7 直接升级到 Rocky Linux 8 总是报错，尚未找到合适的解决办法。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">Running transaction check</span><br><span class="line">Error: transaction check vs depsolve:</span><br><span class="line">(gcc &gt;= 8 with gcc &lt; 9) is needed by annobin-10.94-1.el8.x86_64</span><br><span class="line">rpmlib(RichDependencies) &lt;= 4.12.0-1 is needed by annobin-10.94-1.el8.x86_64</span><br><span class="line">(flatpak-selinux = 1.10.7-1.el8 if selinux-policy-targeted) is needed by flatpak-1.10.7-1.el8.x86_64</span><br><span class="line">rpmlib(RichDependencies) &lt;= 4.12.0-1 is needed by flatpak-1.10.7-1.el8.x86_64</span><br><span class="line">(annobin if gcc) is needed by redhat-rpm-config-131-1.el8.noarch</span><br><span class="line">(gcc-plugin-annobin if gcc) is needed by redhat-rpm-config-131-1.el8.noarch</span><br><span class="line">rpmlib(RichDependencies) &lt;= 4.12.0-1 is needed by redhat-rpm-config-131-1.el8.noarch</span><br><span class="line">(NetworkManager &gt;= 1.20 or dhclient) is needed by dracut-network-049-223.git20230119.el8.x86_64</span><br><span class="line">rpmlib(RichDependencies) &lt;= 4.12.0-1 is needed by dracut-network-049-223.git20230119.el8.x86_64</span><br><span class="line">(selinux-policy &gt;= 3.14.3-98 if selinux-policy) is needed by rng-tools-6.15-3.el8.x86_64</span><br><span class="line">rpmlib(RichDependencies) &lt;= 4.12.0-1 is needed by rng-tools-6.15-3.el8.x86_64</span><br><span class="line">(systemd-standalone-tmpfiles or systemd) is needed by samba-common-0:4.17.5-3.el8_8.noarch</span><br><span class="line">rpmlib(RichDependencies) &lt;= 4.12.0-1 is needed by samba-common-0:4.17.5-3.el8_8.noarch</span><br><span class="line">To diagnose the problem, try running: &#x27;rpm -Va --nofiles --nodigest&#x27;.</span><br><span class="line">You probably have corrupted RPMDB, running &#x27;rpm --rebuilddb&#x27; might fix the issue.</span><br><span class="line">The downloaded packages were saved in cache until the next successful transaction.</span><br><span class="line">You can remove cached packages by executing &#x27;dnf clean packages&#x27;.</span><br></pre></td></tr></table></figure></div>
+<p>无奈只好采取迂回战略，先从 CentOS 7 升级到 CentOS 8，再迁移到 Rocky Linux。</p>
+<h2 id="切换-yum-源到-CentOS-Vault-8-5-–-SUCCESS">切换 yum 源到 CentOS Vault 8.5 – SUCCESS</h2>
+<p>将 yum 源切换到 CentOS Vault 8.5。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vi centos8.repo</span><br></pre></td></tr></table></figure></div>
+<p>测试 yum 源是否可以正常使用。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dnf group list</span><br></pre></td></tr></table></figure></div>
+<p>输出结果：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan yum.repos.d]# dnf group list</span><br><span class="line">AppStream-Aliyun                                                                                                                                                                                            8.6 MB/s |  11 MB     00:01    </span><br><span class="line">BaseOS-Aliyun                                                                                                                                                                                               7.0 MB/s | 7.1 MB     00:01    </span><br><span class="line">epel-aliyun                                                                                                                                                                                                 9.3 MB/s |  16 MB     00:01    </span><br><span class="line">Last metadata expiration check: 0:00:02 ago on Thu 05 Oct 2023 10:56:02 PM CST.</span><br></pre></td></tr></table></figure></div>
+<p>关键步骤来了，从 CentOS 7 升级到 CentOS 8。</p>
+<p>使用 <code>dnf distro-sync</code> 命令，将系统中已安装的软件包同步到最新版本。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">rpm --rebuilddb</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">移除旧 CentOS kernel</span></span><br><span class="line">rpm -e `rpm -q kernel` --nodeps</span><br><span class="line">dnf -y --releasever=8 --allowerasing --setopt=deltarpm=false distro-sync --disablerepo=AppStream --best</span><br></pre></td></tr></table></figure></div>
+<!--
+rpm -ivh --nodeps --force https://mirrors.aliyun.com/centos-vault/8.5.2111/BaseOS/x86_64/os/Packages/dracut-network-049-191.git20210920.el8.x86_64.rpm
+
+rpm -e --nodeps sysvinit-tools
+-->
+<img  alt="01.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20231018-7f6b05f1-9872-4765-8d26-9b821ab4afef.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>升级日志太多，此处省略一万字。。。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">  Cleanup          : setup-2.8.71-11.el7.noarch                                               1812/1816</span><br><span class="line">  Obsoleting       : centos-release-7-9.2009.1.el7.centos.x86_64                              1813/1816</span><br><span class="line">  Cleanup          : ncurses-base-5.9-14.20130511.el7_4.noarch                                1815/1816</span><br><span class="line">  Cleanup          : libgcc-4.8.5-44.el7.x86_64                                               1816/1816</span><br><span class="line">  Running scriptlet: libgcc-4.8.5-44.el7.x86_64                                               1816/1816</span><br><span class="line">  Running scriptlet: filesystem-3.8-6.el8.x86_64                                              1816/1816</span><br><span class="line">  Running scriptlet: glibc-all-langpacks-2.28-164.el8.x86_64                                  1816/1816</span><br><span class="line">  Running scriptlet: ca-certificates-2021.2.50-80.0.el8_4.noarch                              1816/1816</span><br><span class="line">  Running scriptlet: GeoIP-GeoLite-data-2018.06-5.el8.noarch                                  1816/1816</span><br><span class="line">  Running scriptlet: authselect-libs-1.2.2-3.el8.x86_64                                       1816/1816</span><br><span class="line">  Running scriptlet: kernel-core-4.18.0-348.7.1.el8_5.x86_64                                  1816/1816</span><br><span class="line">...</span><br><span class="line">Complete!</span><br></pre></td></tr></table></figure></div>
+<p>升级完成后，查看系统版本，可以看到已经升级到了 CentOS 8.5，但是内核版本还停留在 el7，需要重启系统。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~]# uname -r</span><br><span class="line">3.10.0-1160.95.1.el7.x86_64</span><br><span class="line">[root@shawnyan ~]# cat /etc/redhat-release</span><br><span class="line">CentOS Linux release 8.5.2111</span><br><span class="line">[root@shawnyan yum.repos.d]# hostnamectl</span><br><span class="line">   Static hostname: shawnyan</span><br><span class="line">         Icon name: computer-vm</span><br><span class="line">           Chassis: vm</span><br><span class="line">        Machine ID: e7f51860c9c34455bcb755eac18c8868</span><br><span class="line">           Boot ID: 9558aec7c722488da9388e251df4ebbf</span><br><span class="line">    Virtualization: vmware</span><br><span class="line">  Operating System: CentOS Linux 8</span><br><span class="line">       CPE OS Name: cpe:/o:centos:centos:8</span><br><span class="line">            Kernel: Linux 3.10.0-1160.95.1.el7.x86_64</span><br><span class="line">      Architecture: x86-64</span><br><span class="line">[root@shawnyan yum.repos.d]# reboot</span><br></pre></td></tr></table></figure></div>
+<img  alt="02.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20231025-d78458aa-45e8-4929-95b1-95b15b1ec4b6.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>重启之后，可以看到版本都升级到 el8 了。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">Last login: Tue Oct 24 23:59:50 2023 from 192.168.8.1</span><br><span class="line">[root@shawnyan ~]# cat /etc/redhat-release</span><br><span class="line">CentOS Linux release 8.5.2111</span><br><span class="line">[root@shawnyan ~]# uname -a</span><br><span class="line">Linux shawnyan 4.18.0-348.7.1.el8_5.x86_64 #1 SMP Wed Dec 22 13:25:12 UTC 2021 x86_64 x86_64 x86_64 GNU/Linux</span><br><span class="line">[root@shawnyan ~]# hostnamectl</span><br><span class="line">   Static hostname: shawnyan</span><br><span class="line">         Icon name: computer-vm</span><br><span class="line">           Chassis: vm</span><br><span class="line">        Machine ID: e7f51860c9c34455bcb755eac18c8868</span><br><span class="line">           Boot ID: 56c5f6e4c9a0497db3654cf0d4b48541</span><br><span class="line">    Virtualization: vmware</span><br><span class="line">  Operating System: CentOS Linux 8</span><br><span class="line">       CPE OS Name: cpe:/o:centos:centos:8</span><br><span class="line">            Kernel: Linux 4.18.0-348.7.1.el8_5.x86_64</span><br><span class="line">      Architecture: x86-64</span><br><span class="line">[root@shawnyan ~]#</span><br></pre></td></tr></table></figure></div>
+<h2 id="从-CentOS-8-切换到-Rocky-8">从 CentOS 8 切换到 Rocky 8</h2>
+<p>从 CentOS 切换到 Rocky，需要先切换 yum 源，然后执行 <code>dnf swap</code> 切换命令即可。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dnf swap &#x27;centos-*&#x27; rocky-release</span><br></pre></td></tr></table></figure></div>
+<p>输出日志：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan yum.repos.d]# dnf swap &#x27;centos-*&#x27; rocky-release</span><br><span class="line">epel-aliyun                                                                                                                                                                                                 1.3 MB/s |  16 MB     00:12    </span><br><span class="line">BaseOS-Aliyun                                                                                                                                                                                               1.9 MB/s | 7.2 MB     00:03    </span><br><span class="line">AppStream-Aliyun                                                                                                                                                                                            1.3 MB/s |  12 MB     00:08    </span><br><span class="line">Last metadata expiration check: 0:00:01 ago on Wed 25 Oct 2023 12:42:08 AM CST.</span><br><span class="line">Dependencies resolved.</span><br><span class="line">============================================================================================================================================================================================================================================</span><br><span class="line">Package                                                         Architecture                                     Version                                                     Repository                                               Size</span><br><span class="line">============================================================================================================================================================================================================================================</span><br><span class="line">Installing:</span><br><span class="line">rocky-release                                                   noarch                                           8.8-1.8.el8                                                 BaseOS-Aliyun                                            22 k</span><br><span class="line">Installing dependencies:</span><br><span class="line">rocky-gpg-keys                                                  noarch                                           8.8-1.8.el8                                                 BaseOS-Aliyun                                            13 k</span><br><span class="line">rocky-repos                                                     noarch                                           8.8-1.8.el8                                                 BaseOS-Aliyun                                            15 k</span><br><span class="line">Removing:</span><br><span class="line">centos-gpg-keys                                                 noarch                                           1:8-3.el8                                                   @base                                                   3.3 k</span><br><span class="line">centos-indexhtml                                                noarch                                           8.0-0.el8                                                   @base                                                   505 k</span><br><span class="line">centos-linux-release                                            noarch                                           8.5-1.2111.el8                                              @base                                                    26 k</span><br><span class="line">centos-linux-repos                                              noarch                                           8-3.el8                                                     @base                                                    26 k</span><br><span class="line">centos-logos                                                    x86_64                                           85.8-2.el8                                                  @base                                                   716 k</span><br><span class="line">centos-release-scl                                              noarch                                           2-3.el7.centos                                              @System                                                  20 k</span><br><span class="line">centos-release-scl-rh                                           noarch                                           2-3.el7.centos                                              @System                                                  20 k</span><br><span class="line"></span><br><span class="line">Transaction Summary</span><br><span class="line">============================================================================================================================================================================================================================================</span><br><span class="line">Install  3 Packages</span><br><span class="line">Remove   7 Packages</span><br><span class="line"></span><br><span class="line">Total download size: 50 k</span><br><span class="line">Is this ok [y/N]: y</span><br><span class="line">Downloading Packages:</span><br><span class="line">(1/3): rocky-gpg-keys-8.8-1.8.el8.noarch.rpm                                                                                                                                                                 68 kB/s |  13 kB     00:00    </span><br><span class="line">(2/3): rocky-release-8.8-1.8.el8.noarch.rpm                                                                                                                                                                 107 kB/s |  22 kB     00:00    </span><br><span class="line">(3/3): rocky-repos-8.8-1.8.el8.noarch.rpm                                                                                                                                                                    62 kB/s |  15 kB     00:00    </span><br><span class="line">--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------</span><br><span class="line">Total                                                                                                                                                                                                       202 kB/s |  50 kB     00:00     </span><br><span class="line">Running transaction check</span><br><span class="line">Transaction check succeeded.</span><br><span class="line">Running transaction test</span><br><span class="line">Transaction test succeeded.</span><br><span class="line">Running transaction</span><br><span class="line">  Preparing        :                                                                                                                                                                                                                    1/1</span><br><span class="line">  Running scriptlet: rocky-gpg-keys-8.8-1.8.el8.noarch                                                                                                                                                                                  1/1</span><br><span class="line">  Installing       : rocky-gpg-keys-8.8-1.8.el8.noarch                                                                                                                                                                                 1/10</span><br><span class="line">  Installing       : rocky-release-8.8-1.8.el8.noarch                                                                                                                                                                                  2/10</span><br><span class="line">  Installing       : rocky-repos-8.8-1.8.el8.noarch                                                                                                                                                                                    3/10</span><br><span class="line">  Erasing          : centos-release-scl-2-3.el7.centos.noarch                                                                                                                                                                          4/10</span><br><span class="line">warning: file /etc/yum.repos.d/CentOS-SCLo-scl.repo: remove failed: No such file or directory</span><br><span class="line"></span><br><span class="line">  Erasing          : centos-release-scl-rh-2-3.el7.centos.noarch                                                                                                                                                                       5/10</span><br><span class="line">warning: file /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo: remove failed: No such file or directory</span><br><span class="line"></span><br><span class="line">  Erasing          : centos-linux-release-8.5-1.2111.el8.noarch                                                                                                                                                                        6/10</span><br><span class="line">  Erasing          : centos-linux-repos-8-3.el8.noarch                                                                                                                                                                                 7/10</span><br><span class="line">warning: file /etc/yum.repos.d/CentOS-Linux-Sources.repo: remove failed: No such file or directory</span><br><span class="line">warning: file /etc/yum.repos.d/CentOS-Linux-PowerTools.repo: remove failed: No such file or directory</span><br><span class="line">warning: file /etc/yum.repos.d/CentOS-Linux-Plus.repo: remove failed: No such file or directory</span><br><span class="line">warning: file /etc/yum.repos.d/CentOS-Linux-Media.repo: remove failed: No such file or directory</span><br><span class="line">warning: file /etc/yum.repos.d/CentOS-Linux-HighAvailability.repo: remove failed: No such file or directory</span><br><span class="line">warning: file /etc/yum.repos.d/CentOS-Linux-FastTrack.repo: remove failed: No such file or directory</span><br><span class="line">warning: file /etc/yum.repos.d/CentOS-Linux-Extras.repo: remove failed: No such file or directory</span><br><span class="line">warning: file /etc/yum.repos.d/CentOS-Linux-Devel.repo: remove failed: No such file or directory</span><br><span class="line">warning: file /etc/yum.repos.d/CentOS-Linux-Debuginfo.repo: remove failed: No such file or directory</span><br><span class="line">warning: file /etc/yum.repos.d/CentOS-Linux-ContinuousRelease.repo: remove failed: No such file or directory</span><br><span class="line">warning: file /etc/yum.repos.d/CentOS-Linux-BaseOS.repo: remove failed: No such file or directory</span><br><span class="line">warning: file /etc/yum.repos.d/CentOS-Linux-AppStream.repo: remove failed: No such file or directory</span><br><span class="line"></span><br><span class="line">  Erasing          : centos-gpg-keys-1:8-3.el8.noarch                                                                                                                                                                                  8/10</span><br><span class="line">  Erasing          : centos-logos-85.8-2.el8.x86_64                                                                                                                                                                                    9/10</span><br><span class="line">  Running scriptlet: centos-logos-85.8-2.el8.x86_64                                                                                                                                                                                    9/10</span><br><span class="line">  Erasing          : centos-indexhtml-8.0-0.el8.noarch                                                                                                                                                                                10/10</span><br><span class="line">  Running scriptlet: centos-indexhtml-8.0-0.el8.noarch                                                                                                                                                                                10/10</span><br><span class="line">  Verifying        : rocky-gpg-keys-8.8-1.8.el8.noarch                                                                                                                                                                                 1/10</span><br><span class="line">  Verifying        : rocky-release-8.8-1.8.el8.noarch                                                                                                                                                                                  2/10</span><br><span class="line">  Verifying        : rocky-repos-8.8-1.8.el8.noarch                                                                                                                                                                                    3/10</span><br><span class="line">  Verifying        : centos-gpg-keys-1:8-3.el8.noarch                                                                                                                                                                                  4/10</span><br><span class="line">  Verifying        : centos-indexhtml-8.0-0.el8.noarch                                                                                                                                                                                 5/10</span><br><span class="line">  Verifying        : centos-linux-release-8.5-1.2111.el8.noarch                                                                                                                                                                        6/10</span><br><span class="line">  Verifying        : centos-linux-repos-8-3.el8.noarch                                                                                                                                                                                 7/10</span><br><span class="line">  Verifying        : centos-logos-85.8-2.el8.x86_64                                                                                                                                                                                    8/10</span><br><span class="line">  Verifying        : centos-release-scl-2-3.el7.centos.noarch                                                                                                                                                                          9/10</span><br><span class="line">  Verifying        : centos-release-scl-rh-2-3.el7.centos.noarch                                                                                                                                                                      10/10</span><br><span class="line"></span><br><span class="line">Installed:</span><br><span class="line">  rocky-gpg-keys-8.8-1.8.el8.noarch                                              rocky-release-8.8-1.8.el8.noarch                                              rocky-repos-8.8-1.8.el8.noarch                                             </span><br><span class="line">Removed:</span><br><span class="line">  centos-gpg-keys-1:8-3.el8.noarch             centos-indexhtml-8.0-0.el8.noarch  centos-linux-release-8.5-1.2111.el8.noarch  centos-linux-repos-8-3.el8.noarch  centos-logos-85.8-2.el8.x86_64  centos-release-scl-2-3.el7.centos.noarch</span><br><span class="line">  centos-release-scl-rh-2-3.el7.centos.noarch</span><br><span class="line"></span><br><span class="line">Complete!</span><br><span class="line">[root@shawnyan yum.repos.d]#</span><br><span class="line">[root@shawnyan yum.repos.d]#</span><br><span class="line">[root@shawnyan yum.repos.d]#</span><br><span class="line">[root@shawnyan yum.repos.d]# cat /etc/redhat-release</span><br><span class="line">Rocky Linux release 8.8 (Green Obsidian)</span><br><span class="line">[root@shawnyan yum.repos.d]# uname -a</span><br><span class="line">Linux shawnyan 4.18.0-348.7.1.el8_5.x86_64 #1 SMP Wed Dec 22 13:25:12 UTC 2021 x86_64 x86_64 x86_64 GNU/Linux</span><br><span class="line">[root@shawnyan yum.repos.d]# hostnamectl</span><br><span class="line">   Static hostname: shawnyan</span><br><span class="line">         Icon name: computer-vm</span><br><span class="line">           Chassis: vm</span><br><span class="line">        Machine ID: e7f51860c9c34455bcb755eac18c8868</span><br><span class="line">           Boot ID: 56c5f6e4c9a0497db3654cf0d4b48541</span><br><span class="line">    Virtualization: vmware</span><br><span class="line">  Operating System: Rocky Linux 8.8 (Green Obsidian)</span><br><span class="line">       CPE OS Name: cpe:/o:rocky:rocky:8:GA</span><br><span class="line">            Kernel: Linux 4.18.0-348.7.1.el8_5.x86_64</span><br><span class="line">      Architecture: x86-64</span><br><span class="line">[root@shawnyan yum.repos.d]#</span><br></pre></td></tr></table></figure></div>
+<p>切换很顺畅，完成后再执行升级，将系统内核更新到最新版本。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan yum.repos.d]# dnf update --allowerasing</span><br><span class="line">...</span><br><span class="line">Installed:</span><br><span class="line">  NetworkManager-initscripts-updown-1:1.40.16-4.el8_8.noarch annobin-10.94-1.el8.x86_64                bind-libs-32:9.11.36-8.el8_8.2.x86_64  bind-libs-lite-32:9.11.36-8.el8_8.2.x86_64 bind-utils-32:9.11.36-8.el8_8.2.x86_64         </span><br><span class="line">  elfutils-libelf-devel-0.188-3.el8.x86_64                   fstrm-0.6.1-3.el8.x86_64                  gcc-8.5.0-18.el8.x86_64                gcc-plugin-annobin-8.5.0-18.el8.x86_64     geolite2-city-20180605-1.el8.noarch            </span><br><span class="line">  geolite2-country-20180605-1.el8.noarch                     glibc-gconv-extra-2.28-225.el8_8.6.x86_64 isl-0.16.1-6.el8.x86_64                kernel-core-4.18.0-477.27.1.el8_8.x86_64   kernel-debug-devel-4.18.0-477.27.1.el8_8.x86_64</span><br><span class="line">  kernel-modules-4.18.0-477.27.1.el8_8.x86_64                libmaxminddb-1.2.0-10.el8.x86_64          protobuf-c-1.3.0-6.el8.x86_64          python3-bind-32:9.11.36-8.el8_8.2.noarch   python3-chardet-3.0.4-7.el8.noarch             </span><br><span class="line">  python3-idna-2.5-5.el8.noarch                              python3-magic-5.33-24.el8.noarch          python3-pexpect-4.3.1-3.el8.noarch     python3-ply-3.9-9.el8.noarch               python3-ptyprocess-0.5.2-4.el8.noarch          </span><br><span class="line">  python3-pysocks-1.6.8-3.el8.noarch                         python3-requests-2.20.0-3.el8_8.noarch    python3-setuptools-39.2.0-7.el8.noarch python3-systemd-234-8.el8.x86_64           python3-unbound-1.16.2-5.el8.x86_64            </span><br><span class="line">  python3-urllib3-1.24.2-5.el8.noarch                        unbound-libs-1.16.2-5.el8.x86_64         </span><br><span class="line"></span><br><span class="line">Complete!</span><br><span class="line">[root@shawnyan yum.repos.d]# dnf update --allowerasing</span><br><span class="line">Last metadata expiration check: 0:07:35 ago on Wed 25 Oct 2023 12:55:30 AM CST.</span><br><span class="line">Dependencies resolved.</span><br><span class="line">Nothing to do.</span><br><span class="line">Complete!</span><br><span class="line">[root@shawnyan yum.repos.d]#</span><br></pre></td></tr></table></figure></div>
+<img  alt="03.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20231006-eabb6b24-a8fb-4f52-93e4-e1d3119879f7.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>升级后重启系统，并查看版本信息。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan yum.repos.d]# cat /etc/redhat-release</span><br><span class="line">Rocky Linux release 8.8 (Green Obsidian)</span><br><span class="line">[root@shawnyan yum.repos.d]# uname -a</span><br><span class="line">Linux shawnyan 4.18.0-348.7.1.el8_5.x86_64 #1 SMP Wed Dec 22 13:25:12 UTC 2021 x86_64 x86_64 x86_64 GNU/Linux</span><br><span class="line">[root@shawnyan yum.repos.d]# reboot</span><br></pre></td></tr></table></figure></div>
+<img  alt="04.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20231025-1767c4aa-158d-4856-b393-85764e6b9f65.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>Rocky 的登陆界面。</p>
+<img  alt="05.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20231006-007a55a9-4ea1-492d-a77f-510a6db43284.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>可以看到重启前后内核版本发生了变化。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">Last login: Wed Oct 25 00:39:04 2023 from 192.168.8.1</span><br><span class="line">[root@shawnyan ~]# cat /etc/redhat-release</span><br><span class="line">Rocky Linux release 8.8 (Green Obsidian)</span><br><span class="line">[root@shawnyan ~]# uname -a</span><br><span class="line">Linux shawnyan 4.18.0-477.27.1.el8_8.x86_64 #1 SMP Wed Sep 20 15:55:39 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux</span><br><span class="line">[root@shawnyan ~]# hostnamectl</span><br><span class="line">   Static hostname: shawnyan</span><br><span class="line">         Icon name: computer-vm</span><br><span class="line">           Chassis: vm</span><br><span class="line">        Machine ID: e7f51860c9c34455bcb755eac18c8868</span><br><span class="line">           Boot ID: 788363ea2b7442c8a5f269aeb2ff2ab2</span><br><span class="line">    Virtualization: vmware</span><br><span class="line">  Operating System: Rocky Linux 8.8 (Green Obsidian)</span><br><span class="line">       CPE OS Name: cpe:/o:rocky:rocky:8:GA</span><br><span class="line">            Kernel: Linux 4.18.0-477.27.1.el8_8.x86_64</span><br><span class="line">      Architecture: x86-64</span><br><span class="line">[root@shawnyan ~]#</span><br></pre></td></tr></table></figure></div>
+<p>到此，操作系统版本已经从 CentOS 7.9 来到了 Rocky Linux 8.8，接下来，将升级到 Rocky 9。</p>
+<h2 id="从-Rocky-8-升级到-Rocky-9">从 Rocky 8 升级到 Rocky 9</h2>
+<p>与 CentOS 7 升级到 CentOS 8 类似，先切换 yum 源到 Rocky 9，然后执行 <code>dnf upgrade</code> 升级命令。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan yum.repos.d]# dnf upgrade --allowerasing</span><br><span class="line">Last metadata expiration check: 0:00:28 ago on Wed 25 Oct 2023 01:14:48 AM CST.</span><br><span class="line">Modular dependency problems:</span><br><span class="line"></span><br><span class="line">Problem 1: conflicting requests</span><br><span class="line">  - nothing provides module(platform:el8) needed by module container-tools:rhel8:8080020231004143727:8108cfbc.x86_64</span><br><span class="line">Problem 2: conflicting requests</span><br><span class="line">  - nothing provides module(platform:el8) needed by module go-toolset:rhel8:8080020230629185105:17f3f959.x86_64</span><br><span class="line">Problem 3: conflicting requests</span><br><span class="line">  - nothing provides module(platform:el8) needed by module idm:client:8080020230516222414:152c1be2.x86_64</span><br><span class="line">Problem 4: conflicting requests</span><br><span class="line">  - nothing provides module(platform:el8) needed by module llvm-toolset:rhel8:8080020230201094332:fd72936b.x86_64</span><br><span class="line">Problem 5: conflicting requests</span><br><span class="line">  - nothing provides module(platform:el8) needed by module swig:3.0:8040020210530171044:9f9e2e7e.x86_64</span><br><span class="line">Problem 6: conflicting requests</span><br><span class="line">  - nothing provides module(platform:el8) needed by module virt:rhel:8080020230922173645:fd72936b.x86_64</span><br><span class="line">Dependencies resolved.</span><br><span class="line">============================================================================================================================================================================================================================================</span><br><span class="line">Package                                                                Architecture                           Version                                                              Repository                                         Size</span><br><span class="line">============================================================================================================================================================================================================================================</span><br><span class="line">Installing:</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">rocky-gpg-keys                                                         noarch                                 9.2-1.6.el9                                                          baseos                                             13 k</span><br><span class="line">rocky-release                                                          noarch                                 9.2-1.6.el9                                                          baseos                                             23 k</span><br><span class="line">rocky-repos                                                            noarch                                 9.2-1.6.el9                                                          baseos                                             12 k</span><br><span class="line">...</span><br><span class="line">Transaction Summary</span><br><span class="line">============================================================================================================================================================================================================================================</span><br><span class="line">Install   184 Packages</span><br><span class="line">Upgrade  1057 Packages</span><br><span class="line">Remove     22 Packages</span><br><span class="line"></span><br><span class="line">Total download size: 844 M</span><br><span class="line">Is this ok [y/N]: y</span><br><span class="line">...</span><br><span class="line">  Upgrading        : dracut-057-21.git20230214.el9.x86_64                                                                                                                                                                          803/2347</span><br><span class="line">  Installing       : kernel-modules-core-5.14.0-284.30.1.el9_2.x86_64                                                                                                                                                              804/2347</span><br><span class="line">  Installing       : kernel-core-5.14.0-284.30.1.el9_2.x86_64                                                                                                                                                                      805/2347</span><br><span class="line">  Running scriptlet: kernel-core-5.14.0-284.30.1.el9_2.x86_64                                                                                                                                                                      805/2347</span><br><span class="line">...</span><br><span class="line">Complete!</span><br></pre></td></tr></table></figure></div>
+<p>安装完成，可以看到 kernel 版本已经来到了 5.14，重启系统并查看版本信息。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan yum.repos.d]# cat /etc/redhat-release</span><br><span class="line">Rocky Linux release 9.2 (Blue Onyx)</span><br><span class="line">[root@shawnyan yum.repos.d]# uname -a</span><br><span class="line">Linux shawnyan 4.18.0-477.27.1.el8_8.x86_64 #1 SMP Wed Sep 20 15:55:39 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux</span><br><span class="line">[root@shawnyan yum.repos.d]# hostnamectl</span><br><span class="line">Static hostname: shawnyan</span><br><span class="line">       Icon name: computer-vm</span><br><span class="line">         Chassis: vm 🖴</span><br><span class="line">      Machine ID: e7f51860c9c34455bcb755eac18c8868</span><br><span class="line">         Boot ID: 788363ea2b7442c8a5f269aeb2ff2ab2</span><br><span class="line">  Virtualization: vmware</span><br><span class="line">Operating System: Rocky Linux 9.2 (Blue Onyx)       </span><br><span class="line">     CPE OS Name: cpe:/o:rocky:rocky:9::baseos</span><br><span class="line">          Kernel: Linux 4.18.0-477.27.1.el8_8.x86_64</span><br><span class="line">    Architecture: x86-64</span><br><span class="line">Firmware Version: 6.00</span><br><span class="line">[root@shawnyan yum.repos.d]# reboot</span><br></pre></td></tr></table></figure></div>
+<img  alt="06.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20231025-14687b2b-3c88-4b73-88d4-fe0bd86d5716.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>进入系统，查看版本。</p>
+<img  alt="07.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20231025-e3f7cc02-8891-4ac5-8586-e22ff0fe0acc.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>到此，从 Rocky 8 升级到 Rocky 9 的所有步骤已经完成。</p>
+<h2 id="结语">结语</h2>
+<p>本文从提笔到完成，零零总总过去了一个月时间，从 CentOS 7 升级到 Rocky 9 这种跨大版本，跨发行版本的升级是非常复杂的。</p>
+<p>而且，升级操作系统本身，就是一个系统工程，影响范围非常之广，对于 DBA 而言，还需要进行数据库对新系统的一些兼容性测试。</p>
+<p>简言之，升级操作系统版本，过程非常复杂，耗时非常之久。故而并不建议如此操作，而是建议直接采购新机器，在新机器上安装新系统，后期再做数据迁移。</p>
+<p>下一期，我们来聊聊如何从头 <a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/1716634949384757248" >一步一步安装 Rocky Linux 9 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 。</p>
+<hr>
+<p><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/1717086120041865216" >https://www.modb.pro/db/1717086120041865216 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+
+        </div>
+
+        
+            <div class="post-copyright-info">
+                <div class="article-copyright-info-container">
+    <ul>
+    <!-- 2023-10-03, edit by shawnyan. -->
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Title:</strong> 【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2</li>
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Author:</strong>
+            
+                ShawnYan
+            
+        </li>
+        <li><strong>Created at:</strong> 2023-10-25 15:57:02</li>
+        
+            <li><strong>Updated at:</strong> 2023-10-25 15:57:02</li>
+        
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Link:</strong> https://shawnyan.cn/2023/linux/centos-7.9-upgrade-to-rocky-9.2/</li>
+        <li style="word-wrap: break-word; white-space: normal;">
+            <strong>
+                License:
+            </strong>
+            
+            This work is licensed under <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>.
+            
+
+        </li>
+    </ul>
+</div>
+
+            </div>
+        
+
+        
+            <ul class="post-tags-box">
+                
+                    <li class="tag-item">
+                        <a href="/tags/centos/">#centos</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/redhat/">#redhat</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/rocky/">#rocky</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/linux/">#linux</a>&nbsp;
+                    </li>
+                
+            </ul>
+        
+
+        
+  <div class="recommended-article">
+   <div class="recommended-desktop">
+    <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+    </div>
+    <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/linux/rocky-9.3-upgrade-from-9.2/" title="【Rocky 9】Rocky Linux 9.2 升级 9.3，及新特性实践" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231121-0b401079-e902-4483-b6b5-49c37d784bb0.png" alt="【Rocky 9】Rocky Linux 9.2 升级 9.3，及新特性实践" class="!max-w-none">
+  <span class="title">【Rocky 9】Rocky Linux 9.2 升级 9.3，及新特性实践</span>
+</a><a class="recommended-article-item" href="/2023/mysql/mariadb-v10.11-new-feature/" title="MariaDB v10.11 新特性速览" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240302-aa216387-1210-43df-917c-1d33c5fda25b.png" alt="MariaDB v10.11 新特性速览" class="!max-w-none">
+  <span class="title">MariaDB v10.11 新特性速览</span>
+</a><a class="recommended-article-item" href="/2024/mysql/greatsql-ap-rapid/" title="抢鲜体验 GreatSQL 的 AP 引擎 Rapid" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240205-b04a5749-440d-4d5b-a8cd-4700116b24d7.png" alt="抢鲜体验 GreatSQL 的 AP 引擎 Rapid" class="!max-w-none">
+  <span class="title">抢鲜体验 GreatSQL 的 AP 引擎 Rapid</span>
+</a></div>
+   </div>
+   <div class="recommended-mobile">
+   <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+   </div>
+   <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/linux/rocky-9.3-upgrade-from-9.2/" title="【Rocky 9】Rocky Linux 9.2 升级 9.3，及新特性实践" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231121-0b401079-e902-4483-b6b5-49c37d784bb0.png" alt="【Rocky 9】Rocky Linux 9.2 升级 9.3，及新特性实践" class="!max-w-none">
+  <span class="title">【Rocky 9】Rocky Linux 9.2 升级 9.3，及新特性实践</span>
+</a><a class="recommended-article-item" href="/2023/mysql/mariadb-v10.11-new-feature/" title="MariaDB v10.11 新特性速览" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240302-aa216387-1210-43df-917c-1d33c5fda25b.png" alt="MariaDB v10.11 新特性速览" class="!max-w-none">
+  <span class="title">MariaDB v10.11 新特性速览</span>
+</a></div>
+   </div>
+  </div>
+
+        
+            <div class="article-nav">
+                
+                    <div class="article-prev">
+                        <a class="prev"
+                        rel="prev"
+                        href="/2023/mysql/mysql-8.2.0-sys-vars/"
+                        >
+                            <span class="left arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </span>
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">【MySQL 8.x】从参数变化解读 MySQL 8.2.0 发版说明</span>
+                                <span class="post-nav-item">Prev posts</span>
+                            </span>
+                        </a>
+                    </div>
+                
+                
+                    <div class="article-next">
+                        <a class="next"
+                        rel="next"
+                        href="/2023/linux/rocky-9.2-install/"
+                        >
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">【Rocky 9】Step by Step 安装 Rocky Linux 9.2 系统</span>
+                                <span class="post-nav-item">Next posts</span>
+                            </span>
+                            <span class="right arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </a>
+                    </div>
+                
+            </div>
+        
+
+
+        
+            <div class="comment-container">
+                <div class="comments-container pjax">
+    <div id="comment-anchor"></div>
+    <div class="comment-area-title">
+        <i class="fa-solid fa-comments"></i>&nbsp;Comments
+    </div>
+    
+
+        
+            
+    <div id="gitalk-container"></div>
+    <script data-swup-reload-script
+            src="//cdn.staticfile.org/gitalk/1.8.0/gitalk.min.js"></script>
+    <script data-swup-reload-script>
+
+        function loadGitalk() {
+            let __gitalk__pathname = decodeURI(location.pathname);
+            const __gitalk__pathnameLength = __gitalk__pathname.length;
+            const __gitalk__pathnameMaxLength = 50;
+            if (__gitalk__pathnameLength > __gitalk__pathnameMaxLength) {
+                __gitalk__pathname = __gitalk__pathname.substring(0, __gitalk__pathnameMaxLength - 3) + '...';
+            }
+
+            try {
+                Gitalk && new Gitalk({
+                    clientID: '32d049bf3701e6791070',
+                    clientSecret: '36c295ad3dad4c739b530ef113d0a979d8c35c5d',
+                    repo: 'gitalk',
+                    owner: 'shawn0915',
+                    admin: ['shawn0915'],
+                    id: __gitalk__pathname,
+                    language: 'en'
+                }).render('gitalk-container');
+
+            } catch (e) {
+                window.Gitalk = null;
+            }
+        }
+
+        if ('true') {
+            const loadGitalkTimeout = setTimeout(() => {
+                loadGitalk();
+                clearTimeout(loadGitalkTimeout);
+            }, 1000);
+        } else {
+            window.addEventListener('DOMContentLoaded', loadGitalk);
+        }
+    </script>
+
+
+
+        
+    
+</div>
+
+            </div>
+        
+    </div>
+
+    
+        <div class="toc-content-container">
+            <div class="post-toc-wrap">
+    <div class="post-toc">
+        <div class="toc-title">On this page</div>
+<!--         <div class="page-title">【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2</div> -->
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A6%82%E8%BF%B0"><span class="nav-text">概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A3%80%E6%9F%A5"><span class="nav-text">检查</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%89%E8%A3%85-dnf"><span class="nav-text">安装 dnf</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A3%80%E6%9F%A5%E5%8C%85%E5%86%B2%E7%AA%81%EF%BC%8C%E5%B9%B6%E5%8D%B8%E8%BD%BD%E5%86%B2%E7%AA%81%E7%9A%84%E5%8C%85"><span class="nav-text">检查包冲突，并卸载冲突的包</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%B8%E8%BD%BD-yum"><span class="nav-text">卸载 yum</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%87%E6%8D%A2-yum-%E6%BA%90%E5%88%B0-Rocky-Linux-8%EF%BC%8C%E5%B9%B6%E5%8D%87%E7%BA%A7-%E2%80%93-FAILED"><span class="nav-text">切换 yum 源到 Rocky Linux 8，并升级 – FAILED</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%87%E6%8D%A2-yum-%E6%BA%90%E5%88%B0-CentOS-Vault-8-5-%E2%80%93-SUCCESS"><span class="nav-text">切换 yum 源到 CentOS Vault 8.5 – SUCCESS</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%8E-CentOS-8-%E5%88%87%E6%8D%A2%E5%88%B0-Rocky-8"><span class="nav-text">从 CentOS 8 切换到 Rocky 8</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%8E-Rocky-8-%E5%8D%87%E7%BA%A7%E5%88%B0-Rocky-9"><span class="nav-text">从 Rocky 8 升级到 Rocky 9</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BB%93%E8%AF%AD"><span class="nav-text">结语</span></a></li></ol>
+
+    </div>
+</div>
+
+        </div>
+    
+</div>
+
+
+
+                
+
+            </div>
+
+            
+
+        </div>
+
+        <div class="main-content-footer">
+            <footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2017</span>
+              -
+            
+            2024&nbsp;&nbsp;<i class="fa-solid fa-heart fa-beat" style="--fa-animation-duration: 0.5s; color: #f54545"></i>&nbsp;&nbsp;<a href="/">Shawn Yan</a>
+        </div>
+        
+            <script data-swup-reload-script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">VISITOR COUNT</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">TOTAL PAGE VIEWS</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">POWERED BY <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a></span>
+            <span class="text-sm lg:block">THEME&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.4.4</a></span>
+        </div>
+        
+        
+            <div>
+                Blog up for <span class="odometer" id="runtime_days" ></span> days <span class="odometer" id="runtime_hours"></span> hrs <span class="odometer" id="runtime_minutes"></span> Min <span class="odometer" id="runtime_seconds"></span> Sec
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+
+    </div>
+</footer>
+
+        </div>
+    </div>
+
+    
+        <div class="post-tools">
+            <div class="post-tools-container">
+    <ul class="article-tools-list">
+        <!-- TOC aside toggle -->
+        
+            <li class="right-bottom-tools page-aside-toggle">
+                <i class="fa-regular fa-outdent"></i>
+            </li>
+        
+
+        <!-- go comment -->
+        
+            <li class="go-comment">
+                <i class="fa-regular fa-comments"></i>
+            </li>
+        
+    </ul>
+</div>
+
+        </div>
+    
+
+    <div class="right-side-tools-container">
+        <div class="side-tools-container">
+    <ul class="hidden-tools-list">
+        <li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-plus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-minus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-expand-width flex justify-center items-center">
+            <i class="fa-regular fa-expand"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+            <i class="fa-regular fa-moon"></i>
+        </li>
+
+        <!-- rss -->
+        
+            <li class="right-bottom-tools rss flex justify-center items-center">
+                <a class="flex justify-center items-center"
+                   href="/atom.xml"
+                   target="_blank"
+                >
+                <i class="fa-regular fa-rss"></i>
+                </a>
+            </li>
+        
+
+        
+
+        <li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+            <i class="fa-regular fa-arrow-down"></i>
+        </li>
+    </ul>
+
+    <ul class="visible-tools-list">
+        <li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+            <i class="fa-regular fa-cog fa-spin"></i>
+        </li>
+        
+            <li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+                <i class="arrow-up fas fa-arrow-up"></i>
+                <span class="percent"></span>
+            </li>
+        
+        
+    </ul>
+</div>
+
+    </div>
+
+    <div class="image-viewer-container">
+    <img src="">
+</div>
+
+
+    
+        <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+          <span class="search-input-field-pre">
+            <i class="fa-solid fa-keyboard"></i>
+          </span>
+            <div class="search-input-container">
+                <input autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       placeholder="Search..."
+                       spellcheck="false"
+                       type="search"
+                       class="search-input"
+                >
+            </div>
+            <span class="popup-btn-close">
+                <i class="fa-solid fa-times"></i>
+            </span>
+        </div>
+        <div id="search-result">
+            <div id="no-result">
+                <i class="fa-solid fa-spinner fa-spin-pulse fa-5x fa-fw"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+
+</main>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Swup.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupSlideTheme.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScriptsPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupProgressPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScrollPlugin.min.js"></script>
+<script>
+    const swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+        ],
+        containers: ["#swup"],
+    });
+
+    swup.hooks.on("page:view", () => {
+        Global.refresh();
+    });
+
+    // if (document.readyState === "complete") {
+    //
+    // } else {
+    //     document.addEventListener("DOMContentLoaded", () => init());
+    // }
+</script>
+
+
+
+
+
+<script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/utils.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/main.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/navbarShrink.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/scrollTopBottom.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/lightDarkSwitch.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/categoryList.js"></script>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/localSearch.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/codeBlock.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/lazyload.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/runtime.js"></script>
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/odometer.min.js"></script>
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/assets/odometer-theme-minimal.css">
+
+
+
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Typed.min.js"></script>
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/typed.js"></script>
+
+
+
+
+
+
+<div class="post-scripts" data-swup-reload-script>
+    
+        <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/anime.min.js"></script>
+        <script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/tocToggle.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/toc.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/tabs.js"></script>
+    
+</div>
+
+
+</body>
+</html>

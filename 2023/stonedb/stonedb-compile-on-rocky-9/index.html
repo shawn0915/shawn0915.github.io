@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="shawnyan,dba,oracle,mysql,tidb,mariadb,postgresql,gbase,proxysql">
+    
+    <meta name="author" content="Shawn Yan">
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+        
+        
+        
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://shawnyan.cn/2023/stonedb/stonedb-compile-on-rocky-9/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+        <meta name="description" content="TL;DR 之前体验过如何安装 StoneDB，并发文演示了几个新特性。关于什么是 StoneDB，请先参阅前文。  StoneDB 初体验 | StoneDB-5.7-v1.0.4 安装及新特性速览   本文记录了这几天在 Rocky Linux 9.2 上编译安装 StoneDB 5.7 最新源码的“扎心”经历。 对 StoneDB、MySQL、RocksDB 或 Rocky 9 感兴趣的">
+<meta property="og:type" content="article">
+<meta property="og:title" content="三天三夜的三更半夜! StoneDB on Rocky 9">
+<meta property="og:url" content="https://shawnyan.cn/2023/stonedb/stonedb-compile-on-rocky-9/index.html">
+<meta property="og:site_name" content="少安事务所">
+<meta property="og:description" content="TL;DR 之前体验过如何安装 StoneDB，并发文演示了几个新特性。关于什么是 StoneDB，请先参阅前文。  StoneDB 初体验 | StoneDB-5.7-v1.0.4 安装及新特性速览   本文记录了这几天在 Rocky Linux 9.2 上编译安装 StoneDB 5.7 最新源码的“扎心”经历。 对 StoneDB、MySQL、RocksDB 或 Rocky 9 感兴趣的">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20231112-eb248ffd-a26e-4961-a300-1ad96d40c363.gif">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20231112-2c68f249-0e36-475e-b347-eb27dce795b5.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20231112-5577cbe9-418d-40c3-858d-5545ffb334cf.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20231112-b70b660b-1188-40ac-a2f2-47f033653f25.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20231112-30d736e0-b2bb-4a79-8b00-9d3f084456a2.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20231112-071981b4-a9da-43e4-bae3-ac7fdd31e220.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20231112-df8a7e4c-5e88-4bc7-92b0-996c777b226d.png">
+<meta property="article:published_time" content="2023-11-11T18:34:53.000Z">
+<meta property="article:modified_time" content="2023-11-11T18:34:53.000Z">
+<meta property="article:author" content="Shawn Yan">
+<meta property="article:tag" content="compile">
+<meta property="article:tag" content="rocky">
+<meta property="article:tag" content="stonedb">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20231112-eb248ffd-a26e-4961-a300-1ad96d40c363.gif">
+    
+    
+        <!-- Google tag (gtag.js) -->
+        <script src="https://www.googletagmanager.com/gtag/js?id=G-ZH71L5F7X2"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-ZH71L5F7X2');
+        </script>
+    
+    <!-- baidu tongji -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?2fa794d82f74c0bb3617ba62ee962b46";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/img/favicon.ico" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon.ico">
+    <meta name="theme-color" content="#767FF6">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <!--- Page Info-->
+    
+    <title>
+        
+            三天三夜的三更半夜! StoneDB on Rocky 9 -
+        
+        少安事务所
+    </title>
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+<!--- use 2.5.0
+    
+        
+<link rel="stylesheet" href="/assets/build/styles.css">
+
+    
+-->
+    <link rel="stylesheet" href="//cdn.staticfile.org/hexo-theme-redefine/2.5.0/assets/build/styles.min.css">
+
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/fonts.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Satoshi/satoshi.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Chillax/chillax.css">
+    <!--- Font Part-->
+    
+    
+    
+    
+
+    <!--- Inject Part-->
+    
+    <script id="hexo-configurations">
+    let Global = window.Global || {};
+    Global.hexo_config = {"hostname":"shawnyan.cn","root":"/","language":"en","path":"search.xml"};
+    Global.theme_config = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":true,"list":[]},"code_block":{"copy":true,"style":"mac","font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":4,"number":false,"expand":true,"init_open":true},"copyright":true,"lazyload":true,"recommendation":{"enable":true,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#767FF6","secondary":null},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"open_graph":true,"google_analytics":{"enable":true,"id":"G-ZH71L5F7X2"},"root_color_mode":"dark"},"home_banner":{"enable":true,"style":"fixed","image":{"light":"https://asktug.com/uploads/default/original/4X/4/b/d/4bd94f804719672dd7e3cb29150ea6f777eb0aec.jpeg","dark":"/img/wallpaper/dark.webp"},"title":"Shawn Yan's Tech Blog.","subtitle":{"text":["A blog about MySQL, Oracle, TiDB, PostgreSQL and other databases."],"hitokoto":{"enable":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":500,"backing_delay":1500,"loop":true,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"links":{"github":"https://github.com/shawn0915","instagram":null,"zhihu":null,"twitter":null,"email":"admin@shawnyan.cn"},"qrs":{"weixin":null}}},"plugins":{"feed":{"enable":true},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":"回忆的沙漏 (10周年版)","artist":"回忆的沙漏 (10周年版)","url":"https://music.163.com/song/media/outer/url?id=1329122067.mp3","cover":"https://p1.music.126.net/oJorrgJ3IotZUAbZkBMuFw==/109951167771736533.jpg?param=68y68"}]},"mermaid":{"enable":false,"version":"9.3.0"}},"version":"2.4.4","navbar":{"auto_hide":false,"color":{"left":"#f78736","right":"#367df7","transparency":35},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Blog":{"path":"/archives","icon":"fa-regular fa-archive"},"Categories":{"path":"/categories","icon":"fa-regular fa-stream"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Links":{"icon":"fa-regular fa-link","submenus":{"My-params":"/my-params","Friends":"/links","Q":"/q"}}},"search":{"enable":true,"preload":true}},"page_templates":{"friends_column":3,"tags_style":"cloud"},"home":{"sidebar":{"enable":true,"position":"left","first_item":"info","announcement":null,"links":null},"article_date_format":"YYYY-MM-DD","categories":{"enable":true,"limit":10},"tags":{"enable":true,"limit":10}},"footerStart":"2017/11/27 00:00:00"};
+    Global.language_ago = {"second":"%s seconds ago","minute":"%s minutes ago","hour":"%s hours ago","day":"%s days ago","week":"%s weeks ago","month":"%s months ago","year":"%s years ago"};
+    Global.data_config = {"masonry":false};
+  </script>
+
+    <!--- Fontawesome Part-->
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/fontawesome.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/brands.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/solid.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/regular.min.css">
+    
+    
+    
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+
+
+<body>
+<div class="progress-bar-container">
+    
+
+    
+        <span class="pjax-progress-bar"></span>
+        <span class="swup-progress-icon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+    
+</div>
+
+
+<main class="page-container" id="swup">
+
+    
+
+    <div class="main-content-container">
+
+
+        <div class="main-content-header">
+            <header class="navbar-container">
+    
+    <div class="navbar-content">
+        <div class="left">
+            
+                <a class="logo-image" href="https://shawnyan.cn/">
+                    <img src="/img/favicon.ico">
+                </a>
+            
+            <a class="logo-title" href="https://shawnyan.cn/">
+                
+                少安事务所
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-house"></i>
+                                        
+                                        HOME
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/archives"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-archive"></i>
+                                        
+                                        BLOG
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/categories"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-stream"></i>
+                                        
+                                        CATEGORIES
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/tags"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-tags"></i>
+                                        
+                                        TAGS
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/about"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-user"></i>
+                                        
+                                        ABOUT
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="has-dropdown" 
+                                    href="#" onClick="return false;">
+                                    
+                                        
+                                            <i class="fa-regular fa-link"></i>
+                                        
+                                        LINKS&nbsp;<i class="fa-solid fa-chevron-down"></i>
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                                    <ul class="sub-menu">
+                                    
+                                        <li>
+                                        <a href="/my-params">MY-PARAMS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/links">FRIENDS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/q">Q
+                                        </a>
+                                        </li>
+                                    
+                                    </ul>
+                                
+                            </li>
+                    
+                    
+                        <li class="navbar-item search search-popup-trigger">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </li>
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                    <div class="icon-item search search-popup-trigger"><i class="fa-solid fa-magnifying-glass"></i></div>
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="navbar-drawer w-full absolute top-0 left-0 bg-background-color">
+        <ul class="drawer-navbar-list flex flex-col justify-start items-center">
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/"  >
+                             
+                                
+                                    <i class="fa-regular fa-house"></i>
+                                
+                                HOME
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/archives"  >
+                             
+                                
+                                    <i class="fa-regular fa-archive"></i>
+                                
+                                BLOG
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/categories"  >
+                             
+                                
+                                    <i class="fa-regular fa-stream"></i>
+                                
+                                CATEGORIES
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/tags"  >
+                             
+                                
+                                    <i class="fa-regular fa-tags"></i>
+                                
+                                TAGS
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/about"  >
+                             
+                                
+                                    <i class="fa-regular fa-user"></i>
+                                
+                                ABOUT
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group has-dropdown" 
+                        href="#" onClick="return false;">
+                            
+                                
+                                    <i class="fa-regular fa-link"></i>
+                                
+                                LINKS&nbsp;<i class="group-hover:rotate-180 transition-transform fa-solid fa-chevron-down"></i>
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                              
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/my-params">MY-PARAMS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/links">FRIENDS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/q">Q</a>
+                            </li>
+                        
+                    
+            
+
+        </ul>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+        </div>
+
+        <div class="main-content-body">
+
+            
+
+            <div class="main-content">
+
+                
+                    <div class="post-page-container">
+    <div class="article-content-container">
+
+        <div class="article-title">
+            
+                
+                
+                <!-- 2023-10-03, edit by shawnyan. -->
+                <img src="/img/head/dophin.jpeg" alt="三天三夜的三更半夜! StoneDB on Rocky 9" class="max-w-none" referrerpolicy="no-referrer"/>
+                
+                <h1 class="article-title-cover">三天三夜的三更半夜! StoneDB on Rocky 9</h1>
+            
+            </div>
+
+
+
+        
+            <div class="article-header">
+                <div class="avatar">
+                    
+                        <img src="/img/avatar.jpg">
+                    
+                </div>
+                <div class="info">
+                    <div class="author">
+                        
+                            <span class="name">严少安</span>
+                        
+                        
+                            
+                                <span class="author-label">Lv.6</span>
+                            
+                        
+                    </div>
+                    <div class="meta-info">
+                        <div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2023-11-12 02:34:53</span>
+        <span class="mobile">2023-11-12 02:34:53</span>
+        <span class="hover-info">Created</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2023-11-12 02:34:53</span>
+            <span class="mobile">2023-11-12 02:34:53</span>
+            <span class="hover-info">Updated</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/stonedb/">StoneDB</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/compile/">compile</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/rocky/">rocky</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/stonedb/">stonedb</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+        <span class="article-wordcount article-meta-item">
+            <i class="fa-regular fa-typewriter"></i>&nbsp;<span>3.2k Words</span>
+        </span>
+    
+    
+        <span class="article-min2read article-meta-item">
+            <i class="fa-regular fa-clock"></i>&nbsp;<span>17 Mins</span>
+        </span>
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+                    </div>
+                </div>
+            </div>
+        
+
+        
+
+
+        <div class="article-content markdown-body">
+            <!--
+![stonedb-logo.png](https://oss-emcsprod-public.modb.pro/image/knowledge/dbentry_1653961012338.png)
+-->
+<img  alt="stonedb-logo.gif" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20231112-eb248ffd-a26e-4961-a300-1ad96d40c363.gif"
+                      referrerpolicy="no-referrer"
+                >
+<h2 id="TL-DR">TL;DR</h2>
+<p>之前体验过如何安装 StoneDB，并发文演示了几个新特性。关于什么是 StoneDB，请先参阅前文。</p>
+<ul>
+<li><a href="https://shawnyan.cn/2023/stonedb/stonedb-install/">StoneDB 初体验 | StoneDB-5.7-v1.0.4 安装及新特性速览</a></li>
+</ul>
+<!--
+- [StoneDB 初体验 | StoneDB-5.7-v1.0.4 安装及新特性速览](https://www.modb.pro/db/655984)
+-->
+<p>本文记录了这几天在 Rocky Linux 9.2 上编译安装 StoneDB 5.7 最新源码的“扎心”经历。<br>
+对 StoneDB、MySQL、RocksDB 或 Rocky 9 感兴趣的同学请继续往下阅读。</p>
+<h2 id="环境信息">环境信息</h2>
+<p>操作系统为 Rocky Linux 9.2，编译过程中没有出现特别消耗资源的情况，这点不错，我的 VM 是 2c4g，可以编译成功。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ cat /etc/redhat-release</span><br><span class="line">Rocky Linux release 9.2 (Blue Onyx)</span><br><span class="line">[shawnyan@rocky9 ~]$ uname -a</span><br><span class="line">Linux rocky9.shawnyan.cn 5.14.0-284.30.1.el9_2.x86_64 #1 SMP PREEMPT_DYNAMIC Sat Sep 16 09:55:41 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux</span><br><span class="line">[shawnyan@rocky9 ~]$</span><br><span class="line">[shawnyan@rocky9 ~]$ gcc --version</span><br><span class="line">gcc (GCC) 11.3.1 20221121 (Red Hat 11.3.1-4)</span><br><span class="line">Copyright (C) 2021 Free Software Foundation, Inc.</span><br><span class="line">This is free software; see the source for copying conditions.  There is NO</span><br><span class="line">warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.</span><br><span class="line"></span><br><span class="line">[shawnyan@rocky9 ~]$ cmake --version</span><br><span class="line">cmake version 3.20.2</span><br><span class="line"></span><br><span class="line">CMake suite maintained and supported by Kitware (kitware.com/cmake).</span><br><span class="line">[shawnyan@rocky9 ~]$ top</span><br><span class="line">top - 15:28:57 up 12 days,  1:23,  2 users,  load average: 0.01, 0.03, 0.00</span><br><span class="line">Tasks: 272 total,   1 running, 271 sleeping,   0 stopped,   0 zombie</span><br><span class="line"><span class="meta prompt_">%</span><span class="language-bash">Cpu0  :  0.0 us,  0.3 sy,  0.0 ni, 99.0 <span class="built_in">id</span>,  0.0 wa,  0.3 hi,  0.3 si,  0.0 st</span></span><br><span class="line"><span class="meta prompt_">%</span><span class="language-bash">Cpu1  :  0.0 us,  0.3 sy,  0.0 ni, 99.7 <span class="built_in">id</span>,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st</span></span><br><span class="line">MiB Mem :   3623.0 total,    818.1 free,    947.4 used,   2131.4 buff/cache</span><br><span class="line">MiB Swap:   4020.0 total,   3158.1 free,    861.9 used.   2675.6 avail Mem</span><br></pre></td></tr></table></figure></div>
+<h2 id="查看-StoneDB-的安装路径和版本号">查看 StoneDB 的安装路径和版本号</h2>
+<p>先上成果物，看看编译安装后的 StoneDB 目录下都有哪些文件。</p>
+<img  alt="img1-mysqld-version.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20231112-2c68f249-0e36-475e-b347-eb27dce795b5.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>安装路径是默认值，安装在了 <code>/usr/local/mysql</code> 目录下，查看版本号为 <code>StoneDB-5.7.36</code>。</p>
+<p>本地环境的 ntpd 没有同步，所以编译时间有点错乱，快了 8 小时。</p>
+<h2 id="创建-Tianmu-测试表">创建 Tianmu 测试表</h2>
+<p>StoneDB 启动后，通过客户端进行连接，<code>\s</code> 查看状态，服务器版本看着有点“凌乱”，不用在意这种细节。</p>
+<img  alt="img2-mysql-version.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20231112-5577cbe9-418d-40c3-858d-5545ffb334cf.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>查看默认数据库，与前文描述一致。创建一个测试库，并创建引擎为 <code>TIANMU</code> 的测试表，功能使用正常。</p>
+<img  alt="img3-tianmu-table.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20231112-b70b660b-1188-40ac-a2f2-47f033653f25.png"
+                      referrerpolicy="no-referrer"
+                >
+<h2 id="编译配置">编译配置</h2>
+<p>相对于前文的丝滑安装，这里的编译过程极其痛苦，犹如工兵步步排雷，好在最终扛到军旗。</p>
+<h3 id="源码仓库">源码仓库</h3>
+<p>StoneDB 提供了 GitHub 和 Gitee 两个代码仓，只是并不同步，如果网路条件允许，还是从 GH 下载比较好。</p>
+<ul>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/stoneatom/stonedb" >https://github.com/stoneatom/stonedb <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://gitee.com/StoneDB/stonedb" >https://gitee.com/StoneDB/stonedb <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+</ul>
+<h3 id="官网地址解析">官网地址解析</h3>
+<p>官网只能识别 https，无法识别 http，好在vx群里有好人帮忙确认官网状态正常，感谢。</p>
+<img  alt="img4-http-ngx.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20231112-30d736e0-b2bb-4a79-8b00-9d3f084456a2.png"
+                      referrerpolicy="no-referrer"
+                >
+<h3 id="Rocksdb-下载链接">Rocksdb 下载链接</h3>
+<p>Tianmu 引擎依赖 Rocksdb，如果配置时没有指定包，则会自动下载，只是下载的版本有些“老舅”，且“门牌号”不对。</p>
+<img  alt="img5-git-rocksdb.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20231112-071981b4-a9da-43e4-bae3-ac7fdd31e220.png"
+                      referrerpolicy="no-referrer"
+                >
+<p><a class="link"   target="_blank" rel="noopener" href="https://github.com/facebook/rocksdb/releases/tag/v6.12.6" >RocksDB 6.12.6 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 发行于 2020-10-13，目前，最新版本为 <a class="link"   target="_blank" rel="noopener" href="https://github.com/facebook/rocksdb/releases/tag/v8.6.7" >RocksDB 8.6.7 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 发行于 09/26/2023。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">-- Could not find (the correct version of) rocksdb.</span><br><span class="line">-- MySQL currently requires vrocksdb-6.12.6</span><br><span class="line"></span><br><span class="line">CMake Error at cmake/rocksdb.cmake:81 (MESSAGE):</span><br><span class="line">  You can download it with -DDOWNLOAD_ROCKSDB=1 -DWITH_ROCKSDB=&lt;directory&gt;</span><br><span class="line"></span><br><span class="line">  This CMake script will look for rocksdb in &lt;directory&gt;.  If it is not</span><br><span class="line">  there, it will download and unpack it (in that directory) for you.</span><br><span class="line"></span><br><span class="line">  If you are inside a firewall, you may need to use an http proxy:</span><br><span class="line"></span><br><span class="line">  export http_proxy=http://example.com:80</span><br><span class="line"></span><br><span class="line">Call Stack (most recent call first):</span><br><span class="line">  cmake/rocksdb.cmake:239 (COULD_NOT_FIND_ROCKSDB)</span><br><span class="line">  CMakeLists.txt:315 (INCLUDE)</span><br></pre></td></tr></table></figure></div>
+<!--
+https://github.com/facebook/rocksdb/archive/refs/tags/vrocksdb-6.12.6.tar.gz
+https://github.com/facebook/rocksdb/archive/refs/tags/v6.12.6.tar.gz
+https://github.com/facebook/rocksdb/releases/tag/v6.12.6
+tar zxf rocksdb-6.12.6.tar.gz
+-->
+<p>下载 rocksdb 源码包后，配置正常。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">-- Local rocksdb dir /data/stonedb-stonedb-5.7-dev/release/rocksdb-6.12.6</span><br><span class="line">found ROCKSDB_INCLUDE_DIR:/data/stonedb-stonedb-5.7-dev/release/rocksdb-6.12.6</span><br><span class="line">-- Found /data/stonedb-stonedb-5.7-dev/release/rocksdb-6.12.6/include/rocksdb/version.h</span><br><span class="line">-- current ROCKSDB_VERSION_NUMBER is #define ROCKSDB_MAJOR 6.#define ROCKSDB_MINOR 12</span><br><span class="line">-- current ROCKSDB_MAJOR_VERSION is: 6, ROCKSDB_MAJOR_VERSION:12</span><br><span class="line">-- ROCKSDB_INCLUDE_DIR /data/stonedb-stonedb-5.7-dev/release/rocksdb-6.12.6</span><br></pre></td></tr></table></figure></div>
+<h3 id="marisa-trie-下载链接">marisa-trie 下载链接</h3>
+<p>StoneDB 依赖“玛丽莎”，同上，需要提前下载源码包。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">found MARISA_INCLUDE_DIR:MARISA_INCLUDE_DIR-NOTFOUND</span><br><span class="line">-- Looked for include/marisa.h in  and</span><br><span class="line">-- MARISA_INCLUDE_DIR MARISA_INCLUDE_DIR-NOTFOUND</span><br><span class="line">-- LOCAL_MARISA_DIR</span><br><span class="line">-- Could not find (the correct version of) marisa.</span><br><span class="line">-- MySQL currently requires marisa-trie</span><br><span class="line"></span><br><span class="line">CMake Error at cmake/marisa.cmake:59 (MESSAGE):</span><br><span class="line">  You can download it, install it, then specify the marisa path with</span><br><span class="line">  -DWITH_MARISA=&lt;director&gt;</span><br><span class="line"></span><br><span class="line">  This CMake script will look for marisa in &lt;directory&gt;.</span><br><span class="line">Call Stack (most recent call first):</span><br><span class="line">  cmake/marisa.cmake:123 (COULD_NOT_FIND_MARISA)</span><br><span class="line">  CMakeLists.txt:323 (INCLUDE)</span><br></pre></td></tr></table></figure></div>
+<p>也可以编译时自动下载，只是这里还有个小包袱，git变成了gi。</p>
+<img  alt="img6-git-marisa.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20231112-df8a7e4c-5e88-4bc7-92b0-996c777b226d.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>完整地址为：</p>
+<p><a class="link"   target="_blank" rel="noopener" href="https://github.com/s-yata/marisa-trie/archive/refs/tags/v0.2.6.tar.gz" >https://github.com/s-yata/marisa-trie/archive/refs/tags/v0.2.6.tar.gz <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<h3 id="boost-版本升级">boost 版本升级</h3>
+<p>StoneDB 5.7 依赖 boost 1.66.0，但编译时报错。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 boost_1_66_0]$ ./bootstrap.sh</span><br><span class="line">[shawnyan@rocky9 boost_1_66_0]$ ./b2</span><br><span class="line"></span><br><span class="line">...failed gcc.compile.c++ bin.v2/libs/python/build/gcc-gnu-11/release/link-static/threadapi-pthread/threading-multi/converter/builtin_converters.o...</span><br><span class="line">...skipped &lt;pbin.v2/libs/python/build/gcc-gnu-11/release/link-static/threadapi-pthread/threading-multi&gt;libboost_python3.a(clean) for lack of &lt;pbin.v2/libs/python/build/gcc-gnu-11/release/link-static/threadapi-pthread/threading-multi&gt;converter/builtin_converters.o...</span><br><span class="line">...skipped &lt;pbin.v2/libs/python/build/gcc-gnu-11/release/link-static/threadapi-pthread/threading-multi&gt;libboost_python3.a for lack of &lt;pbin.v2/libs/python/build/gcc-gnu-11/release/link-static/threadapi-pthread/threading-multi&gt;converter/builtin_converters.o...</span><br><span class="line">...skipped &lt;pstage/lib&gt;libboost_python3.a for lack of &lt;pbin.v2/libs/python/build/gcc-gnu-11/release/link-static/threadapi-pthread/threading-multi&gt;libboost_python3.a...</span><br><span class="line">...failed updating 2 targets...</span><br><span class="line">...skipped 6 targets...</span><br></pre></td></tr></table></figure></div>
+<p>所以，我就升级到了 boost 1.77.0，并修改了基础标识。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">./cmake/boost.cmake:SET(BOOST_PACKAGE_NAME &quot;boost_1_66_0&quot;)</span><br><span class="line">./cmake/boost.cmake:SET(BOOST_PATCHES_DIR &quot;$&#123;CMAKE_SOURCE_DIR&#125;/include/boost_1_66_0/patches&quot;)</span><br><span class="line">./cmake/boost.cmake:SET(BOOST_SOURCES_DIR &quot;$&#123;CMAKE_SOURCE_DIR&#125;/include/boost_1_66_0&quot;)</span><br><span class="line">./codecov.yml:- &quot;include/boost_1_66_0&quot;</span><br></pre></td></tr></table></figure></div>
+<!--
+https://www.boost.org/users/history/version_1_66_0.html
+https://sourceforge.net/projects/boost/files/boost/1.66.0/boost_1_66_0.tar.gz
+https://sourceforge.net/projects/boost/files/boost/1.77.0/boost_1_77_0.tar.gz
+https://pkgs.org/download/boost
+
+sed -i 's/75/77/g' ./cmake/boost.cmake
+grep 75 ./cmake/boost.cmake
+sed -i 's/75/77/g' ./codecov.yml
+cat ./codecov.yml
+
+vi ../cmake/boost.cmake
+include/boost/version.hpp -> boost/version.hpp
+-->
+<p>升级后，可以正常进行编译。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">...updated 1745 targets...</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">The Boost C++ Libraries were successfully built!</span><br><span class="line"></span><br><span class="line">The following directory should be added to compiler include paths:</span><br><span class="line"></span><br><span class="line">    /data/stonedb-stonedb-5.7-dev/release/boost_1_77_0</span><br><span class="line"></span><br><span class="line">The following directory should be added to linker library paths:</span><br><span class="line"></span><br><span class="line">    /data/stonedb-stonedb-5.7-dev/release/boost_1_77_0/stage/lib</span><br><span class="line"></span><br><span class="line">[shawnyan@rocky9 boost_1_77_0]$</span><br></pre></td></tr></table></figure></div>
+<h3 id="openssl-1-1-1">openssl 1.1.1</h3>
+<p>Rocky 9 中通过 dnf 安装的 openssl 为 3.x 版本，版本太新，配置无法识别，而且和 1.1.1 系列代码差异很大，这里下载了 openssl 1.1.1 系列的最新版本 <code>openssl-1.1.1w</code>。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">Cannot find appropriate system libraries for WITH_SSL=system.</span><br><span class="line">Make sure you have specified a supported SSL version.</span><br><span class="line">Valid options are :</span><br><span class="line">system (use the OS openssl library),</span><br><span class="line">yes (synonym for system),</span><br><span class="line">&lt;/path/to/custom/openssl/installation&gt;</span><br><span class="line"></span><br><span class="line">CMake Error at cmake/ssl.cmake:63 (MESSAGE):</span><br><span class="line">  Please install the appropriate openssl developer package.</span><br><span class="line"></span><br><span class="line">Call Stack (most recent call first):</span><br><span class="line">  cmake/ssl.cmake:280 (FATAL_SSL_NOT_FOUND_ERROR)</span><br><span class="line">  CMakeLists.txt:630 (MYSQL_CHECK_SSL)</span><br></pre></td></tr></table></figure></div>
+<!--
+https://github.com/openssl/openssl/releases/download/OpenSSL_1_1_1w/openssl-1.1.1w.tar.gz
+https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_1_1_1w.tar.gz
+-->
+<p>下载后，配置安装 openssl。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">./config</span><br><span class="line">make</span><br><span class="line">make install</span><br></pre></td></tr></table></figure></div>
+<hr>
+<!--
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">-- library target mysqlserver debug_target /data/stonedb-stonedb-5.7-dev/debug/archive_output_directory/libmysqld.a</span><br><span class="line">RegularExpression::compile(): Nested *?+.</span><br><span class="line">RegularExpression::compile(): Error in compile.</span><br><span class="line">CMake Error at scripts/CMakeLists.txt:321 (IF):</span><br><span class="line">  if given arguments:</span><br><span class="line"></span><br><span class="line">    &quot;NOT&quot; &quot;lib&quot; &quot;STREQUAL&quot; &quot;general&quot; &quot;AND&quot; &quot;NOT&quot; &quot;EMBEDD_LIBS&quot; &quot;MATCHES&quot; &quot;-lstdc++fs &quot; &quot;AND&quot; &quot;NOT&quot; &quot;lib&quot; &quot;MATCHES&quot; &quot;imported_&quot;</span><br><span class="line"></span><br><span class="line">  Regular expression &quot;-lstdc++fs &quot; cannot compile</span><br><span class="line">Call Stack (most recent call first):</span><br><span class="line">  scripts/CMakeLists.txt:352 (EXTRACT_LINK_LIBRARIES)</span><br></pre></td></tr></table></figure></div>
+<p><a class="link"   target="_blank" rel="noopener" href="https://github.com/stoneatom/stonedb/blob/stonedb-5.7-dev/configure.cmake#L59" >https://github.com/stoneatom/stonedb/blob/stonedb-5.7-dev/configure.cmake#L59 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">IF(CMAKE_SYSTEM_NAME MATCHES &quot;SunOS&quot; AND CMAKE_COMPILER_IS_GNUCXX)</span><br><span class="line">  ## We will be using gcc to generate .so files</span><br><span class="line">  ## Add C flags (e.g. -m64) to CMAKE_SHARED_LIBRARY_C_FLAGS</span><br><span class="line">  ## The client library contains C++ code, so add dependency on libstdc++</span><br><span class="line">  ## See cmake --help-policy CMP0018</span><br><span class="line">  SET(CMAKE_SHARED_LIBRARY_C_FLAGS</span><br><span class="line">    &quot;$&#123;CMAKE_SHARED_LIBRARY_C_FLAGS&#125; $&#123;CMAKE_C_FLAGS&#125; -lstdc++&quot;)</span><br><span class="line">ENDIF()</span><br></pre></td></tr></table></figure></div>
+<p><a class="link"   target="_blank" rel="noopener" href="https://github.com/stoneatom/stonedb/blob/stonedb-5.7-dev/scripts/CMakeLists.txt#L352" >https://github.com/stoneatom/stonedb/blob/stonedb-5.7-dev/scripts/CMakeLists.txt#L352 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">IF(WITH_EMBEDDED_SERVER)</span><br><span class="line">  EXTRACT_LINK_LIBRARIES(mysqlserver EMBEDD_LIBS)</span><br><span class="line">  IF(SOLARIS AND CMAKE_C_FLAGS MATCHES &quot;-xatomic=gcc&quot;)</span><br><span class="line">    STRING_APPEND(EMBEDD_LIBS &quot; -xatomic=gcc&quot;)</span><br><span class="line">  ENDIF()</span><br><span class="line">ENDIF()</span><br></pre></td></tr></table></figure></div>
+<p>跳过， WITH_EMBEDDED_SERVER</p>
+<hr>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">CMake Error at cmake/libutils.cmake:85 (ADD_LIBRARY):</span><br><span class="line">  Cannot find source file:</span><br><span class="line"></span><br><span class="line">    /data/stonedb-stonedb-5.7-dev/boost_1_77_0/libs/chrono/src/chrono.cpp</span><br><span class="line"></span><br><span class="line">  Tried extensions .c .C .c++ .cc .cpp .cxx .cu .mpp .m .M .mm .h .hh .h++</span><br><span class="line">  .hm .hpp .hxx .in .txx .f .F .for .f77 .f90 .f95 .f03 .ispc</span><br><span class="line">Call Stack (most recent call first):</span><br><span class="line">  client/dump/CMakeLists.txt:48 (ADD_CONVENIENCE_LIBRARY)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">CMake Error at cmake/libutils.cmake:85 (ADD_LIBRARY):</span><br><span class="line">  No SOURCES given to target: boost_lib</span><br><span class="line">Call Stack (most recent call first):</span><br><span class="line">  client/dump/CMakeLists.txt:48 (ADD_CONVENIENCE_LIBRARY)</span><br></pre></td></tr></table></figure></div>
+<p><a class="link"   target="_blank" rel="noopener" href="https://github.com/stoneatom/stonedb/blob/stonedb-5.7-dev/client/dump/CMakeLists.txt#L48" >https://github.com/stoneatom/stonedb/blob/stonedb-5.7-dev/client/dump/CMakeLists.txt#L48 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">SET(BOOST_LIB_SOURCES</span><br><span class="line">  $&#123;BOOST_SOURCES_DIR&#125;/libs/chrono/src/chrono.cpp</span><br><span class="line">IF(USING_LOCAL_BOOST)</span><br><span class="line">  ADD_CONVENIENCE_LIBRARY(boost_lib $&#123;BOOST_LIB_SOURCES&#125;)</span><br></pre></td></tr></table></figure></div>
+<hr>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">CMake Error at cmake/libutils.cmake:85 (ADD_LIBRARY):</span><br><span class="line">  Cannot find source file:</span><br><span class="line"></span><br><span class="line">    /data/stonedb-stonedb-5.7-dev/boost_1_77_0/libs/chrono/src/chrono.cpp</span><br><span class="line"></span><br><span class="line">  Tried extensions .c .C .c++ .cc .cpp .cxx .cu .mpp .m .M .mm .h .hh .h++</span><br><span class="line">  .hm .hpp .hxx .in .txx .f .F .for .f77 .f90 .f95 .f03 .ispc</span><br><span class="line">Call Stack (most recent call first):</span><br><span class="line">  client/dump/CMakeLists.txt:48 (ADD_CONVENIENCE_LIBRARY)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">CMake Error at cmake/libutils.cmake:85 (ADD_LIBRARY):</span><br><span class="line">  No SOURCES given to target: boost_lib</span><br><span class="line">Call Stack (most recent call first):</span><br><span class="line">  client/dump/CMakeLists.txt:48 (ADD_CONVENIENCE_LIBRARY)</span><br></pre></td></tr></table></figure></div>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br><span class="line">201</span><br><span class="line">202</span><br><span class="line">203</span><br><span class="line">204</span><br><span class="line">205</span><br><span class="line">206</span><br><span class="line">207</span><br><span class="line">208</span><br><span class="line">209</span><br><span class="line">210</span><br><span class="line">211</span><br><span class="line">212</span><br><span class="line">213</span><br><span class="line">214</span><br><span class="line">215</span><br><span class="line">216</span><br><span class="line">217</span><br><span class="line">218</span><br><span class="line">219</span><br><span class="line">220</span><br><span class="line">221</span><br><span class="line">222</span><br><span class="line">223</span><br><span class="line">224</span><br><span class="line">225</span><br><span class="line">226</span><br><span class="line">227</span><br><span class="line">228</span><br><span class="line">229</span><br><span class="line">230</span><br><span class="line">231</span><br><span class="line">232</span><br><span class="line">233</span><br><span class="line">234</span><br><span class="line">235</span><br><span class="line">236</span><br><span class="line">237</span><br><span class="line">238</span><br><span class="line">239</span><br></pre></td><td class="code"><pre><span class="line">cp /data/boost_1_77_0.tar.gz .</span><br><span class="line">tar zxf boost_1_77_0.tar.gz</span><br><span class="line"></span><br><span class="line">--&gt;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">---------------------------------------------------------------------------------</span><br><span class="line"></span><br><span class="line">### 配置参数</span><br><span class="line"></span><br><span class="line">到目前未知，配置阶段完成，来看下配置参数和输出结果。</span><br><span class="line"></span><br><span class="line">```shell</span><br><span class="line">cmake .. \</span><br><span class="line">-DWITH_BOOST=. \</span><br><span class="line">-DWITH_ROCKSDB=./rocksdb-6.12.6/ \</span><br><span class="line">-DWITH_SSL=system \</span><br><span class="line">-DWITH_EMBEDDED_SERVER=0 \</span><br><span class="line">-DBOOST_SOURCES_DIR=./release/boost_1_77_0/ \</span><br><span class="line">-Dimt=OFF \</span><br><span class="line">-DWITH_UNIT_TESTS=OFF \</span><br><span class="line">-DINSTALL_MYSQLTESTDIR= \</span><br><span class="line">-DMYSQL_VERSION_EXTRA=ShawnYan</span><br><span class="line">```</span><br><span class="line"></span><br><span class="line">输出日志：</span><br><span class="line"></span><br><span class="line">```shell</span><br><span class="line">-- CMAKE_BUILD_TYPE: RelWithDebInfo</span><br><span class="line">-- COMPILE_DEFINITIONS: _GNU_SOURCE;_FILE_OFFSET_BITS=64;HAVE_CONFIG_H;TIANMU;_GLIBCXX_USE_CXX11_ABI=1;HAVE_TLSv13</span><br><span class="line">-- CMAKE_C_FLAGS: -fPIC -fabi-version=2 -fno-omit-frame-pointer -fno-strict-aliasing  -Wall -Wextra -Wformat-security -Wvla -Wimplicit-fallthrough=2 -Wno-unknown-pragmas -Wwrite-strings -Wdeclaration-after-statement</span><br><span class="line">-- CMAKE_CXX_FLAGS: -fPIC -std=gnu++03 -fabi-version=2 -fno-omit-frame-pointer -fno-strict-aliasing  -Wall -Wextra -Wformat-security -Wvla -Wimplicit-fallthrough=2 -Wno-unknown-pragmas -Woverloaded-virtual -Wno-unused-paramete</span><br><span class="line">-- CMAKE_CXX_FLAGS_DEBUG: -DENABLED_DEBUG_SYNC -DSAFE_MUTEX -g -gdwarf-2 -std=c++1z -fno-sized-deallocation</span><br><span class="line">-- CMAKE_CXX_FLAGS_RELWITHDEBINFO: -ffunction-sections -fdata-sections -O3 -g -DNDEBUG -gdwarf-2 -std=c++1z -fno-sized-deallocation</span><br><span class="line">-- CMAKE_CXX_FLAGS_RELEASE: -ffunction-sections -fdata-sections -O3 -DNDEBUG -std=c++1z -fno-sized-deallocation</span><br><span class="line">-- CMAKE_CXX_FLAGS_MINSIZEREL: -ffunction-sections -fdata-sections -Os -DNDEBUG</span><br><span class="line">-- CMAKE_C_LINK_FLAGS:</span><br><span class="line">-- CMAKE_CXX_LINK_FLAGS:</span><br><span class="line">-- CMAKE_EXE_LINKER_FLAGS</span><br><span class="line">-- CMAKE_MODULE_LINKER_FLAGS  -Wl,--build-id</span><br><span class="line">-- CMAKE_SHARED_LINKER_FLAGS  -Wl,--build-id</span><br><span class="line">-- Configuring done</span><br><span class="line">-- Generating done</span><br><span class="line">-- Build files have been written to: /data/stonedb-stonedb-5.7-dev/release</span><br><span class="line">[shawnyan@rocky9 release]$</span><br><span class="line">```</span><br><span class="line"></span><br><span class="line">## 编译过程</span><br><span class="line"></span><br><span class="line">配置完成，下面开始真正编译过程。</span><br><span class="line"></span><br><span class="line">### 提示无法找到 `stdc++`</span><br><span class="line"></span><br><span class="line">编译时遇到报错，提示无法找到 `stdc++`。</span><br><span class="line"></span><br><span class="line">```shell</span><br><span class="line">/usr/bin/ld: cannot find -lstdc++</span><br><span class="line">collect2: error: ld returned 1 exit status</span><br><span class="line">make[2]: *** [extra/CMakeFiles/comp_err.dir/build.make:107: extra/comp_err] Error 1</span><br><span class="line">make[1]: *** [CMakeFiles/Makefile2:5469: extra/CMakeFiles/comp_err.dir/all] Error 2</span><br><span class="line">make: *** [Makefile:166: all] Error 2</span><br><span class="line">```</span><br><span class="line"></span><br><span class="line">可能是缺少依赖包导致的，安装依赖。</span><br><span class="line"></span><br><span class="line">```shell</span><br><span class="line">yum install libstdc++-static</span><br><span class="line">```</span><br><span class="line"></span><br><span class="line">查看系统lib，再补充一个软连接。</span><br><span class="line"></span><br><span class="line">```shell</span><br><span class="line">[root@rocky9 lib64]# sudo ln -s libstdc++.so.6 libstdc++.so</span><br><span class="line">[root@rocky9 lib64]# ll *std*</span><br><span class="line">lrwxrwxrwx. 1 root root      14 Nov 10 22:46 libstdc++.so -&gt; libstdc++.so.6</span><br><span class="line">lrwxrwxrwx. 1 root root      19 Apr 10  2023 libstdc++.so.6 -&gt; libstdc++.so.6.0.29</span><br><span class="line">-rwxr-xr-x. 1 root root 2306520 Apr 10  2023 libstdc++.so.6.0.29</span><br><span class="line">lrwxrwxrwx. 1 root root      16 May 27  2022 libzstd.so -&gt; libzstd.so.1.5.1</span><br><span class="line">lrwxrwxrwx. 1 root root      16 May 27  2022 libzstd.so.1 -&gt; libzstd.so.1.5.1</span><br><span class="line">-rwxr-xr-x. 1 root root  882384 May 27  2022 libzstd.so.1.5.1</span><br><span class="line">[root@rocky9 lib64]#</span><br><span class="line">```</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">### boost 文件路径变化</span><br><span class="line"></span><br><span class="line">编译到 37% 遇到错误退出，提示无法找到文件。</span><br><span class="line"></span><br><span class="line">```shell</span><br><span class="line">[ 37%] Building CXX object storage/tianmu/CMakeFiles/tianmu.dir/common/data_format.cpp.o</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/common/data_format.cpp:23:10: fatal error: boost/algorithm/string.hpp: No such file or directory</span><br><span class="line">   23 | #include &lt;boost/algorithm/string.hpp&gt;</span><br><span class="line">      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~</span><br><span class="line">compilation terminated.</span><br><span class="line">make[2]: *** [storage/tianmu/CMakeFiles/tianmu.dir/build.make:90: storage/tianmu/CMakeFiles/tianmu.dir/common/data_format.cpp.o] Error 1</span><br><span class="line">make[1]: *** [CMakeFiles/Makefile2:3704: storage/tianmu/CMakeFiles/tianmu.dir/all] Error 2</span><br><span class="line">make: *** [Makefile:166: all] Error 2</span><br><span class="line">```</span><br><span class="line"></span><br><span class="line">对比确认是路径有出入，在源码目录的 `include` 文件夹下，创建一个 `boost` 的软连接。</span><br><span class="line"></span><br><span class="line">```shell</span><br><span class="line">[root@rocky9 algorithm]# ll /data/stonedb-stonedb-5.7-dev/boost_1_77_0/boost/algorithm/string.hpp</span><br><span class="line">-rw-r--r--. 1 shawnyan shawnyan 1061 Aug  5  2021 /data/stonedb-stonedb-5.7-dev/boost_1_77_0/boost/algorithm/string.hpp</span><br><span class="line">[root@rocky9 algorithm]#</span><br><span class="line">...</span><br><span class="line">[root@rocky9 include]# pwd</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/include</span><br><span class="line">[root@rocky9 include]# ln -s ../boost_1_77_0/boost .</span><br><span class="line">```</span><br><span class="line"></span><br><span class="line">&lt;!--</span><br><span class="line">https://github.com/stoneatom/stonedb/issues/256</span><br><span class="line">docker make fatal error: boost/algorithm/string.hpp: No such file or directorybug: #256</span><br><span class="line">--&gt;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">### marisa/rocksdb hard code</span><br><span class="line"></span><br><span class="line">准备依赖包时，已将 marisa/rocksdb 放到了编译路径下，这里是 `/data/stonedb-stonedb-5.7-dev/release`，但仍然遇到了找不到的问题。</span><br><span class="line"></span><br><span class="line">```shell</span><br><span class="line">/usr/include/c++/11/bits/unique_ptr.h:211:7: note:   candidate expects 1 argument, 0 provided</span><br><span class="line">make[2]: *** [storage/tianmu/CMakeFiles/tianmu.dir/build.make:258: storage/tianmu/CMakeFiles/tianmu.dir/compress/ppm.cpp.o] Error 1</span><br><span class="line">make[1]: *** [CMakeFiles/Makefile2:3704: storage/tianmu/CMakeFiles/tianmu.dir/all] Error 2</span><br><span class="line">make: *** [Makefile:166: all] Error 2</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">cd /data/stonedb-stonedb-5.7-dev/release/storage/tianmu &amp;&amp; /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT storage/tianmu/CMakeFiles/tianmu.dir/compress/ppm.cpp.o -MF CMakeFiles/tianmu.dir/compres     s/ppm.cpp.o.d -o CMakeFiles/tianmu.dir/compress/ppm.cpp.o -c /data/stonedb-stonedb-5.7-dev/storage/tianmu/compress/ppm.cpp</span><br><span class="line">```</span><br><span class="line"></span><br><span class="line">细看了一眼，发现了两处硬编码，所以简单做了个软连处理。</span><br><span class="line"></span><br><span class="line">- hard code</span><br><span class="line"></span><br><span class="line">```c</span><br><span class="line">SET(MARISA_ROOT /usr/local/stonedb-marisa)</span><br><span class="line">SET(ROCKSDB_ROOT /usr/local/stonedb-gcc-rocksdb)</span><br><span class="line">```</span><br><span class="line"></span><br><span class="line">- soft link</span><br><span class="line"></span><br><span class="line">```shell</span><br><span class="line">ln -s /data/stonedb-stonedb-5.7-dev/release/marisa-trie-0.2.6 /usr/local/stonedb-marisa</span><br><span class="line">ln -s /data/stonedb-stonedb-5.7-dev/release/rocksdb-6.12.6 /usr/local/stonedb-gcc-rocksdb</span><br><span class="line">ll /usr/local/stonedb-marisa</span><br><span class="line">ll /usr/local/stonedb-gcc-rocksdb</span><br><span class="line">```</span><br><span class="line"></span><br><span class="line">### COMMON_C_FLAGS</span><br><span class="line"></span><br><span class="line">编译进度来到了 40%，由于 gcc 版本变化，FLAG 也随之发生了变动，这里修改了两处。</span><br><span class="line"></span><br><span class="line">&lt;!--</span><br><span class="line">https://root-forum.cern.ch/t/fail-to-compile-root-6-20-04-on-fedora-32/38990/5</span><br><span class="line">Temporary solution: cmake with -Dimt=OFF</span><br><span class="line">但是，还是报错</span><br><span class="line"></span><br><span class="line">https://jira.percona.com/browse/PXB-2649</span><br><span class="line">https://github.com/percona/percona-xtrabackup/pull/1240/files</span><br><span class="line">--&gt;</span><br><span class="line"></span><br><span class="line">- 报错日志</span><br><span class="line"></span><br><span class="line">```shell</span><br><span class="line">[ 40%] Building CXX object storage/tianmu/CMakeFiles/tianmu.dir/compress/ppm.cpp.o</span><br><span class="line">In file included from /usr/include/c++/11/memory:76,</span><br><span class="line">                 from /data/stonedb-stonedb-5.7-dev/storage/tianmu/common/common_definitions.h:23,</span><br><span class="line">                 from /data/stonedb-stonedb-5.7-dev/storage/tianmu/common/exception.h:23,</span><br><span class="line">                 from /data/stonedb-stonedb-5.7-dev/storage/tianmu/common/assert.h:23,</span><br><span class="line">                 from /data/stonedb-stonedb-5.7-dev/storage/tianmu/compress/data_stream.h:23,</span><br><span class="line">                 from /data/stonedb-stonedb-5.7-dev/storage/tianmu/compress/arith_coder.h:21,</span><br><span class="line">                 from /data/stonedb-stonedb-5.7-dev/storage/tianmu/compress/ppm.h:23,</span><br><span class="line">                 from /data/stonedb-stonedb-5.7-dev/storage/tianmu/compress/ppm.cpp:18:</span><br><span class="line">/usr/include/c++/11/bits/unique_ptr.h: In instantiation of ‘constexpr std::unique_ptr&lt;_Tp, _Dp&gt;::unique_ptr() [with _Del = std::default_delete&lt;TSianmu::compress::PPMModel&gt;; &lt;template-parameter-2-2&gt; = void; _Tp = Tianmu::compress::PPMModel; _Dp = std::default_delete&lt;Tianmu::compress::PPMModel&gt;]’:</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/compress/ppm.cpp:32:80:   required from here</span><br><span class="line">/usr/include/c++/11/bits/unique_ptr.h:270:11: error: no matching function for call to ‘std::__uniq_ptr_data&lt;Tianmu::compress::PPMModel, std::default_delete&lt;Tianmu::compress::PPMModel&gt;, true, true&gt;::__uniq_ptr_data()’</span><br><span class="line">  270 |         : _M_t()</span><br><span class="line">      |           ^~~~~~</span><br><span class="line">```</span><br><span class="line"></span><br><span class="line">- 修改内容</span><br><span class="line"></span><br><span class="line">影响文件：`cmake\build_configurations\compiler_options.cmake`</span><br><span class="line"></span><br><span class="line">- https://github.com/stoneatom/stonedb/blob/stonedb-5.7-dev/cmake/build_configurations/compiler_options.cmake#L46</span><br><span class="line">- https://github.com/stoneatom/stonedb/blob/stonedb-5.7-dev/cmake/build_configurations/compiler_options.cmake#L71</span><br><span class="line"></span><br><span class="line">```c</span><br><span class="line">- SET(COMMON_C_FLAGS &quot;-fabi-version=2 -fno-omit-frame-pointer -fno-strict-aliasing&quot;)</span><br><span class="line">+ SET(COMMON_C_FLAGS &quot;-fno-omit-frame-pointer -fno-strict-aliasing&quot;)</span><br><span class="line">...</span><br><span class="line">- SET(COMMON_CXX_FLAGS               &quot;-fabi-version=2 -fno-omit-frame-pointer -fno-strict-aliasing&quot;)</span><br><span class="line">+ SET(COMMON_CXX_FLAGS               &quot;-fno-omit-frame-pointer -fno-strict-aliasing&quot;)</span><br><span class="line">```</span><br><span class="line"></span><br><span class="line">---------------------------------------------------------------------------------</span><br><span class="line"></span><br><span class="line">&lt;!--</span><br><span class="line"></span><br><span class="line">```</span><br><span class="line">[ 41%] Building CXX object storage/tianmu/CMakeFiles/tianmu.dir/core/data_cache.cpp.o</span><br><span class="line">In file included from /data/stonedb-stonedb-5.7-dev/storage/tianmu/index/rsi_histogram.h:22,</span><br><span class="line">                 from /data/stonedb-stonedb-5.7-dev/storage/tianmu/vc/tianmu_attr.h:31,</span><br><span class="line">                 from /data/stonedb-stonedb-5.7-dev/storage/tianmu/core/data_cache.cpp:20:</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/data/pack_int.h:54:60: error: ‘optional’ in namespace ‘std’ does not name a template type</span><br><span class="line">   54 |   void LoadValues(const loader::ValueCache *vc, const std::optional&lt;common::double_int_t&gt; &amp;null_value);</span><br><span class="line">      |                                                            ^~~~~~~~</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/data/pack_int.h:22:1: note: ‘std::optional’ is defined in header ‘&lt;optional&gt;’; did you forget to ‘#include &lt;optional&gt;’?</span><br><span class="line">   21 | #include &quot;core/value.h&quot;</span><br><span class="line">  +++ |+#include &lt;optional&gt;</span><br><span class="line">   22 | #include &quot;data/pack.h&quot;</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/data/pack_int.h:54:68: error: expected ‘,’ or ‘...’ before ‘&lt;’ token</span><br><span class="line">   54 |   void LoadValues(const loader::ValueCache *vc, const std::optional&lt;common::double_int_t&gt; &amp;null_value);</span><br><span class="line">      |                                                                    ^</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/data/pack_int.h:120:66: error: ‘optional’ in namespace ‘std’ does not name a template type</span><br><span class="line">  120 |   void LoadValuesDouble(const loader::ValueCache *vc, const std::optional&lt;common::double_int_t&gt; &amp;nv);</span><br><span class="line">      |                                                                  ^~~~~~~~</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/data/pack_int.h:120:61: note: ‘std::optional’ is defined in header ‘&lt;optional&gt;’; did you forget to ‘#include &lt;optional&gt;’?</span><br><span class="line">  120 |   void LoadValuesDouble(const loader::ValueCache *vc, const std::optional&lt;common::double_int_t&gt; &amp;nv);</span><br><span class="line">      |                                                             ^~~</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/data/pack_int.h:120:74: error: expected ‘,’ or ‘...’ before ‘&lt;’ token</span><br><span class="line">  120 |   void LoadValuesDouble(const loader::ValueCache *vc, const std::optional&lt;common::double_int_t&gt; &amp;nv);</span><br><span class="line">      |                                                                          ^</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/data/pack_int.h:121:65: error: ‘optional’ in namespace ‘std’ does not name a template type</span><br><span class="line">  121 |   void LoadValuesFixed(const loader::ValueCache *vc, const std::optional&lt;common::double_int_t&gt; &amp;nv);</span><br><span class="line">      |                                                                 ^~~~~~~~</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/data/pack_int.h:121:60: note: ‘std::optional’ is defined in header ‘&lt;optional&gt;’; did you forget to ‘#include &lt;optional&gt;’?</span><br><span class="line">  121 |   void LoadValuesFixed(const loader::ValueCache *vc, const std::optional&lt;common::double_int_t&gt; &amp;nv);</span><br><span class="line">      |                                                            ^~~</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/data/pack_int.h:121:73: error: expected ‘,’ or ‘...’ before ‘&lt;’ token</span><br><span class="line">  121 |   void LoadValuesFixed(const loader::ValueCache *vc, const std::optional&lt;common::double_int_t&gt; &amp;nv);</span><br><span class="line">      |                                                                         ^</span><br><span class="line">make[2]: *** [storage/tianmu/CMakeFiles/tianmu.dir/build.make:384: storage/tianmu/CMakeFiles/tianmu.dir/core/data_cache.cpp.o] Error 1</span><br><span class="line">make[1]: *** [CMakeFiles/Makefile2:3095: storage/tianmu/CMakeFiles/tianmu.dir/all] Error 2</span><br><span class="line">make: *** [Makefile:156: all] Error 2</span><br><span class="line">```</span><br><span class="line"></span><br></pre></td></tr></table></figure></div>
+<p>vi /data/stonedb-stonedb-5.7-dev/storage/tianmu/data/pack_int.h<br>
+#include <optional></p>
+<p><a class="link"   target="_blank" rel="noopener" href="https://github.com/NixOS/patchelf/issues/342" >https://github.com/NixOS/patchelf/issues/342 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<p>==================================================================================</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">[ 40%] Building CXX object storage/tianmu/CMakeFiles/tianmu.dir/core/delta_table.cpp.o</span><br><span class="line">In file included from /data/stonedb-stonedb-5.7-dev/storage/tianmu/core/delta_table.h:25,</span><br><span class="line">                 from /data/stonedb-stonedb-5.7-dev/storage/tianmu/core/delta_table.cpp:18:</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/index/kv_store.h:119:8: error: ‘condition_variable’ in namespace ‘std’ does not name a type</span><br><span class="line">  119 |   std::condition_variable cv_drop_;</span><br><span class="line">      |        ^~~~~~~~~~~~~~~~~~</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/index/kv_store.h:34:1: note: ‘std::condition_variable’ is defined in header ‘&lt;condition_variable&gt;’; did you forget to ‘#include &lt;condition_variable&gt;’?</span><br><span class="line">   33 | #include &quot;rocksdb/utilities/write_batch_with_index.h&quot;</span><br><span class="line">  +++ |+#include &lt;condition_variable&gt;</span><br><span class="line">   34 | #include &quot;util/fs.h&quot;</span><br></pre></td></tr></table></figure></div>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">vi /data/stonedb-stonedb-5.7-dev/storage/tianmu/index/kv_store.h</span><br><span class="line">#include &lt;condition_variable&gt;</span><br><span class="line"></span><br><span class="line">```</span><br><span class="line">[ 40%] Building CXX object storage/tianmu/CMakeFiles/tianmu.dir/core/tianmu_table.cpp.o</span><br><span class="line">In file included from /data/stonedb-stonedb-5.7-dev/storage/tianmu/core/tianmu_table.h:24,</span><br><span class="line">                 from /data/stonedb-stonedb-5.7-dev/storage/tianmu/core/engine.h:35,</span><br><span class="line">                 from /data/stonedb-stonedb-5.7-dev/storage/tianmu/core/tianmu_table.cpp:25:</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/core/delta_table.h:118:51: warning: ‘maybe_unused’ attribute ignored [-Wattributes]</span><br><span class="line">  118 |   [[maybe_unused]] bool current_record_fetched_ = false;</span><br><span class="line">      |                                                   ^~~~~</span><br><span class="line">In file included from /data/stonedb-stonedb-5.7-dev/release/rocksdb-6.12.6/util/timer.h:18,</span><br><span class="line">                 from /data/stonedb-stonedb-5.7-dev/storage/tianmu/core/tianmu_table.cpp:39:</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/release/rocksdb-6.12.6/util/mutexlock.h:31:22: error: ‘port’ has not been declared</span><br><span class="line">   31 |   explicit MutexLock(port::Mutex *mu) : mu_(mu) &#123;</span><br><span class="line">      |                      ^~~~</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/release/rocksdb-6.12.6/util/mutexlock.h:31:33: error: expected ‘)’ before ‘*’ token</span><br><span class="line">   31 |   explicit MutexLock(port::Mutex *mu) : mu_(mu) &#123;</span><br><span class="line">      |                     ~           ^~</span><br><span class="line">      |                                 )</span><br><span class="line">```</span><br><span class="line"></span><br></pre></td></tr></table></figure></div>
+<p>vi /data/stonedb-stonedb-5.7-dev/release/rocksdb-6.12.6/util/mutexlock.h</p>
+<p>#pragma once<br>
+#include &lt;assert.h&gt;<br>
+#include <atomic><br>
+#include <functional><br>
+#include <memory><br>
+#include <mutex><br>
+#include <thread><br>
+#include “port/port_posix.h” – hard code<br>
+#include “util/hash.h”</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/core/tianmu_table.cpp:1100:10: error: ‘Timer’ is not a member of ‘Tianmu::utils’; did you mean ‘rocksdb::Timer’?</span><br><span class="line"> 1100 |   utils::Timer timer;</span><br><span class="line">      |          ^~~~~</span><br><span class="line">In file included from /data/stonedb-stonedb-5.7-dev/storage/tianmu/core/tianmu_table.cpp:39:</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/release/rocksdb-6.12.6/util/timer.h:35:7: note: ‘rocksdb::Timer’ declared here</span><br><span class="line">   35 | class Timer &#123;</span><br><span class="line">      |       ^~~~~</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/core/tianmu_table.cpp:1135:3: error: ‘timer’ was not declared in this scope; did you mean ‘timex’?</span><br><span class="line"> 1135 |   timer.Print(__PRETTY_FUNCTION__);</span><br><span class="line">      |   ^~~~~</span><br><span class="line">      |   timex</span><br></pre></td></tr></table></figure></div>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">vi /data/stonedb-stonedb-5.7-dev/storage/tianmu/core/tianmu_table.cpp</span><br><span class="line">:1100</span><br><span class="line">:1135</span><br><span class="line"></span><br><span class="line">timer 注释掉，解决</span><br><span class="line"></span><br><span class="line">```</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/loader/load_parser.cpp: In constructor ‘Tianmu::loader::LoadParser::LoadParser(Tianmu::loader::LoadParser::TianmuAttrPtrVect_t&amp;, const Tianmu::system::IOParameters&amp;, uint, std::unique_ptr&lt;Tianmu::system::Stream&gt;&amp;)’:</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/loader/load_parser.cpp:43:10: error: ‘Timer’ is not a member of ‘Tianmu::utils’; did you mean ‘rocksdb::Timer’?</span><br><span class="line">   43 |   utils::Timer timer;</span><br><span class="line">      |          ^~~~~</span><br><span class="line">```</span><br><span class="line"></span><br></pre></td></tr></table></figure></div>
+<p>vi /data/stonedb-stonedb-5.7-dev/storage/tianmu/loader/load_parser.cpp</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[ 42%] Building CXX object storage/tianmu/CMakeFiles/tianmu.dir/util/timer.cpp.o</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/util/timer.cpp:25:6: error: ‘Timer’ has not been declared</span><br><span class="line">   25 | void Timer::DoPrint(const std::string &amp;msg) const &#123;</span><br><span class="line">      |      ^~~~~</span><br></pre></td></tr></table></figure></div>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line">vi /data/stonedb-stonedb-5.7-dev/storage/tianmu/util/timer.cpp</span><br><span class="line"></span><br><span class="line">-------</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">rocksdb 版本太旧的问题?</span><br><span class="line"></span><br><span class="line">https://github.com/facebook/rocksdb/issues/9388</span><br><span class="line">Dropping some compiler support in 7.0 #9388</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">rocksdb-6.12.6 什么时候的版本？</span><br><span class="line"></span><br><span class="line">https://github.com/facebook/rocksdb/issues/9925</span><br><span class="line">yum install -y bzip2-devel gcc-c++ gflags-devel libzstd-devel lz4-devel perl-interpreter python3 snappy-devel zlib-devel</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">https://github.com/facebook/rocksdb/commit/fd3e0f43b3cd041c38e37543e0b616d18ca55179#diff-80764747afb62b8a0bcae21d43ed3436ae26fcdfaf3a3978c0aa9ab4265d1f22</span><br><span class="line">vi /data/stonedb-stonedb-5.7-dev/release/rocksdb-6.12.6/build_tools/build_detect_platform</span><br><span class="line"># thread_local is part of C++11 and later (TODO: clean up this define)</span><br><span class="line">COMMON_FLAGS=&quot;$COMMON_FLAGS -DROCKSDB_SUPPORT_THREAD_LOCAL&quot;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">https://github.com/arangodb/arangodb/issues/1814</span><br><span class="line">#include &quot;port/port_posix.h&quot;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">----------------------------------------------------</span><br><span class="line"></span><br><span class="line">```</span><br><span class="line">[ 40%] Building CXX object storage/tianmu/CMakeFiles/tianmu.dir/mm/mysql_heap_policy.cpp.o</span><br><span class="line">In file included from /data/stonedb-stonedb-5.7-dev/storage/tianmu/mm/mysql_heap_policy.h:23,</span><br><span class="line">                 from /data/stonedb-stonedb-5.7-dev/storage/tianmu/mm/mysql_heap_policy.cpp:18:</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/mm/heap_policy.h:30:20: error: expected ‘)’ before ‘sz’</span><br><span class="line">   30 |   HeapPolicy(size_t sz) : size_(sz), heap_status_(HEAP_STATUS::HEAP_ERROR) &#123;&#125;</span><br><span class="line">      |             ~      ^~~</span><br><span class="line">      |                    )</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/mm/heap_policy.h:33:23: error: ‘size_t’ has not been declared</span><br><span class="line">   33 |   virtual void *alloc(size_t size) = 0;</span><br><span class="line">      |                       ^~~~~~</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/mm/heap_policy.h:35:38: error: ‘size_t’ has not been declared</span><br><span class="line">   35 |   virtual void *rc_realloc(void *mh, size_t size) = 0;</span><br><span class="line">      |                                      ^~~~~~</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/mm/heap_policy.h:36:11: error: ‘size_t’ does not name a type</span><br><span class="line">   36 |   virtual size_t getBlockSize(void *mh) = 0;</span><br><span class="line">      |           ^~~~~~</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/storage/tianmu/mm/heap_policy.h:22:1: note: ‘size_t’ is defined in header ‘&lt;cstddef&gt;’; did you forget to ‘#include &lt;cstddef&gt;’?</span><br><span class="line">   21 | #include &quot;mm/memory_block.h&quot;</span><br><span class="line">  +++ |+#include &lt;cstddef&gt;</span><br><span class="line">   22 |</span><br><span class="line">```</span><br><span class="line"></span><br></pre></td></tr></table></figure></div>
+<p>vi /data/stonedb-stonedb-5.7-dev/storage/tianmu/mm/heap_policy.h</p>
+<ul>
+<li>#include <cstddef></li>
+</ul>
+<p>–&gt;</p>
+<hr>
+<h3 id="STONEDB-xxx-参数未声明"><code>STONEDB_xxx</code> 参数未声明</h3>
+<p>进度跳跃到了 98%，遇到了四个参数没声明的情况。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">[ 98%] Building CXX object sql/CMakeFiles/sql.dir/mysqld.cc.o</span><br><span class="line">In file included from /data/stonedb-stonedb-5.7-dev/sql/table.h:37,</span><br><span class="line">                 from /data/stonedb-stonedb-5.7-dev/sql/field.h:37,</span><br><span class="line">                 from /data/stonedb-stonedb-5.7-dev/sql/protocol_classic.h:27,</span><br><span class="line">                 from /data/stonedb-stonedb-5.7-dev/sql/sql_class.h:40,</span><br><span class="line">                 from /data/stonedb-stonedb-5.7-dev/sql/sql_parse.h:29,</span><br><span class="line">                 from /data/stonedb-stonedb-5.7-dev/sql/mysqld.cc:57:</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/libbinlogevents/include/table_id.h: In member function ‘Table_id Table_id::operator++(int)’:</span><br><span class="line">...</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/sql/mysqld.cc: In function ‘void print_build_info()’:</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/sql/mysqld.cc:7049:33: error: ‘STONEDB_BRANCH_NAME’ was not declared in this scope</span><br><span class="line"> 7049 |   printf(&quot;\tBranch name: %s\n&quot;, STONEDB_BRANCH_NAME);</span><br><span class="line">      |                                 ^~~~~~~~~~~~~~~~~~~</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/sql/mysqld.cc:7050:36: error: ‘STONEDB_COMMIT_ID’ was not declared in this scope</span><br><span class="line"> 7050 |   printf(&quot;\tLast commit ID: %s\n&quot;, STONEDB_COMMIT_ID);</span><br><span class="line">      |                                    ^~~~~~~~~~~~~~~~~</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/sql/mysqld.cc:7051:38: error: ‘STONEDB_COMMIT_TIME’ was not declared in this scope; did you mean ‘STONEDB_BUILD_TIME’?</span><br><span class="line"> 7051 |   printf(&quot;\tLast commit time: %s\n&quot;, STONEDB_COMMIT_TIME);</span><br><span class="line">      |                                      ^~~~~~~~~~~~~~~~~~~</span><br><span class="line">      |                                      STONEDB_BUILD_TIME</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/sql/mysqld.cc: In function ‘void set_server_version()’:</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/sql/mysqld.cc:8134:31: error: ‘STONEDB_TAG_NAME’ was not declared in this scope</span><br><span class="line"> 8134 |       static_cast&lt;int&gt;(sizeof(STONEDB_TAG_NAME)))</span><br><span class="line">      |                               ^~~~~~~~~~~~~~~~</span><br><span class="line">make[2]: *** [sql/CMakeFiles/sql.dir/build.make:3110: sql/CMakeFiles/sql.dir/mysqld.cc.o] Error 1</span><br><span class="line">make[1]: *** [CMakeFiles/Makefile2:5823: sql/CMakeFiles/sql.dir/all] Error 2</span><br></pre></td></tr></table></figure></div>
+<p>找到了一个 Issue <a class="link"   target="_blank" rel="noopener" href="https://github.com/stoneatom/stonedb/issues/1328" >#1328 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>，只是，并非每个人都用 git 下载代码。</p>
+<p>所以，这里找到这四个变量，直接替换掉。</p>
+<p><a class="link"   target="_blank" rel="noopener" href="https://github.com/stoneatom/stonedb/blob/stonedb-5.7-dev/sql/mysqld.cc#L7049" >https://github.com/stoneatom/stonedb/blob/stonedb-5.7-dev/sql/mysqld.cc#L7049 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<div class="highlight-container" data-rel="C"><figure class="iseeu highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">STONEDB_BRANCH_NAME</span><br><span class="line">STONEDB_COMMIT_ID</span><br><span class="line">STONEDB_COMMIT_TIME</span><br><span class="line">STONEDB_TAG_NAME</span><br></pre></td></tr></table></figure></div>
+<hr>
+<!--
+
+[100%] Linking CXX executable mysqld
+/usr/bin/ld: cannot find -lmarisa
+/usr/bin/ld: cannot find -lrocksdb
+collect2: error: ld returned 1 exit status
+make[2]: *** [sql/CMakeFiles/mysqld.dir/build.make:129: sql/mysqld] Error 1
+make[1]: *** [CMakeFiles/Makefile2:5589: sql/CMakeFiles/mysqld.dir/all] Error 2
+
+
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">$ cd marisa-trie</span><br><span class="line">$ autoreconf -i</span><br><span class="line">$ ./configure --enable-native-code</span><br><span class="line">$ make</span><br><span class="line">$ make install</span><br><span class="line"></span><br><span class="line">/usr/local/lib/libmarisa.so</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">https://github.com/twmht/python-rocksdb/issues/13</span><br><span class="line">export CPLUS_INCLUDE_PATH=$&#123;CPLUS_INCLUDE_PATH&#125;:`pwd`/../include</span><br><span class="line">export LD_LIBRARY_PATH=$&#123;LD_LIBRARY_PATH&#125;:`pwd`</span><br><span class="line">export LIBRARY_PATH=$&#123;LIBRARY_PATH&#125;:`pwd`</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>[recommended] <code>make static_lib</code> will compile librocksdb.a, RocksDB static library. Compiles static library in release mode.</li>
+<li><code>make shared_lib</code> will compile <a class="link"   target="_blank" rel="noopener" href="http://librocksdb.so" >librocksdb.so <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>, RocksDB shared library. Compiles shared library in release mode.</li>
+</ul>
+<p>[shawnyan@rocky9 rocksdb-6.12.6]$ make shared_lib<br>
+$DEBUG_LEVEL is 0</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">  CC       table/block_based/block_based_table_builder.o</span><br><span class="line">table/block_based/block_based_table_builder.cc: In member function ‘void rocksdb::BlockBasedTableBuilder::EnterUnbuffered()’:</span><br><span class="line">table/block_based/block_based_table_builder.cc:1601:30: error: ‘block_rep’ may be used uninitialized [-Werror=maybe-uninitialized]</span><br><span class="line"> 1601 |       std::swap(*(block_rep-&gt;data), data_block);</span><br><span class="line">      |                  ~~~~~~~~~~~~^~~~~</span><br><span class="line">table/block_based/block_based_table_builder.cc:1598:41: note: ‘block_rep’ declared here</span><br><span class="line"> 1598 |       ParallelCompressionRep::BlockRep* block_rep;</span><br><span class="line">      |                                         ^~~~~~~~~</span><br><span class="line">cc1plus: all warnings being treated as errors</span><br><span class="line">make: *** [Makefile:2166: table/block_based/block_based_table_builder.o] Error 1</span><br></pre></td></tr></table></figure></div>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">DISABLE_WARNING_AS_ERROR=1 make shared_lib</span><br><span class="line"></span><br><span class="line">```</span><br><span class="line">  CCLD     librocksdb.so.6.12.6</span><br><span class="line">ln -fs librocksdb.so.6.12.6 librocksdb.so.6.12</span><br><span class="line">ln -fs librocksdb.so.6.12.6 librocksdb.so.6</span><br><span class="line">ln -fs librocksdb.so.6.12.6 librocksdb.so</span><br><span class="line">[shawnyan@rocky9 rocksdb-6.12.6]$</span><br><span class="line">```</span><br><span class="line"></span><br><span class="line">sudo ln -s librocksdb.so /usr/lib64/librocksdb.so</span><br><span class="line"></span><br></pre></td></tr></table></figure></div>
+<p>DISABLE_WARNING_AS_ERROR=1 make  shared_lib  EXTRA_CXXFLAGS=-fPIC EXTRA_CFLAGS=-fPIC USE_RTTI=1 DEBUG_LEVEL=0</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">$DEBUG_LEVEL is 0</span><br><span class="line">  GEN      util/build_version.cc</span><br><span class="line">  CCLD     librocksdb.so.6.12.6</span><br><span class="line">ln -fs librocksdb.so.6.12.6 librocksdb.so.6.12</span><br><span class="line">ln -fs librocksdb.so.6.12.6 librocksdb.so.6</span><br><span class="line">ln -fs librocksdb.so.6.12.6 librocksdb.so</span><br></pre></td></tr></table></figure></div>
+<hr>
+<p>[100%] Linking CXX executable mysqld<br>
+/bin/ld: …/archive_output_directory/libtianmu.a(merge_operator.cpp.o)😦.data.rel.ro._ZTIN6Tianmu4core19RecordMergeOperatorE[_ZTIN6Tianmu4core19RecordMergeOperatorE]+0x10): undefined reference to `typeinfo for rocksdb::AssociativeMergeOperator’<br>
+collect2: error: ld returned 1 exit status<br>
+make[2]: *** [sql/CMakeFiles/mysqld.dir/build.make:129: sql/mysqld] Error 1<br>
+make[1]: *** [CMakeFiles/Makefile2:5589: sql/CMakeFiles/mysqld.dir/all] Error 2<br>
+make: *** [Makefile:156: all] Error 2</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">[shawnyan@rocky9 include]$ ln -s ../release/rocksdb-6.12.6/include/rocksdb/</span><br><span class="line">rwxrwxrwx. 1 shawnyan shawnyan    42 Nov 11 18:30 rocksdb -&gt; ../release/rocksdb-6.12.6/include/rocksdb/</span><br><span class="line">[shawnyan@rocky9 include]$ pwd</span><br><span class="line">/data/stonedb-stonedb-5.7-dev/include</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">/data/stonedb-stonedb-5.7-dev/release/rocksdb-6.12.6/librocksdb.a</span><br><span class="line">archive_output_directory/librocksdb.a</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">https://github.com/facebook/rocksdb/issues/3811</span><br><span class="line">DISABLE_WARNING_AS_ERROR=1 make  static_lib  EXTRA_CXXFLAGS=-fPIC EXTRA_CFLAGS=-fPIC USE_RTTI=1 DEBUG_LEVEL=0</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">[shawnyan@rocky9 rocksdb-6.12.6]$ DISABLE_WARNING_AS_ERROR=1 make  static_lib  EXTRA_CXXFLAGS=-fPIC EXTRA_CFLAGS=-fPIC USE_RTTI=1 DEBUG_LEVEL=0</span><br><span class="line">$DEBUG_LEVEL is 0</span><br><span class="line">  GEN      util/build_version.cc</span><br><span class="line">  AR       librocksdb.a</span><br><span class="line">/bin/ar: creating librocksdb.a</span><br><span class="line">[shawnyan@rocky9 rocksdb-6.12.6]$</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">DISABLE_WARNING_AS_ERROR=1 DEBUG_LEVEL=0 EXTRA_CXXFLAGS=-fPIC EXTRA_CFLAGS=-fPIC USE_RTTI=1 make</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">export LD_LIBRARY_PATH=/data/stonedb-stonedb-5.7-dev/release/rocksdb-6.12.6</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">[shawnyan@rocky9 sql]$ cmake -E cmake_link_script CMakeFiles/mysqld.dir/link.txt --verbose=1</span><br><span class="line">/usr/bin/c++ -frtti -fsanitize=undefined -fno-sanitize=vptr -fPIC -std=gnu++03 -fno-omit-frame-pointer -fno-strict-aliasing  -Wall -Wextra -Wformat-security -Wvla -Wimplicit-fallthrough=2 -Wno-unknown-pragmas -Woverloaded-virtual -Wno-unused-parameter -Wno-class-memaccess -ffunction-sections -fdata-sections -O3 -g -DNDEBUG -gdwarf-2 -std=c++1z -fno-sized-deallocation  -Wl,--build-id -static-libstdc++ -static-libgcc -Wl,--export-dynamic CMakeFiles/mysqld.dir/main.cc.o -o mysqld   -L/data/stonedb-stonedb-5.7-dev/release/lib  -L/data/stonedb-stonedb-5.7-dev/release/rocksdb-6.12.6  -L/data/stonedb-stonedb-5.7-dev/release/marisa-trie-0.2.6  -L/data/stonedb-stonedb-5.7-dev/release/marisa-trie-0.2.6/lib  -Wl,-rpath,/data/stonedb-stonedb-5.7-dev/release/lib:/data/stonedb-stonedb-5.7-dev/release/rocksdb-6.12.6:/data/stonedb-stonedb-5.7-dev/release/marisa-trie-0.2.6:/data/stonedb-stonedb-5.7-dev/release/marisa-trie-0.2.6/lib:/usr/local/lib64:/usr/lib64: ../archive_output_directory/libsql.a ../archive_output_directory/libbinlog.a ../archive_output_directory/librpl.a ../archive_output_directory/libmaster.a ../archive_output_directory/libslave.a ../archive_output_directory/libsql.a ../archive_output_directory/libmysys.a ../archive_output_directory/libmysys_ssl.a ../libbinlogevents/lib/libbinlogevents.a ../archive_output_directory/libarchive.a ../archive_output_directory/libblackhole.a ../archive_output_directory/libcsv.a ../archive_output_directory/libfederated.a ../archive_output_directory/libheap.a ../archive_output_directory/libinnobase.a -laio ../archive_output_directory/liblz4_lib.a -lnuma ../archive_output_directory/libmyisam.a ../archive_output_directory/libmyisammrg.a ../archive_output_directory/libpartition.a ../archive_output_directory/libperfschema.a ../archive_output_directory/libtianmu.a -lboost_system -lstdc++fs -lsnappy -lbz2 -llz4 -lzstd -lmarisa -lrocksdb -lboost_thread ../archive_output_directory/libngram_parser.a ../archive_output_directory/libvio.a ../archive_output_directory/libregex.a -lcrypt /usr/local/lib64/libssl.so /usr/local/lib64/libcrypto.so ../archive_output_directory/libmysys.a ../archive_output_directory/libdbug.a ../archive_output_directory/libmysys.a ../archive_output_directory/libdbug.a ../archive_output_directory/libz.a ../archive_output_directory/libstrings.a ../archive_output_directory/librocksdb.a -lm -latomic</span><br><span class="line"></span><br><span class="line">rtti</span><br><span class="line">no-rtti</span><br><span class="line"></span><br><span class="line">/bin/ld: ../archive_output_directory/libtianmu.a(merge_operator.cpp.o):(.data.rel.ro._ZTIN6Tianmu4core19RecordMergeOperatorE[_ZTIN6Tianmu4core19RecordMergeOperatorE]+0x10): undefined reference to `typeinfo for rocksdb::AssociativeMergeOperator&#x27;</span><br><span class="line">collect2: error: ld returned 1 exit status</span><br><span class="line"></span><br></pre></td></tr></table></figure></div>
+<p>vi sql/CMakeFiles/mysqld.dir/link.txt<br>
+-fsanitize=undefined -fno-sanitize=vptr</p>
+<p><a class="link"   target="_blank" rel="noopener" href="https://stackoverflow.com/questions/11904519/c-what-are-the-causes-of-undefined-reference-to-typeinfo-for-class-name" >https://stackoverflow.com/questions/11904519/c-what-are-the-causes-of-undefined-reference-to-typeinfo-for-class-name <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a><br>
+If you’re compiling with RTTI (-frtti), make sure your dependent libraries are also compiled with it, and not -fno-rtti. Otherwise you will get the typeinfo error when you subclass a class compiled with -fno-rtti or use dynamic_cast.</p>
+<p>–&gt;</p>
+<hr>
+<h3 id="缺少依赖-libubsan">缺少依赖 <code>libubsan</code></h3>
+<p>在接近 100% 时，遇到了报错。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">/usr/bin/ld: cannot find /usr/lib64/libubsan.so.1.0.0</span><br><span class="line">collect2: error: ld returned 1 exit status</span><br></pre></td></tr></table></figure></div>
+<p>只需安装对应的包即可。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">yum install libubsan</span><br></pre></td></tr></table></figure></div>
+<!--
+https://blogs.oracle.com/linux/post/reverse-engineering-ubsan
+https://runebook.dev/ja/docs/mariadb/compile-and-using-mariadb-with-sanitizers-asan-ubsan-tsan-msan/index
+-->
+<h2 id="完整的编译日志">完整的编译日志</h2>
+<p>编译终于通关，来看下完整的日志。</p>
+<!--
+DISABLE_WARNING_AS_ERROR=1 DEBUG_LEVEL=0 EXTRA_CXXFLAGS=-fPIC EXTRA_CFLAGS=-fPIC USE_RTTI=1 make
+-->
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 release]$ DISABLE_WARNING_AS_ERROR=1 DEBUG_LEVEL=0 make</span><br><span class="line">[  0%] Built target abi_check</span><br><span class="line">[  0%] Built target lz4_lib</span><br><span class="line">[  0%] Built target INFO_SRC</span><br><span class="line">[  0%] Built target INFO_BIN</span><br><span class="line">[  0%] Built target zlib</span><br><span class="line">[  0%] Built target libedit_emacs</span><br><span class="line">[  0%] Built target libedit_vi</span><br><span class="line">[  0%] Built target libedit_common</span><br><span class="line">[  0%] Built target libedit_fcns</span><br><span class="line">[  0%] Built target libedit_help</span><br><span class="line">[  1%] Built target libedit_func</span><br><span class="line">[  3%] Built target edit</span><br><span class="line">[  3%] Built target event_pthreads</span><br><span class="line">[  4%] Built target event_core</span><br><span class="line">[  4%] Built target event_openssl</span><br><span class="line">[  4%] Built target event_extra</span><br><span class="line">[  7%] Built target strings</span><br><span class="line">[  7%] Built target gen_dtrace_header</span><br><span class="line">[ 11%] Built target mysys</span><br><span class="line">[ 11%] Built target dbug</span><br><span class="line">[ 12%] Built target vio</span><br><span class="line">[ 12%] Built target regex</span><br><span class="line">[ 12%] Built target base64_test</span><br><span class="line">[ 12%] Built target queues</span><br><span class="line">[ 13%] Built target thr_lock</span><br><span class="line">[ 14%] Built target mysys_ssl</span><br><span class="line">[ 14%] Built target comp_err</span><br><span class="line">[ 14%] Built target GenError</span><br><span class="line">[ 15%] Built target clientlib</span><br><span class="line">[ 15%] Built target libmysql</span><br><span class="line">[ 15%] Built target libmysql_api_test</span><br><span class="line">[ 15%] Built target mysqlclient</span><br><span class="line">[ 15%] Built target authentication_ldap_sasl_client</span><br><span class="line">[ 15%] Built target binlogevents_static</span><br><span class="line">[ 15%] Built target binlogstandalone_shared</span><br><span class="line">[ 16%] Built target binlogstandalone_static</span><br><span class="line">[ 16%] Built target archive</span><br><span class="line">[ 16%] Built target blackhole</span><br><span class="line">[ 17%] Built target csv</span><br><span class="line">[ 18%] Built target mysqlservices</span><br><span class="line">[ 18%] Built target example</span><br><span class="line">[ 19%] Built target federated</span><br><span class="line">[ 21%] Built target heap</span><br><span class="line">[ 27%] Built target innobase</span><br><span class="line">[ 29%] Built target myisam</span><br><span class="line">[ 31%] Built target myisam_nopfs</span><br><span class="line">[ 32%] Built target myisam_ftdump</span><br><span class="line">[ 32%] Built target myisampack</span><br><span class="line">[ 32%] Built target myisamlog</span><br><span class="line">[ 33%] Built target myisamchk</span><br><span class="line">[ 34%] Built target myisammrg</span><br><span class="line">[ 34%] Built target partition</span><br><span class="line">[ 40%] Built target perfschema</span><br><span class="line">[ 50%] Built target tianmu</span><br><span class="line">[ 51%] Built target test_prog</span><br><span class="line">[ 51%] Built target test_security_context</span><br><span class="line">[ 51%] Built target audit_null</span><br><span class="line">[ 51%] Built target auth</span><br><span class="line">[ 52%] Built target qa_auth_interface</span><br><span class="line">[ 52%] Built target auth_test_plugin</span><br><span class="line">[ 52%] Built target qa_auth_client</span><br><span class="line">[ 52%] Built target qa_auth_server</span><br><span class="line">[ 52%] Built target mysql_no_login</span><br><span class="line">[ 52%] Built target auth_socket</span><br><span class="line">[ 52%] Built target connection_control</span><br><span class="line">[ 52%] Built target daemon_example</span><br><span class="line">[ 52%] Built target ngram_parser</span><br><span class="line">[ 52%] Built target ftexample</span><br><span class="line">[ 52%] Built target keyring_file</span><br><span class="line">[ 52%] Built target validate_password</span><br><span class="line">[ 52%] Built target replication_observers_example</span><br><span class="line">[ 52%] Built target rewrite_example</span><br><span class="line">[ 52%] Built target rewriter</span><br><span class="line">[ 53%] Built target semisync_slave</span><br><span class="line">[ 53%] Built target semisync_master</span><br><span class="line">[ 53%] Built target test_sql_replication</span><br><span class="line">[ 53%] Built target test_sql_sqlmode</span><br><span class="line">[ 54%] Built target test_sql_lock</span><br><span class="line">[ 54%] Built target test_sql_commit</span><br><span class="line">[ 54%] Built target test_x_sessions_init</span><br><span class="line">[ 54%] Built target test_sql_errors</span><br><span class="line">[ 54%] Built target test_x_sessions_deinit</span><br><span class="line">[ 55%] Built target test_session_detach</span><br><span class="line">[ 55%] Built target test_session_info</span><br><span class="line">[ 55%] Built target test_sql_complex</span><br><span class="line">[ 55%] Built target test_sql_all_col_types</span><br><span class="line">[ 55%] Built target test_sql_2_sessions</span><br><span class="line">[ 55%] Built target test_sql_cmds_1</span><br><span class="line">[ 55%] Built target test_sql_shutdown</span><br><span class="line">[ 55%] Built target test_session_in_thd</span><br><span class="line">[ 55%] Built target test_sql_processlist</span><br><span class="line">[ 55%] Built target test_sql_stored_procedures_functions</span><br><span class="line">[ 55%] Built target test_sql_views_triggers</span><br><span class="line">[ 55%] Built target test_services_thread</span><br><span class="line">[ 55%] Built target test_services</span><br><span class="line">[ 55%] Built target test_framework</span><br><span class="line">[ 55%] Built target test_udf_services</span><br><span class="line">[ 55%] Built target version_token</span><br><span class="line">[ 60%] Built target group_replication</span><br><span class="line">[ 60%] Built target keyring_udf</span><br><span class="line">[ 62%] Built target protobuf</span><br><span class="line">[ 64%] Built target protoclib</span><br><span class="line">[ 64%] Built target protoc</span><br><span class="line">[ 66%] Built target mysqlxtest</span><br><span class="line">[ 66%] Built target protobuf-lite</span><br><span class="line">[ 66%] Built target GenLiteProtos</span><br><span class="line">[ 71%] Built target mysqlx</span><br><span class="line">[ 72%] Built target my_print_defaults</span><br><span class="line">[ 73%] Built target perror</span><br><span class="line">[ 73%] Built target lz4_decompress</span><br><span class="line">[ 74%] Built target resolveip</span><br><span class="line">[ 74%] Built target replace</span><br><span class="line">[ 75%] Built target innochecksum</span><br><span class="line">[ 76%] Built target zlib_decompress</span><br><span class="line">[ 76%] Built target resolve_stack_dump</span><br><span class="line">[ 76%] Built target mysql_ssl_rsa_setup</span><br><span class="line">[ 76%] Built target comp_sql</span><br><span class="line">[ 76%] Built target GenSysSchema</span><br><span class="line">[ 76%] Built target GenBootstrapPriv</span><br><span class="line">[ 76%] Built target mysql_install_db</span><br><span class="line">[ 76%] Built target mysql_secure_installation</span><br><span class="line">[ 76%] Built target mysql</span><br><span class="line">[ 76%] Built target mysqltest</span><br><span class="line">[ 76%] Built target GenFixPrivs</span><br><span class="line">[ 76%] Built target mysqlcheck_core</span><br><span class="line">[ 77%] Built target client_base</span><br><span class="line">[ 78%] Built target mysql_upgrade</span><br><span class="line">[ 78%] Built target mysqlcheck</span><br><span class="line">[ 78%] Built target mysqldump</span><br><span class="line">[ 78%] Built target mysqlimport</span><br><span class="line">[ 78%] Built target mysqlshow</span><br><span class="line">[ 78%] Built target mysql_plugin</span><br><span class="line">[ 78%] Built target mysqlbinlog</span><br><span class="line">[ 78%] Built target mysqladmin</span><br><span class="line">[ 79%] Built target mysql_config_editor</span><br><span class="line">[ 79%] Built target mysqlslap</span><br><span class="line">[ 79%] Built target boost_lib</span><br><span class="line">[ 83%] Built target mysqlpump_lib</span><br><span class="line">[ 84%] Built target mysqlpump</span><br><span class="line">[ 84%] Built target mysql_client_test</span><br><span class="line">[ 84%] Built target locking_service</span><br><span class="line">[ 84%] Built target udf_example</span><br><span class="line">[ 86%] Built target binlog</span><br><span class="line">[ 86%] Built target gen_lex_hash</span><br><span class="line">[ 87%] Built target GenServerSource</span><br><span class="line">[ 87%] Built target gen_lex_token</span><br><span class="line">[ 87%] Built target GenDigestServerSource</span><br><span class="line">[ 99%] Built target sql</span><br><span class="line">[ 99%] Built target rpl</span><br><span class="line">[ 99%] Built target master</span><br><span class="line"><span class="meta prompt_">[100%</span><span class="language-bash">] Built target slave</span></span><br><span class="line"><span class="meta prompt_">[100%</span><span class="language-bash">] Built target mysqld</span></span><br><span class="line"><span class="meta prompt_">[100%</span><span class="language-bash">] Built target sqlgunitlib</span></span><br><span class="line"><span class="meta prompt_">[100%</span><span class="language-bash">] Built target mysql_tzinfo_to_sql</span></span><br><span class="line">[shawnyan@rocky9 release]$</span><br></pre></td></tr></table></figure></div>
+<h3 id="安装日志">安装日志</h3>
+<p>编译完成，直接进行安装。日志中，可以看到安装了几个二进制命令，以及一些配置文件和脚本。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 release]$ sudo make install</span><br><span class="line">[  0%] Built target abi_check</span><br><span class="line">[  0%] Built target lz4_lib</span><br><span class="line">[  0%] Built target INFO_SRC</span><br><span class="line">[  0%] Built target INFO_BIN</span><br><span class="line">[  0%] Built target zlib</span><br><span class="line">...</span><br><span class="line"><span class="meta prompt_">[100%</span><span class="language-bash">] Built target mysqld</span></span><br><span class="line"><span class="meta prompt_">[100%</span><span class="language-bash">] Built target sqlgunitlib</span></span><br><span class="line"><span class="meta prompt_">[100%</span><span class="language-bash">] Built target mysql_tzinfo_to_sql</span></span><br><span class="line">Install the project...</span><br><span class="line">-- Install configuration: &quot;RelWithDebInfo&quot;</span><br><span class="line">-- Installing: /usr/local/mysql/./README</span><br><span class="line">...</span><br><span class="line">-- Installing: /usr/local/mysql/bin/mysql_config</span><br><span class="line">-- Installing: /usr/local/mysql/bin/mysqldumpslow</span><br><span class="line">-- Installing: /usr/local/mysql/bin/mysqld_multi</span><br><span class="line">-- Installing: /usr/local/mysql/bin/mysqld_safe</span><br><span class="line">-- Installing: /usr/local/mysql/my.cnf</span><br><span class="line">-- Installing: /usr/local/mysql/mysql_server</span><br><span class="line">-- Installing: /usr/local/mysql/install.sh</span><br><span class="line">-- Installing: /usr/local/mysql/reinstall.sh</span><br><span class="line">-- Installing: /usr/local/mysql/support-files/mysqld_multi.server</span><br><span class="line">-- Installing: /usr/local/mysql/support-files/mysql-log-rotate</span><br><span class="line">-- Installing: /usr/local/mysql/support-files/magic</span><br><span class="line">-- Installing: /usr/local/mysql/share/aclocal/mysql.m4</span><br><span class="line">-- Installing: /usr/local/mysql/support-files/mysql.server</span><br></pre></td></tr></table></figure></div>
+<h3 id="启动日志">启动日志</h3>
+<p>安装完成，对 StoneDB 进行数据初始化，并启动数据库。</p>
+<!--
+
+[root@rocky9 bin]# ./mysqld_safe
+/usr/local/mysql/bin/my_print_defaults: error while loading shared libraries: libssl.so.1.1: cannot open shared object file: No such file or directory
+/usr/local/mysql/bin/my_print_defaults: error while loading shared libraries: libssl.so.1.1: cannot open shared object file: No such file or directory
+Logging to '/usr/local/mysql/data/rocky9.shawnyan.cn.err'.
+2023-11-12T00:22:54.429852Z mysqld_safe Starting mysqld daemon with databases from /usr/local/mysql/data
+2023-11-12T00:22:54.442742Z mysqld_safe mysqld from pid file /usr/local/mysql/data/rocky9.shawnyan.cn.pid ended
+[root@rocky9 bin]#
+[root@rocky9 bin]#
+[root@rocky9 bin]# locate libssl.so.1.1
+/data/stonedb-stonedb-5.7-dev/release/openssl-OpenSSL_1_1_1t/libssl.so.1.1
+/usr/local/lib64/libssl.so.1.1
+[root@rocky9 bin]#
+[root@rocky9 bin]# ./mysqld
+./mysqld: error while loading shared libraries: libboost_system.so.1.77.0: cannot open shared object file: No such file or directory
+[root@rocky9 bin]# locate libboost_system.so.1.77.0
+/data/stonedb-stonedb-5.7-dev/release/boost_1_77_0/bin.v2/libs/system/build/gcc-11/release/threading-multi/visibility-hidden/libboost_system.so.1.77.0
+/data/stonedb-stonedb-5.7-dev/release/boost_1_77_0/stage/lib/libboost_system.so.1.77.0
+[root@rocky9 bin]#
+[root@rocky9 bin]# ./mysqld
+./mysqld: error while loading shared libraries: libmarisa.so.0: cannot open shared object file: No such file or directory
+[root@rocky9 bin]# locate libmarisa.so.0
+/data/stonedb-stonedb-5.7-dev/release/marisa-trie-0.2.6/lib/marisa/.libs/libmarisa.so.0
+/data/stonedb-stonedb-5.7-dev/release/marisa-trie-0.2.6/lib/marisa/.libs/libmarisa.so.0.0.0
+/usr/local/lib/libmarisa.so.0
+/usr/local/lib/libmarisa.so.0.0.0
+
+~~~
+
+export LD_LIBRARY_PATH=/usr/local/lib64:/usr/local/lib:/data/stonedb-stonedb-5.7-dev/release/boost_1_77_0/stage/lib
+
+-->
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><span class="line">[mysql@rocky9 mysql]$ ./bin/mysqld --initialize</span><br><span class="line">2023-11-12T00:29:25.724443Z 0 [Warning] TIMESTAMP with implicit DEFAULT value is deprecated. Please use --explicit_defaults_for_timestamp server option (see documentation for more details).</span><br><span class="line">2023-11-12T00:29:25.936358Z 0 [Warning] InnoDB: New log files created, LSN=45790</span><br><span class="line">2023-11-12T00:29:25.968770Z 0 [Warning] InnoDB: Creating foreign key constraint system tables.</span><br><span class="line">2023-11-12T00:29:26.055356Z 0 [Warning] No existing UUID has been found, so we assume that this is the first time that this server has been started. Generating a new UUID: 88cba90a-80f2-11ee-bdca-000c2919b58f.</span><br><span class="line">2023-11-12T00:29:26.056284Z 0 [Warning] Gtid table is not ready to be used. Table &#x27;mysql.gtid_executed&#x27; cannot be opened.</span><br><span class="line">2023-11-12T00:29:26.277207Z 0 [Warning] A deprecated TLS version TLSv1 is enabled. Please use TLSv1.2 or higher.</span><br><span class="line">2023-11-12T00:29:26.277310Z 0 [Warning] A deprecated TLS version TLSv1.1 is enabled. Please use TLSv1.2 or higher.</span><br><span class="line">2023-11-12T00:29:26.277919Z 0 [Warning] CA certificate ca.pem is self signed.</span><br><span class="line">2023-11-12T00:29:26.291107Z 1 [Note] A temporary password is generated for root@localhost: r6K_oTsETP&lt;q</span><br><span class="line">[mysql@rocky9 mysql]$</span><br><span class="line"></span><br><span class="line">[mysql@rocky9 mysql]$ ./bin/mysqld</span><br><span class="line">2023-11-12T00:29:54.068726Z 0 [Warning] TIMESTAMP with implicit DEFAULT value is deprecated. Please use --explicit_defaults_for_timestamp server option (see documentation for more details).</span><br><span class="line">2023-11-12T00:29:54.068785Z 0 [Note] --secure-file-priv is set to NULL. Operations related to importing and exporting data are disabled</span><br><span class="line">2023-11-12T00:29:54.068806Z 0 [Note] ./bin/mysqld (mysqld 5.7.36-StoneDB-) starting as process 290517 ...</span><br><span class="line">2023-11-12T00:29:54.076153Z 0 [Note] InnoDB: PUNCH HOLE support available</span><br><span class="line">2023-11-12T00:29:54.076348Z 0 [Note] InnoDB: Mutexes and rw_locks use GCC atomic builtins</span><br><span class="line">2023-11-12T00:29:54.076503Z 0 [Note] InnoDB: Uses event mutexes</span><br><span class="line">2023-11-12T00:29:54.076697Z 0 [Note] InnoDB: GCC builtin __atomic_thread_fence() is used for memory barrier</span><br><span class="line">2023-11-12T00:29:54.076756Z 0 [Note] InnoDB: Compressed tables use zlib 1.2.11</span><br><span class="line">2023-11-12T00:29:54.076805Z 0 [Note] InnoDB: Using Linux native AIO</span><br><span class="line">2023-11-12T00:29:54.077154Z 0 [Note] InnoDB: Number of pools: 1</span><br><span class="line">2023-11-12T00:29:54.077581Z 0 [Note] InnoDB: Using CPU crc32 instructions</span><br><span class="line">2023-11-12T00:29:54.080562Z 0 [Note] InnoDB: Initializing buffer pool, total size = 128M, instances = 1, chunk size = 128M</span><br><span class="line">2023-11-12T00:29:54.092507Z 0 [Note] InnoDB: Completed initialization of buffer pool</span><br><span class="line">2023-11-12T00:29:54.095925Z 0 [Note] InnoDB: If the mysqld execution user is authorized, page cleaner thread priority can be changed. See the man page of setpriority().</span><br><span class="line">2023-11-12T00:29:54.110502Z 0 [Note] InnoDB: Highest supported file format is Barracuda.</span><br><span class="line">2023-11-12T00:29:54.118113Z 0 [Note] InnoDB: Creating shared tablespace for temporary tables</span><br><span class="line">2023-11-12T00:29:54.118465Z 0 [Note] InnoDB: Setting file &#x27;./ibtmp1&#x27; size to 12 MB. Physically writing the file full; Please wait ...</span><br><span class="line">2023-11-12T00:29:54.140182Z 0 [Note] InnoDB: File &#x27;./ibtmp1&#x27; size is now 12 MB.</span><br><span class="line">2023-11-12T00:29:54.141586Z 0 [Note] InnoDB: 96 redo rollback segment(s) found. 96 redo rollback segment(s) are active.</span><br><span class="line">2023-11-12T00:29:54.141913Z 0 [Note] InnoDB: 32 non-redo rollback segment(s) are active.</span><br><span class="line">2023-11-12T00:29:54.142898Z 0 [Note] InnoDB: 5.7.36 started; log sequence number 2750173</span><br><span class="line">2023-11-12T00:29:54.143317Z 0 [Note] InnoDB: Loading buffer pool(s) from /usr/local/mysql/data/ib_buffer_pool</span><br><span class="line">2023-11-12T00:29:54.143846Z 0 [Note] Plugin &#x27;FEDERATED&#x27; is disabled.</span><br><span class="line">2023-11-12T00:29:54.144584Z 0 [Note] InnoDB: Buffer pool(s) load completed at 231112  8:29:54</span><br><span class="line">2023-11-12T00:29:54.187904Z 0 [Note] Found ca.pem, server-cert.pem and server-key.pem in data directory. Trying to enable SSL support using them.</span><br><span class="line">2023-11-12T00:29:54.188261Z 0 [Note] Skipping generation of SSL certificates as certificate files are present in data directory.</span><br><span class="line">2023-11-12T00:29:54.188456Z 0 [Warning] A deprecated TLS version TLSv1 is enabled. Please use TLSv1.2 or higher.</span><br><span class="line">2023-11-12T00:29:54.188639Z 0 [Warning] A deprecated TLS version TLSv1.1 is enabled. Please use TLSv1.2 or higher.</span><br><span class="line">2023-11-12T00:29:54.189276Z 0 [Warning] CA certificate ca.pem is self signed.</span><br><span class="line">2023-11-12T00:29:54.189519Z 0 [Note] Skipping generation of RSA key pair as key files are present in data directory.</span><br><span class="line">2023-11-12T00:29:54.190187Z 0 [Note] Server hostname (bind-address): &#x27;*&#x27;; port: 3306</span><br><span class="line">2023-11-12T00:29:54.190764Z 0 [Note] IPv6 is available.</span><br><span class="line">2023-11-12T00:29:54.190992Z 0 [Note]   - &#x27;::&#x27; resolves to &#x27;::&#x27;;</span><br><span class="line">2023-11-12T00:29:54.191189Z 0 [Note] Server socket created on IP: &#x27;::&#x27;.</span><br><span class="line">2023-11-12T00:29:54.202723Z 0 [Note] Event Scheduler: Loaded 1 event</span><br><span class="line">2023-11-12T00:29:54.203592Z 0 [Note] ./bin/mysqld: ready for connections.</span><br><span class="line">Version: &#x27;5.7.36-StoneDB-&#x27;  socket: &#x27;/tmp/mysql.sock&#x27;  port: 3306  build-</span><br></pre></td></tr></table></figure></div>
+<!--
+merge_operator.h 编译报错，注释掉。编译完成后，可以正常启动，但是重启报错。
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">2023-11-12T00:35:42.600204Z 0 [Note] InnoDB: Buffer pool(s) load completed at 231112  8:35:42</span><br><span class="line">mysqld: Error opening rocks instance. status msg: Invalid argument: merge_operator is not properly initialized.</span><br><span class="line">2023-11-12T00:35:42.629684Z 0 [ERROR] Plugin &#x27;TIANMU&#x27; init function returned error.</span><br><span class="line">2023-11-12T00:35:42.629705Z 0 [ERROR] Plugin &#x27;TIANMU&#x27; registration as a STORAGE ENGINE failed.</span><br><span class="line">2023-11-12T00:35:42.629825Z 0 [ERROR] Failed to initialize dynamic plugins.</span><br><span class="line">2023-11-12T00:35:42.629845Z 0 [ERROR] Aborting</span><br></pre></td></tr></table></figure></div>
+<p>–&gt;</p>
+<h2 id="End">End.</h2>
+<p>经过三天三夜的持久战，终于将 StoneDB 在 Rocky 9 上运行起来了。</p>
+<p>ShawnYan<br>
+2023/11/12 深夜🌛<br>
+End.</p>
+<hr>
+<p><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/1723383648416784384" >https://www.modb.pro/db/1723383648416784384 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+
+        </div>
+
+        
+            <div class="post-copyright-info">
+                <div class="article-copyright-info-container">
+    <ul>
+    <!-- 2023-10-03, edit by shawnyan. -->
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Title:</strong> 三天三夜的三更半夜! StoneDB on Rocky 9</li>
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Author:</strong>
+            
+                严少安
+            
+        </li>
+        <li><strong>Created at:</strong> 2023-11-12 02:34:53</li>
+        
+            <li><strong>Updated at:</strong> 2023-11-12 02:34:53</li>
+        
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Link:</strong> https://shawnyan.cn/2023/stonedb/stonedb-compile-on-rocky-9/</li>
+        <li style="word-wrap: break-word; white-space: normal;">
+            <strong>
+                License:
+            </strong>
+            
+            This work is licensed under <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>.
+            
+
+        </li>
+    </ul>
+</div>
+
+            </div>
+        
+
+        
+            <ul class="post-tags-box">
+                
+                    <li class="tag-item">
+                        <a href="/tags/compile/">#compile</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/rocky/">#rocky</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/stonedb/">#stonedb</a>&nbsp;
+                    </li>
+                
+            </ul>
+        
+
+        
+  <div class="recommended-article">
+   <div class="recommended-desktop">
+    <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+    </div>
+    <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/stonedb/stonedb-install/" title="StoneDB 初体验 | StoneDB-5.7-v1.0.4 安装及新特性速览" rel="bookmark">
+  <img src="/img/head/dophin.jpeg" alt="StoneDB 初体验 | StoneDB-5.7-v1.0.4 安装及新特性速览" class="!max-w-none">
+  <span class="title">StoneDB 初体验 | StoneDB-5.7-v1.0.4 安装及新特性速览</span>
+</a><a class="recommended-article-item" href="/2023/mysql/mysql-8.2.0-compile-customization/" title="【MySQL 8.x】定制化 MySQL 8.2.0 编译选项（文末彩蛋）" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240307-279ad8cc-b226-4c9a-9a00-cef7bba3ca97.jpg" alt="【MySQL 8.x】定制化 MySQL 8.2.0 编译选项（文末彩蛋）" class="!max-w-none">
+  <span class="title">【MySQL 8.x】定制化 MySQL 8.2.0 编译选项（文末彩蛋）</span>
+</a><a class="recommended-article-item" href="/2023/stonedb/stonedb-8.0-v2.2.0-ee/" title="StoneDB 企业版 8.0-v2.2.0 初体验" rel="bookmark">
+  <img src="/img/head/dophin.jpeg" alt="StoneDB 企业版 8.0-v2.2.0 初体验" class="!max-w-none">
+  <span class="title">StoneDB 企业版 8.0-v2.2.0 初体验</span>
+</a></div>
+   </div>
+   <div class="recommended-mobile">
+   <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+   </div>
+   <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/stonedb/stonedb-install/" title="StoneDB 初体验 | StoneDB-5.7-v1.0.4 安装及新特性速览" rel="bookmark">
+  <img src="/img/head/dophin.jpeg" alt="StoneDB 初体验 | StoneDB-5.7-v1.0.4 安装及新特性速览" class="!max-w-none">
+  <span class="title">StoneDB 初体验 | StoneDB-5.7-v1.0.4 安装及新特性速览</span>
+</a><a class="recommended-article-item" href="/2023/mysql/mysql-8.2.0-compile-customization/" title="【MySQL 8.x】定制化 MySQL 8.2.0 编译选项（文末彩蛋）" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240307-279ad8cc-b226-4c9a-9a00-cef7bba3ca97.jpg" alt="【MySQL 8.x】定制化 MySQL 8.2.0 编译选项（文末彩蛋）" class="!max-w-none">
+  <span class="title">【MySQL 8.x】定制化 MySQL 8.2.0 编译选项（文末彩蛋）</span>
+</a></div>
+   </div>
+  </div>
+
+        
+            <div class="article-nav">
+                
+                    <div class="article-prev">
+                        <a class="prev"
+                        rel="prev"
+                        href="/2023/other/my-articles-2023/"
+                        >
+                            <span class="left arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </span>
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">【合集】2023 年文章清单</span>
+                                <span class="post-nav-item">Prev posts</span>
+                            </span>
+                        </a>
+                    </div>
+                
+                
+                    <div class="article-next">
+                        <a class="next"
+                        rel="next"
+                        href="/2023/mysql/mysql-8.2.0-compile-customization/"
+                        >
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">【MySQL 8.x】定制化 MySQL 8.2.0 编译选项（文末彩蛋）</span>
+                                <span class="post-nav-item">Next posts</span>
+                            </span>
+                            <span class="right arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </a>
+                    </div>
+                
+            </div>
+        
+
+
+        
+            <div class="comment-container">
+                <div class="comments-container pjax">
+    <div id="comment-anchor"></div>
+    <div class="comment-area-title">
+        <i class="fa-solid fa-comments"></i>&nbsp;Comments
+    </div>
+    
+
+        
+            
+    <div id="gitalk-container"></div>
+    <script data-swup-reload-script
+            src="//cdn.staticfile.org/gitalk/1.8.0/gitalk.min.js"></script>
+    <script data-swup-reload-script>
+
+        function loadGitalk() {
+            let __gitalk__pathname = decodeURI(location.pathname);
+            const __gitalk__pathnameLength = __gitalk__pathname.length;
+            const __gitalk__pathnameMaxLength = 50;
+            if (__gitalk__pathnameLength > __gitalk__pathnameMaxLength) {
+                __gitalk__pathname = __gitalk__pathname.substring(0, __gitalk__pathnameMaxLength - 3) + '...';
+            }
+
+            try {
+                Gitalk && new Gitalk({
+                    clientID: '32d049bf3701e6791070',
+                    clientSecret: '36c295ad3dad4c739b530ef113d0a979d8c35c5d',
+                    repo: 'gitalk',
+                    owner: 'shawn0915',
+                    admin: ['shawn0915'],
+                    id: __gitalk__pathname,
+                    language: 'en'
+                }).render('gitalk-container');
+
+            } catch (e) {
+                window.Gitalk = null;
+            }
+        }
+
+        if ('true') {
+            const loadGitalkTimeout = setTimeout(() => {
+                loadGitalk();
+                clearTimeout(loadGitalkTimeout);
+            }, 1000);
+        } else {
+            window.addEventListener('DOMContentLoaded', loadGitalk);
+        }
+    </script>
+
+
+
+        
+    
+</div>
+
+            </div>
+        
+    </div>
+
+    
+        <div class="toc-content-container">
+            <div class="post-toc-wrap">
+    <div class="post-toc">
+        <div class="toc-title">On this page</div>
+<!--         <div class="page-title">三天三夜的三更半夜! StoneDB on Rocky 9</div> -->
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#TL-DR"><span class="nav-text">TL;DR</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%8E%AF%E5%A2%83%E4%BF%A1%E6%81%AF"><span class="nav-text">环境信息</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8B-StoneDB-%E7%9A%84%E5%AE%89%E8%A3%85%E8%B7%AF%E5%BE%84%E5%92%8C%E7%89%88%E6%9C%AC%E5%8F%B7"><span class="nav-text">查看 StoneDB 的安装路径和版本号</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%9B%E5%BB%BA-Tianmu-%E6%B5%8B%E8%AF%95%E8%A1%A8"><span class="nav-text">创建 Tianmu 测试表</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BC%96%E8%AF%91%E9%85%8D%E7%BD%AE"><span class="nav-text">编译配置</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%BA%90%E7%A0%81%E4%BB%93%E5%BA%93"><span class="nav-text">源码仓库</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%98%E7%BD%91%E5%9C%B0%E5%9D%80%E8%A7%A3%E6%9E%90"><span class="nav-text">官网地址解析</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Rocksdb-%E4%B8%8B%E8%BD%BD%E9%93%BE%E6%8E%A5"><span class="nav-text">Rocksdb 下载链接</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#marisa-trie-%E4%B8%8B%E8%BD%BD%E9%93%BE%E6%8E%A5"><span class="nav-text">marisa-trie 下载链接</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#boost-%E7%89%88%E6%9C%AC%E5%8D%87%E7%BA%A7"><span class="nav-text">boost 版本升级</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#openssl-1-1-1"><span class="nav-text">openssl 1.1.1</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%8C%E6%95%B4%E7%9A%84%E7%BC%96%E8%AF%91%E6%97%A5%E5%BF%97"><span class="nav-text">完整的编译日志</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%89%E8%A3%85%E6%97%A5%E5%BF%97"><span class="nav-text">安装日志</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%90%AF%E5%8A%A8%E6%97%A5%E5%BF%97"><span class="nav-text">启动日志</span></a></li></ol></li></ol>
+
+    </div>
+</div>
+
+        </div>
+    
+</div>
+
+
+
+                
+
+            </div>
+
+            
+
+        </div>
+
+        <div class="main-content-footer">
+            <footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2017</span>
+              -
+            
+            2024&nbsp;&nbsp;<i class="fa-solid fa-heart fa-beat" style="--fa-animation-duration: 0.5s; color: #f54545"></i>&nbsp;&nbsp;<a href="/">Shawn Yan</a>
+        </div>
+        
+            <script data-swup-reload-script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">VISITOR COUNT</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">TOTAL PAGE VIEWS</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">POWERED BY <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a></span>
+            <span class="text-sm lg:block">THEME&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.4.4</a></span>
+        </div>
+        
+        
+            <div>
+                Blog up for <span class="odometer" id="runtime_days" ></span> days <span class="odometer" id="runtime_hours"></span> hrs <span class="odometer" id="runtime_minutes"></span> Min <span class="odometer" id="runtime_seconds"></span> Sec
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+
+    </div>
+</footer>
+
+        </div>
+    </div>
+
+    
+        <div class="post-tools">
+            <div class="post-tools-container">
+    <ul class="article-tools-list">
+        <!-- TOC aside toggle -->
+        
+            <li class="right-bottom-tools page-aside-toggle">
+                <i class="fa-regular fa-outdent"></i>
+            </li>
+        
+
+        <!-- go comment -->
+        
+            <li class="go-comment">
+                <i class="fa-regular fa-comments"></i>
+            </li>
+        
+    </ul>
+</div>
+
+        </div>
+    
+
+    <div class="right-side-tools-container">
+        <div class="side-tools-container">
+    <ul class="hidden-tools-list">
+        <li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-plus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-minus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-expand-width flex justify-center items-center">
+            <i class="fa-regular fa-expand"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+            <i class="fa-regular fa-moon"></i>
+        </li>
+
+        <!-- rss -->
+        
+            <li class="right-bottom-tools rss flex justify-center items-center">
+                <a class="flex justify-center items-center"
+                   href="/atom.xml"
+                   target="_blank"
+                >
+                <i class="fa-regular fa-rss"></i>
+                </a>
+            </li>
+        
+
+        
+
+        <li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+            <i class="fa-regular fa-arrow-down"></i>
+        </li>
+    </ul>
+
+    <ul class="visible-tools-list">
+        <li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+            <i class="fa-regular fa-cog fa-spin"></i>
+        </li>
+        
+            <li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+                <i class="arrow-up fas fa-arrow-up"></i>
+                <span class="percent"></span>
+            </li>
+        
+        
+    </ul>
+</div>
+
+    </div>
+
+    <div class="image-viewer-container">
+    <img src="">
+</div>
+
+
+    
+        <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+          <span class="search-input-field-pre">
+            <i class="fa-solid fa-keyboard"></i>
+          </span>
+            <div class="search-input-container">
+                <input autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       placeholder="Search..."
+                       spellcheck="false"
+                       type="search"
+                       class="search-input"
+                >
+            </div>
+            <span class="popup-btn-close">
+                <i class="fa-solid fa-times"></i>
+            </span>
+        </div>
+        <div id="search-result">
+            <div id="no-result">
+                <i class="fa-solid fa-spinner fa-spin-pulse fa-5x fa-fw"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+
+</main>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Swup.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupSlideTheme.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScriptsPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupProgressPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScrollPlugin.min.js"></script>
+<script>
+    const swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+        ],
+        containers: ["#swup"],
+    });
+
+    swup.hooks.on("page:view", () => {
+        Global.refresh();
+    });
+
+    // if (document.readyState === "complete") {
+    //
+    // } else {
+    //     document.addEventListener("DOMContentLoaded", () => init());
+    // }
+</script>
+
+
+
+
+
+<script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/utils.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/main.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/navbarShrink.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/scrollTopBottom.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/lightDarkSwitch.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/categoryList.js"></script>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/localSearch.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/codeBlock.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/lazyload.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/runtime.js"></script>
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/odometer.min.js"></script>
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/assets/odometer-theme-minimal.css">
+
+
+
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Typed.min.js"></script>
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/typed.js"></script>
+
+
+
+
+
+
+<div class="post-scripts" data-swup-reload-script>
+    
+        <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/anime.min.js"></script>
+        <script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/tocToggle.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/toc.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/tabs.js"></script>
+    
+</div>
+
+
+</body>
+</html>

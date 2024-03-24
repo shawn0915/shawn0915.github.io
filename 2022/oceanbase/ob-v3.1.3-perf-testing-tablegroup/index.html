@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="shawnyan,dba,oracle,mysql,tidb,mariadb,postgresql,gbase,proxysql">
+    
+    <meta name="author" content="Shawn Yan">
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+        
+        
+        
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://shawnyan.cn/2022/oceanbase/ob-v3.1.3-perf-testing-tablegroup/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+        <meta name="description" content="概述 本文是前两篇文章 《大才能否小用？OceanBase一体化场景测试》、《使用 DBT-3 对 OceanBase 和 MariaDB 进行性能测试对比》 的后续及引申，主要介绍并测试 OceanBase（以下简称“OB”） 中表组（tablegroup）（以下简称“TG”）这一特性，并介绍 OB 自带的两个工具 env_checker.py 和 dooba.py。  OceanBase 的表">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OB测试 | OceanBase 表组（Tablegroup）测试及 OceanBase 自带工具使用示例">
+<meta property="og:url" content="https://shawnyan.cn/2022/oceanbase/ob-v3.1.3-perf-testing-tablegroup/index.html">
+<meta property="og:site_name" content="少安事务所">
+<meta property="og:description" content="概述 本文是前两篇文章 《大才能否小用？OceanBase一体化场景测试》、《使用 DBT-3 对 OceanBase 和 MariaDB 进行性能测试对比》 的后续及引申，主要介绍并测试 OceanBase（以下简称“OB”） 中表组（tablegroup）（以下简称“TG”）这一特性，并介绍 OB 自带的两个工具 env_checker.py 和 dooba.py。  OceanBase 的表">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20220429-a58fb6fa-086e-41f3-8f8c-aeda0adcf225.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20220429-769d8f40-c6bf-4416-8ce4-34f72f0919dd.jpg">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20220429-508498c7-7382-4b57-90e9-924aabd36b1d.png">
+<meta property="article:published_time" content="2022-04-29T14:04:02.000Z">
+<meta property="article:modified_time" content="2022-04-29T14:04:02.000Z">
+<meta property="article:author" content="Shawn Yan">
+<meta property="article:tag" content="oceanbase">
+<meta property="article:tag" content="mariadb">
+<meta property="article:tag" content="oceanbase 社区版">
+<meta property="article:tag" content="ob v3">
+<meta property="article:tag" content="性能测试">
+<meta property="article:tag" content="tablegroup">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20220429-a58fb6fa-086e-41f3-8f8c-aeda0adcf225.png">
+    
+    
+        <!-- Google tag (gtag.js) -->
+        <script src="https://www.googletagmanager.com/gtag/js?id=G-ZH71L5F7X2"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-ZH71L5F7X2');
+        </script>
+    
+    <!-- baidu tongji -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?2fa794d82f74c0bb3617ba62ee962b46";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/img/favicon.ico" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon.ico">
+    <meta name="theme-color" content="#767FF6">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <!--- Page Info-->
+    
+    <title>
+        
+            OB测试 | OceanBase 表组（Tablegroup）测试及 OceanBase 自带工具使用示例 -
+        
+        少安事务所
+    </title>
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+<!--- use 2.5.0
+    
+        
+<link rel="stylesheet" href="/assets/build/styles.css">
+
+    
+-->
+    <link rel="stylesheet" href="//cdn.staticfile.org/hexo-theme-redefine/2.5.0/assets/build/styles.min.css">
+
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/fonts.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Satoshi/satoshi.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Chillax/chillax.css">
+    <!--- Font Part-->
+    
+    
+    
+    
+
+    <!--- Inject Part-->
+    
+    <script id="hexo-configurations">
+    let Global = window.Global || {};
+    Global.hexo_config = {"hostname":"shawnyan.cn","root":"/","language":"en","path":"search.xml"};
+    Global.theme_config = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":true,"list":[]},"code_block":{"copy":true,"style":"mac","font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":4,"number":false,"expand":true,"init_open":true},"copyright":true,"lazyload":true,"recommendation":{"enable":true,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#767FF6","secondary":null},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"open_graph":true,"google_analytics":{"enable":true,"id":"G-ZH71L5F7X2"},"root_color_mode":"dark"},"home_banner":{"enable":true,"style":"fixed","image":{"light":"https://asktug.com/uploads/default/original/4X/4/b/d/4bd94f804719672dd7e3cb29150ea6f777eb0aec.jpeg","dark":"/img/wallpaper/dark.webp"},"title":"Shawn Yan's Tech Blog.","subtitle":{"text":["A blog about MySQL, Oracle, TiDB, PostgreSQL and other databases."],"hitokoto":{"enable":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":500,"backing_delay":1500,"loop":true,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"links":{"github":"https://github.com/shawn0915","instagram":null,"zhihu":null,"twitter":null,"email":"admin@shawnyan.cn"},"qrs":{"weixin":null}}},"plugins":{"feed":{"enable":true},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":"回忆的沙漏 (10周年版)","artist":"回忆的沙漏 (10周年版)","url":"https://music.163.com/song/media/outer/url?id=1329122067.mp3","cover":"https://p1.music.126.net/oJorrgJ3IotZUAbZkBMuFw==/109951167771736533.jpg?param=68y68"}]},"mermaid":{"enable":false,"version":"9.3.0"}},"version":"2.4.4","navbar":{"auto_hide":false,"color":{"left":"#f78736","right":"#367df7","transparency":35},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Blog":{"path":"/archives","icon":"fa-regular fa-archive"},"Categories":{"path":"/categories","icon":"fa-regular fa-stream"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Links":{"icon":"fa-regular fa-link","submenus":{"My-params":"/my-params","Friends":"/links","Q":"/q"}}},"search":{"enable":true,"preload":true}},"page_templates":{"friends_column":3,"tags_style":"cloud"},"home":{"sidebar":{"enable":true,"position":"left","first_item":"info","announcement":null,"links":null},"article_date_format":"YYYY-MM-DD","categories":{"enable":true,"limit":10},"tags":{"enable":true,"limit":10}},"footerStart":"2017/11/27 00:00:00"};
+    Global.language_ago = {"second":"%s seconds ago","minute":"%s minutes ago","hour":"%s hours ago","day":"%s days ago","week":"%s weeks ago","month":"%s months ago","year":"%s years ago"};
+    Global.data_config = {"masonry":false};
+  </script>
+
+    <!--- Fontawesome Part-->
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/fontawesome.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/brands.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/solid.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/regular.min.css">
+    
+    
+    
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+
+
+<body>
+<div class="progress-bar-container">
+    
+
+    
+        <span class="pjax-progress-bar"></span>
+        <span class="swup-progress-icon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+    
+</div>
+
+
+<main class="page-container" id="swup">
+
+    
+
+    <div class="main-content-container">
+
+
+        <div class="main-content-header">
+            <header class="navbar-container">
+    
+    <div class="navbar-content">
+        <div class="left">
+            
+                <a class="logo-image" href="https://shawnyan.cn/">
+                    <img src="/img/favicon.ico">
+                </a>
+            
+            <a class="logo-title" href="https://shawnyan.cn/">
+                
+                少安事务所
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-house"></i>
+                                        
+                                        HOME
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/archives"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-archive"></i>
+                                        
+                                        BLOG
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/categories"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-stream"></i>
+                                        
+                                        CATEGORIES
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/tags"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-tags"></i>
+                                        
+                                        TAGS
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/about"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-user"></i>
+                                        
+                                        ABOUT
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="has-dropdown" 
+                                    href="#" onClick="return false;">
+                                    
+                                        
+                                            <i class="fa-regular fa-link"></i>
+                                        
+                                        LINKS&nbsp;<i class="fa-solid fa-chevron-down"></i>
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                                    <ul class="sub-menu">
+                                    
+                                        <li>
+                                        <a href="/my-params">MY-PARAMS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/links">FRIENDS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/q">Q
+                                        </a>
+                                        </li>
+                                    
+                                    </ul>
+                                
+                            </li>
+                    
+                    
+                        <li class="navbar-item search search-popup-trigger">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </li>
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                    <div class="icon-item search search-popup-trigger"><i class="fa-solid fa-magnifying-glass"></i></div>
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="navbar-drawer w-full absolute top-0 left-0 bg-background-color">
+        <ul class="drawer-navbar-list flex flex-col justify-start items-center">
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/"  >
+                             
+                                
+                                    <i class="fa-regular fa-house"></i>
+                                
+                                HOME
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/archives"  >
+                             
+                                
+                                    <i class="fa-regular fa-archive"></i>
+                                
+                                BLOG
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/categories"  >
+                             
+                                
+                                    <i class="fa-regular fa-stream"></i>
+                                
+                                CATEGORIES
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/tags"  >
+                             
+                                
+                                    <i class="fa-regular fa-tags"></i>
+                                
+                                TAGS
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/about"  >
+                             
+                                
+                                    <i class="fa-regular fa-user"></i>
+                                
+                                ABOUT
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group has-dropdown" 
+                        href="#" onClick="return false;">
+                            
+                                
+                                    <i class="fa-regular fa-link"></i>
+                                
+                                LINKS&nbsp;<i class="group-hover:rotate-180 transition-transform fa-solid fa-chevron-down"></i>
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                              
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/my-params">MY-PARAMS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/links">FRIENDS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/q">Q</a>
+                            </li>
+                        
+                    
+            
+
+        </ul>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+        </div>
+
+        <div class="main-content-body">
+
+            
+
+            <div class="main-content">
+
+                
+                    <div class="post-page-container">
+    <div class="article-content-container">
+
+        <div class="article-title">
+            
+                
+                
+                <!-- 2023-10-03, edit by shawnyan. -->
+                <img src="/img/oceanbase/oceanbase-banner.png" alt="OB测试 | OceanBase 表组（Tablegroup）测试及 OceanBase 自带工具使用示例" class="max-w-none" referrerpolicy="no-referrer"/>
+                
+                <h1 class="article-title-cover">OB测试 | OceanBase 表组（Tablegroup）测试及 OceanBase 自带工具使用示例</h1>
+            
+            </div>
+
+
+
+        
+            <div class="article-header">
+                <div class="avatar">
+                    
+                        <img src="/img/avatar.jpg">
+                    
+                </div>
+                <div class="info">
+                    <div class="author">
+                        
+                            <span class="name">严少安</span>
+                        
+                        
+                            
+                                <span class="author-label">Lv.6</span>
+                            
+                        
+                    </div>
+                    <div class="meta-info">
+                        <div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2022-04-29 22:04:02</span>
+        <span class="mobile">2022-04-29 22:04:02</span>
+        <span class="hover-info">Created</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2022-04-29 22:04:02</span>
+            <span class="mobile">2022-04-29 22:04:02</span>
+            <span class="hover-info">Updated</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/oceanbase/">OceanBase</a>&nbsp;
+                        </li>
+                    
+                    
+                
+                    
+                        
+                            <li>></li>
+                        
+                        <li>
+                            <a href="/categories/oceanbase/ob-v3/">OB v3</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/oceanbase/">oceanbase</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/mariadb/">mariadb</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/oceanbase-%E7%A4%BE%E5%8C%BA%E7%89%88/">oceanbase 社区版</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/ob-v3/">ob v3</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/%E6%80%A7%E8%83%BD%E6%B5%8B%E8%AF%95/">性能测试</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/tablegroup/">tablegroup</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+        <span class="article-wordcount article-meta-item">
+            <i class="fa-regular fa-typewriter"></i>&nbsp;<span>2.8k Words</span>
+        </span>
+    
+    
+        <span class="article-min2read article-meta-item">
+            <i class="fa-regular fa-clock"></i>&nbsp;<span>15 Mins</span>
+        </span>
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+                    </div>
+                </div>
+            </div>
+        
+
+        
+
+
+        <div class="article-content markdown-body">
+            <h2 id="概述">概述</h2>
+<p>本文是前两篇文章 <a href="https://shawnyan.cn/2022/oceanbase/ob-v3.1.3-perf-testing-single-node/">《大才能否小用？OceanBase一体化场景测试》</a>、<a href="https://shawnyan.cn/2022/oceanbase/ob-v3.1.3-perf-testing-with-dbt-3/">《使用 DBT-3 对 OceanBase 和 MariaDB 进行性能测试对比》</a> 的后续及引申，主要介绍并测试 OceanBase（以下简称“OB”） 中表组（tablegroup）（以下简称“TG”）这一特性，并介绍 OB 自带的两个工具 <code>env_checker.py</code> 和 <code>dooba.py</code>。</p>
+<img  alt="ob-tablegroup-word-art.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20220429-a58fb6fa-086e-41f3-8f8c-aeda0adcf225.png"
+                      referrerpolicy="no-referrer"
+                >
+<h2 id="OceanBase-的表组（Tablegroup）特性">OceanBase 的表组（Tablegroup）特性</h2>
+<p>在 OB 中，关系密切的表，可以通过表组干预它们的分区分布，使表组内所有的同号分区在同一个 Unit 内部，避免跨节点请求对性能的影响。<br>
+属于这样一个集合的表，需要满足一定的约束：所有表必须拥有相同的 Locality（副本类型、个数及位置），相同的 Primary Zone（leader 位置及其优先级），以及相同的分区方式。</p>
+<p>不过，单节点下表组意义不大，更建议使用在3-3-3的场景下，将关联紧密的表设定为一个表组，从而减少跨zone访问带来的网络延迟。</p>
+<p>本文案例是基于前两篇文章的进一步测试及特性演示，所以依旧是在单节点下进行测试。</p>
+<h3 id="TableGroup-基本用法">TableGroup 基本用法</h3>
+<p>创建TG，添加表到TG，查看TG状态的语法如下：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">mysql <span class="operator">-</span>uroot<span class="variable">@tpcc</span> <span class="operator">-</span>h127<span class="number">.1</span> <span class="operator">-</span>P2881 tpcc</span><br><span class="line"></span><br><span class="line"># 创建 tablegroup</span><br><span class="line">oceanbase<span class="operator">&gt;</span> <span class="keyword">CREATE</span> <span class="keyword">TABLE</span><span class="keyword">GROUP</span> IF <span class="keyword">NOT</span> <span class="keyword">EXISTS</span> tg_1;</span><br><span class="line"></span><br><span class="line"># 添加对应的表</span><br><span class="line">oceanbase<span class="operator">&gt;</span> <span class="keyword">ALTER</span> <span class="keyword">TABLE</span> sbtest1 <span class="keyword">SET</span> TABLEGROUP tg_1;</span><br><span class="line">oceanbase<span class="operator">&gt;</span> <span class="keyword">ALTER</span> <span class="keyword">TABLE</span> TABLE2 <span class="keyword">SET</span> TABLEGROUP tg_1;</span><br><span class="line"></span><br><span class="line"># 查看 tablegroup</span><br><span class="line">oceanbase<span class="operator">&gt;</span> <span class="keyword">SHOW</span> TABLEGROUPS;</span><br><span class="line">oceanbase<span class="operator">&gt;</span> <span class="keyword">SHOW</span> <span class="keyword">CREATE</span> <span class="keyword">TABLE</span><span class="keyword">GROUP</span> tg_1\G</span><br></pre></td></tr></table></figure></div>
+<h3 id="为测试表创建表组">为测试表创建表组</h3>
+<p>从8张表的关系图，以及 SQL 的执行计划可以看出，<code>customer</code>、<code>orders</code> 和 <code>lineitem</code> 这三张表的关联关系密切，故将这三张表创建为一个表组。</p>
+<img  alt="1.jpg" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20220429-769d8f40-c6bf-4416-8ce4-34f72f0919dd.jpg"
+                      referrerpolicy="no-referrer"
+                >
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"># <span class="keyword">create</span> tg</span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span><span class="keyword">GROUP</span> IF <span class="keyword">NOT</span> <span class="keyword">EXISTS</span> tg_dbt3;</span><br><span class="line"></span><br><span class="line"># <span class="keyword">add</span> <span class="keyword">table</span> <span class="keyword">into</span> tg</span><br><span class="line"><span class="keyword">ALTER</span> <span class="keyword">TABLE</span> customer <span class="keyword">SET</span> TABLEGROUP tg_dbt3;</span><br><span class="line"><span class="keyword">ALTER</span> <span class="keyword">TABLE</span> orders <span class="keyword">SET</span> TABLEGROUP tg_dbt3;</span><br><span class="line"><span class="keyword">ALTER</span> <span class="keyword">TABLE</span> lineitem <span class="keyword">SET</span> TABLEGROUP tg_dbt3;</span><br><span class="line"></span><br><span class="line"># <span class="keyword">check</span> tg</span><br><span class="line"><span class="keyword">SHOW</span> TABLEGROUPS;</span><br><span class="line"><span class="operator">+</span><span class="comment">-----------------+----------------------------+---------------+</span></span><br><span class="line"><span class="operator">|</span> Tablegroup_name <span class="operator">|</span> Table_name                 <span class="operator">|</span> Database_name <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-----------------+----------------------------+---------------+</span></span><br><span class="line"><span class="operator">|</span> oceanbase       <span class="operator">|</span> <span class="keyword">NULL</span>                       <span class="operator">|</span> <span class="keyword">NULL</span>          <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> tg_dbt3         <span class="operator">|</span> customer                   <span class="operator">|</span> tpcc          <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> tg_dbt3         <span class="operator">|</span> lineitem                   <span class="operator">|</span> tpcc          <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> tg_dbt3         <span class="operator">|</span> orders                     <span class="operator">|</span> tpcc          <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-----------------+----------------------------+---------------+</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">SHOW</span> <span class="keyword">CREATE</span> <span class="keyword">TABLE</span><span class="keyword">GROUP</span> tg_dbt3\G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">       Tablegroup: tg_dbt3</span><br><span class="line"><span class="keyword">Create</span> <span class="keyword">Table</span><span class="keyword">group</span>: <span class="keyword">CREATE</span> <span class="keyword">TABLE</span><span class="keyword">GROUP</span> IF <span class="keyword">NOT</span> <span class="keyword">EXISTS</span> `tg_dbt3`  BINDING <span class="operator">=</span> <span class="literal">FALSE</span></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.004</span> sec)</span><br></pre></td></tr></table></figure></div>
+<p>创建表组成功后，再次对6个SQL进行测试。</p>
+<p>测试数据及执行计划如下。</p>
+<h3 id="测试-SQL-的执行计划">测试 SQL 的执行计划</h3>
+<h4 id="SQL-1">SQL-1</h4>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">Query Plan: <span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span></span><br><span class="line"><span class="operator">|</span>ID<span class="operator">|</span>OPERATOR      <span class="operator">|</span>NAME    <span class="operator">|</span>EST. <span class="keyword">ROWS</span><span class="operator">|</span>COST   <span class="operator">|</span></span><br><span class="line"><span class="comment">----------------------------------------------</span></span><br><span class="line"><span class="operator">|</span><span class="number">0</span> <span class="operator">|</span>SORT          <span class="operator">|</span>        <span class="operator">|</span><span class="number">6</span>        <span class="operator">|</span><span class="number">4988325</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">1</span> <span class="operator">|</span> HASH <span class="keyword">GROUP</span> <span class="keyword">BY</span><span class="operator">|</span>        <span class="operator">|</span><span class="number">6</span>        <span class="operator">|</span><span class="number">4988308</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">2</span> <span class="operator">|</span>  <span class="keyword">TABLE</span> SCAN  <span class="operator">|</span>lineitem<span class="operator">|</span><span class="number">2000405</span>  <span class="operator">|</span><span class="number">3261350</span><span class="operator">|</span></span><br><span class="line"><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span></span><br><span class="line"></span><br><span class="line">Outputs <span class="operator">&amp;</span> filters:</span><br><span class="line"><span class="comment">-------------------------------------</span></span><br><span class="line">  <span class="number">0</span> <span class="operator">-</span> output([lineitem.l_returnflag], [lineitem.l_linestatus], [T_FUN_SUM(lineitem.l_quantity)], [T_FUN_SUM(lineitem.l_extendedprice)], [T_FUN_SUM(lineitem.l_extendedprice <span class="operator">*</span> ? <span class="operator">-</span> lineitem.l_discount)], [T_FUN_SUM(lineitem.l_extendedprice <span class="operator">*</span> ? <span class="operator">-</span> lineitem.l_discount <span class="operator">*</span> ? <span class="operator">+</span> lineitem.l_tax)], [T_FUN_SUM(lineitem.l_quantity) <span class="operator">/</span> <span class="built_in">cast</span>(T_FUN_COUNT(lineitem.l_quantity), <span class="type">DECIMAL</span>(<span class="number">20</span>, <span class="number">0</span>))], [T_FUN_SUM(lineitem.l_extendedprice) <span class="operator">/</span> <span class="built_in">cast</span>(T_FUN_COUNT(lineitem.l_extendedprice), <span class="type">DECIMAL</span>(<span class="number">20</span>, <span class="number">0</span>))], [T_FUN_SUM(lineitem.l_discount) <span class="operator">/</span> <span class="built_in">cast</span>(T_FUN_COUNT(lineitem.l_discount), <span class="type">DECIMAL</span>(<span class="number">20</span>, <span class="number">0</span>))], [T_FUN_COUNT(<span class="operator">*</span>)]), <span class="keyword">filter</span>(nil), sort_keys([lineitem.l_returnflag, <span class="keyword">ASC</span>], [lineitem.l_linestatus, <span class="keyword">ASC</span>])</span><br><span class="line">  <span class="number">1</span> <span class="operator">-</span> output([lineitem.l_returnflag], [lineitem.l_linestatus], [T_FUN_SUM(lineitem.l_quantity)], [T_FUN_SUM(lineitem.l_extendedprice)], [T_FUN_SUM(lineitem.l_extendedprice <span class="operator">*</span> ? <span class="operator">-</span> lineitem.l_discount)], [T_FUN_SUM(lineitem.l_extendedprice <span class="operator">*</span> ? <span class="operator">-</span> lineitem.l_discount <span class="operator">*</span> ? <span class="operator">+</span> lineitem.l_tax)], [T_FUN_COUNT(lineitem.l_quantity)], [T_FUN_COUNT(lineitem.l_extendedprice)], [T_FUN_SUM(lineitem.l_discount)], [T_FUN_COUNT(lineitem.l_discount)], [T_FUN_COUNT(<span class="operator">*</span>)]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      <span class="keyword">group</span>([lineitem.l_returnflag], [lineitem.l_linestatus]), agg_func([T_FUN_SUM(lineitem.l_quantity)], [T_FUN_SUM(lineitem.l_extendedprice)], [T_FUN_SUM(lineitem.l_extendedprice <span class="operator">*</span> ? <span class="operator">-</span> lineitem.l_discount)], [T_FUN_SUM(lineitem.l_extendedprice <span class="operator">*</span> ? <span class="operator">-</span> lineitem.l_discount <span class="operator">*</span> ? <span class="operator">+</span> lineitem.l_tax)], [T_FUN_COUNT(<span class="operator">*</span>)], [T_FUN_COUNT(lineitem.l_quantity)], [T_FUN_COUNT(lineitem.l_extendedprice)], [T_FUN_SUM(lineitem.l_discount)], [T_FUN_COUNT(lineitem.l_discount)])</span><br><span class="line">  <span class="number">2</span> <span class="operator">-</span> output([lineitem.l_returnflag], [lineitem.l_linestatus], [lineitem.l_quantity], [lineitem.l_extendedprice], [lineitem.l_discount], [lineitem.l_extendedprice <span class="operator">*</span> ? <span class="operator">-</span> lineitem.l_discount], [lineitem.l_extendedprice <span class="operator">*</span> ? <span class="operator">-</span> lineitem.l_discount <span class="operator">*</span> ? <span class="operator">+</span> lineitem.l_tax]), <span class="keyword">filter</span>([<span class="built_in">cast</span>(lineitem.l_shipDATE, DATETIME(<span class="number">-1</span>, <span class="number">-1</span>)) <span class="operator">&lt;=</span> ?]),</span><br><span class="line">      access([lineitem.l_shipDATE], [lineitem.l_returnflag], [lineitem.l_linestatus], [lineitem.l_quantity], [lineitem.l_extendedprice], [lineitem.l_discount], [lineitem.l_tax]), partitions(p0)</span><br><span class="line"></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.006</span> sec)</span><br></pre></td></tr></table></figure></div>
+<h4 id="SQL-5">SQL-5</h4>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">Query Plan: <span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span></span><br><span class="line"><span class="operator">|</span>ID<span class="operator">|</span>OPERATOR         <span class="operator">|</span>NAME    <span class="operator">|</span>EST. <span class="keyword">ROWS</span><span class="operator">|</span>COST   <span class="operator">|</span></span><br><span class="line"><span class="comment">-------------------------------------------------</span></span><br><span class="line"><span class="operator">|</span><span class="number">0</span> <span class="operator">|</span>SORT             <span class="operator">|</span>        <span class="operator">|</span><span class="number">25</span>       <span class="operator">|</span><span class="number">6968243</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">1</span> <span class="operator">|</span> HASH <span class="keyword">GROUP</span> <span class="keyword">BY</span>   <span class="operator">|</span>        <span class="operator">|</span><span class="number">25</span>       <span class="operator">|</span><span class="number">6968114</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">2</span> <span class="operator">|</span>  HASH <span class="keyword">JOIN</span>      <span class="operator">|</span>        <span class="operator">|</span><span class="number">7348</span>     <span class="operator">|</span><span class="number">6965295</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">3</span> <span class="operator">|</span>   <span class="keyword">TABLE</span> SCAN    <span class="operator">|</span>region  <span class="operator">|</span><span class="number">1</span>        <span class="operator">|</span><span class="number">40</span>     <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">4</span> <span class="operator">|</span>   HASH <span class="keyword">JOIN</span>     <span class="operator">|</span>        <span class="operator">|</span><span class="number">36737</span>    <span class="operator">|</span><span class="number">6948838</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">5</span> <span class="operator">|</span>    <span class="keyword">TABLE</span> SCAN   <span class="operator">|</span>nation  <span class="operator">|</span><span class="number">25</span>       <span class="operator">|</span><span class="number">42</span>     <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">6</span> <span class="operator">|</span>    HASH <span class="keyword">JOIN</span>    <span class="operator">|</span>        <span class="operator">|</span><span class="number">36737</span>    <span class="operator">|</span><span class="number">6914905</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">7</span> <span class="operator">|</span>     <span class="keyword">TABLE</span> SCAN  <span class="operator">|</span>supplier<span class="operator">|</span><span class="number">10000</span>    <span class="operator">|</span><span class="number">3973</span>   <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">8</span> <span class="operator">|</span>     HASH <span class="keyword">JOIN</span>   <span class="operator">|</span>        <span class="operator">|</span><span class="number">907292</span>   <span class="operator">|</span><span class="number">6522128</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">9</span> <span class="operator">|</span>      HASH <span class="keyword">JOIN</span>  <span class="operator">|</span>        <span class="operator">|</span><span class="number">223710</span>   <span class="operator">|</span><span class="number">1232531</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">10</span><span class="operator">|</span>       <span class="keyword">TABLE</span> SCAN<span class="operator">|</span>customer<span class="operator">|</span><span class="number">150000</span>   <span class="operator">|</span><span class="number">62265</span>  <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">11</span><span class="operator">|</span>       <span class="keyword">TABLE</span> SCAN<span class="operator">|</span>orders  <span class="operator">|</span><span class="number">228275</span>   <span class="operator">|</span><span class="number">770751</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">12</span><span class="operator">|</span>      <span class="keyword">TABLE</span> SCAN <span class="operator">|</span>lineitem<span class="operator">|</span><span class="number">6001215</span>  <span class="operator">|</span><span class="number">2361773</span><span class="operator">|</span></span><br><span class="line"><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span></span><br><span class="line"></span><br><span class="line">Outputs <span class="operator">&amp;</span> filters:</span><br><span class="line"><span class="comment">-------------------------------------</span></span><br><span class="line">  <span class="number">0</span> <span class="operator">-</span> output([nation.n_name], [T_FUN_SUM(lineitem.l_extendedprice <span class="operator">*</span> ? <span class="operator">-</span> lineitem.l_discount)]), <span class="keyword">filter</span>(nil), sort_keys([T_FUN_SUM(lineitem.l_extendedprice <span class="operator">*</span> ? <span class="operator">-</span> lineitem.l_discount), <span class="keyword">DESC</span>])</span><br><span class="line">  <span class="number">1</span> <span class="operator">-</span> output([nation.n_name], [T_FUN_SUM(lineitem.l_extendedprice <span class="operator">*</span> ? <span class="operator">-</span> lineitem.l_discount)]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      <span class="keyword">group</span>([nation.n_name]), agg_func([T_FUN_SUM(lineitem.l_extendedprice <span class="operator">*</span> ? <span class="operator">-</span> lineitem.l_discount)])</span><br><span class="line">  <span class="number">2</span> <span class="operator">-</span> output([nation.n_name], [lineitem.l_extendedprice <span class="operator">*</span> ? <span class="operator">-</span> lineitem.l_discount]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      equal_conds([nation.n_regionkey <span class="operator">=</span> region.r_regionkey]), other_conds(nil)</span><br><span class="line">  <span class="number">3</span> <span class="operator">-</span> output([region.r_regionkey]), <span class="keyword">filter</span>([region.r_name <span class="operator">=</span> <span class="string">&#x27;EUROPE&#x27;</span>]),</span><br><span class="line">      access([region.r_regionkey], [region.r_name]), partitions(p0)</span><br><span class="line">  <span class="number">4</span> <span class="operator">-</span> output([nation.n_name], [lineitem.l_extendedprice], [lineitem.l_discount], [nation.n_regionkey]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      equal_conds([supplier.s_nationkey <span class="operator">=</span> nation.n_nationkey]), other_conds(nil)</span><br><span class="line">  <span class="number">5</span> <span class="operator">-</span> output([nation.n_nationkey], [nation.n_regionkey], [nation.n_name]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      access([nation.n_nationkey], [nation.n_regionkey], [nation.n_name]), partitions(p0)</span><br><span class="line">  <span class="number">6</span> <span class="operator">-</span> output([lineitem.l_extendedprice], [lineitem.l_discount], [supplier.s_nationkey]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      equal_conds([lineitem.l_suppkey <span class="operator">=</span> supplier.s_suppkey], [customer.c_nationkey <span class="operator">=</span> supplier.s_nationkey]), other_conds(nil)</span><br><span class="line">  <span class="number">7</span> <span class="operator">-</span> output([supplier.s_suppkey], [supplier.s_nationkey]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      access([supplier.s_suppkey], [supplier.s_nationkey]), partitions(p0)</span><br><span class="line">  <span class="number">8</span> <span class="operator">-</span> output([lineitem.l_extendedprice], [lineitem.l_discount], [lineitem.l_suppkey], [customer.c_nationkey]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      equal_conds([lineitem.l_orderkey <span class="operator">=</span> orders.o_orderkey]), other_conds(nil)</span><br><span class="line">  <span class="number">9</span> <span class="operator">-</span> output([customer.c_nationkey], [orders.o_orderkey]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      equal_conds([customer.c_custkey <span class="operator">=</span> orders.o_custkey]), other_conds(nil)</span><br><span class="line">  <span class="number">10</span> <span class="operator">-</span> output([customer.c_custkey], [customer.c_nationkey]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      access([customer.c_custkey], [customer.c_nationkey]), partitions(p0)</span><br><span class="line">  <span class="number">11</span> <span class="operator">-</span> output([orders.o_custkey], [orders.o_orderkey]), <span class="keyword">filter</span>([orders.o_orderDATE <span class="operator">&gt;=</span> <span class="string">&#x27;1996-01-01&#x27;</span>], [orders.o_orderDATE <span class="operator">&lt;</span> ?]),</span><br><span class="line">      access([orders.o_custkey], [orders.o_orderkey], [orders.o_orderDATE]), partitions(p0)</span><br><span class="line">  <span class="number">12</span> <span class="operator">-</span> output([lineitem.l_orderkey], [lineitem.l_suppkey], [lineitem.l_extendedprice], [lineitem.l_discount]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      access([lineitem.l_orderkey], [lineitem.l_suppkey], [lineitem.l_extendedprice], [lineitem.l_discount]), partitions(p0)</span><br><span class="line"></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.035</span> sec)</span><br></pre></td></tr></table></figure></div>
+<h4 id="SQL-6">SQL-6</h4>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">Query Plan: <span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span></span><br><span class="line"><span class="operator">|</span>ID<span class="operator">|</span>OPERATOR       <span class="operator">|</span>NAME    <span class="operator">|</span>EST. <span class="keyword">ROWS</span><span class="operator">|</span>COST   <span class="operator">|</span></span><br><span class="line"><span class="comment">-----------------------------------------------</span></span><br><span class="line"><span class="operator">|</span><span class="number">0</span> <span class="operator">|</span>SCALAR <span class="keyword">GROUP</span> <span class="keyword">BY</span><span class="operator">|</span>        <span class="operator">|</span><span class="number">1</span>        <span class="operator">|</span><span class="number">5400125</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">1</span> <span class="operator">|</span> <span class="keyword">TABLE</span> SCAN    <span class="operator">|</span>lineitem<span class="operator">|</span><span class="number">123843</span>   <span class="operator">|</span><span class="number">5376470</span><span class="operator">|</span></span><br><span class="line"><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span></span><br><span class="line"></span><br><span class="line">Outputs <span class="operator">&amp;</span> filters:</span><br><span class="line"><span class="comment">-------------------------------------</span></span><br><span class="line">  <span class="number">0</span> <span class="operator">-</span> output([T_FUN_SUM(lineitem.l_extendedprice <span class="operator">*</span> lineitem.l_discount)]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      <span class="keyword">group</span>(nil), agg_func([T_FUN_SUM(lineitem.l_extendedprice <span class="operator">*</span> lineitem.l_discount)])</span><br><span class="line">  <span class="number">1</span> <span class="operator">-</span> output([lineitem.l_extendedprice <span class="operator">*</span> lineitem.l_discount]), <span class="keyword">filter</span>([(T_OP_BTW, lineitem.l_discount, ?, ?)], [lineitem.l_shipDATE <span class="operator">&gt;=</span> <span class="string">&#x27;1996-01-01&#x27;</span>], [lineitem.l_quantity <span class="operator">&lt;</span> ?], [lineitem.l_shipDATE <span class="operator">&lt;</span> ?]),</span><br><span class="line">      access([lineitem.l_shipDATE], [lineitem.l_discount], [lineitem.l_quantity], [lineitem.l_extendedprice]), partitions(p0)</span><br><span class="line"></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.004</span> sec)</span><br></pre></td></tr></table></figure></div>
+<h4 id="SQL-10">SQL-10</h4>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">Query Plan: <span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span></span><br><span class="line"><span class="operator">|</span>ID<span class="operator">|</span>OPERATOR        <span class="operator">|</span>NAME    <span class="operator">|</span>EST. <span class="keyword">ROWS</span><span class="operator">|</span>COST   <span class="operator">|</span></span><br><span class="line"><span class="comment">------------------------------------------------</span></span><br><span class="line"><span class="operator">|</span><span class="number">0</span> <span class="operator">|</span>LIMIT           <span class="operator">|</span>        <span class="operator">|</span><span class="number">20</span>       <span class="operator">|</span><span class="number">9753872</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">1</span> <span class="operator">|</span> TOP<span class="operator">-</span>N SORT     <span class="operator">|</span>        <span class="operator">|</span><span class="number">20</span>       <span class="operator">|</span><span class="number">9753869</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">2</span> <span class="operator">|</span>  HASH <span class="keyword">GROUP</span> <span class="keyword">BY</span> <span class="operator">|</span>        <span class="operator">|</span><span class="number">273659</span>   <span class="operator">|</span><span class="number">8556264</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">3</span> <span class="operator">|</span>   HASH <span class="keyword">JOIN</span>    <span class="operator">|</span>        <span class="operator">|</span><span class="number">273659</span>   <span class="operator">|</span><span class="number">8160619</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">4</span> <span class="operator">|</span>    <span class="keyword">TABLE</span> SCAN  <span class="operator">|</span>nation  <span class="operator">|</span><span class="number">25</span>       <span class="operator">|</span><span class="number">41</span>     <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">5</span> <span class="operator">|</span>    HASH <span class="keyword">JOIN</span>   <span class="operator">|</span>        <span class="operator">|</span><span class="number">273659</span>   <span class="operator">|</span><span class="number">7908405</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">6</span> <span class="operator">|</span>     HASH <span class="keyword">JOIN</span>  <span class="operator">|</span>        <span class="operator">|</span><span class="number">279244</span>   <span class="operator">|</span><span class="number">7017068</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">7</span> <span class="operator">|</span>      <span class="keyword">TABLE</span> SCAN<span class="operator">|</span>orders  <span class="operator">|</span><span class="number">166667</span>   <span class="operator">|</span><span class="number">770751</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">8</span> <span class="operator">|</span>      <span class="keyword">TABLE</span> SCAN<span class="operator">|</span>lineitem<span class="operator">|</span><span class="number">2000405</span>  <span class="operator">|</span><span class="number">5172554</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">9</span> <span class="operator">|</span>     <span class="keyword">TABLE</span> SCAN <span class="operator">|</span>customer<span class="operator">|</span><span class="number">150000</span>   <span class="operator">|</span><span class="number">78809</span>  <span class="operator">|</span></span><br><span class="line"><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span></span><br><span class="line"></span><br><span class="line">Outputs <span class="operator">&amp;</span> filters:</span><br><span class="line"><span class="comment">-------------------------------------</span></span><br><span class="line">  <span class="number">0</span> <span class="operator">-</span> output([customer.c_custkey], [customer.c_name], [T_FUN_SUM(lineitem.l_extendedprice <span class="operator">*</span> ? <span class="operator">-</span> lineitem.l_discount)], [customer.c_acctbal], [nation.n_name], [customer.c_address], [customer.c_phone], [customer.c_comment]), <span class="keyword">filter</span>(nil), limit(<span class="number">20</span>), <span class="keyword">offset</span>(nil)</span><br><span class="line">  <span class="number">1</span> <span class="operator">-</span> output([customer.c_custkey], [customer.c_name], [T_FUN_SUM(lineitem.l_extendedprice <span class="operator">*</span> ? <span class="operator">-</span> lineitem.l_discount)], [customer.c_acctbal], [nation.n_name], [customer.c_address], [customer.c_phone], [customer.c_comment]), <span class="keyword">filter</span>(nil), sort_keys([T_FUN_SUM(lineitem.l_extendedprice <span class="operator">*</span> ? <span class="operator">-</span> lineitem.l_discount), <span class="keyword">DESC</span>]), topn(<span class="number">20</span>)</span><br><span class="line">  <span class="number">2</span> <span class="operator">-</span> output([customer.c_custkey], [customer.c_name], [T_FUN_SUM(lineitem.l_extendedprice <span class="operator">*</span> ? <span class="operator">-</span> lineitem.l_discount)], [customer.c_acctbal], [nation.n_name], [customer.c_address], [customer.c_phone], [customer.c_comment]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      <span class="keyword">group</span>([customer.c_custkey], [customer.c_name], [customer.c_acctbal], [customer.c_phone], [nation.n_name], [customer.c_address], [customer.c_comment]), agg_func([T_FUN_SUM(lineitem.l_extendedprice <span class="operator">*</span> ? <span class="operator">-</span> lineitem.l_discount)])</span><br><span class="line">  <span class="number">3</span> <span class="operator">-</span> output([customer.c_custkey], [customer.c_name], [customer.c_acctbal], [nation.n_name], [customer.c_address], [customer.c_phone], [customer.c_comment], [lineitem.l_extendedprice <span class="operator">*</span> ? <span class="operator">-</span> lineitem.l_discount]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      equal_conds([customer.c_nationkey <span class="operator">=</span> nation.n_nationkey]), other_conds(nil)</span><br><span class="line">  <span class="number">4</span> <span class="operator">-</span> output([nation.n_nationkey], [nation.n_name]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      access([nation.n_nationkey], [nation.n_name]), partitions(p0)</span><br><span class="line">  <span class="number">5</span> <span class="operator">-</span> output([customer.c_custkey], [customer.c_name], [lineitem.l_extendedprice], [lineitem.l_discount], [customer.c_acctbal], [customer.c_address], [customer.c_phone], [customer.c_comment], [customer.c_nationkey]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      equal_conds([customer.c_custkey <span class="operator">=</span> orders.o_custkey]), other_conds(nil)</span><br><span class="line">  <span class="number">6</span> <span class="operator">-</span> output([lineitem.l_extendedprice], [lineitem.l_discount], [orders.o_custkey]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      equal_conds([lineitem.l_orderkey <span class="operator">=</span> orders.o_orderkey]), other_conds(nil)</span><br><span class="line">  <span class="number">7</span> <span class="operator">-</span> output([orders.o_custkey], [orders.o_orderkey]), <span class="keyword">filter</span>([<span class="built_in">cast</span>(orders.o_orderDATE, DATETIME(<span class="number">-1</span>, <span class="number">-1</span>)) <span class="operator">&gt;=</span> ?], [<span class="built_in">cast</span>(orders.o_orderDATE, DATETIME(<span class="number">-1</span>, <span class="number">-1</span>)) <span class="operator">&lt;</span> ?]),</span><br><span class="line">      access([orders.o_custkey], [orders.o_orderkey], [orders.o_orderDATE]), partitions(p0)</span><br><span class="line">  <span class="number">8</span> <span class="operator">-</span> output([lineitem.l_orderkey], [lineitem.l_extendedprice], [lineitem.l_discount]), <span class="keyword">filter</span>([lineitem.l_returnflag <span class="operator">=</span> <span class="string">&#x27;R&#x27;</span>]),</span><br><span class="line">      access([lineitem.l_orderkey], [lineitem.l_returnflag], [lineitem.l_extendedprice], [lineitem.l_discount]), partitions(p0)</span><br><span class="line">  <span class="number">9</span> <span class="operator">-</span> output([customer.c_custkey], [customer.c_nationkey], [customer.c_name], [customer.c_acctbal], [customer.c_address], [customer.c_phone], [customer.c_comment]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      access([customer.c_custkey], [customer.c_nationkey], [customer.c_name], [customer.c_acctbal], [customer.c_address], [customer.c_phone], [customer.c_comment]), partitions(p0)</span><br><span class="line"></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.023</span> sec)</span><br></pre></td></tr></table></figure></div>
+<h4 id="SQL-17">SQL-17</h4>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">Query Plan: <span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span></span><br><span class="line"><span class="operator">|</span>ID<span class="operator">|</span>OPERATOR         <span class="operator">|</span>NAME    <span class="operator">|</span>EST. <span class="keyword">ROWS</span><span class="operator">|</span>COST   <span class="operator">|</span></span><br><span class="line"><span class="comment">-------------------------------------------------</span></span><br><span class="line"><span class="operator">|</span><span class="number">0</span> <span class="operator">|</span>SCALAR <span class="keyword">GROUP</span> <span class="keyword">BY</span>  <span class="operator">|</span>        <span class="operator">|</span><span class="number">1</span>        <span class="operator">|</span><span class="number">4485685</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">1</span> <span class="operator">|</span> SUBPLAN SCAN    <span class="operator">|</span>VIEW1   <span class="operator">|</span><span class="number">2035</span>     <span class="operator">|</span><span class="number">4485296</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">2</span> <span class="operator">|</span>  <span class="keyword">WINDOW</span> <span class="keyword">FUNCTION</span><span class="operator">|</span>        <span class="operator">|</span><span class="number">6104</span>     <span class="operator">|</span><span class="number">4483943</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">3</span> <span class="operator">|</span>   SORT          <span class="operator">|</span>        <span class="operator">|</span><span class="number">6104</span>     <span class="operator">|</span><span class="number">4482777</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">4</span> <span class="operator">|</span>    HASH <span class="keyword">JOIN</span>    <span class="operator">|</span>        <span class="operator">|</span><span class="number">6104</span>     <span class="operator">|</span><span class="number">4464880</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">5</span> <span class="operator">|</span>     <span class="keyword">TABLE</span> SCAN  <span class="operator">|</span>part    <span class="operator">|</span><span class="number">206</span>      <span class="operator">|</span><span class="number">261589</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">6</span> <span class="operator">|</span>     <span class="keyword">TABLE</span> SCAN  <span class="operator">|</span>lineitem<span class="operator">|</span><span class="number">6001215</span>  <span class="operator">|</span><span class="number">2229397</span><span class="operator">|</span></span><br><span class="line"><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span></span><br><span class="line"></span><br><span class="line">Outputs <span class="operator">&amp;</span> filters:</span><br><span class="line"><span class="comment">-------------------------------------</span></span><br><span class="line">  <span class="number">0</span> <span class="operator">-</span> output([T_FUN_SUM(VIEW1.lineitem.l_extendedprice) <span class="operator">/</span> <span class="number">7.0</span>]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      <span class="keyword">group</span>(nil), agg_func([T_FUN_SUM(VIEW1.lineitem.l_extendedprice)])</span><br><span class="line">  <span class="number">1</span> <span class="operator">-</span> output([VIEW1.lineitem.l_extendedprice]), <span class="keyword">filter</span>([VIEW1.lineitem.l_quantity <span class="operator">&lt;</span> VIEW1<span class="number">.0</span><span class="number">.2</span> <span class="operator">*</span> <span class="built_in">avg</span>(l_quantity)]),</span><br><span class="line">      access([VIEW1<span class="number">.0</span><span class="number">.2</span> <span class="operator">*</span> <span class="built_in">avg</span>(l_quantity)], [VIEW1.lineitem.l_quantity], [VIEW1.lineitem.l_extendedprice])</span><br><span class="line">  <span class="number">2</span> <span class="operator">-</span> output([<span class="number">0.2</span> <span class="operator">*</span> T_FUN_SUM(lineitem.l_quantity) <span class="operator">/</span> <span class="built_in">cast</span>(T_FUN_COUNT(lineitem.l_quantity), <span class="type">DECIMAL</span>(<span class="number">20</span>, <span class="number">0</span>))], [lineitem.l_quantity], [lineitem.l_extendedprice]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      win_expr(T_FUN_SUM(lineitem.l_quantity)), partition_by([part.__pk_increment]), order_by(nil), window_type(<span class="keyword">RANGE</span>), <span class="built_in">upper</span>(UNBOUNDED PRECEDING), <span class="built_in">lower</span>(UNBOUNDED FOLLOWING)</span><br><span class="line">      win_expr(T_FUN_COUNT(lineitem.l_quantity)), partition_by([part.__pk_increment]), order_by(nil), window_type(<span class="keyword">RANGE</span>), <span class="built_in">upper</span>(UNBOUNDED PRECEDING), <span class="built_in">lower</span>(UNBOUNDED FOLLOWING)</span><br><span class="line">  <span class="number">3</span> <span class="operator">-</span> output([lineitem.l_quantity], [part.__pk_increment], [lineitem.l_extendedprice]), <span class="keyword">filter</span>(nil), sort_keys([part.__pk_increment, <span class="keyword">ASC</span>])</span><br><span class="line">  <span class="number">4</span> <span class="operator">-</span> output([lineitem.l_quantity], [part.__pk_increment], [lineitem.l_extendedprice]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      equal_conds([part.p_partkey <span class="operator">=</span> lineitem.l_partkey]), other_conds(nil)</span><br><span class="line">  <span class="number">5</span> <span class="operator">-</span> output([part.p_partkey], [part.__pk_increment]), <span class="keyword">filter</span>([part.p_container <span class="operator">=</span> <span class="string">&#x27;WRAP DRUM&#x27;</span>], [part.p_brand <span class="operator">=</span> <span class="string">&#x27;Brand#43&#x27;</span>]),</span><br><span class="line">      access([part.p_partkey], [part.p_brand], [part.p_container], [part.__pk_increment]), partitions(p0)</span><br><span class="line">  <span class="number">6</span> <span class="operator">-</span> output([lineitem.l_partkey], [lineitem.l_quantity], [lineitem.l_extendedprice]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      access([lineitem.l_partkey], [lineitem.l_quantity], [lineitem.l_extendedprice]), partitions(p0)</span><br><span class="line"></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.014</span> sec)</span><br></pre></td></tr></table></figure></div>
+<h4 id="SQL-18">SQL-18</h4>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">Query Plan: <span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span></span><br><span class="line"><span class="operator">|</span>ID<span class="operator">|</span>OPERATOR          <span class="operator">|</span>NAME    <span class="operator">|</span>EST. <span class="keyword">ROWS</span><span class="operator">|</span>COST   <span class="operator">|</span></span><br><span class="line"><span class="comment">--------------------------------------------------</span></span><br><span class="line"><span class="operator">|</span><span class="number">0</span> <span class="operator">|</span>LIMIT             <span class="operator">|</span>        <span class="operator">|</span><span class="number">100</span>      <span class="operator">|</span><span class="number">8933274</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">1</span> <span class="operator">|</span> TOP<span class="operator">-</span>N SORT       <span class="operator">|</span>        <span class="operator">|</span><span class="number">100</span>      <span class="operator">|</span><span class="number">8933260</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">2</span> <span class="operator">|</span>  HASH <span class="keyword">JOIN</span>       <span class="operator">|</span>        <span class="operator">|</span><span class="number">3297</span>     <span class="operator">|</span><span class="number">8925142</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">3</span> <span class="operator">|</span>   HASH <span class="keyword">JOIN</span>      <span class="operator">|</span>        <span class="operator">|</span><span class="number">3330</span>     <span class="operator">|</span><span class="number">8609940</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">4</span> <span class="operator">|</span>    SUBPLAN SCAN  <span class="operator">|</span>VIEW1   <span class="operator">|</span><span class="number">3321</span>     <span class="operator">|</span><span class="number">5444449</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">5</span> <span class="operator">|</span>     HASH <span class="keyword">GROUP</span> <span class="keyword">BY</span><span class="operator">|</span>        <span class="operator">|</span><span class="number">3321</span>     <span class="operator">|</span><span class="number">5443991</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">6</span> <span class="operator">|</span>      <span class="keyword">TABLE</span> SCAN  <span class="operator">|</span>lineitem<span class="operator">|</span><span class="number">6001215</span>  <span class="operator">|</span><span class="number">2097020</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">7</span> <span class="operator">|</span>    SUBPLAN SCAN  <span class="operator">|</span>VIEW3   <span class="operator">|</span><span class="number">1500000</span>  <span class="operator">|</span><span class="number">2666737</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">8</span> <span class="operator">|</span>     HASH <span class="keyword">GROUP</span> <span class="keyword">BY</span><span class="operator">|</span>        <span class="operator">|</span><span class="number">1500000</span>  <span class="operator">|</span><span class="number">2459704</span><span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">9</span> <span class="operator">|</span>      <span class="keyword">TABLE</span> SCAN  <span class="operator">|</span>orders  <span class="operator">|</span><span class="number">1500000</span>  <span class="operator">|</span><span class="number">552665</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">10</span><span class="operator">|</span>   SUBPLAN SCAN   <span class="operator">|</span>VIEW2   <span class="operator">|</span><span class="number">150000</span>   <span class="operator">|</span><span class="number">256232</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">11</span><span class="operator">|</span>    HASH <span class="keyword">GROUP</span> <span class="keyword">BY</span> <span class="operator">|</span>        <span class="operator">|</span><span class="number">150000</span>   <span class="operator">|</span><span class="number">235529</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span><span class="number">12</span><span class="operator">|</span>     <span class="keyword">TABLE</span> SCAN   <span class="operator">|</span>customer<span class="operator">|</span><span class="number">150000</span>   <span class="operator">|</span><span class="number">62265</span>  <span class="operator">|</span></span><br><span class="line"><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span><span class="operator">=</span></span><br><span class="line"></span><br><span class="line">Outputs <span class="operator">&amp;</span> filters:</span><br><span class="line"><span class="comment">-------------------------------------</span></span><br><span class="line">  <span class="number">0</span> <span class="operator">-</span> output([VIEW2.customer.c_name], [VIEW2.customer.c_custkey], [VIEW3.orders.o_orderkey], [VIEW3.orders.o_orderDATE], [VIEW3.orders.o_totalprice], [<span class="built_in">cast</span>(VIEW2.T_FUN_COUNT(<span class="operator">*</span>) <span class="operator">*</span> VIEW3.T_FUN_COUNT(<span class="operator">*</span>), <span class="type">DECIMAL</span>(<span class="number">40</span>, <span class="number">0</span>)) <span class="operator">*</span> VIEW1.T_FUN_SUM(lineitem.l_quantity)]), <span class="keyword">filter</span>(nil), limit(<span class="number">100</span>), <span class="keyword">offset</span>(nil)</span><br><span class="line">  <span class="number">1</span> <span class="operator">-</span> output([VIEW2.customer.c_name], [VIEW2.customer.c_custkey], [VIEW3.orders.o_orderkey], [VIEW3.orders.o_orderDATE], [VIEW3.orders.o_totalprice], [VIEW2.T_FUN_COUNT(<span class="operator">*</span>)], [VIEW3.T_FUN_COUNT(<span class="operator">*</span>)], [VIEW1.T_FUN_SUM(lineitem.l_quantity)]), <span class="keyword">filter</span>(nil), sort_keys([VIEW3.orders.o_totalprice, <span class="keyword">DESC</span>], [VIEW3.orders.o_orderDATE, <span class="keyword">ASC</span>]), topn(<span class="number">100</span>)</span><br><span class="line">  <span class="number">2</span> <span class="operator">-</span> output([VIEW2.customer.c_name], [VIEW2.customer.c_custkey], [VIEW3.orders.o_orderkey], [VIEW3.orders.o_orderDATE], [VIEW3.orders.o_totalprice], [VIEW2.T_FUN_COUNT(<span class="operator">*</span>)], [VIEW3.T_FUN_COUNT(<span class="operator">*</span>)], [VIEW1.T_FUN_SUM(lineitem.l_quantity)]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      equal_conds([VIEW2.customer.c_custkey <span class="operator">=</span> VIEW3.orders.o_custkey]), other_conds(nil)</span><br><span class="line">  <span class="number">3</span> <span class="operator">-</span> output([VIEW3.orders.o_orderkey], [VIEW3.orders.o_orderDATE], [VIEW3.orders.o_totalprice], [VIEW3.T_FUN_COUNT(<span class="operator">*</span>)], [VIEW1.T_FUN_SUM(lineitem.l_quantity)], [VIEW3.orders.o_custkey]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      equal_conds([VIEW3.orders.o_orderkey <span class="operator">=</span> VIEW1.l_orderkey]), other_conds(nil)</span><br><span class="line">  <span class="number">4</span> <span class="operator">-</span> output([VIEW1.l_orderkey], [VIEW1.T_FUN_SUM(lineitem.l_quantity)]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      access([VIEW1.l_orderkey], [VIEW1.T_FUN_SUM(lineitem.l_quantity)])</span><br><span class="line">  <span class="number">5</span> <span class="operator">-</span> output([lineitem.l_orderkey], [T_FUN_SUM(lineitem.l_quantity)]), <span class="keyword">filter</span>([T_FUN_SUM(lineitem.l_quantity) <span class="operator">&gt;</span> ?]),</span><br><span class="line">      <span class="keyword">group</span>([lineitem.l_orderkey]), agg_func([T_FUN_SUM(lineitem.l_quantity)])</span><br><span class="line">  <span class="number">6</span> <span class="operator">-</span> output([lineitem.l_orderkey], [lineitem.l_quantity]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      access([lineitem.l_orderkey], [lineitem.l_quantity]), partitions(p0)</span><br><span class="line">  <span class="number">7</span> <span class="operator">-</span> output([VIEW3.orders.o_custkey], [VIEW3.orders.o_orderkey], [VIEW3.orders.o_orderDATE], [VIEW3.orders.o_totalprice], [VIEW3.T_FUN_COUNT(<span class="operator">*</span>)]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      access([VIEW3.orders.o_custkey], [VIEW3.orders.o_orderkey], [VIEW3.orders.o_orderDATE], [VIEW3.orders.o_totalprice], [VIEW3.T_FUN_COUNT(<span class="operator">*</span>)])</span><br><span class="line">  <span class="number">8</span> <span class="operator">-</span> output([orders.o_custkey], [orders.o_orderkey], [orders.o_orderDATE], [orders.o_totalprice], [T_FUN_COUNT(<span class="operator">*</span>)]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      <span class="keyword">group</span>([orders.o_custkey], [orders.o_orderkey], [orders.o_orderDATE], [orders.o_totalprice]), agg_func([T_FUN_COUNT(<span class="operator">*</span>)])</span><br><span class="line">  <span class="number">9</span> <span class="operator">-</span> output([orders.o_orderkey], [orders.o_custkey], [orders.o_orderDATE], [orders.o_totalprice]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      access([orders.o_orderkey], [orders.o_custkey], [orders.o_orderDATE], [orders.o_totalprice]), partitions(p0)</span><br><span class="line">  <span class="number">10</span> <span class="operator">-</span> output([VIEW2.customer.c_custkey], [VIEW2.customer.c_name], [VIEW2.T_FUN_COUNT(<span class="operator">*</span>)]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      access([VIEW2.customer.c_custkey], [VIEW2.customer.c_name], [VIEW2.T_FUN_COUNT(<span class="operator">*</span>)])</span><br><span class="line">  <span class="number">11</span> <span class="operator">-</span> output([customer.c_custkey], [customer.c_name], [T_FUN_COUNT(<span class="operator">*</span>)]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      <span class="keyword">group</span>([customer.c_custkey], [customer.c_name]), agg_func([T_FUN_COUNT(<span class="operator">*</span>)])</span><br><span class="line">  <span class="number">12</span> <span class="operator">-</span> output([customer.c_custkey], [customer.c_name]), <span class="keyword">filter</span>(nil),</span><br><span class="line">      access([customer.c_custkey], [customer.c_name]), partitions(p0)</span><br><span class="line"></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.022</span> sec)</span><br></pre></td></tr></table></figure></div>
+<h2 id="小结">小结</h2>
+<p>将本次测试结果与前文测试结果合并，得到下表，从表中可知在当前测试环境下，是否设定表组的前后查询速度并没有太大波动，时间基本保持一致。</p>
+<table>
+<thead>
+<tr>
+<th>SQL</th>
+<th>OceanBase</th>
+<th>OB(合并后)</th>
+<th>OB(Tablegroup)</th>
+<th>MariaDB</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SQL-1</td>
+<td>10.285 sec</td>
+<td>9.108 sec</td>
+<td>8.960 sec</td>
+<td>13.61 sec</td>
+</tr>
+<tr>
+<td>SQL-5</td>
+<td>24.593 sec</td>
+<td>4.477 sec</td>
+<td>4.559 sec</td>
+<td>23 min 52.91 sec</td>
+</tr>
+<tr>
+<td>SQL-6</td>
+<td>3.386 sec</td>
+<td>2.557 sec</td>
+<td>2.536 sec</td>
+<td>2.69 sec</td>
+</tr>
+<tr>
+<td>SQL-10</td>
+<td>6.043 sec</td>
+<td>3.727 sec</td>
+<td>3.815 sec</td>
+<td>43.29 sec</td>
+</tr>
+<tr>
+<td>SQL-17</td>
+<td>3.800 sec</td>
+<td>2.901 sec</td>
+<td>2.893 sec</td>
+<td>6 min 25.23 sec</td>
+</tr>
+<tr>
+<td>SQL-18</td>
+<td>7.332 sec</td>
+<td>6.016 sec</td>
+<td>6.110 sec</td>
+<td>1 min 43.55 sec</td>
+</tr>
+</tbody>
+</table>
+<p>再次验证上文所述，表组的设计目的是为了解决跨 zone 带来网络延迟问题。</p>
+<h2 id="OceanBase-工具">OceanBase 工具</h2>
+<p>在阅读 OceanBase 的代码时，发现源码中提供了两个工具，分别是 <code>env_checker.py</code> 和 <code>dooba.py</code>。</p>
+<p>代码链接：<a class="link"   target="_blank" rel="noopener" href="https://github.com/oceanbase/oceanbase/blob/master/tools/scripts/" >https://github.com/oceanbase/oceanbase/blob/master/tools/scripts/ <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<ul>
+<li>env_checker.py</li>
+</ul>
+<p>该脚本用来检查操作系统的环境信息，基于python2编写，并需要安装依赖 <code>subprocess32</code>。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">./env_checker.py</span></span><br><span class="line">Traceback (most recent call last):</span><br><span class="line">  File &quot;./env_checker.py&quot;, line 15, in &lt;module&gt;</span><br><span class="line">    from subprocess32 import Popen, PIPE</span><br><span class="line">ImportError: No module named subprocess32</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">pip install subprocess32 --user</span></span><br><span class="line">Collecting subprocess32</span><br><span class="line">  Downloading https://pypi.doubanio.com/packages/32/c8/564be4d12629b912ea431f1a50eb8b3b9d00f1a0b1ceff17f266be190007/subprocess32-3.5.4.tar.gz (97kB)</span><br><span class="line">    100% |################################| 102kB 1.3MB/s</span><br><span class="line">Installing collected packages: subprocess32</span><br><span class="line">  Running setup.py install for subprocess32 ... done</span><br><span class="line">Successfully installed subprocess32</span><br><span class="line">You are using pip version 8.1.2, however version 22.0.4 is available.</span><br><span class="line">You should consider upgrading via the &#x27;pip install --upgrade pip&#x27; command.</span><br></pre></td></tr></table></figure></div>
+<p>执行示例如下：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">./env_checker.py</span></span><br><span class="line">==================== os info ====================</span><br><span class="line">release: 3.10.0-1127.19.1.el7.x86_64</span><br><span class="line">sysname: Linux</span><br><span class="line">machine: x86_64</span><br><span class="line"></span><br><span class="line">==================== cpu info ===================</span><br><span class="line">count: 8 cores</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">==================== mem info ===================</span><br><span class="line">...</span><br><span class="line">memory_total: 15 GB</span><br><span class="line"></span><br><span class="line">==================== net info ===================</span><br><span class="line">lo</span><br><span class="line">  IPv4 address: 127.0.0.1</span><br><span class="line">  IPv6 address: ::1</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">=================== disk info ===================</span><br><span class="line">device: /dev/mapper/centos-root</span><br><span class="line">mountpoint: /</span><br><span class="line">usage</span><br><span class="line">...</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li><a class="link"   target="_blank" rel="noopener" href="http://dooba.py" >dooba.py <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+</ul>
+<p><code>dooba</code> 是使用 Python 2 开发的监控 OB 的性能监控脚本，运行画面如下图。</p>
+<img  alt="2.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20220429-508498c7-7382-4b57-90e9-924aabd36b1d.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>从画面中，可实时监控到OB运行状态，可以切换不同租户，查看某个租户的 QPS，和相应 SQL 的平均延时（RT），以及内存使用、IOPS 等情况。</p>
+<h2 id="总结">总结</h2>
+<p>OceanBase 数据库体系结构是复杂的，但设计的尽量简约，使人易于理解。<br>
+上面的两个小工具只是点到为止，实战中可以使用 OCP 工具，现也已经开源。<br>
+性能测试的话题涉猎面很广，本文也只是繁星一点，希望对本文读者和 OB 使用者有些许帮助或提示。</p>
+<hr>
+<p><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/399340" >https://www.modb.pro/db/399340 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+
+        </div>
+
+        
+            <div class="post-copyright-info">
+                <div class="article-copyright-info-container">
+    <ul>
+    <!-- 2023-10-03, edit by shawnyan. -->
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Title:</strong> OB测试 | OceanBase 表组（Tablegroup）测试及 OceanBase 自带工具使用示例</li>
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Author:</strong>
+            
+                严少安
+            
+        </li>
+        <li><strong>Created at:</strong> 2022-04-29 22:04:02</li>
+        
+            <li><strong>Updated at:</strong> 2022-04-29 22:04:02</li>
+        
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Link:</strong> https://shawnyan.cn/2022/oceanbase/ob-v3.1.3-perf-testing-tablegroup/</li>
+        <li style="word-wrap: break-word; white-space: normal;">
+            <strong>
+                License:
+            </strong>
+            
+            This work is licensed under <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>.
+            
+
+        </li>
+    </ul>
+</div>
+
+            </div>
+        
+
+        
+            <ul class="post-tags-box">
+                
+                    <li class="tag-item">
+                        <a href="/tags/oceanbase/">#oceanbase</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/mariadb/">#mariadb</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/oceanbase-%E7%A4%BE%E5%8C%BA%E7%89%88/">#oceanbase 社区版</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/ob-v3/">#ob v3</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/%E6%80%A7%E8%83%BD%E6%B5%8B%E8%AF%95/">#性能测试</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/tablegroup/">#tablegroup</a>&nbsp;
+                    </li>
+                
+            </ul>
+        
+
+        
+  <div class="recommended-article">
+   <div class="recommended-desktop">
+    <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+    </div>
+    <div class="recommended-article-group"><a class="recommended-article-item" href="/2022/oceanbase/ob-v3.1.3-perf-testing-with-dbt-3/" title="OB 测试 | 使用 DBT-3 对 OceanBase 和 MariaDB 进行性能测试对比" rel="bookmark">
+  <img src="/img/oceanbase/oceanbase-banner.png" alt="OB 测试 | 使用 DBT-3 对 OceanBase 和 MariaDB 进行性能测试对比" class="!max-w-none">
+  <span class="title">OB 测试 | 使用 DBT-3 对 OceanBase 和 MariaDB 进行性能测试对比</span>
+</a><a class="recommended-article-item" href="/2023/mysql/mysql-8-case-drop-column/" title="MySQL 管理运维：删除列导致索引变化" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240307-279ad8cc-b226-4c9a-9a00-cef7bba3ca97.jpg" alt="MySQL 管理运维：删除列导致索引变化" class="!max-w-none">
+  <span class="title">MySQL 管理运维：删除列导致索引变化</span>
+</a><a class="recommended-article-item" href="/2022/oceanbase/ob-v3.1.3-perf-testing-single-node/" title="大才能否小用？OceanBase 一体化场景测试" rel="bookmark">
+  <img src="/img/oceanbase/oceanbase-banner.png" alt="大才能否小用？OceanBase 一体化场景测试" class="!max-w-none">
+  <span class="title">大才能否小用？OceanBase 一体化场景测试</span>
+</a></div>
+   </div>
+   <div class="recommended-mobile">
+   <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+   </div>
+   <div class="recommended-article-group"><a class="recommended-article-item" href="/2022/oceanbase/ob-v3.1.3-perf-testing-with-dbt-3/" title="OB 测试 | 使用 DBT-3 对 OceanBase 和 MariaDB 进行性能测试对比" rel="bookmark">
+  <img src="/img/oceanbase/oceanbase-banner.png" alt="OB 测试 | 使用 DBT-3 对 OceanBase 和 MariaDB 进行性能测试对比" class="!max-w-none">
+  <span class="title">OB 测试 | 使用 DBT-3 对 OceanBase 和 MariaDB 进行性能测试对比</span>
+</a><a class="recommended-article-item" href="/2023/mysql/mysql-8-case-drop-column/" title="MySQL 管理运维：删除列导致索引变化" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240307-279ad8cc-b226-4c9a-9a00-cef7bba3ca97.jpg" alt="MySQL 管理运维：删除列导致索引变化" class="!max-w-none">
+  <span class="title">MySQL 管理运维：删除列导致索引变化</span>
+</a></div>
+   </div>
+  </div>
+
+        
+            <div class="article-nav">
+                
+                    <div class="article-prev">
+                        <a class="prev"
+                        rel="prev"
+                        href="/2022/tdsql/tencentcloud-tdsql-backup-binlogproducter/"
+                        >
+                            <span class="left arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </span>
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">腾讯云数据库 TDSQL -- 备份工具 binlogproducter 解析</span>
+                                <span class="post-nav-item">Prev posts</span>
+                            </span>
+                        </a>
+                    </div>
+                
+                
+                    <div class="article-next">
+                        <a class="next"
+                        rel="next"
+                        href="/2022/mysql/fanyi-quick-peek-at-mysql-8-0-29/"
+                        >
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">[译] 快速浏览 MySQL 8.0.29</span>
+                                <span class="post-nav-item">Next posts</span>
+                            </span>
+                            <span class="right arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </a>
+                    </div>
+                
+            </div>
+        
+
+
+        
+            <div class="comment-container">
+                <div class="comments-container pjax">
+    <div id="comment-anchor"></div>
+    <div class="comment-area-title">
+        <i class="fa-solid fa-comments"></i>&nbsp;Comments
+    </div>
+    
+
+        
+            
+    <div id="gitalk-container"></div>
+    <script data-swup-reload-script
+            src="//cdn.staticfile.org/gitalk/1.8.0/gitalk.min.js"></script>
+    <script data-swup-reload-script>
+
+        function loadGitalk() {
+            let __gitalk__pathname = decodeURI(location.pathname);
+            const __gitalk__pathnameLength = __gitalk__pathname.length;
+            const __gitalk__pathnameMaxLength = 50;
+            if (__gitalk__pathnameLength > __gitalk__pathnameMaxLength) {
+                __gitalk__pathname = __gitalk__pathname.substring(0, __gitalk__pathnameMaxLength - 3) + '...';
+            }
+
+            try {
+                Gitalk && new Gitalk({
+                    clientID: '32d049bf3701e6791070',
+                    clientSecret: '36c295ad3dad4c739b530ef113d0a979d8c35c5d',
+                    repo: 'gitalk',
+                    owner: 'shawn0915',
+                    admin: ['shawn0915'],
+                    id: __gitalk__pathname,
+                    language: 'en'
+                }).render('gitalk-container');
+
+            } catch (e) {
+                window.Gitalk = null;
+            }
+        }
+
+        if ('true') {
+            const loadGitalkTimeout = setTimeout(() => {
+                loadGitalk();
+                clearTimeout(loadGitalkTimeout);
+            }, 1000);
+        } else {
+            window.addEventListener('DOMContentLoaded', loadGitalk);
+        }
+    </script>
+
+
+
+        
+    
+</div>
+
+            </div>
+        
+    </div>
+
+    
+        <div class="toc-content-container">
+            <div class="post-toc-wrap">
+    <div class="post-toc">
+        <div class="toc-title">On this page</div>
+<!--         <div class="page-title">OB测试 | OceanBase 表组（Tablegroup）测试及 OceanBase 自带工具使用示例</div> -->
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A6%82%E8%BF%B0"><span class="nav-text">概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#OceanBase-%E7%9A%84%E8%A1%A8%E7%BB%84%EF%BC%88Tablegroup%EF%BC%89%E7%89%B9%E6%80%A7"><span class="nav-text">OceanBase 的表组（Tablegroup）特性</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#TableGroup-%E5%9F%BA%E6%9C%AC%E7%94%A8%E6%B3%95"><span class="nav-text">TableGroup 基本用法</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E6%B5%8B%E8%AF%95%E8%A1%A8%E5%88%9B%E5%BB%BA%E8%A1%A8%E7%BB%84"><span class="nav-text">为测试表创建表组</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B5%8B%E8%AF%95-SQL-%E7%9A%84%E6%89%A7%E8%A1%8C%E8%AE%A1%E5%88%92"><span class="nav-text">测试 SQL 的执行计划</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#SQL-1"><span class="nav-text">SQL-1</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#SQL-5"><span class="nav-text">SQL-5</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#SQL-6"><span class="nav-text">SQL-6</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#SQL-10"><span class="nav-text">SQL-10</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#SQL-17"><span class="nav-text">SQL-17</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#SQL-18"><span class="nav-text">SQL-18</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B0%8F%E7%BB%93"><span class="nav-text">小结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#OceanBase-%E5%B7%A5%E5%85%B7"><span class="nav-text">OceanBase 工具</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-text">总结</span></a></li></ol>
+
+    </div>
+</div>
+
+        </div>
+    
+</div>
+
+
+
+                
+
+            </div>
+
+            
+
+        </div>
+
+        <div class="main-content-footer">
+            <footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2017</span>
+              -
+            
+            2024&nbsp;&nbsp;<i class="fa-solid fa-heart fa-beat" style="--fa-animation-duration: 0.5s; color: #f54545"></i>&nbsp;&nbsp;<a href="/">Shawn Yan</a>
+        </div>
+        
+            <script data-swup-reload-script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">VISITOR COUNT</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">TOTAL PAGE VIEWS</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">POWERED BY <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a></span>
+            <span class="text-sm lg:block">THEME&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.4.4</a></span>
+        </div>
+        
+        
+            <div>
+                Blog up for <span class="odometer" id="runtime_days" ></span> days <span class="odometer" id="runtime_hours"></span> hrs <span class="odometer" id="runtime_minutes"></span> Min <span class="odometer" id="runtime_seconds"></span> Sec
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+
+    </div>
+</footer>
+
+        </div>
+    </div>
+
+    
+        <div class="post-tools">
+            <div class="post-tools-container">
+    <ul class="article-tools-list">
+        <!-- TOC aside toggle -->
+        
+            <li class="right-bottom-tools page-aside-toggle">
+                <i class="fa-regular fa-outdent"></i>
+            </li>
+        
+
+        <!-- go comment -->
+        
+            <li class="go-comment">
+                <i class="fa-regular fa-comments"></i>
+            </li>
+        
+    </ul>
+</div>
+
+        </div>
+    
+
+    <div class="right-side-tools-container">
+        <div class="side-tools-container">
+    <ul class="hidden-tools-list">
+        <li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-plus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-minus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-expand-width flex justify-center items-center">
+            <i class="fa-regular fa-expand"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+            <i class="fa-regular fa-moon"></i>
+        </li>
+
+        <!-- rss -->
+        
+            <li class="right-bottom-tools rss flex justify-center items-center">
+                <a class="flex justify-center items-center"
+                   href="/atom.xml"
+                   target="_blank"
+                >
+                <i class="fa-regular fa-rss"></i>
+                </a>
+            </li>
+        
+
+        
+
+        <li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+            <i class="fa-regular fa-arrow-down"></i>
+        </li>
+    </ul>
+
+    <ul class="visible-tools-list">
+        <li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+            <i class="fa-regular fa-cog fa-spin"></i>
+        </li>
+        
+            <li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+                <i class="arrow-up fas fa-arrow-up"></i>
+                <span class="percent"></span>
+            </li>
+        
+        
+    </ul>
+</div>
+
+    </div>
+
+    <div class="image-viewer-container">
+    <img src="">
+</div>
+
+
+    
+        <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+          <span class="search-input-field-pre">
+            <i class="fa-solid fa-keyboard"></i>
+          </span>
+            <div class="search-input-container">
+                <input autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       placeholder="Search..."
+                       spellcheck="false"
+                       type="search"
+                       class="search-input"
+                >
+            </div>
+            <span class="popup-btn-close">
+                <i class="fa-solid fa-times"></i>
+            </span>
+        </div>
+        <div id="search-result">
+            <div id="no-result">
+                <i class="fa-solid fa-spinner fa-spin-pulse fa-5x fa-fw"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+
+</main>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Swup.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupSlideTheme.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScriptsPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupProgressPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScrollPlugin.min.js"></script>
+<script>
+    const swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+        ],
+        containers: ["#swup"],
+    });
+
+    swup.hooks.on("page:view", () => {
+        Global.refresh();
+    });
+
+    // if (document.readyState === "complete") {
+    //
+    // } else {
+    //     document.addEventListener("DOMContentLoaded", () => init());
+    // }
+</script>
+
+
+
+
+
+<script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/utils.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/main.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/navbarShrink.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/scrollTopBottom.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/lightDarkSwitch.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/categoryList.js"></script>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/localSearch.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/codeBlock.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/lazyload.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/runtime.js"></script>
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/odometer.min.js"></script>
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/assets/odometer-theme-minimal.css">
+
+
+
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Typed.min.js"></script>
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/typed.js"></script>
+
+
+
+
+
+
+<div class="post-scripts" data-swup-reload-script>
+    
+        <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/anime.min.js"></script>
+        <script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/tocToggle.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/toc.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/tabs.js"></script>
+    
+</div>
+
+
+</body>
+</html>

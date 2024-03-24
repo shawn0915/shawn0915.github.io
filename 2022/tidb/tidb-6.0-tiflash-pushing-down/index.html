@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="shawnyan,dba,oracle,mysql,tidb,mariadb,postgresql,gbase,proxysql">
+    
+    <meta name="author" content="Shawn Yan">
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+        
+        
+        
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://shawnyan.cn/2022/tidb/tidb-6.0-tiflash-pushing-down/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+        <meta name="description" content="TiDB 6.0 对 TiFlash 的功能做了进一步增强，其中新增支持了 12 个函数和 2 个算子下推到 TiFlash 层的 MPP 引擎进行计算。 本文将对其逐一进行演示，以期快速、直观的展示这些新特性。  TiFlash 和 MPP 引擎 先来简要回顾一下相关概念。  TiFlash 是 TiDB HTAP 形态的关键组件，它是 TiKV 的列存扩展。 TiFlash 于2022年4月1">
+<meta property="og:type" content="article">
+<meta property="og:title" content="TiDB 6.x 新特性解读 | TiFlash 新增算子和函数下推">
+<meta property="og:url" content="https://shawnyan.cn/2022/tidb/tidb-6.0-tiflash-pushing-down/index.html">
+<meta property="og:site_name" content="少安事务所">
+<meta property="og:description" content="TiDB 6.0 对 TiFlash 的功能做了进一步增强，其中新增支持了 12 个函数和 2 个算子下推到 TiFlash 层的 MPP 引擎进行计算。 本文将对其逐一进行演示，以期快速、直观的展示这些新特性。  TiFlash 和 MPP 引擎 先来简要回顾一下相关概念。  TiFlash 是 TiDB HTAP 形态的关键组件，它是 TiKV 的列存扩展。 TiFlash 于2022年4月1">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/IMG_2005-1652257515326.jpg">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20220506-c07bfc9f-07fc-4596-8a92-c4ec7a588a0f.jpg">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20220506-1088a226-3546-4a16-978e-84b34f7b4032.jpg">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20220506-c30defe2-8821-46f6-b735-217172568189.jpg">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20220506-0c4fa65d-687c-42c9-a231-066b75bf6fd8.jpg">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20220506-fb5d2cab-ab8d-4241-badd-4958f37875ed.jpg">
+<meta property="article:published_time" content="2022-05-07T10:05:14.000Z">
+<meta property="article:modified_time" content="2022-05-07T10:05:14.000Z">
+<meta property="article:author" content="Shawn Yan">
+<meta property="article:tag" content="tidb">
+<meta property="article:tag" content="tidb 6.x">
+<meta property="article:tag" content="asktug">
+<meta property="article:tag" content="tiflash">
+<meta property="article:tag" content="mpp">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/IMG_2005-1652257515326.jpg">
+    
+    
+        <!-- Google tag (gtag.js) -->
+        <script src="https://www.googletagmanager.com/gtag/js?id=G-ZH71L5F7X2"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-ZH71L5F7X2');
+        </script>
+    
+    <!-- baidu tongji -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?2fa794d82f74c0bb3617ba62ee962b46";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/img/favicon.ico" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon.ico">
+    <meta name="theme-color" content="#767FF6">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <!--- Page Info-->
+    
+    <title>
+        
+            TiDB 6.x 新特性解读 | TiFlash 新增算子和函数下推 -
+        
+        少安事务所
+    </title>
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+<!--- use 2.5.0
+    
+        
+<link rel="stylesheet" href="/assets/build/styles.css">
+
+    
+-->
+    <link rel="stylesheet" href="//cdn.staticfile.org/hexo-theme-redefine/2.5.0/assets/build/styles.min.css">
+
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/fonts.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Satoshi/satoshi.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Chillax/chillax.css">
+    <!--- Font Part-->
+    
+    
+    
+    
+
+    <!--- Inject Part-->
+    
+    <script id="hexo-configurations">
+    let Global = window.Global || {};
+    Global.hexo_config = {"hostname":"shawnyan.cn","root":"/","language":"en","path":"search.xml"};
+    Global.theme_config = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":true,"list":[]},"code_block":{"copy":true,"style":"mac","font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":4,"number":false,"expand":true,"init_open":true},"copyright":true,"lazyload":true,"recommendation":{"enable":true,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#767FF6","secondary":null},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"open_graph":true,"google_analytics":{"enable":true,"id":"G-ZH71L5F7X2"},"root_color_mode":"dark"},"home_banner":{"enable":true,"style":"fixed","image":{"light":"https://asktug.com/uploads/default/original/4X/4/b/d/4bd94f804719672dd7e3cb29150ea6f777eb0aec.jpeg","dark":"/img/wallpaper/dark.webp"},"title":"Shawn Yan's Tech Blog.","subtitle":{"text":["A blog about MySQL, Oracle, TiDB, PostgreSQL and other databases."],"hitokoto":{"enable":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":500,"backing_delay":1500,"loop":true,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"links":{"github":"https://github.com/shawn0915","instagram":null,"zhihu":null,"twitter":null,"email":"admin@shawnyan.cn"},"qrs":{"weixin":null}}},"plugins":{"feed":{"enable":true},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":"回忆的沙漏 (10周年版)","artist":"回忆的沙漏 (10周年版)","url":"https://music.163.com/song/media/outer/url?id=1329122067.mp3","cover":"https://p1.music.126.net/oJorrgJ3IotZUAbZkBMuFw==/109951167771736533.jpg?param=68y68"}]},"mermaid":{"enable":false,"version":"9.3.0"}},"version":"2.4.4","navbar":{"auto_hide":false,"color":{"left":"#f78736","right":"#367df7","transparency":35},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Blog":{"path":"/archives","icon":"fa-regular fa-archive"},"Categories":{"path":"/categories","icon":"fa-regular fa-stream"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Links":{"icon":"fa-regular fa-link","submenus":{"My-params":"/my-params","Friends":"/links","Q":"/q"}}},"search":{"enable":true,"preload":true}},"page_templates":{"friends_column":3,"tags_style":"cloud"},"home":{"sidebar":{"enable":true,"position":"left","first_item":"info","announcement":null,"links":null},"article_date_format":"YYYY-MM-DD","categories":{"enable":true,"limit":10},"tags":{"enable":true,"limit":10}},"footerStart":"2017/11/27 00:00:00"};
+    Global.language_ago = {"second":"%s seconds ago","minute":"%s minutes ago","hour":"%s hours ago","day":"%s days ago","week":"%s weeks ago","month":"%s months ago","year":"%s years ago"};
+    Global.data_config = {"masonry":false};
+  </script>
+
+    <!--- Fontawesome Part-->
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/fontawesome.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/brands.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/solid.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/regular.min.css">
+    
+    
+    
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+
+
+<body>
+<div class="progress-bar-container">
+    
+
+    
+        <span class="pjax-progress-bar"></span>
+        <span class="swup-progress-icon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+    
+</div>
+
+
+<main class="page-container" id="swup">
+
+    
+
+    <div class="main-content-container">
+
+
+        <div class="main-content-header">
+            <header class="navbar-container">
+    
+    <div class="navbar-content">
+        <div class="left">
+            
+                <a class="logo-image" href="https://shawnyan.cn/">
+                    <img src="/img/favicon.ico">
+                </a>
+            
+            <a class="logo-title" href="https://shawnyan.cn/">
+                
+                少安事务所
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-house"></i>
+                                        
+                                        HOME
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/archives"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-archive"></i>
+                                        
+                                        BLOG
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/categories"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-stream"></i>
+                                        
+                                        CATEGORIES
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/tags"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-tags"></i>
+                                        
+                                        TAGS
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/about"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-user"></i>
+                                        
+                                        ABOUT
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="has-dropdown" 
+                                    href="#" onClick="return false;">
+                                    
+                                        
+                                            <i class="fa-regular fa-link"></i>
+                                        
+                                        LINKS&nbsp;<i class="fa-solid fa-chevron-down"></i>
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                                    <ul class="sub-menu">
+                                    
+                                        <li>
+                                        <a href="/my-params">MY-PARAMS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/links">FRIENDS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/q">Q
+                                        </a>
+                                        </li>
+                                    
+                                    </ul>
+                                
+                            </li>
+                    
+                    
+                        <li class="navbar-item search search-popup-trigger">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </li>
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                    <div class="icon-item search search-popup-trigger"><i class="fa-solid fa-magnifying-glass"></i></div>
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="navbar-drawer w-full absolute top-0 left-0 bg-background-color">
+        <ul class="drawer-navbar-list flex flex-col justify-start items-center">
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/"  >
+                             
+                                
+                                    <i class="fa-regular fa-house"></i>
+                                
+                                HOME
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/archives"  >
+                             
+                                
+                                    <i class="fa-regular fa-archive"></i>
+                                
+                                BLOG
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/categories"  >
+                             
+                                
+                                    <i class="fa-regular fa-stream"></i>
+                                
+                                CATEGORIES
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/tags"  >
+                             
+                                
+                                    <i class="fa-regular fa-tags"></i>
+                                
+                                TAGS
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/about"  >
+                             
+                                
+                                    <i class="fa-regular fa-user"></i>
+                                
+                                ABOUT
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group has-dropdown" 
+                        href="#" onClick="return false;">
+                            
+                                
+                                    <i class="fa-regular fa-link"></i>
+                                
+                                LINKS&nbsp;<i class="group-hover:rotate-180 transition-transform fa-solid fa-chevron-down"></i>
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                              
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/my-params">MY-PARAMS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/links">FRIENDS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/q">Q</a>
+                            </li>
+                        
+                    
+            
+
+        </ul>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+        </div>
+
+        <div class="main-content-body">
+
+            
+
+            <div class="main-content">
+
+                
+                    <div class="post-page-container">
+    <div class="article-content-container">
+
+        <div class="article-title">
+            
+                
+                
+                <!-- 2023-10-03, edit by shawnyan. -->
+                <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/IMG_2005-1652257515326.jpg" alt="TiDB 6.x 新特性解读 | TiFlash 新增算子和函数下推" class="max-w-none" referrerpolicy="no-referrer"/>
+                
+                <h1 class="article-title-cover">TiDB 6.x 新特性解读 | TiFlash 新增算子和函数下推</h1>
+            
+            </div>
+
+
+
+        
+            <div class="article-header">
+                <div class="avatar">
+                    
+                        <img src="/img/avatar.jpg">
+                    
+                </div>
+                <div class="info">
+                    <div class="author">
+                        
+                            <span class="name">ShawnYan</span>
+                        
+                        
+                            
+                                <span class="author-label">Lv.6</span>
+                            
+                        
+                    </div>
+                    <div class="meta-info">
+                        <div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2022-05-07 18:05:14</span>
+        <span class="mobile">2022-05-07 18:05:14</span>
+        <span class="hover-info">Created</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2022-05-07 18:05:14</span>
+            <span class="mobile">2022-05-07 18:05:14</span>
+            <span class="hover-info">Updated</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/tidb/">TiDB</a>&nbsp;
+                        </li>
+                    
+                    
+                
+                    
+                        
+                            <li>></li>
+                        
+                        <li>
+                            <a href="/categories/tidb/tidb-6-x/">TiDB 6.x</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/tidb/">tidb</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/tidb-6-x/">tidb 6.x</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/asktug/">asktug</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/tiflash/">tiflash</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/mpp/">mpp</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+        <span class="article-wordcount article-meta-item">
+            <i class="fa-regular fa-typewriter"></i>&nbsp;<span>1.9k Words</span>
+        </span>
+    
+    
+        <span class="article-min2read article-meta-item">
+            <i class="fa-regular fa-clock"></i>&nbsp;<span>8 Mins</span>
+        </span>
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+                    </div>
+                </div>
+            </div>
+        
+
+        
+
+
+        <div class="article-content markdown-body">
+            <p>TiDB 6.0 对 TiFlash 的功能做了进一步增强，其中新增支持了 12 个函数和 2 个算子下推到 TiFlash 层的 MPP 引擎进行计算。<br>
+本文将对其逐一进行演示，以期快速、直观的展示这些新特性。</p>
+<img  alt="IMG_2005.JPG" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/IMG_2005-1652257515326.jpg"
+                      referrerpolicy="no-referrer"
+                >
+<h2 id="TiFlash-和-MPP-引擎">TiFlash 和 MPP 引擎</h2>
+<p>先来简要回顾一下相关概念。</p>
+<ul>
+<li>TiFlash 是 TiDB HTAP 形态的关键组件，它是 TiKV 的列存扩展。</li>
+<li>TiFlash 于2022年4月1日正式开源，主要功能包括列式存储提高分析查询效率，支持强一致性和实时性等，并提供了良好的隔离性。</li>
+<li>TiFlash 的引入，为 MPP 架构提供了技术基础，MPP 架构解决了多表 JOIN 场景下的计算节点的扩展性与并行计算的问题。</li>
+<li>TiFlash 通过在存储层分担计算下推，从而实现对 TiDB 的计算加速。</li>
+</ul>
+<h2 id="新增支持下推函数汇总">新增支持下推函数汇总</h2>
+<p>从 TiDB 6.0 的 <a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/v6.0/release-6.0.0-dmr#%E6%8F%90%E5%8D%87%E6%94%B9%E8%BF%9B" >发版说明 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a><br>
+中可以清晰的看到，这次大版本迭代给 TiFlash 支持计算下推带来了进一步扩展，共计新增支持了 12 个函数，以及 2 个算子，原文如下。</p>
+<blockquote>
+<p>支持下推 DAYNAME()和 MONTHNAME() 函数到 TiFlash #32594<br>
+支持下推 REGEXP 函数到 TiFlash #32637<br>
+支持下推 DAYOFMONTH()，LAST_DAY() 函数到 TiFlash #33012<br>
+支持下推 DAYOFWEEK() 和 DAYOFYEAR() 函数到 TiFlash #33130<br>
+支持下推 IS_TRUE、IS_FALSE、IS_TRUE_WITH_NULL 函数到 TiFlash #33047<br>
+支持下推 GREATEST 和 LEAST 函数到 TiFlash #32787<br>
+算子：Anti Left Outer Semi Join, Left Outer Semi Join</p>
+</blockquote>
+<p>从文档中提供的线索，我们可以反向推演，经寻找代码变更，汇总可知，主要对文件 <code>expression.go</code> 进行了修改，主要修改的代码如下。<br>
+已对代码进行了标注，增加了行数和相关 RP 号，以供参考。</p>
+<div class="highlight-container" data-rel="Go"><figure class="iseeu highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// L1051</span></span><br><span class="line"><span class="keyword">case</span></span><br><span class="line">   ast.LogicOr, ast.LogicAnd, ast.UnaryNot, ast.BitNeg, ast.Xor, ast.And, ast.Or,</span><br><span class="line">   ast.GE, ast.LE, ast.EQ, ast.NE, ast.LT, ast.GT, ast.In, ast.IsNull, ast.Like, ast.Strcmp,</span><br><span class="line">   ast.Plus, ast.Minus, ast.Div, ast.Mul, ast.Abs, ast.Mod,</span><br><span class="line">   ast.If, ast.Ifnull, ast.Case,</span><br><span class="line">   ast.Concat, ast.ConcatWS,</span><br><span class="line">   ast.Date, ast.Year, ast.Month, ast.Day, ast.Quarter, ast.DayName, ast.MonthName, -- #<span class="number">32594</span></span><br><span class="line">   ast.DateDiff, ast.TimestampDiff, ast.DateFormat, ast.FromUnixTime,</span><br><span class="line">   ast.DayOfMonth, ast.LastDay, -- #<span class="number">33012</span></span><br><span class="line">   ast.DayOfWeek, ast.DayOfYear, -- #<span class="number">33130</span></span><br><span class="line"></span><br><span class="line">   ast.Sqrt, ast.Log, ast.Log2, ast.Log10, ast.Ln, ast.Exp, ast.Pow, ast.Sign,</span><br><span class="line">   ast.Radians, ast.Degrees, ast.Conv, ast.CRC32,</span><br><span class="line">   ast.JSONLength,</span><br><span class="line">   ast.InetNtoa, ast.InetAton, ast.Inet6Ntoa, ast.Inet6Aton,</span><br><span class="line">   ast.Coalesce, ast.ASCII, ast.Length, ast.Trim, ast.Position, ast.Format,</span><br><span class="line">   ast.LTrim, ast.RTrim, ast.Lpad, ast.Rpad, ast.Regexp, -- #<span class="number">32637</span></span><br><span class="line">   ast.Hour, ast.Minute, ast.Second, ast.MicroSecond:</span><br><span class="line"></span><br><span class="line"><span class="comment">// L1155</span></span><br><span class="line"><span class="keyword">case</span> ast.Least, ast.Greatest: -- #<span class="number">32787</span></span><br><span class="line">   <span class="keyword">switch</span> function.Function.PbCode() &#123;</span><br><span class="line">   <span class="keyword">case</span> tipb.ScalarFuncSig_GreatestInt, tipb.ScalarFuncSig_GreatestReal,</span><br><span class="line">      tipb.ScalarFuncSig_LeastInt, tipb.ScalarFuncSig_LeastReal:</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">true</span></span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// L1161</span></span><br><span class="line"><span class="keyword">case</span> ast.IsTruthWithNull, ast.IsTruthWithoutNull, ast.IsFalsity: -- #<span class="number">33047</span></span><br><span class="line">   <span class="keyword">return</span> <span class="literal">true</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></div>
+<p>将 TiFlash 6.0 新增算子对应的函数名、SQL的函数名，按函数类型归类，总结成下表，更便于查询和分析。</p>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>代码中的函数名</th>
+<th>SQL中的函数名</th>
+<th>函数类型</th>
+<th>功能描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/issues/32594" >#32594 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></td>
+<td>ast.DayName, ast.MonthName</td>
+<td>DAYNAME(), MONTHNAME()</td>
+<td>日期函数</td>
+<td>返回星期名称；返回参数的月份名称</td>
+</tr>
+<tr>
+<td><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/issues/33012" >#33012 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></td>
+<td>ast.DayOfMonth, ast.LastDay</td>
+<td>DAYOFMONTH(), LAST_DAY()</td>
+<td>日期函数</td>
+<td>返回参数对应的天数部分(1-31)；返回参数中月份的最后一天</td>
+</tr>
+<tr>
+<td><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/issues/33130" >#33130 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></td>
+<td>ast.DayOfWeek, ast.DayOfYear</td>
+<td>DAYOFWEEK(), DAYOFYEAR()</td>
+<td>日期函数</td>
+<td>返回参数对应的星期下标；返回参数代表一年的哪一天 (1-366)</td>
+</tr>
+<tr>
+<td><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/issues/32637" >#32637 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></td>
+<td>ast.Regexp</td>
+<td>REGEXP</td>
+<td>字符串函数</td>
+<td>使用正则表达式匹配模式</td>
+</tr>
+<tr>
+<td><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/issues/32787" >#32787 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></td>
+<td>ast.Least, ast.Greatest</td>
+<td>LEAST(), GREATEST()</td>
+<td>操作符</td>
+<td>返回最小值；返回最大值</td>
+</tr>
+<tr>
+<td><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/issues/33047" >#33047 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></td>
+<td>ast.IsTruthWithNull, ast.IsTruthWithoutNull, ast.IsFalsity</td>
+<td>istrue_with_null, istrue, isfalse</td>
+<td>操作符</td>
+<td>判断是否为真，如果结果为null，则返回null；判断是否为真，如果结果为null，则返回0；判断是否为假</td>
+</tr>
+</tbody>
+</table>
+<h2 id="新增支持算子下推汇总">新增支持算子下推汇总</h2>
+<p>本次版本迭代新增支持了两个算子可以下推至 MPP 引擎，分别是 <code>Left Outer Semi Join</code> 和 <code>Anti Left Outer Semi Join</code>。</p>
+<p>中文表述为左外半连接（<code>Left Outer Semi Join</code>）和反左外半连接（<code>Anti Left Outer Semi Join</code>），半连接意为仅需要匹配第一行后就可以停止查询，而“反”则表示有不存在匹配值（即 <code>NOT IN</code>）的情况。<br>
+查阅历史发版说明可知，在 TiDB 3.0 发版时，针对 <code>NOT EXISTS</code> 子查询进行优化，将其转化为 <code>Anti Semi Join</code> <a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/pull/7842" >#7842 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 。而在 TiFlash 中的这两种 Join 都是基于 Hash Join 实现，对于大、宽表关联查询的场景，会比使用索引关联的效率更高。</p>
+<h2 id="新特性演示">新特性演示</h2>
+<ul>
+<li>TiDB 版本</li>
+</ul>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">TiDB<span class="operator">-</span>v6<span class="operator">&gt;</span> <span class="keyword">select</span> tidb_version()\G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">tidb_version(): <span class="keyword">Release</span> Version: v6<span class="number">.0</span><span class="number">.0</span></span><br><span class="line">Edition: Community</span><br><span class="line">Git <span class="keyword">Commit</span> Hash: <span class="number">36</span>a9810441ca0e496cbd22064af274b3be771081</span><br><span class="line">Git Branch: heads<span class="operator">/</span>refs<span class="operator">/</span>tags<span class="operator">/</span>v6<span class="number">.0</span><span class="number">.0</span></span><br><span class="line">UTC Build <span class="type">Time</span>: <span class="number">2022</span><span class="number">-03</span><span class="number">-31</span> <span class="number">10</span>:<span class="number">33</span>:<span class="number">28</span></span><br><span class="line">GoVersion: go1<span class="number">.18</span></span><br><span class="line">Race Enabled: <span class="literal">false</span></span><br><span class="line">TiKV Min Version: v3<span class="number">.0</span><span class="number">.0</span><span class="number">-60965</span>b006877ca7234adaced7890d7b029ed1306</span><br><span class="line"><span class="keyword">Check</span> <span class="keyword">Table</span> Before <span class="keyword">Drop</span>: <span class="literal">false</span></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.001</span> sec)</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>准备测试表、数据</li>
+</ul>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">USE test;</span><br><span class="line"><span class="keyword">DROP</span> <span class="keyword">TABLE</span> IF <span class="keyword">EXISTS</span> t;</span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> t (id <span class="type">int</span>, dc datetime, cc1 <span class="type">char</span>(<span class="number">20</span>), cc2 <span class="type">char</span>(<span class="number">20</span>));</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> t <span class="keyword">VALUES</span> (<span class="number">1</span>, <span class="string">&#x27;2022-04-30 15:33:10&#x27;</span>, <span class="string">&#x27;UUtJeaV&#x27;</span>, <span class="string">&#x27;snRXXCZHBPW&#x27;</span>), (<span class="number">2</span>, <span class="string">&#x27;2022-05-01 15:33:20&#x27;</span>, <span class="string">&#x27;snRXXCZHBPW&#x27;</span>, <span class="string">&#x27;UUtJeaV&#x27;</span>);</span><br><span class="line">ANALYZE <span class="keyword">TABLE</span> t;</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>创建 TiFlash 数据副本，并强制开启 MPP 模式</li>
+</ul>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">ALTER</span> <span class="keyword">TABLE</span> t <span class="keyword">SET</span> TIFLASH REPLICA <span class="number">1</span>;</span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> information_schema.tiflash_replica;</span><br><span class="line"></span><br><span class="line"><span class="operator">/</span><span class="operator">/</span> TiDB 无视代价估算，选择 MPP 模式。</span><br><span class="line"><span class="keyword">set</span> @<span class="variable">@session</span>.tidb_allow_mpp<span class="operator">=</span><span class="number">1</span>;</span><br><span class="line"><span class="keyword">set</span> @<span class="variable">@session</span>.tidb_enforce_mpp<span class="operator">=</span><span class="number">1</span>;</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>日期函数</li>
+</ul>
+<p>由上表可知本次迭代共涉及 6 个日期函数，下面将用 SQL 来做演示，从执行计划中可以看到已经支持函数下推到 TiFlash。后面演示过程以此类推。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">explain </span><br><span class="line"><span class="keyword">select</span> DAYNAME(dc), MONTHNAME(dc), DAYOFMONTH(dc), LAST_DAY(dc), DAYOFWEEK(dc), DAYOFYEAR(dc) <span class="keyword">from</span> t;</span><br></pre></td></tr></table></figure></div>
+<img  alt="1.jpg" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20220506-c07bfc9f-07fc-4596-8a92-c4ec7a588a0f.jpg"
+                      referrerpolicy="no-referrer"
+                >
+<ul>
+<li>字符串函数 <code>REGEXP</code></li>
+</ul>
+<p>在过滤条件中增加正则判定，过滤以 <code>U</code> 开头的数据。但是，这里收到了一条警告信息，当前不支持下推到 TiKV。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">explain </span><br><span class="line"><span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> t <span class="keyword">where</span> t.cc1 regexp <span class="string">&#x27;^U&#x27;</span>;</span><br></pre></td></tr></table></figure></div>
+<img  alt="2.jpg" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20220506-1088a226-3546-4a16-978e-84b34f7b4032.jpg"
+                      referrerpolicy="no-referrer"
+                >
+<ul>
+<li>操作符 <code>LEAST()</code>, <code>GREATEST()</code></li>
+</ul>
+<p>在过滤条件中增加最小值、最大值判断。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">explain </span><br><span class="line"><span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> t <span class="keyword">where</span> least(id, <span class="number">2</span>) <span class="operator">&lt;</span> <span class="number">2</span>;</span><br><span class="line"></span><br><span class="line">explain</span><br><span class="line"><span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> t <span class="keyword">where</span> GREATEST(id, <span class="number">1</span>) <span class="operator">&gt;</span> <span class="number">1</span>;</span><br></pre></td></tr></table></figure></div>
+<img  alt="3.jpg" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20220506-c30defe2-8821-46f6-b735-217172568189.jpg"
+                      referrerpolicy="no-referrer"
+                >
+<ul>
+<li>操作符 <code>istrue_with_null</code>, <code>istrue</code>, <code>isfalse</code></li>
+</ul>
+<p>判断结果真假。这三个操作符的官方文档内容较少，在准备文章的时候已提交了 <a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/docs-cn/issues/9295" >Issue#9295 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> ，相信官方会进行补充完善。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">explain </span><br><span class="line"><span class="keyword">select</span> istrue_with_null(id <span class="operator">&gt;</span> <span class="number">1</span>), istrue(id <span class="operator">=</span> <span class="number">1</span>), isfalse(id <span class="operator">=</span> <span class="number">1</span>) <span class="keyword">from</span> t;</span><br></pre></td></tr></table></figure></div>
+<img  alt="4.jpg" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20220506-0c4fa65d-687c-42c9-a231-066b75bf6fd8.jpg"
+                      referrerpolicy="no-referrer"
+                >
+<ul>
+<li>算子 <code>Left Outer Semi Join</code>、<code>Anti Left Outer Semi Join</code></li>
+</ul>
+<p>新增支持下推的 2 个算子，上文新特性描述已做出阐释，下面这两条 SQL 的区别在于第二条语句使用了 <code>NOT IN</code>。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">explain </span><br><span class="line"><span class="keyword">select</span> <span class="number">1</span> <span class="keyword">from</span> (<span class="keyword">select</span> t.id <span class="keyword">in</span> (<span class="keyword">select</span> t.id <span class="keyword">from</span> t) <span class="keyword">from</span> t) x;</span><br><span class="line"></span><br><span class="line">explain </span><br><span class="line"><span class="keyword">select</span> <span class="number">1</span> <span class="keyword">from</span> (<span class="keyword">select</span> t.id <span class="keyword">not</span> <span class="keyword">in</span> (<span class="keyword">select</span> t.id <span class="keyword">from</span> t) <span class="keyword">from</span> t) x;</span><br></pre></td></tr></table></figure></div>
+<img  alt="5.jpg" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20220506-fb5d2cab-ab8d-4241-badd-4958f37875ed.jpg"
+                      referrerpolicy="no-referrer"
+                >
+<h2 id="使用建议">使用建议</h2>
+<p>对于本文提及的支持计算下推的新特性已经正式发布，可以放心使用。<br>
+但是这里提示一个使用建议，即 GBK 字符集的表是不能同步到 TiFlash 的，会报下面这个错误。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ERROR <span class="number">8200</span> (HY000): Unsupported <span class="keyword">ALTER</span> <span class="keyword">table</span> replica <span class="keyword">for</span> <span class="keyword">table</span> contain gbk charset</span><br></pre></td></tr></table></figure></div>
+<p>也就是说如果数据表使用了 GBK 字符集，就无法使用本文解读的这些新特性。</p>
+<p>引申一步，从源码文件 <code>charset.go</code> 的 <code>TiFlashSupportedCharsets</code> 变量可知，<br>
+目前 TiFlash 所支持的字符集有 <code>UTF8, UTF8MB4, ASCII, Latin1, Binary</code> 这 5 种。<br>
+所以，一般情况下，在创建数据表时，不建议使用 GBK 字符集。如果是迁移或重构项目，建议将数据转换为 UTF8mb4。</p>
+<h2 id="总结">总结</h2>
+<p>本文对 TiFlash 新支持下推的函数和算子进行了汇总，并进行逐一演示。<br>
+从 TiDB v4 正式发布 TiFlash 组件，到 v5 引入 MPP 引擎，再到伴随 v6 的发布而正式宣布开源，TiFlash 已经逐步成熟，是 TiDB 走向 HTAP 的关键组件。<br>
+期待 TiFlash 可以支持更多下推函数和算子，期望 TiFlash 可以运行得更快、更稳。</p>
+<hr>
+<p><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/400382" >https://www.modb.pro/db/400382 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a><br>
+<a class="link"   target="_blank" rel="noopener" href="https://tidb.net/blog/2188d936?shareId=286bbfd2" >https://tidb.net/blog/2188d936?shareId=286bbfd2 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a><br>
+<a class="link"   target="_blank" rel="noopener" href="https://tidb.net/book/book-rush/performance/mpp-engine/tiflash-pushing-down" >https://tidb.net/book/book-rush/performance/mpp-engine/tiflash-pushing-down <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+
+        </div>
+
+        
+            <div class="post-copyright-info">
+                <div class="article-copyright-info-container">
+    <ul>
+    <!-- 2023-10-03, edit by shawnyan. -->
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Title:</strong> TiDB 6.x 新特性解读 | TiFlash 新增算子和函数下推</li>
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Author:</strong>
+            
+                ShawnYan
+            
+        </li>
+        <li><strong>Created at:</strong> 2022-05-07 18:05:14</li>
+        
+            <li><strong>Updated at:</strong> 2022-05-07 18:05:14</li>
+        
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Link:</strong> https://shawnyan.cn/2022/tidb/tidb-6.0-tiflash-pushing-down/</li>
+        <li style="word-wrap: break-word; white-space: normal;">
+            <strong>
+                License:
+            </strong>
+            
+            This work is licensed under <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>.
+            
+
+        </li>
+    </ul>
+</div>
+
+            </div>
+        
+
+        
+            <ul class="post-tags-box">
+                
+                    <li class="tag-item">
+                        <a href="/tags/tidb/">#tidb</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/tidb-6-x/">#tidb 6.x</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/asktug/">#asktug</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/tiflash/">#tiflash</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/mpp/">#mpp</a>&nbsp;
+                    </li>
+                
+            </ul>
+        
+
+        
+  <div class="recommended-article">
+   <div class="recommended-desktop">
+    <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+    </div>
+    <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/tidb/tidb-aliyun-trial/" title="TiDB x Aliyun 免费试用，竟还有这般福利？" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-aliyun-trial-banner-1696311280028.jpg" alt="TiDB x Aliyun 免费试用，竟还有这般福利？" class="!max-w-none">
+  <span class="title">TiDB x Aliyun 免费试用，竟还有这般福利？</span>
+</a><a class="recommended-article-item" href="/2023/tidb/tidb-7.x-compile-tidb/" title="TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png" alt="TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）" class="!max-w-none">
+  <span class="title">TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）</span>
+</a><a class="recommended-article-item" href="/2023/tidb/tidb-7.x-compile-tiflash/" title="TiDB 7.x 源码编译之 TiFlash 篇" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png" alt="TiDB 7.x 源码编译之 TiFlash 篇" class="!max-w-none">
+  <span class="title">TiDB 7.x 源码编译之 TiFlash 篇</span>
+</a></div>
+   </div>
+   <div class="recommended-mobile">
+   <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+   </div>
+   <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/tidb/tidb-aliyun-trial/" title="TiDB x Aliyun 免费试用，竟还有这般福利？" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-aliyun-trial-banner-1696311280028.jpg" alt="TiDB x Aliyun 免费试用，竟还有这般福利？" class="!max-w-none">
+  <span class="title">TiDB x Aliyun 免费试用，竟还有这般福利？</span>
+</a><a class="recommended-article-item" href="/2023/tidb/tidb-7.x-compile-tidb/" title="TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png" alt="TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）" class="!max-w-none">
+  <span class="title">TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）</span>
+</a></div>
+   </div>
+  </div>
+
+        
+            <div class="article-nav">
+                
+                    <div class="article-prev">
+                        <a class="prev"
+                        rel="prev"
+                        href="/2022/modb/modb-2022-05-db-ranking/"
+                        >
+                            <span class="left arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </span>
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">2022年5月中国数据库排行榜：openGauss 黑马首登顶，AntDB 冲进20强</span>
+                                <span class="post-nav-item">Prev posts</span>
+                            </span>
+                        </a>
+                    </div>
+                
+                
+                    <div class="article-next">
+                        <a class="next"
+                        rel="next"
+                        href="/2022/tidb/tidb-6.0-new-collation/"
+                        >
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">TiDB 6.x 新特性解读 | Collation 规则</span>
+                                <span class="post-nav-item">Next posts</span>
+                            </span>
+                            <span class="right arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </a>
+                    </div>
+                
+            </div>
+        
+
+
+        
+            <div class="comment-container">
+                <div class="comments-container pjax">
+    <div id="comment-anchor"></div>
+    <div class="comment-area-title">
+        <i class="fa-solid fa-comments"></i>&nbsp;Comments
+    </div>
+    
+
+        
+            
+    <div id="gitalk-container"></div>
+    <script data-swup-reload-script
+            src="//cdn.staticfile.org/gitalk/1.8.0/gitalk.min.js"></script>
+    <script data-swup-reload-script>
+
+        function loadGitalk() {
+            let __gitalk__pathname = decodeURI(location.pathname);
+            const __gitalk__pathnameLength = __gitalk__pathname.length;
+            const __gitalk__pathnameMaxLength = 50;
+            if (__gitalk__pathnameLength > __gitalk__pathnameMaxLength) {
+                __gitalk__pathname = __gitalk__pathname.substring(0, __gitalk__pathnameMaxLength - 3) + '...';
+            }
+
+            try {
+                Gitalk && new Gitalk({
+                    clientID: '32d049bf3701e6791070',
+                    clientSecret: '36c295ad3dad4c739b530ef113d0a979d8c35c5d',
+                    repo: 'gitalk',
+                    owner: 'shawn0915',
+                    admin: ['shawn0915'],
+                    id: __gitalk__pathname,
+                    language: 'en'
+                }).render('gitalk-container');
+
+            } catch (e) {
+                window.Gitalk = null;
+            }
+        }
+
+        if ('true') {
+            const loadGitalkTimeout = setTimeout(() => {
+                loadGitalk();
+                clearTimeout(loadGitalkTimeout);
+            }, 1000);
+        } else {
+            window.addEventListener('DOMContentLoaded', loadGitalk);
+        }
+    </script>
+
+
+
+        
+    
+</div>
+
+            </div>
+        
+    </div>
+
+    
+        <div class="toc-content-container">
+            <div class="post-toc-wrap">
+    <div class="post-toc">
+        <div class="toc-title">On this page</div>
+<!--         <div class="page-title">TiDB 6.x 新特性解读 | TiFlash 新增算子和函数下推</div> -->
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#TiFlash-%E5%92%8C-MPP-%E5%BC%95%E6%93%8E"><span class="nav-text">TiFlash 和 MPP 引擎</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%96%B0%E5%A2%9E%E6%94%AF%E6%8C%81%E4%B8%8B%E6%8E%A8%E5%87%BD%E6%95%B0%E6%B1%87%E6%80%BB"><span class="nav-text">新增支持下推函数汇总</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%96%B0%E5%A2%9E%E6%94%AF%E6%8C%81%E7%AE%97%E5%AD%90%E4%B8%8B%E6%8E%A8%E6%B1%87%E6%80%BB"><span class="nav-text">新增支持算子下推汇总</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%96%B0%E7%89%B9%E6%80%A7%E6%BC%94%E7%A4%BA"><span class="nav-text">新特性演示</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8%E5%BB%BA%E8%AE%AE"><span class="nav-text">使用建议</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-text">总结</span></a></li></ol>
+
+    </div>
+</div>
+
+        </div>
+    
+</div>
+
+
+
+                
+
+            </div>
+
+            
+
+        </div>
+
+        <div class="main-content-footer">
+            <footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2017</span>
+              -
+            
+            2024&nbsp;&nbsp;<i class="fa-solid fa-heart fa-beat" style="--fa-animation-duration: 0.5s; color: #f54545"></i>&nbsp;&nbsp;<a href="/">Shawn Yan</a>
+        </div>
+        
+            <script data-swup-reload-script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">VISITOR COUNT</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">TOTAL PAGE VIEWS</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">POWERED BY <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a></span>
+            <span class="text-sm lg:block">THEME&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.4.4</a></span>
+        </div>
+        
+        
+            <div>
+                Blog up for <span class="odometer" id="runtime_days" ></span> days <span class="odometer" id="runtime_hours"></span> hrs <span class="odometer" id="runtime_minutes"></span> Min <span class="odometer" id="runtime_seconds"></span> Sec
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+
+    </div>
+</footer>
+
+        </div>
+    </div>
+
+    
+        <div class="post-tools">
+            <div class="post-tools-container">
+    <ul class="article-tools-list">
+        <!-- TOC aside toggle -->
+        
+            <li class="right-bottom-tools page-aside-toggle">
+                <i class="fa-regular fa-outdent"></i>
+            </li>
+        
+
+        <!-- go comment -->
+        
+            <li class="go-comment">
+                <i class="fa-regular fa-comments"></i>
+            </li>
+        
+    </ul>
+</div>
+
+        </div>
+    
+
+    <div class="right-side-tools-container">
+        <div class="side-tools-container">
+    <ul class="hidden-tools-list">
+        <li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-plus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-minus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-expand-width flex justify-center items-center">
+            <i class="fa-regular fa-expand"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+            <i class="fa-regular fa-moon"></i>
+        </li>
+
+        <!-- rss -->
+        
+            <li class="right-bottom-tools rss flex justify-center items-center">
+                <a class="flex justify-center items-center"
+                   href="/atom.xml"
+                   target="_blank"
+                >
+                <i class="fa-regular fa-rss"></i>
+                </a>
+            </li>
+        
+
+        
+
+        <li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+            <i class="fa-regular fa-arrow-down"></i>
+        </li>
+    </ul>
+
+    <ul class="visible-tools-list">
+        <li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+            <i class="fa-regular fa-cog fa-spin"></i>
+        </li>
+        
+            <li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+                <i class="arrow-up fas fa-arrow-up"></i>
+                <span class="percent"></span>
+            </li>
+        
+        
+    </ul>
+</div>
+
+    </div>
+
+    <div class="image-viewer-container">
+    <img src="">
+</div>
+
+
+    
+        <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+          <span class="search-input-field-pre">
+            <i class="fa-solid fa-keyboard"></i>
+          </span>
+            <div class="search-input-container">
+                <input autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       placeholder="Search..."
+                       spellcheck="false"
+                       type="search"
+                       class="search-input"
+                >
+            </div>
+            <span class="popup-btn-close">
+                <i class="fa-solid fa-times"></i>
+            </span>
+        </div>
+        <div id="search-result">
+            <div id="no-result">
+                <i class="fa-solid fa-spinner fa-spin-pulse fa-5x fa-fw"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+
+</main>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Swup.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupSlideTheme.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScriptsPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupProgressPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScrollPlugin.min.js"></script>
+<script>
+    const swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+        ],
+        containers: ["#swup"],
+    });
+
+    swup.hooks.on("page:view", () => {
+        Global.refresh();
+    });
+
+    // if (document.readyState === "complete") {
+    //
+    // } else {
+    //     document.addEventListener("DOMContentLoaded", () => init());
+    // }
+</script>
+
+
+
+
+
+<script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/utils.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/main.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/navbarShrink.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/scrollTopBottom.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/lightDarkSwitch.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/categoryList.js"></script>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/localSearch.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/codeBlock.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/lazyload.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/runtime.js"></script>
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/odometer.min.js"></script>
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/assets/odometer-theme-minimal.css">
+
+
+
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Typed.min.js"></script>
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/typed.js"></script>
+
+
+
+
+
+
+<div class="post-scripts" data-swup-reload-script>
+    
+        <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/anime.min.js"></script>
+        <script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/tocToggle.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/toc.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/tabs.js"></script>
+    
+</div>
+
+
+</body>
+</html>

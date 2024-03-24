@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="shawnyan,dba,oracle,mysql,tidb,mariadb,postgresql,gbase,proxysql">
+    
+    <meta name="author" content="Shawn Yan">
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+        
+        
+        
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://shawnyan.cn/2022/tidb/mydumper-and-dumpling/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+        <meta name="description" content="“温故知新”系列，是指重新整理汇总那些有用但可能平时用不到的知识点，同时发掘、学习新的知识点以丰富知识体系。 本文主要阐释 mydumper 和 dumpling 工具的相关概念、使用方法，及其与TiDB的关联。  前置信息：  CentOS Linux release 7.9.2009 (Core) MySQL 5.7.37 TiDB v5.4.0 mydumper v0.11.5-2 mydu">
+<meta property="og:type" content="article">
+<meta property="og:title" content="温故知新 | mydumper &amp; dumpling 知识点汇总">
+<meta property="og:url" content="https://shawnyan.cn/2022/tidb/mydumper-and-dumpling/index.html">
+<meta property="og:site_name" content="少安事务所">
+<meta property="og:description" content="“温故知新”系列，是指重新整理汇总那些有用但可能平时用不到的知识点，同时发掘、学习新的知识点以丰富知识体系。 本文主要阐释 mydumper 和 dumpling 工具的相关概念、使用方法，及其与TiDB的关联。  前置信息：  CentOS Linux release 7.9.2009 (Core) MySQL 5.7.37 TiDB v5.4.0 mydumper v0.11.5-2 mydu">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://shawnyan.cn/img/tidb/mydumper.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20220224-27797560-5da0-48a1-bd22-90e1f79a9a96.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20220224-a9183eb5-5324-45cd-b3ec-309f7a6306e3.jpg">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20220224-f3585a2c-5b0b-4446-b237-0001b6dce27b.png">
+<meta property="article:published_time" content="2022-02-24T14:02:49.000Z">
+<meta property="article:modified_time" content="2022-02-24T14:02:49.000Z">
+<meta property="article:author" content="Shawn Yan">
+<meta property="article:tag" content="tidb">
+<meta property="article:tag" content="pingcap">
+<meta property="article:tag" content="mydumper">
+<meta property="article:tag" content="dumpling">
+<meta property="article:tag" content="asktug">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://shawnyan.cn/img/tidb/mydumper.png">
+    
+    
+        <!-- Google tag (gtag.js) -->
+        <script src="https://www.googletagmanager.com/gtag/js?id=G-ZH71L5F7X2"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-ZH71L5F7X2');
+        </script>
+    
+    <!-- baidu tongji -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?2fa794d82f74c0bb3617ba62ee962b46";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/img/favicon.ico" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon.ico">
+    <meta name="theme-color" content="#767FF6">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <!--- Page Info-->
+    
+    <title>
+        
+            温故知新 | mydumper &amp; dumpling 知识点汇总 -
+        
+        少安事务所
+    </title>
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+<!--- use 2.5.0
+    
+        
+<link rel="stylesheet" href="/assets/build/styles.css">
+
+    
+-->
+    <link rel="stylesheet" href="//cdn.staticfile.org/hexo-theme-redefine/2.5.0/assets/build/styles.min.css">
+
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/fonts.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Satoshi/satoshi.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Chillax/chillax.css">
+    <!--- Font Part-->
+    
+    
+    
+    
+
+    <!--- Inject Part-->
+    
+    <script id="hexo-configurations">
+    let Global = window.Global || {};
+    Global.hexo_config = {"hostname":"shawnyan.cn","root":"/","language":"en","path":"search.xml"};
+    Global.theme_config = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":true,"list":[]},"code_block":{"copy":true,"style":"mac","font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":4,"number":false,"expand":true,"init_open":true},"copyright":true,"lazyload":true,"recommendation":{"enable":true,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#767FF6","secondary":null},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"open_graph":true,"google_analytics":{"enable":true,"id":"G-ZH71L5F7X2"},"root_color_mode":"dark"},"home_banner":{"enable":true,"style":"fixed","image":{"light":"https://asktug.com/uploads/default/original/4X/4/b/d/4bd94f804719672dd7e3cb29150ea6f777eb0aec.jpeg","dark":"/img/wallpaper/dark.webp"},"title":"Shawn Yan's Tech Blog.","subtitle":{"text":["A blog about MySQL, Oracle, TiDB, PostgreSQL and other databases."],"hitokoto":{"enable":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":500,"backing_delay":1500,"loop":true,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"links":{"github":"https://github.com/shawn0915","instagram":null,"zhihu":null,"twitter":null,"email":"admin@shawnyan.cn"},"qrs":{"weixin":null}}},"plugins":{"feed":{"enable":true},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":"回忆的沙漏 (10周年版)","artist":"回忆的沙漏 (10周年版)","url":"https://music.163.com/song/media/outer/url?id=1329122067.mp3","cover":"https://p1.music.126.net/oJorrgJ3IotZUAbZkBMuFw==/109951167771736533.jpg?param=68y68"}]},"mermaid":{"enable":false,"version":"9.3.0"}},"version":"2.4.4","navbar":{"auto_hide":false,"color":{"left":"#f78736","right":"#367df7","transparency":35},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Blog":{"path":"/archives","icon":"fa-regular fa-archive"},"Categories":{"path":"/categories","icon":"fa-regular fa-stream"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Links":{"icon":"fa-regular fa-link","submenus":{"My-params":"/my-params","Friends":"/links","Q":"/q"}}},"search":{"enable":true,"preload":true}},"page_templates":{"friends_column":3,"tags_style":"cloud"},"home":{"sidebar":{"enable":true,"position":"left","first_item":"info","announcement":null,"links":null},"article_date_format":"YYYY-MM-DD","categories":{"enable":true,"limit":10},"tags":{"enable":true,"limit":10}},"footerStart":"2017/11/27 00:00:00"};
+    Global.language_ago = {"second":"%s seconds ago","minute":"%s minutes ago","hour":"%s hours ago","day":"%s days ago","week":"%s weeks ago","month":"%s months ago","year":"%s years ago"};
+    Global.data_config = {"masonry":false};
+  </script>
+
+    <!--- Fontawesome Part-->
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/fontawesome.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/brands.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/solid.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/regular.min.css">
+    
+    
+    
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+
+
+<body>
+<div class="progress-bar-container">
+    
+
+    
+        <span class="pjax-progress-bar"></span>
+        <span class="swup-progress-icon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+    
+</div>
+
+
+<main class="page-container" id="swup">
+
+    
+
+    <div class="main-content-container">
+
+
+        <div class="main-content-header">
+            <header class="navbar-container">
+    
+    <div class="navbar-content">
+        <div class="left">
+            
+                <a class="logo-image" href="https://shawnyan.cn/">
+                    <img src="/img/favicon.ico">
+                </a>
+            
+            <a class="logo-title" href="https://shawnyan.cn/">
+                
+                少安事务所
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-house"></i>
+                                        
+                                        HOME
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/archives"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-archive"></i>
+                                        
+                                        BLOG
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/categories"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-stream"></i>
+                                        
+                                        CATEGORIES
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/tags"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-tags"></i>
+                                        
+                                        TAGS
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/about"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-user"></i>
+                                        
+                                        ABOUT
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="has-dropdown" 
+                                    href="#" onClick="return false;">
+                                    
+                                        
+                                            <i class="fa-regular fa-link"></i>
+                                        
+                                        LINKS&nbsp;<i class="fa-solid fa-chevron-down"></i>
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                                    <ul class="sub-menu">
+                                    
+                                        <li>
+                                        <a href="/my-params">MY-PARAMS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/links">FRIENDS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/q">Q
+                                        </a>
+                                        </li>
+                                    
+                                    </ul>
+                                
+                            </li>
+                    
+                    
+                        <li class="navbar-item search search-popup-trigger">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </li>
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                    <div class="icon-item search search-popup-trigger"><i class="fa-solid fa-magnifying-glass"></i></div>
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="navbar-drawer w-full absolute top-0 left-0 bg-background-color">
+        <ul class="drawer-navbar-list flex flex-col justify-start items-center">
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/"  >
+                             
+                                
+                                    <i class="fa-regular fa-house"></i>
+                                
+                                HOME
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/archives"  >
+                             
+                                
+                                    <i class="fa-regular fa-archive"></i>
+                                
+                                BLOG
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/categories"  >
+                             
+                                
+                                    <i class="fa-regular fa-stream"></i>
+                                
+                                CATEGORIES
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/tags"  >
+                             
+                                
+                                    <i class="fa-regular fa-tags"></i>
+                                
+                                TAGS
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/about"  >
+                             
+                                
+                                    <i class="fa-regular fa-user"></i>
+                                
+                                ABOUT
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group has-dropdown" 
+                        href="#" onClick="return false;">
+                            
+                                
+                                    <i class="fa-regular fa-link"></i>
+                                
+                                LINKS&nbsp;<i class="group-hover:rotate-180 transition-transform fa-solid fa-chevron-down"></i>
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                              
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/my-params">MY-PARAMS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/links">FRIENDS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/q">Q</a>
+                            </li>
+                        
+                    
+            
+
+        </ul>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+        </div>
+
+        <div class="main-content-body">
+
+            
+
+            <div class="main-content">
+
+                
+                    <div class="post-page-container">
+    <div class="article-content-container">
+
+        <div class="article-title">
+            
+                
+                
+                <!-- 2023-10-03, edit by shawnyan. -->
+                <img src="/img/tidb/mydumper.png" alt="温故知新 | mydumper &amp; dumpling 知识点汇总" class="max-w-none" referrerpolicy="no-referrer"/>
+                
+                <h1 class="article-title-cover">温故知新 | mydumper &amp; dumpling 知识点汇总</h1>
+            
+            </div>
+
+
+
+        
+            <div class="article-header">
+                <div class="avatar">
+                    
+                        <img src="/img/avatar.jpg">
+                    
+                </div>
+                <div class="info">
+                    <div class="author">
+                        
+                            <span class="name">严少安</span>
+                        
+                        
+                            
+                                <span class="author-label">Lv.6</span>
+                            
+                        
+                    </div>
+                    <div class="meta-info">
+                        <div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2022-02-24 22:02:49</span>
+        <span class="mobile">2022-02-24 22:02:49</span>
+        <span class="hover-info">Created</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2022-02-24 22:02:49</span>
+            <span class="mobile">2022-02-24 22:02:49</span>
+            <span class="hover-info">Updated</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/tidb/">TiDB</a>&nbsp;
+                        </li>
+                    
+                    
+                
+                    
+                        
+                            <li>></li>
+                        
+                        <li>
+                            <a href="/categories/tidb/tidb-5-x/">TiDB 5.x</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/tidb/">tidb</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/pingcap/">pingcap</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/mydumper/">mydumper</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/dumpling/">dumpling</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/asktug/">asktug</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+        <span class="article-wordcount article-meta-item">
+            <i class="fa-regular fa-typewriter"></i>&nbsp;<span>2.3k Words</span>
+        </span>
+    
+    
+        <span class="article-min2read article-meta-item">
+            <i class="fa-regular fa-clock"></i>&nbsp;<span>9 Mins</span>
+        </span>
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+                    </div>
+                </div>
+            </div>
+        
+
+        
+
+
+        <div class="article-content markdown-body">
+            <p>“温故知新”系列，是指重新整理汇总那些有用但可能平时用不到的知识点，同时发掘、学习新的知识点以丰富知识体系。<br>
+本文主要阐释 <code>mydumper</code> 和 <code>dumpling</code> 工具的相关概念、使用方法，及其与TiDB的关联。</p>
+<img  alt="1.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="/img/tidb/mydumper.png"
+                     
+                >
+<p>前置信息：</p>
+<blockquote>
+<p>CentOS Linux release 7.9.2009 (Core)<br>
+MySQL 5.7.37<br>
+TiDB v5.4.0<br>
+mydumper v0.11.5-2<br>
+mydumper v0.9.5 with PingCAP customization<br>
+dumpling v5.4.0</p>
+</blockquote>
+<h2 id="mydumper-简介">mydumper 简介</h2>
+<p><code>mydummper</code>是一个第三方工具，用来备份 MySQL（MariaDB、Percona）数据库。</p>
+<h3 id="缘起">缘起</h3>
+<blockquote>
+<p>The mydumper project was started at the beginning of 2009 by Domas Mituzas, and a few months ago we started collaborating and adding new features to improve performance and usability.</p>
+</blockquote>
+<p>via. Percona Blog.</p>
+<h3 id="特性">特性</h3>
+<ol>
+<li>支持多线程导出数据，速度更快。</li>
+<li>支持一致性备份。</li>
+<li>支持将导出文件压缩，节约空间。</li>
+<li>支持多线程恢复。</li>
+<li>支持以守护进程模式工作，定时快照和连续二进制日志。</li>
+<li>支持按照指定大小将备份文件切割。</li>
+<li>数据与建表语句分离。</li>
+<li>比mysqldump速度快。</li>
+</ol>
+<h3 id="代码">代码</h3>
+<p>最新版代码库：</p>
+<ul>
+<li>官方库：<a class="link"   target="_blank" rel="noopener" href="https://github.com/mydumper/mydumper" >https://github.com/mydumper/mydumper <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li>PingCAP定制版：<a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/mydumper" >https://github.com/pingcap/mydumper <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+</ul>
+<h3 id="安装">安装</h3>
+<p>这里介绍两种安装方式：1. RPM安装；2. 源码编译安装</p>
+<ol>
+<li>RPM安装</li>
+</ol>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">yum install -y https://github.com/mydumper/mydumper/releases/download/v0.11.5-2/mydumper-0.11.5-2.el7.x86_64.rpm</span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">mydumper --version</span></span><br><span class="line">mydumper 0.11.5, built against MySQL 5.7.34-37</span><br></pre></td></tr></table></figure></div>
+<ol start="2">
+<li>源码编译安装</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"># yum install -y cmake gcc gcc-c++ git make</span><br><span class="line"># yum install -y glib2-devel mysql-devel openssl-devel pcre-devel zlib-devel libzstd-devel</span><br><span class="line"># yum install -y MariaDB-devel</span><br><span class="line"># wget https://github.com/mydumper/mydumper/archive/refs/tags/v0.11.5-2.zip</span><br><span class="line"># unzip v0.11.5-2.zip</span><br><span class="line"># cd mydumper-0.11.5-2/</span><br><span class="line"># cmake .</span><br><span class="line"># make</span><br><span class="line"># make install</span><br><span class="line">-- Installing: /usr/local/bin/mydumper</span><br><span class="line">-- Installing: /usr/local/bin/myloader</span><br><span class="line"># mydumper --version</span><br><span class="line">mydumper 0.11.5, built against MySQL 5.7.37</span><br></pre></td></tr></table></figure></div>
+<h2 id="mydumper-使用方法">mydumper 使用方法</h2>
+<h3 id="重要选项">重要选项</h3>
+<p>摘取了一些重要的选项，列举如下：</p>
+<table>
+<thead>
+<tr>
+<th>Options</th>
+<th>Desc</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>-B, --database</td>
+<td>导出的源库</td>
+</tr>
+<tr>
+<td>-T, --tables-list</td>
+<td>导出的表，以逗号分隔（不排除正则选项）</td>
+</tr>
+<tr>
+<td>-o, --outputdir</td>
+<td>输出文件到目标目录</td>
+</tr>
+<tr>
+<td>-F, --chunk-filesize</td>
+<td>将表按指定块大小（单位为MB）拆分成若干文件</td>
+</tr>
+<tr>
+<td>-c, --compress</td>
+<td>压缩输出文件</td>
+</tr>
+<tr>
+<td>-x, --regex</td>
+<td>正则表达式去匹配 ‘db.table’</td>
+</tr>
+<tr>
+<td>-m, --no-schemas</td>
+<td>只备份表数据，不备份表结构</td>
+</tr>
+<tr>
+<td>-d, --no-data</td>
+<td>不备份表数据</td>
+</tr>
+<tr>
+<td>-k, --no-locks</td>
+<td>不执行临时共享读锁。警告：这将导致不一致的备份</td>
+</tr>
+<tr>
+<td>-t, --threads</td>
+<td>使用的线程数，默认值为4</td>
+</tr>
+<tr>
+<td>–</td>
+<td>–</td>
+</tr>
+<tr>
+<td>–sync-wait</td>
+<td>WSREP_SYNC_WAIT value to set at SESSION level</td>
+</tr>
+<tr>
+<td>–</td>
+<td>–</td>
+</tr>
+<tr>
+<td>-z, --tidb-snapshot</td>
+<td>Snapshot to use for TiDB</td>
+</tr>
+</tbody>
+</table>
+<p>注：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/v4.0/mydumper-overview#%E6%96%B0%E6%B7%BB%E5%8F%82%E6%95%B0"><code>-z 或 --tidb-snapshot</code></a>: 设置 tidb_snapshot 用于备份。默认值为当前 TSO（SHOW MASTER STATUS 输出的 Position 字段）。此参数可设为 TSO 或有效的 datetime 时间，例如：-z “2016-10-08 16:45:26”。</li>
+<li><a target="_blank" rel="noopener" href="https://pingcap.com/zh/blog/tidb-as-mysql-slave"><code>--no-locks</code></a>: 在阿里云一些需要 super privilege 的云上面，mydumper 需要加上 --no-locks 参数，否则会提示没有权限操作。</li>
+</ul>
+<h3 id="常用备份命令">常用备份命令</h3>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">连接信息</span></span><br><span class="line">host=192.168.195.128</span><br><span class="line">pass=password</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">全实例备份</span></span><br><span class="line">mydumper -u root -p $pass -h $host -o /data/backup/full_instance</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">全实例备份，压缩备份，并排除mysql,sys系统库</span></span><br><span class="line">mydumper -u root -p $pass -h $host -c --regex &#x27;^(?!(mysql\.|test\.|sys\.))&#x27; -o /data/backup/full_instance_compress</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">备份指定库</span></span><br><span class="line">mydumper -u root -p $pass -h $host -B sbtest -o /data/backup/db_sbtest</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">备份指定表</span></span><br><span class="line">mydumper -u root -p $pass -h $host -B sbtest -T t1,t2 -o /data/backup/db_sbtest_t1_t2</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">只备份表结构</span></span><br><span class="line">mydumper -u root -p $pass -h $host -B sbtest -d -o /data/backup/db_sbtest_ddl</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">只备份表数据</span></span><br><span class="line">mydumper -u root -p $pass -h $host -B sbtest -m -o /data/backup/db_sbtest_data</span><br></pre></td></tr></table></figure></div>
+<h3 id="备份文件命名">备份文件命名</h3>
+<p>常见命名规则：</p>
+<ol>
+<li>metadata： 记录备份的开始、结束时间。</li>
+<li>database-schema-create.sql: 建库语句。</li>
+<li>database.table.sql: 该表的插入数据语句（若该表为空，则不存在此文件）。</li>
+<li>database.table-metadata： 记录该表的行数。</li>
+<li>database.table-schema.sql： 该表的创建语句。</li>
+</ol>
+<h2 id="mydumper-支持-TiDB">mydumper 支持 TiDB</h2>
+<p>官方版本的 mydumper 对 TiDB 的支持。<br>
+或者说，PingCAP 团队以将 mydumper 对 TiDB 的兼容性代码向上游提交 PR 并完成合并。</p>
+<p><a class="link"   target="_blank" rel="noopener" href="https://github.com/mydumper/mydumper/pull/155/" >https://github.com/mydumper/mydumper/pull/155/ <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<ul>
+<li>Add version detection for TiDB (detected_server).</li>
+<li>Added support for tidb_snapshot option.</li>
+<li>Auto-set tidb_snapshot to 1 second ago when TiDB detected.</li>
+<li>Added optimization to dump _tidb_row id when it exists.</li>
+</ul>
+<img  alt="2.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20220224-27797560-5da0-48a1-bd22-90e1f79a9a96.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>另外，从网络图中我们可以看出，从16年10月开始，PingCAP创建了新的分支版本，并开始兼容性开发。</p>
+<img  alt="3.jpg" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20220224-a9183eb5-5324-45cd-b3ec-309f7a6306e3.jpg"
+                      referrerpolicy="no-referrer"
+                >
+<p>从 pingcap/mydumper 的代码提交记录和PR来看，定制版 mydumper 虽然依旧支持 TiDB v5，但是由于从 TiDB v4 开始已经正式发布了 dumpling 工具，并被其取代。同时，我们也可以清晰的从官方文档里看到这样的一条<a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/v4.0/mydumper-overview#mydumper-%E7%AE%80%E4%BB%8B" >警告 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>：</p>
+<blockquote>
+<p>PingCAP 之前维护的 Mydumper 工具 fork 自 mydumper project，针对 TiDB 的特性进行了优化。Mydumper 目前已经不再开发新功能，其绝大部分功能已经被 Dumpling 取代。Dumpling 工具使用 Go 语言编写，支持更多针对 TiDB 特性的优化。强烈建议切换到 Dumpling。</p>
+</blockquote>
+<h2 id="Dumpling-简介">Dumpling 简介</h2>
+<p>Dumpling 一个支持热、温备的逻辑备份工具，是 mydumper 的全新升级版，基本用法类似于 mydumper，但也有所区别，可使用tiup进行管理。<br>
+Dumpling 从19年12月开始着手开发，使用Go语言编写，整合了 mydumper 的原有功能，并做了一些改进。</p>
+<h3 id="代码-2">代码</h3>
+<ul>
+<li>原始代码库：<a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/dumpling" >https://github.com/pingcap/dumpling <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li>最新代码库：<a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/tree/master/dumpling" >https://github.com/pingcap/tidb/tree/master/dumpling <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+</ul>
+<p>注：<br>
+Dumpling merged into TiDB (<a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/dumpling/pull/379" >#379 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>)</p>
+<h3 id="Dumpling-的改进">Dumpling 的改进</h3>
+<p>相比 Mydumper，Dumpling 做了如下改进：</p>
+<ol>
+<li>
+<p>支持导出多种数据形式，包括 SQL/CSV。<br>
+通过选项 <code>--filetype string</code> 进行控制，可以选择sql或csv。<br>
+关于CSV格式还有4个相关参数：<br>
+<code>--csv-delimiter</code>, csv文件中的定界符 (default “&quot;”)。<br>
+<code>--csv-null-value</code>, csv中的null值 (default “\N”)。<br>
+<code>--csv-separator</code>, csv文件中的分隔符 (default “,”)。</p>
+</li>
+<li>
+<p>支持全新的 <code>table-filter</code>，筛选数据更加方便。<br>
+整合了列表方式和正则方式，通过选项 <code>-f, --filter strings</code> 进行控制，默认值为：<code>[*.*,!/^(mysql|sys|INFORMATION_SCHEMA|PERFORMANCE_SCHEMA|METRICS_SCHEMA|INSPECTION_SCHEMA)$/.*]</code><br>
+语法可参考: <a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb-tools/blob/master/pkg/table-filter/README.md" >README <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+</li>
+<li>
+<p>支持导出到 Amazon S3 云盘。<br>
+增加了一系列 S3 相关选项，具体有：</p>
+</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">--s3.aclstring</span><br><span class="line">--s3.endpointstring</span><br><span class="line">--s3.providerstring</span><br><span class="line">--s3.regionstring</span><br><span class="line">--s3.ssestring</span><br><span class="line">--s3.sse-kms-key-idstring</span><br><span class="line">--s3.storage-classstring</span><br></pre></td></tr></table></figure></div>
+<img  alt="4.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20220224-f3585a2c-5b0b-4446-b237-0001b6dce27b.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>注：<a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/tidb/stable/dumpling-overview#export-data-to-amazon-s3-cloud-storage" >Export data to Amazon S3 cloud storage <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<ol start="4">
+<li>针对 TiDB 进行了更多优化：
+<ol>
+<li>
+<p>支持配置 TiDB 单条 SQL 内存限制。<br>
+通过选项 <code>--tidb-mem-quota-query uint</code> 进行控制，单位为 bytes。</p>
+</li>
+<li>
+<p>针对 TiDB v4.0.0 及更新版本支持自动调整 TiDB GC 时间。<br>
+TiDB GC 相关概念可参考官方文档：</p>
+</li>
+<li>
+<p>使用 TiDB 的隐藏列 <code>_tidb_rowid</code> 优化了单表内数据的并发导出性能。</p>
+</li>
+<li>
+<p>对于 TiDB 可以设置 tidb_snapshot 的值指定备份数据的时间点，从而保证备份的一致性，而不是通过 <code>FLUSH TABLES WITH READ LOCK</code> 来保证备份一致性。<br>
+相关参数：<code>--snapshot string</code>，需要配合参数 <code>--consistency=snapshot</code>一起使用。<br>
+参数<code>--consistency</code>用于设定导出数据一致性级别，可设定为：<br>
+1, auto: 默认值，MySQL flush, TiDB snapshot<br>
+2, none: 不加锁 dump，无法保证一致性<br>
+3, flush: dump 前用 FTWRL<br>
+4, lock: 对需要 dump 的所有表执行 lock tables read<br>
+5, snapshot: 通过 tso 指定 dump 位置</p>
+</li>
+</ol>
+</li>
+</ol>
+<h3 id="Dumpling-所需权限">Dumpling 所需权限</h3>
+<p>Dumpling 最小权限要求：<code>select, reload, lock tables, replication client</code><br>
+创建用户示例：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">create</span> <span class="keyword">user</span> dumpling;</span><br><span class="line"><span class="keyword">grant</span> <span class="keyword">select</span> <span class="keyword">on</span> <span class="operator">*</span>.<span class="operator">*</span> <span class="keyword">to</span> dumpling;</span><br><span class="line"><span class="keyword">grant</span> reload, lock tables, replication client <span class="keyword">on</span> <span class="operator">*</span>.<span class="operator">*</span> <span class="keyword">to</span> dumpling;</span><br></pre></td></tr></table></figure></div>
+<h3 id="常用备份命令-2">常用备份命令</h3>
+<ul>
+<li>DSN信息</li>
+</ul>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">dsn=&#x27;-u root -P 4000 --host 10.180.0.36&#x27;</span><br><span class="line">alias bk_time=&#x27;date +%Y-%m-%dT%H:%M:%S%z&#x27;</span><br><span class="line">bk_dir=/data/tibackup/export</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>采用默认值直接执行备份</li>
+</ul>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tiup dumpling</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>备份全库，备份文件格式为csv(<code>--filetype</code>)，以8个线程执行备份(<code>-t</code>)，指定备份目录(<code>-o</code>)，并将日志输出到指定文件(<code>-L</code>)</li>
+</ul>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tiup dumpling $dsn --filetype csv -t 8 -o $&#123;bk_dir&#125;-`bk_time` -L $&#123;bk_dir&#125;-`bk_time`.log</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>备份指定表(<code>--database</code>, <code>-T</code>)，输出文件按2000行进行分块，并发执行数据导出到不同文件，以提升效率(-r)；输出的文件按256MB进行拆分(<code>-F</code>)</li>
+</ul>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tiup dumpling $dsn --database sbtest -T sbtest.t1 -r 2000 -F 256MB</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>备份指定表数据， <code>snapshot</code> 的时间点为 “2022-02-24 21:19:00”</li>
+</ul>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tiup dumpling $dsn -T sbtest.t1 --snapshot &quot;2022-02-24 21:12:34&quot;</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>备份指定表数据， 并控制 TiDB 单条查询语句的内存限制为 1G (<code>--tidb-mem-quota-query</code>)。</li>
+</ul>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tiup dumpling $dsn -T sbtest.t1 --tidb-mem-quota-query 1073741824</span><br></pre></td></tr></table></figure></div>
+<h3 id="其他">其他</h3>
+<p>使用 dumpling 时， 可将 <code>tidb:performance.force-priority</code> 优先级设定为 <code>LOW_PRIORITY</code>， 以降低备份对于集群的性能影响。</p>
+<h2 id="写在最后">写在最后</h2>
+<p>如果您还在使用 TiDB v5.x 之前的版本，建议升级TiDB，mydumper 只需了解即可。<br>
+如果您已经在使用最新版的TiDB，那么一定要熟悉 Dumpling 的常规使用。<br>
+作为 Ti-DBA-er，我们应该对TiDB周边生态工具的过往、现在、未来都有所了解、熟悉，甚至参与其中。这样才能更好的维护线上TiDB，更有效的保障系统稳定性。</p>
+<h2 id="相关资源">相关资源</h2>
+<ul>
+<li><a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/dumpling-overview" >官方文档 - Dumpling <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://learn.pingcap.com/learner/player/30008;id=30008;classroomId=30005;rcoId=90103;courseDetailId=30002;learnerAttemptId=1645691722878" >301 TiDB 系统管理基础 -&gt; L 18：数据导出工具 Dumpling <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://learn.pingcap.com/learner/player/120012;id=120012;classroomId=9;rcoId=360004;courseDetailId=120005;learnerAttemptId=1645706748187" >302 TiDB 高级系统管理 -&gt; L 19：TiDB Server 关键性能参数与优化 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li><a href="https://shawnyan.cn/2022/tidb/pingcap-cert-pcta/">TiDB 认证 | PCTA 认证需要掌握的知识点</a></li>
+<li><a href="https://shawnyan.cn/2022/tidb/pingcap-cert-pctp/">TiDB 认证 | 新版 PingCAP PCTP 认证考试 – 备考指南</a></li>
+</ul>
+<hr>
+<p>Yan<br>
+2022-02-24</p>
+<hr>
+<p><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/335245" >https://www.modb.pro/db/335245 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a><br>
+<a class="link"   target="_blank" rel="noopener" href="https://tidb.net/blog/6d3a8da2?shareId=4b720bab" >https://tidb.net/blog/6d3a8da2?shareId=4b720bab <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+
+        </div>
+
+        
+            <div class="post-copyright-info">
+                <div class="article-copyright-info-container">
+    <ul>
+    <!-- 2023-10-03, edit by shawnyan. -->
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Title:</strong> 温故知新 | mydumper &amp; dumpling 知识点汇总</li>
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Author:</strong>
+            
+                严少安
+            
+        </li>
+        <li><strong>Created at:</strong> 2022-02-24 22:02:49</li>
+        
+            <li><strong>Updated at:</strong> 2022-02-24 22:02:49</li>
+        
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Link:</strong> https://shawnyan.cn/2022/tidb/mydumper-and-dumpling/</li>
+        <li style="word-wrap: break-word; white-space: normal;">
+            <strong>
+                License:
+            </strong>
+            
+            This work is licensed under <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>.
+            
+
+        </li>
+    </ul>
+</div>
+
+            </div>
+        
+
+        
+            <ul class="post-tags-box">
+                
+                    <li class="tag-item">
+                        <a href="/tags/tidb/">#tidb</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/pingcap/">#pingcap</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/mydumper/">#mydumper</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/dumpling/">#dumpling</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/asktug/">#asktug</a>&nbsp;
+                    </li>
+                
+            </ul>
+        
+
+        
+  <div class="recommended-article">
+   <div class="recommended-desktop">
+    <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+    </div>
+    <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/tidb/tidb-7.x-compile-tidb/" title="TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png" alt="TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）" class="!max-w-none">
+  <span class="title">TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）</span>
+</a><a class="recommended-article-item" href="/2023/tidb/tidb-aliyun-trial/" title="TiDB x Aliyun 免费试用，竟还有这般福利？" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-aliyun-trial-banner-1696311280028.jpg" alt="TiDB x Aliyun 免费试用，竟还有这般福利？" class="!max-w-none">
+  <span class="title">TiDB x Aliyun 免费试用，竟还有这般福利？</span>
+</a><a class="recommended-article-item" href="/2024/tidb/tidb-story-with-tidb-blog/" title="【我和 TiDB 社区的故事】我与 TiDB 专栏的故事" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/%E5%BE%AE%E4%BF%A1%E5%9B%BE%E7%89%87_20240304122542-1709527822045.jpg" alt="【我和 TiDB 社区的故事】我与 TiDB 专栏的故事" class="!max-w-none">
+  <span class="title">【我和 TiDB 社区的故事】我与 TiDB 专栏的故事</span>
+</a></div>
+   </div>
+   <div class="recommended-mobile">
+   <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+   </div>
+   <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/tidb/tidb-7.x-compile-tidb/" title="TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png" alt="TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）" class="!max-w-none">
+  <span class="title">TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）</span>
+</a><a class="recommended-article-item" href="/2023/tidb/tidb-aliyun-trial/" title="TiDB x Aliyun 免费试用，竟还有这般福利？" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-aliyun-trial-banner-1696311280028.jpg" alt="TiDB x Aliyun 免费试用，竟还有这般福利？" class="!max-w-none">
+  <span class="title">TiDB x Aliyun 免费试用，竟还有这般福利？</span>
+</a></div>
+   </div>
+  </div>
+
+        
+            <div class="article-nav">
+                
+                    <div class="article-prev">
+                        <a class="prev"
+                        rel="prev"
+                        href="/2022/oceanbase/ob-v3.1.2-install-single-node/"
+                        >
+                            <span class="left arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </span>
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">【OBCP蓝宝书】 基于 OceanBase 社区版 v3.1.2 搭建单机测试环境的三种方法</span>
+                                <span class="post-nav-item">Prev posts</span>
+                            </span>
+                        </a>
+                    </div>
+                
+                
+                    <div class="article-next">
+                        <a class="next"
+                        rel="next"
+                        href="/2022/gbase/gbase-8a-python-connector/"
+                        >
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">源码阅读 | 浅析 GBase 8a Python 连接器的源码</span>
+                                <span class="post-nav-item">Next posts</span>
+                            </span>
+                            <span class="right arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </a>
+                    </div>
+                
+            </div>
+        
+
+
+        
+            <div class="comment-container">
+                <div class="comments-container pjax">
+    <div id="comment-anchor"></div>
+    <div class="comment-area-title">
+        <i class="fa-solid fa-comments"></i>&nbsp;Comments
+    </div>
+    
+
+        
+            
+    <div id="gitalk-container"></div>
+    <script data-swup-reload-script
+            src="//cdn.staticfile.org/gitalk/1.8.0/gitalk.min.js"></script>
+    <script data-swup-reload-script>
+
+        function loadGitalk() {
+            let __gitalk__pathname = decodeURI(location.pathname);
+            const __gitalk__pathnameLength = __gitalk__pathname.length;
+            const __gitalk__pathnameMaxLength = 50;
+            if (__gitalk__pathnameLength > __gitalk__pathnameMaxLength) {
+                __gitalk__pathname = __gitalk__pathname.substring(0, __gitalk__pathnameMaxLength - 3) + '...';
+            }
+
+            try {
+                Gitalk && new Gitalk({
+                    clientID: '32d049bf3701e6791070',
+                    clientSecret: '36c295ad3dad4c739b530ef113d0a979d8c35c5d',
+                    repo: 'gitalk',
+                    owner: 'shawn0915',
+                    admin: ['shawn0915'],
+                    id: __gitalk__pathname,
+                    language: 'en'
+                }).render('gitalk-container');
+
+            } catch (e) {
+                window.Gitalk = null;
+            }
+        }
+
+        if ('true') {
+            const loadGitalkTimeout = setTimeout(() => {
+                loadGitalk();
+                clearTimeout(loadGitalkTimeout);
+            }, 1000);
+        } else {
+            window.addEventListener('DOMContentLoaded', loadGitalk);
+        }
+    </script>
+
+
+
+        
+    
+</div>
+
+            </div>
+        
+    </div>
+
+    
+        <div class="toc-content-container">
+            <div class="post-toc-wrap">
+    <div class="post-toc">
+        <div class="toc-title">On this page</div>
+<!--         <div class="page-title">温故知新 | mydumper &amp; dumpling 知识点汇总</div> -->
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#mydumper-%E7%AE%80%E4%BB%8B"><span class="nav-text">mydumper 简介</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BC%98%E8%B5%B7"><span class="nav-text">缘起</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%89%B9%E6%80%A7"><span class="nav-text">特性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BB%A3%E7%A0%81"><span class="nav-text">代码</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%89%E8%A3%85"><span class="nav-text">安装</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#mydumper-%E4%BD%BF%E7%94%A8%E6%96%B9%E6%B3%95"><span class="nav-text">mydumper 使用方法</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%87%8D%E8%A6%81%E9%80%89%E9%A1%B9"><span class="nav-text">重要选项</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B8%B8%E7%94%A8%E5%A4%87%E4%BB%BD%E5%91%BD%E4%BB%A4"><span class="nav-text">常用备份命令</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A4%87%E4%BB%BD%E6%96%87%E4%BB%B6%E5%91%BD%E5%90%8D"><span class="nav-text">备份文件命名</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#mydumper-%E6%94%AF%E6%8C%81-TiDB"><span class="nav-text">mydumper 支持 TiDB</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Dumpling-%E7%AE%80%E4%BB%8B"><span class="nav-text">Dumpling 简介</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BB%A3%E7%A0%81-2"><span class="nav-text">代码</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Dumpling-%E7%9A%84%E6%94%B9%E8%BF%9B"><span class="nav-text">Dumpling 的改进</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Dumpling-%E6%89%80%E9%9C%80%E6%9D%83%E9%99%90"><span class="nav-text">Dumpling 所需权限</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B8%B8%E7%94%A8%E5%A4%87%E4%BB%BD%E5%91%BD%E4%BB%A4-2"><span class="nav-text">常用备份命令</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%85%B6%E4%BB%96"><span class="nav-text">其他</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%86%99%E5%9C%A8%E6%9C%80%E5%90%8E"><span class="nav-text">写在最后</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%9B%B8%E5%85%B3%E8%B5%84%E6%BA%90"><span class="nav-text">相关资源</span></a></li></ol>
+
+    </div>
+</div>
+
+        </div>
+    
+</div>
+
+
+
+                
+
+            </div>
+
+            
+
+        </div>
+
+        <div class="main-content-footer">
+            <footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2017</span>
+              -
+            
+            2024&nbsp;&nbsp;<i class="fa-solid fa-heart fa-beat" style="--fa-animation-duration: 0.5s; color: #f54545"></i>&nbsp;&nbsp;<a href="/">Shawn Yan</a>
+        </div>
+        
+            <script data-swup-reload-script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">VISITOR COUNT</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">TOTAL PAGE VIEWS</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">POWERED BY <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a></span>
+            <span class="text-sm lg:block">THEME&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.4.4</a></span>
+        </div>
+        
+        
+            <div>
+                Blog up for <span class="odometer" id="runtime_days" ></span> days <span class="odometer" id="runtime_hours"></span> hrs <span class="odometer" id="runtime_minutes"></span> Min <span class="odometer" id="runtime_seconds"></span> Sec
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+
+    </div>
+</footer>
+
+        </div>
+    </div>
+
+    
+        <div class="post-tools">
+            <div class="post-tools-container">
+    <ul class="article-tools-list">
+        <!-- TOC aside toggle -->
+        
+            <li class="right-bottom-tools page-aside-toggle">
+                <i class="fa-regular fa-outdent"></i>
+            </li>
+        
+
+        <!-- go comment -->
+        
+            <li class="go-comment">
+                <i class="fa-regular fa-comments"></i>
+            </li>
+        
+    </ul>
+</div>
+
+        </div>
+    
+
+    <div class="right-side-tools-container">
+        <div class="side-tools-container">
+    <ul class="hidden-tools-list">
+        <li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-plus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-minus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-expand-width flex justify-center items-center">
+            <i class="fa-regular fa-expand"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+            <i class="fa-regular fa-moon"></i>
+        </li>
+
+        <!-- rss -->
+        
+            <li class="right-bottom-tools rss flex justify-center items-center">
+                <a class="flex justify-center items-center"
+                   href="/atom.xml"
+                   target="_blank"
+                >
+                <i class="fa-regular fa-rss"></i>
+                </a>
+            </li>
+        
+
+        
+
+        <li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+            <i class="fa-regular fa-arrow-down"></i>
+        </li>
+    </ul>
+
+    <ul class="visible-tools-list">
+        <li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+            <i class="fa-regular fa-cog fa-spin"></i>
+        </li>
+        
+            <li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+                <i class="arrow-up fas fa-arrow-up"></i>
+                <span class="percent"></span>
+            </li>
+        
+        
+    </ul>
+</div>
+
+    </div>
+
+    <div class="image-viewer-container">
+    <img src="">
+</div>
+
+
+    
+        <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+          <span class="search-input-field-pre">
+            <i class="fa-solid fa-keyboard"></i>
+          </span>
+            <div class="search-input-container">
+                <input autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       placeholder="Search..."
+                       spellcheck="false"
+                       type="search"
+                       class="search-input"
+                >
+            </div>
+            <span class="popup-btn-close">
+                <i class="fa-solid fa-times"></i>
+            </span>
+        </div>
+        <div id="search-result">
+            <div id="no-result">
+                <i class="fa-solid fa-spinner fa-spin-pulse fa-5x fa-fw"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+
+</main>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Swup.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupSlideTheme.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScriptsPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupProgressPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScrollPlugin.min.js"></script>
+<script>
+    const swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+        ],
+        containers: ["#swup"],
+    });
+
+    swup.hooks.on("page:view", () => {
+        Global.refresh();
+    });
+
+    // if (document.readyState === "complete") {
+    //
+    // } else {
+    //     document.addEventListener("DOMContentLoaded", () => init());
+    // }
+</script>
+
+
+
+
+
+<script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/utils.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/main.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/navbarShrink.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/scrollTopBottom.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/lightDarkSwitch.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/categoryList.js"></script>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/localSearch.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/codeBlock.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/lazyload.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/runtime.js"></script>
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/odometer.min.js"></script>
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/assets/odometer-theme-minimal.css">
+
+
+
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Typed.min.js"></script>
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/typed.js"></script>
+
+
+
+
+
+
+<div class="post-scripts" data-swup-reload-script>
+    
+        <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/anime.min.js"></script>
+        <script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/tocToggle.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/toc.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/tabs.js"></script>
+    
+</div>
+
+
+</body>
+</html>

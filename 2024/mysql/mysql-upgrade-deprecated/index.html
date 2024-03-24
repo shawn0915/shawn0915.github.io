@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="shawnyan,dba,oracle,mysql,tidb,mariadb,postgresql,gbase,proxysql">
+    
+    <meta name="author" content="Shawn Yan">
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+        
+        
+        
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://shawnyan.cn/2024/mysql/mysql-upgrade-deprecated/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+        <meta name="description" content="在数据库管理的世界里，随着技术的不断进步和业务的不断发展，数据库的版本升级成为了一个不可避免的过程。 MySQL 作为业界领先的开源关系型数据库管理系统，其版本迭代与功能优化同样不容忽视。 而在这个过程中，升级工具就显得尤为重要，比如 mysql_upgrade。 但是，mysql_upgrade 已经成为过去式，且来往下看。 mysql_upgrade 介绍 mysql_upgrade 是 My">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MySQL 升级：使用 mysql_upgrade 注意事项（再见 mysql_upgrade）">
+<meta property="og:url" content="https://shawnyan.cn/2024/mysql/mysql-upgrade-deprecated/index.html">
+<meta property="og:site_name" content="少安事务所">
+<meta property="og:description" content="在数据库管理的世界里，随着技术的不断进步和业务的不断发展，数据库的版本升级成为了一个不可避免的过程。 MySQL 作为业界领先的开源关系型数据库管理系统，其版本迭代与功能优化同样不容忽视。 而在这个过程中，升级工具就显得尤为重要，比如 mysql_upgrade。 但是，mysql_upgrade 已经成为过去式，且来往下看。 mysql_upgrade 介绍 mysql_upgrade 是 My">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg">
+<meta property="article:published_time" content="2024-03-15T15:00:00.000Z">
+<meta property="article:modified_time" content="2024-03-15T15:00:00.000Z">
+<meta property="article:author" content="Shawn Yan">
+<meta property="article:tag" content="mysql">
+<meta property="article:tag" content="mysql 5.7">
+<meta property="article:tag" content="mysql 8.0">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg">
+    
+    
+        <!-- Google tag (gtag.js) -->
+        <script src="https://www.googletagmanager.com/gtag/js?id=G-ZH71L5F7X2"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-ZH71L5F7X2');
+        </script>
+    
+    <!-- baidu tongji -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?2fa794d82f74c0bb3617ba62ee962b46";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/img/favicon.ico" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon.ico">
+    <meta name="theme-color" content="#767FF6">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <!--- Page Info-->
+    
+    <title>
+        
+            MySQL 升级：使用 mysql_upgrade 注意事项（再见 mysql_upgrade） -
+        
+        少安事务所
+    </title>
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+<!--- use 2.5.0
+    
+        
+<link rel="stylesheet" href="/assets/build/styles.css">
+
+    
+-->
+    <link rel="stylesheet" href="//cdn.staticfile.org/hexo-theme-redefine/2.5.0/assets/build/styles.min.css">
+
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/fonts.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Satoshi/satoshi.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Chillax/chillax.css">
+    <!--- Font Part-->
+    
+    
+    
+    
+
+    <!--- Inject Part-->
+    
+    <script id="hexo-configurations">
+    let Global = window.Global || {};
+    Global.hexo_config = {"hostname":"shawnyan.cn","root":"/","language":"en","path":"search.xml"};
+    Global.theme_config = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":true,"list":[]},"code_block":{"copy":true,"style":"mac","font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":4,"number":false,"expand":true,"init_open":true},"copyright":true,"lazyload":true,"recommendation":{"enable":true,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#767FF6","secondary":null},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"open_graph":true,"google_analytics":{"enable":true,"id":"G-ZH71L5F7X2"},"root_color_mode":"dark"},"home_banner":{"enable":true,"style":"fixed","image":{"light":"https://asktug.com/uploads/default/original/4X/4/b/d/4bd94f804719672dd7e3cb29150ea6f777eb0aec.jpeg","dark":"/img/wallpaper/dark.webp"},"title":"Shawn Yan's Tech Blog.","subtitle":{"text":["A blog about MySQL, Oracle, TiDB, PostgreSQL and other databases."],"hitokoto":{"enable":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":500,"backing_delay":1500,"loop":true,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"links":{"github":"https://github.com/shawn0915","instagram":null,"zhihu":null,"twitter":null,"email":"admin@shawnyan.cn"},"qrs":{"weixin":null}}},"plugins":{"feed":{"enable":true},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":"回忆的沙漏 (10周年版)","artist":"回忆的沙漏 (10周年版)","url":"https://music.163.com/song/media/outer/url?id=1329122067.mp3","cover":"https://p1.music.126.net/oJorrgJ3IotZUAbZkBMuFw==/109951167771736533.jpg?param=68y68"}]},"mermaid":{"enable":false,"version":"9.3.0"}},"version":"2.4.4","navbar":{"auto_hide":false,"color":{"left":"#f78736","right":"#367df7","transparency":35},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Blog":{"path":"/archives","icon":"fa-regular fa-archive"},"Categories":{"path":"/categories","icon":"fa-regular fa-stream"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Links":{"icon":"fa-regular fa-link","submenus":{"My-params":"/my-params","Friends":"/links","Q":"/q"}}},"search":{"enable":true,"preload":true}},"page_templates":{"friends_column":3,"tags_style":"cloud"},"home":{"sidebar":{"enable":true,"position":"left","first_item":"info","announcement":null,"links":null},"article_date_format":"YYYY-MM-DD","categories":{"enable":true,"limit":10},"tags":{"enable":true,"limit":10}},"footerStart":"2017/11/27 00:00:00"};
+    Global.language_ago = {"second":"%s seconds ago","minute":"%s minutes ago","hour":"%s hours ago","day":"%s days ago","week":"%s weeks ago","month":"%s months ago","year":"%s years ago"};
+    Global.data_config = {"masonry":false};
+  </script>
+
+    <!--- Fontawesome Part-->
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/fontawesome.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/brands.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/solid.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/regular.min.css">
+    
+    
+    
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+
+
+<body>
+<div class="progress-bar-container">
+    
+
+    
+        <span class="pjax-progress-bar"></span>
+        <span class="swup-progress-icon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+    
+</div>
+
+
+<main class="page-container" id="swup">
+
+    
+
+    <div class="main-content-container">
+
+
+        <div class="main-content-header">
+            <header class="navbar-container">
+    
+    <div class="navbar-content">
+        <div class="left">
+            
+                <a class="logo-image" href="https://shawnyan.cn/">
+                    <img src="/img/favicon.ico">
+                </a>
+            
+            <a class="logo-title" href="https://shawnyan.cn/">
+                
+                少安事务所
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-house"></i>
+                                        
+                                        HOME
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/archives"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-archive"></i>
+                                        
+                                        BLOG
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/categories"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-stream"></i>
+                                        
+                                        CATEGORIES
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/tags"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-tags"></i>
+                                        
+                                        TAGS
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/about"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-user"></i>
+                                        
+                                        ABOUT
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="has-dropdown" 
+                                    href="#" onClick="return false;">
+                                    
+                                        
+                                            <i class="fa-regular fa-link"></i>
+                                        
+                                        LINKS&nbsp;<i class="fa-solid fa-chevron-down"></i>
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                                    <ul class="sub-menu">
+                                    
+                                        <li>
+                                        <a href="/my-params">MY-PARAMS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/links">FRIENDS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/q">Q
+                                        </a>
+                                        </li>
+                                    
+                                    </ul>
+                                
+                            </li>
+                    
+                    
+                        <li class="navbar-item search search-popup-trigger">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </li>
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                    <div class="icon-item search search-popup-trigger"><i class="fa-solid fa-magnifying-glass"></i></div>
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="navbar-drawer w-full absolute top-0 left-0 bg-background-color">
+        <ul class="drawer-navbar-list flex flex-col justify-start items-center">
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/"  >
+                             
+                                
+                                    <i class="fa-regular fa-house"></i>
+                                
+                                HOME
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/archives"  >
+                             
+                                
+                                    <i class="fa-regular fa-archive"></i>
+                                
+                                BLOG
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/categories"  >
+                             
+                                
+                                    <i class="fa-regular fa-stream"></i>
+                                
+                                CATEGORIES
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/tags"  >
+                             
+                                
+                                    <i class="fa-regular fa-tags"></i>
+                                
+                                TAGS
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/about"  >
+                             
+                                
+                                    <i class="fa-regular fa-user"></i>
+                                
+                                ABOUT
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group has-dropdown" 
+                        href="#" onClick="return false;">
+                            
+                                
+                                    <i class="fa-regular fa-link"></i>
+                                
+                                LINKS&nbsp;<i class="group-hover:rotate-180 transition-transform fa-solid fa-chevron-down"></i>
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                              
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/my-params">MY-PARAMS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/links">FRIENDS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/q">Q</a>
+                            </li>
+                        
+                    
+            
+
+        </ul>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+        </div>
+
+        <div class="main-content-body">
+
+            
+
+            <div class="main-content">
+
+                
+                    <div class="post-page-container">
+    <div class="article-content-container">
+
+        <div class="article-title">
+            
+                
+                
+                <!-- 2023-10-03, edit by shawnyan. -->
+                <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240307-279ad8cc-b226-4c9a-9a00-cef7bba3ca97.jpg" alt="MySQL 升级：使用 mysql_upgrade 注意事项（再见 mysql_upgrade）" class="max-w-none" referrerpolicy="no-referrer"/>
+                
+                <h1 class="article-title-cover">MySQL 升级：使用 mysql_upgrade 注意事项（再见 mysql_upgrade）</h1>
+            
+            </div>
+
+
+
+        
+            <div class="article-header">
+                <div class="avatar">
+                    
+                        <img src="/img/avatar.jpg">
+                    
+                </div>
+                <div class="info">
+                    <div class="author">
+                        
+                            <span class="name">ShawnYan</span>
+                        
+                        
+                            
+                                <span class="author-label">Lv.6</span>
+                            
+                        
+                    </div>
+                    <div class="meta-info">
+                        <div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2024-03-15 23:00</span>
+        <span class="mobile">2024-03-15 23:00</span>
+        <span class="hover-info">Created</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2024-03-15 23:00</span>
+            <span class="mobile">2024-03-15 23:00</span>
+            <span class="hover-info">Updated</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/mysql/">MySQL</a>&nbsp;
+                        </li>
+                    
+                    
+                
+                    
+                        
+                            <li>></li>
+                        
+                        <li>
+                            <a href="/categories/mysql/mysql-8-0/">MySQL 8.0</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/mysql/">mysql</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/mysql-5-7/">mysql 5.7</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/mysql-8-0/">mysql 8.0</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+        <span class="article-wordcount article-meta-item">
+            <i class="fa-regular fa-typewriter"></i>&nbsp;<span>1.7k Words</span>
+        </span>
+    
+    
+        <span class="article-min2read article-meta-item">
+            <i class="fa-regular fa-clock"></i>&nbsp;<span>8 Mins</span>
+        </span>
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+                    </div>
+                </div>
+            </div>
+        
+
+        
+
+
+        <div class="article-content markdown-body">
+            <p>在数据库管理的世界里，随着技术的不断进步和业务的不断发展，数据库的版本升级成为了一个不可避免的过程。</p>
+<p>MySQL 作为业界领先的开源关系型数据库管理系统，其版本迭代与功能优化同样不容忽视。</p>
+<p>而在这个过程中，升级工具就显得尤为重要，比如 <code>mysql_upgrade</code>。</p>
+<p>但是，<code>mysql_upgrade</code> 已经成为过去式，且来往下看。</p>
+<h2 id="mysql-upgrade-介绍">mysql_upgrade 介绍</h2>
+<p>mysql_upgrade 是 MySQL 提供的一个用于升级 MySQL 服务器的实用程序。</p>
+<p>它检查服务器上的所有数据库，查看是否需要任何更改以利用新版本的 MySQL 服务器提供的特性。</p>
+<p>mysql_upgrade 还会升级系统表，以使用当前 MySQL 版本提供的任何新特性。</p>
+<p>简而言之，mysql_upgrade 就是一个帮助用户平滑过渡到新版本 MySQL 的桥梁。</p>
+<p>使用 mysql_upgrade 的过程相对简单。</p>
+<p>首先，停止旧版本的 MySQL 服务，建议用户备份整个数据库，以防万一升级过程中出现问题。</p>
+<p>然后，安装新版本的 MySQL 服务器软件，并启动新版本的 MySQL 服务。</p>
+<p>最后，运行 mysql_upgrade 命令，它会检查数据库中的表，并根据需要进行升级。</p>
+<p>通常只需向几个表添加新字段，或者修改字段长度，或者补充修订数据。</p>
+<p>也可能会出现罕见的情况，比如系统表的存储引擎发生变更，比如由 MyISAM 变更为 InnoDB。</p>
+<h2 id="mysql-upgrade-使用示例">mysql_upgrade 使用示例</h2>
+<p>举个栗子，</p>
+<p>从 MySQL 5.7.18 升级到 MySQL 5.7.19，会增加一个 <code>'mysql.session'@'localhost'</code> 保留账户。</p>
+<p>该帐户由插件在内部使用来访问服务器。 它被锁定，因此不能用于客户端连接。</p>
+<p>具体案例如下：</p>
+<p>现在，我们有一个 MySQL 5.7.18 服务器正在运行。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; select version();</span><br><span class="line">+-----------+</span><br><span class="line">| version() |</span><br><span class="line">+-----------+</span><br><span class="line">| 5.7.18    |</span><br><span class="line">+-----------+</span><br><span class="line">1 row in set (0.00 sec)</span><br></pre></td></tr></table></figure></div>
+<p>查看用户列表。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; select user from mysql.user;</span><br><span class="line">+-----------+</span><br><span class="line">| user      |</span><br><span class="line">+-----------+</span><br><span class="line">| mysql.sys |</span><br><span class="line">| root      |</span><br><span class="line">+-----------+</span><br><span class="line">2 rows in set (0.00 sec)</span><br></pre></td></tr></table></figure></div>
+<p>我们来停止旧版本的 MySQL 服务。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">systemctl stop mysqld</span><br></pre></td></tr></table></figure></div>
+<p>接下来，准备升级到 MySQL 5.7.19，RPM 包已经准备好。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">$ ls m*rpm</span><br><span class="line">mysql-community-client-5.7.19-1.el7.x86_64.rpm</span><br><span class="line">mysql-community-common-5.7.19-1.el7.x86_64.rpm</span><br><span class="line">mysql-community-devel-5.7.19-1.el7.x86_64.rpm</span><br><span class="line">mysql-community-embedded-5.7.19-1.el7.x86_64.rpm</span><br><span class="line">mysql-community-embedded-compat-5.7.19-1.el7.x86_64.rpm</span><br><span class="line">mysql-community-embedded-devel-5.7.19-1.el7.x86_64.rpm</span><br><span class="line">mysql-community-libs-5.7.19-1.el7.x86_64.rpm</span><br><span class="line">mysql-community-libs-compat-5.7.19-1.el7.x86_64.rpm</span><br><span class="line">mysql-community-server-5.7.19-1.el7.x86_64.rpm</span><br></pre></td></tr></table></figure></div>
+<p>使用 yum 命令进行升级。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">yum update mysql-community-*</span><br></pre></td></tr></table></figure></div>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">Updated:</span><br><span class="line">  mysql-community-client.x86_64 0:5.7.19-1.el7                             </span><br><span class="line">  mysql-community-common.x86_64 0:5.7.19-1.el7                             </span><br><span class="line">  mysql-community-devel.x86_64 0:5.7.19-1.el7                              </span><br><span class="line">  mysql-community-embedded.x86_64 0:5.7.19-1.el7                           </span><br><span class="line">  mysql-community-embedded-compat.x86_64 0:5.7.19-1.el7                    </span><br><span class="line">  mysql-community-embedded-devel.x86_64 0:5.7.19-1.el7                     </span><br><span class="line">  mysql-community-libs.x86_64 0:5.7.19-1.el7                               </span><br><span class="line">  mysql-community-libs-compat.x86_64 0:5.7.19-1.el7                        </span><br><span class="line">  mysql-community-server.x86_64 0:5.7.19-1.el7                             </span><br><span class="line"></span><br><span class="line">Complete!</span><br></pre></td></tr></table></figure></div>
+<p>安装完成，启动新版本的 MySQL 服务。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">systemctl start mysqld</span><br></pre></td></tr></table></figure></div>
+<p>登陆数据库，查看用户列表。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; select user from mysql.user;</span><br><span class="line">+-----------+</span><br><span class="line">| user      |</span><br><span class="line">+-----------+</span><br><span class="line">| mysql.sys |</span><br><span class="line">| root      |</span><br><span class="line">+-----------+</span><br><span class="line">2 rows in set (0.00 sec)</span><br></pre></td></tr></table></figure></div>
+<p>可以看到，<code>mysql.session</code> 用户尚未被添加到数据库中。</p>
+<p>这里我们开启 general 日志，来观察升级命令都执行了哪些 SQL。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; show variables like &#x27;%gen%&#x27;;</span><br><span class="line">+------------------+-----------------------------+</span><br><span class="line">| Variable_name    | Value                       |</span><br><span class="line">+------------------+-----------------------------+</span><br><span class="line">| general_log      | ON                          |</span><br><span class="line">| general_log_file | /var/lib/mysql/shawnyan.log |</span><br><span class="line">+------------------+-----------------------------+</span><br><span class="line">2 rows in set (0.00 sec)</span><br></pre></td></tr></table></figure></div>
+<p>下一步，运行 mysql_upgrade 命令。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysql_upgrade</span><br></pre></td></tr></table></figure></div>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~ 07:42:50]$ mysql_upgrade -uroot -p</span><br><span class="line">Checking if update is needed.</span><br><span class="line">Checking server version.</span><br><span class="line">Running queries to upgrade MySQL server.</span><br><span class="line">Checking system database.</span><br><span class="line">mysql.columns_priv                                 OK</span><br><span class="line">mysql.db                                           OK</span><br><span class="line">mysql.engine_cost                                  OK</span><br><span class="line">mysql.event                                        OK</span><br><span class="line">mysql.func                                         OK</span><br><span class="line">mysql.general_log                                  OK</span><br><span class="line">mysql.gtid_executed                                OK</span><br><span class="line">mysql.help_category                                OK</span><br><span class="line">mysql.help_keyword                                 OK</span><br><span class="line">mysql.help_relation                                OK</span><br><span class="line">mysql.help_topic                                   OK</span><br><span class="line">mysql.innodb_index_stats                           OK</span><br><span class="line">mysql.innodb_table_stats                           OK</span><br><span class="line">mysql.ndb_binlog_index                             OK</span><br><span class="line">mysql.plugin                                       OK</span><br><span class="line">mysql.proc                                         OK</span><br><span class="line">mysql.procs_priv                                   OK</span><br><span class="line">mysql.proxies_priv                                 OK</span><br><span class="line">mysql.server_cost                                  OK</span><br><span class="line">mysql.servers                                      OK</span><br><span class="line">mysql.slave_master_info                            OK</span><br><span class="line">mysql.slave_relay_log_info                         OK</span><br><span class="line">mysql.slave_worker_info                            OK</span><br><span class="line">mysql.slow_log                                     OK</span><br><span class="line">mysql.tables_priv                                  OK</span><br><span class="line">mysql.time_zone                                    OK</span><br><span class="line">mysql.time_zone_leap_second                        OK</span><br><span class="line">mysql.time_zone_name                               OK</span><br><span class="line">mysql.time_zone_transition                         OK</span><br><span class="line">mysql.time_zone_transition_type                    OK</span><br><span class="line">mysql.user                                         OK</span><br><span class="line">The sys schema is already up to date (version 1.5.1).</span><br><span class="line">Checking databases.</span><br><span class="line">sys.sys_config                                     OK</span><br><span class="line">Upgrade process completed successfully.</span><br><span class="line">Checking if update is needed.</span><br></pre></td></tr></table></figure></div>
+<p>通过 general 日志，可以看到 <code>mysql.session</code> 用户被写入用户表。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~ 07:43:42]$ grep &#x27;mysql.session&#x27; /var/lib/mysql/shawnyan.log</span><br><span class="line">2024-03-15T23:43:09.277088Z	    6 Query	SELECT COUNT(*) FROM mysql.user WHERE user = &#x27;mysql.session&#x27;</span><br><span class="line">2024-03-15T23:43:10.888664Z	    6 Query	INSERT IGNORE INTO mysql.user VALUES (&#x27;localhost&#x27;,&#x27;mysql.session&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;Y&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;&#x27;,&#x27;&#x27;,&#x27;&#x27;,&#x27;&#x27;,0,0,0,0,&#x27;mysql_native_password&#x27;,&#x27;*THISISNOTAVALIDPASSWORDTHATCANBEUSEDHERE&#x27;,&#x27;N&#x27;,CURRENT_TIMESTAMP,NULL,&#x27;Y&#x27;)</span><br><span class="line">2024-03-15T23:43:10.889540Z	    6 Query	INSERT IGNORE INTO mysql.tables_priv VALUES (&#x27;localhost&#x27;, &#x27;mysql&#x27;, &#x27;mysql.session&#x27;, &#x27;user&#x27;, &#x27;root\@localhost&#x27;, CURRENT_TIMESTAMP, &#x27;Select&#x27;, &#x27;&#x27;)</span><br><span class="line">2024-03-15T23:43:10.890429Z	    6 Query	INSERT IGNORE INTO mysql.db VALUES (&#x27;localhost&#x27;, &#x27;performance_schema&#x27;, &#x27;mysql.session&#x27;,&#x27;Y&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;)</span><br><span class="line">[root@shawnyan ~ 07:44:02]$ </span><br></pre></td></tr></table></figure></div>
+<p>再次登陆数据库，查看用户列表，确认新用户已经添加成功。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">mysql&gt; </span><span class="language-bash"><span class="keyword">select</span> version();</span></span><br><span class="line">+-----------+</span><br><span class="line">| version() |</span><br><span class="line">+-----------+</span><br><span class="line">| 5.7.19    |</span><br><span class="line">+-----------+</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_">mysql&gt; </span><span class="language-bash"><span class="keyword">select</span> user from mysql.user;</span></span><br><span class="line">+---------------+</span><br><span class="line">| user          |</span><br><span class="line">+---------------+</span><br><span class="line">| mysql.session |</span><br><span class="line">| mysql.sys     |</span><br><span class="line">| root          |</span><br><span class="line">+---------------+</span><br><span class="line">3 rows in set (0.00 sec)</span><br></pre></td></tr></table></figure></div>
+<h2 id="mysql-upgrade-废弃">mysql_upgrade 废弃</h2>
+<p>不过，从 MySQL 8.0.16 开始， mysql_upgrade 被废弃，并将从未来的版本中移除。</p>
+<p>DBA 不再需要额外地手动调用 mysql_upgrade 来进行升级操作。</p>
+<p>取而代之的是，服务器新增了 <code>--upgrade</code> 选项，默认值为 <code>AUTO</code>，</p>
+<p>服务器会自行判断是否需要升级，如需要会在启动时自动执行升级操作。</p>
+<p>如果执行 mysql_upgrade 命令，会输出下面一段信息：</p>
+<blockquote>
+<p>The mysql_upgrade client is now deprecated. The actions executed by the upgrade client are now done by the server.<br>
+To upgrade, please start the new MySQL binary with the older data directory. Repairing user tables is done automatically. Restart is not required after upgrade.<br>
+The upgrade process automatically starts on running a new MySQL binary with an older data directory. To avoid accidental upgrades, please use the --upgrade=NONE option with the MySQL binary. The option --upgrade=FORCE is also provided to run the server upgrade sequence on demand.<br>
+It may be possible that the server upgrade fails due to a number of reasons. In that case, the upgrade sequence will run again during the next MySQL server start. If the server upgrade fails repeatedly, the server can be started with the --upgrade=MINIMAL option to start the server without executing the upgrade sequence, thus allowing users to manually rectify the problem.</p>
+</blockquote>
+<h2 id="总结">总结</h2>
+<p>总的来说，在 MySQL 8.0.16 之前，mysql_upgrade 是一个功能强大且实用的工具，它能够帮助用户平滑地过渡到新版本的 MySQL。</p>
+<p>随着 MySQL 版本的不断更新和升级，mysql_upgrade 的功能已经内嵌到 MySQL 服务器，其也将伴随 MySQL 5.7 逐步退出历史舞台。</p>
+<p>– END –</p>
+<img  alt="logo.jpg" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg"
+                      referrerpolicy="no-referrer"
+                >
+<p>如果这篇文章为你带来了灵感或启发，就帮忙点『赞』or『在看』or『转发』吧，这对我非常重要，感谢！(๑˃̵ᴗ˂̵)</p>
+
+        </div>
+
+        
+            <div class="post-copyright-info">
+                <div class="article-copyright-info-container">
+    <ul>
+    <!-- 2023-10-03, edit by shawnyan. -->
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Title:</strong> MySQL 升级：使用 mysql_upgrade 注意事项（再见 mysql_upgrade）</li>
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Author:</strong>
+            
+                ShawnYan
+            
+        </li>
+        <li><strong>Created at:</strong> 2024-03-15 23:00:00</li>
+        
+            <li><strong>Updated at:</strong> 2024-03-15 23:00:00</li>
+        
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Link:</strong> https://shawnyan.cn/2024/mysql/mysql-upgrade-deprecated/</li>
+        <li style="word-wrap: break-word; white-space: normal;">
+            <strong>
+                License:
+            </strong>
+            
+            This work is licensed under <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>.
+            
+
+        </li>
+    </ul>
+</div>
+
+            </div>
+        
+
+        
+            <ul class="post-tags-box">
+                
+                    <li class="tag-item">
+                        <a href="/tags/mysql/">#mysql</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/mysql-5-7/">#mysql 5.7</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/mysql-8-0/">#mysql 8.0</a>&nbsp;
+                    </li>
+                
+            </ul>
+        
+
+        
+  <div class="recommended-article">
+   <div class="recommended-desktop">
+    <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+    </div>
+    <div class="recommended-article-group"><a class="recommended-article-item" href="/2018/mysql/how-to-install-mysql-on-centos/" title="CentOS 7 下安装 MySQL 5.7 的三种方案" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240307-279ad8cc-b226-4c9a-9a00-cef7bba3ca97.jpg" alt="CentOS 7 下安装 MySQL 5.7 的三种方案" class="!max-w-none">
+  <span class="title">CentOS 7 下安装 MySQL 5.7 的三种方案</span>
+</a><a class="recommended-article-item" href="/2024/mysql/mysql-articles-23-24/" title="【合集】2023 & 2024 年 MySQL 文章清单" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240307-279ad8cc-b226-4c9a-9a00-cef7bba3ca97.jpg" alt="【合集】2023 & 2024 年 MySQL 文章清单" class="!max-w-none">
+  <span class="title">【合集】2023 & 2024 年 MySQL 文章清单</span>
+</a><a class="recommended-article-item" href="/2024/mysql/greatsql-ap-rapid/" title="抢鲜体验 GreatSQL 的 AP 引擎 Rapid" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240205-b04a5749-440d-4d5b-a8cd-4700116b24d7.png" alt="抢鲜体验 GreatSQL 的 AP 引擎 Rapid" class="!max-w-none">
+  <span class="title">抢鲜体验 GreatSQL 的 AP 引擎 Rapid</span>
+</a></div>
+   </div>
+   <div class="recommended-mobile">
+   <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+   </div>
+   <div class="recommended-article-group"><a class="recommended-article-item" href="/2018/mysql/how-to-install-mysql-on-centos/" title="CentOS 7 下安装 MySQL 5.7 的三种方案" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240307-279ad8cc-b226-4c9a-9a00-cef7bba3ca97.jpg" alt="CentOS 7 下安装 MySQL 5.7 的三种方案" class="!max-w-none">
+  <span class="title">CentOS 7 下安装 MySQL 5.7 的三种方案</span>
+</a><a class="recommended-article-item" href="/2024/mysql/mysql-articles-23-24/" title="【合集】2023 & 2024 年 MySQL 文章清单" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240307-279ad8cc-b226-4c9a-9a00-cef7bba3ca97.jpg" alt="【合集】2023 & 2024 年 MySQL 文章清单" class="!max-w-none">
+  <span class="title">【合集】2023 & 2024 年 MySQL 文章清单</span>
+</a></div>
+   </div>
+  </div>
+
+        
+            <div class="article-nav">
+                
+                    <div class="article-prev">
+                        <a class="prev"
+                        rel="prev"
+                        href="/2024/mysql/mysql-certification-intro/"
+                        >
+                            <span class="left arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </span>
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">MySQL 数据库认证考试介绍（2024 版）</span>
+                                <span class="post-nav-item">Prev posts</span>
+                            </span>
+                        </a>
+                    </div>
+                
+                
+                    <div class="article-next">
+                        <a class="next"
+                        rel="next"
+                        href="/2024/postgresql/pg-extension-pgpasswd/"
+                        >
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">PG 扩展推荐：pgpasswd &amp; PG 密碼長度</span>
+                                <span class="post-nav-item">Next posts</span>
+                            </span>
+                            <span class="right arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </a>
+                    </div>
+                
+            </div>
+        
+
+
+        
+            <div class="comment-container">
+                <div class="comments-container pjax">
+    <div id="comment-anchor"></div>
+    <div class="comment-area-title">
+        <i class="fa-solid fa-comments"></i>&nbsp;Comments
+    </div>
+    
+
+        
+            
+    <div id="gitalk-container"></div>
+    <script data-swup-reload-script
+            src="//cdn.staticfile.org/gitalk/1.8.0/gitalk.min.js"></script>
+    <script data-swup-reload-script>
+
+        function loadGitalk() {
+            let __gitalk__pathname = decodeURI(location.pathname);
+            const __gitalk__pathnameLength = __gitalk__pathname.length;
+            const __gitalk__pathnameMaxLength = 50;
+            if (__gitalk__pathnameLength > __gitalk__pathnameMaxLength) {
+                __gitalk__pathname = __gitalk__pathname.substring(0, __gitalk__pathnameMaxLength - 3) + '...';
+            }
+
+            try {
+                Gitalk && new Gitalk({
+                    clientID: '32d049bf3701e6791070',
+                    clientSecret: '36c295ad3dad4c739b530ef113d0a979d8c35c5d',
+                    repo: 'gitalk',
+                    owner: 'shawn0915',
+                    admin: ['shawn0915'],
+                    id: __gitalk__pathname,
+                    language: 'en'
+                }).render('gitalk-container');
+
+            } catch (e) {
+                window.Gitalk = null;
+            }
+        }
+
+        if ('true') {
+            const loadGitalkTimeout = setTimeout(() => {
+                loadGitalk();
+                clearTimeout(loadGitalkTimeout);
+            }, 1000);
+        } else {
+            window.addEventListener('DOMContentLoaded', loadGitalk);
+        }
+    </script>
+
+
+
+        
+    
+</div>
+
+            </div>
+        
+    </div>
+
+    
+        <div class="toc-content-container">
+            <div class="post-toc-wrap">
+    <div class="post-toc">
+        <div class="toc-title">On this page</div>
+<!--         <div class="page-title">MySQL 升级：使用 mysql_upgrade 注意事项（再见 mysql_upgrade）</div> -->
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#mysql-upgrade-%E4%BB%8B%E7%BB%8D"><span class="nav-text">mysql_upgrade 介绍</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#mysql-upgrade-%E4%BD%BF%E7%94%A8%E7%A4%BA%E4%BE%8B"><span class="nav-text">mysql_upgrade 使用示例</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#mysql-upgrade-%E5%BA%9F%E5%BC%83"><span class="nav-text">mysql_upgrade 废弃</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-text">总结</span></a></li></ol>
+
+    </div>
+</div>
+
+        </div>
+    
+</div>
+
+
+
+                
+
+            </div>
+
+            
+
+        </div>
+
+        <div class="main-content-footer">
+            <footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2017</span>
+              -
+            
+            2024&nbsp;&nbsp;<i class="fa-solid fa-heart fa-beat" style="--fa-animation-duration: 0.5s; color: #f54545"></i>&nbsp;&nbsp;<a href="/">Shawn Yan</a>
+        </div>
+        
+            <script data-swup-reload-script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">VISITOR COUNT</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">TOTAL PAGE VIEWS</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">POWERED BY <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a></span>
+            <span class="text-sm lg:block">THEME&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.4.4</a></span>
+        </div>
+        
+        
+            <div>
+                Blog up for <span class="odometer" id="runtime_days" ></span> days <span class="odometer" id="runtime_hours"></span> hrs <span class="odometer" id="runtime_minutes"></span> Min <span class="odometer" id="runtime_seconds"></span> Sec
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+
+    </div>
+</footer>
+
+        </div>
+    </div>
+
+    
+        <div class="post-tools">
+            <div class="post-tools-container">
+    <ul class="article-tools-list">
+        <!-- TOC aside toggle -->
+        
+            <li class="right-bottom-tools page-aside-toggle">
+                <i class="fa-regular fa-outdent"></i>
+            </li>
+        
+
+        <!-- go comment -->
+        
+            <li class="go-comment">
+                <i class="fa-regular fa-comments"></i>
+            </li>
+        
+    </ul>
+</div>
+
+        </div>
+    
+
+    <div class="right-side-tools-container">
+        <div class="side-tools-container">
+    <ul class="hidden-tools-list">
+        <li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-plus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-minus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-expand-width flex justify-center items-center">
+            <i class="fa-regular fa-expand"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+            <i class="fa-regular fa-moon"></i>
+        </li>
+
+        <!-- rss -->
+        
+            <li class="right-bottom-tools rss flex justify-center items-center">
+                <a class="flex justify-center items-center"
+                   href="/atom.xml"
+                   target="_blank"
+                >
+                <i class="fa-regular fa-rss"></i>
+                </a>
+            </li>
+        
+
+        
+
+        <li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+            <i class="fa-regular fa-arrow-down"></i>
+        </li>
+    </ul>
+
+    <ul class="visible-tools-list">
+        <li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+            <i class="fa-regular fa-cog fa-spin"></i>
+        </li>
+        
+            <li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+                <i class="arrow-up fas fa-arrow-up"></i>
+                <span class="percent"></span>
+            </li>
+        
+        
+    </ul>
+</div>
+
+    </div>
+
+    <div class="image-viewer-container">
+    <img src="">
+</div>
+
+
+    
+        <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+          <span class="search-input-field-pre">
+            <i class="fa-solid fa-keyboard"></i>
+          </span>
+            <div class="search-input-container">
+                <input autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       placeholder="Search..."
+                       spellcheck="false"
+                       type="search"
+                       class="search-input"
+                >
+            </div>
+            <span class="popup-btn-close">
+                <i class="fa-solid fa-times"></i>
+            </span>
+        </div>
+        <div id="search-result">
+            <div id="no-result">
+                <i class="fa-solid fa-spinner fa-spin-pulse fa-5x fa-fw"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+
+</main>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Swup.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupSlideTheme.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScriptsPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupProgressPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScrollPlugin.min.js"></script>
+<script>
+    const swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+        ],
+        containers: ["#swup"],
+    });
+
+    swup.hooks.on("page:view", () => {
+        Global.refresh();
+    });
+
+    // if (document.readyState === "complete") {
+    //
+    // } else {
+    //     document.addEventListener("DOMContentLoaded", () => init());
+    // }
+</script>
+
+
+
+
+
+<script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/utils.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/main.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/navbarShrink.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/scrollTopBottom.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/lightDarkSwitch.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/categoryList.js"></script>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/localSearch.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/codeBlock.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/lazyload.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/runtime.js"></script>
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/odometer.min.js"></script>
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/assets/odometer-theme-minimal.css">
+
+
+
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Typed.min.js"></script>
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/typed.js"></script>
+
+
+
+
+
+
+<div class="post-scripts" data-swup-reload-script>
+    
+        <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/anime.min.js"></script>
+        <script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/tocToggle.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/toc.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/tabs.js"></script>
+    
+</div>
+
+
+</body>
+</html>

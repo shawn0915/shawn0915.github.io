@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="shawnyan,dba,oracle,mysql,tidb,mariadb,postgresql,gbase,proxysql">
+    
+    <meta name="author" content="Shawn Yan">
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+        
+        
+        
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://shawnyan.cn/2022/gbase/gbase-8a-python-connector/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+        <meta name="description" content="前言 GBase 8a 是南大通用公司自主研发的，面向海量数据查询分析应用领域的一款高性能国产新型数据库，产品用于满足各个数据密集型行业日益增大的数据查询、数据统计、数据分析、数据挖掘和数据备份等数据存储、管理和处理需求，可用做数据仓库系统、BI系统和决策支持系统的承载数据库。 数据库开发过程中绕不开的一个环节就是开发接口。目前，适配 GBase 8a 的开发接口有 ODBC、JDBC、ADO.N">
+<meta property="og:type" content="article">
+<meta property="og:title" content="源码阅读 | 浅析 GBase 8a Python 连接器的源码">
+<meta property="og:url" content="https://shawnyan.cn/2022/gbase/gbase-8a-python-connector/index.html">
+<meta property="og:site_name" content="少安事务所">
+<meta property="og:description" content="前言 GBase 8a 是南大通用公司自主研发的，面向海量数据查询分析应用领域的一款高性能国产新型数据库，产品用于满足各个数据密集型行业日益增大的数据查询、数据统计、数据分析、数据挖掘和数据备份等数据存储、管理和处理需求，可用做数据仓库系统、BI系统和决策支持系统的承载数据库。 数据库开发过程中绕不开的一个环节就是开发接口。目前，适配 GBase 8a 的开发接口有 ODBC、JDBC、ADO.N">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://shawnyan.cn/2022/gbase/gbase-8a-python-connector/2023-02-22-02.png">
+<meta property="og:image" content="https://shawnyan.cn/2022/gbase/gbase-8a-python-connector/2023-02-22-03.png">
+<meta property="og:image" content="https://shawnyan.cn/2022/gbase/gbase-8a-python-connector/2023-02-22-04.jpg">
+<meta property="og:image" content="https://shawnyan.cn/2022/gbase/gbase-8a-python-connector/2023-02-22-05.jpg">
+<meta property="article:published_time" content="2022-02-22T11:02:19.000Z">
+<meta property="article:modified_time" content="2022-02-22T11:02:19.000Z">
+<meta property="article:author" content="Shawn Yan">
+<meta property="article:tag" content="gbase">
+<meta property="article:tag" content="gbase 8a">
+<meta property="article:tag" content="南大通用">
+<meta property="article:tag" content="python">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://shawnyan.cn/2022/gbase/gbase-8a-python-connector/2023-02-22-02.png">
+    
+    
+        <!-- Google tag (gtag.js) -->
+        <script src="https://www.googletagmanager.com/gtag/js?id=G-ZH71L5F7X2"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-ZH71L5F7X2');
+        </script>
+    
+    <!-- baidu tongji -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?2fa794d82f74c0bb3617ba62ee962b46";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/img/favicon.ico" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon.ico">
+    <meta name="theme-color" content="#767FF6">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <!--- Page Info-->
+    
+    <title>
+        
+            源码阅读 | 浅析 GBase 8a Python 连接器的源码 -
+        
+        少安事务所
+    </title>
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+<!--- use 2.5.0
+    
+        
+<link rel="stylesheet" href="/assets/build/styles.css">
+
+    
+-->
+    <link rel="stylesheet" href="//cdn.staticfile.org/hexo-theme-redefine/2.5.0/assets/build/styles.min.css">
+
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/fonts.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Satoshi/satoshi.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Chillax/chillax.css">
+    <!--- Font Part-->
+    
+    
+    
+    
+
+    <!--- Inject Part-->
+    
+    <script id="hexo-configurations">
+    let Global = window.Global || {};
+    Global.hexo_config = {"hostname":"shawnyan.cn","root":"/","language":"en","path":"search.xml"};
+    Global.theme_config = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":true,"list":[]},"code_block":{"copy":true,"style":"mac","font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":4,"number":false,"expand":true,"init_open":true},"copyright":true,"lazyload":true,"recommendation":{"enable":true,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#767FF6","secondary":null},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"open_graph":true,"google_analytics":{"enable":true,"id":"G-ZH71L5F7X2"},"root_color_mode":"dark"},"home_banner":{"enable":true,"style":"fixed","image":{"light":"https://asktug.com/uploads/default/original/4X/4/b/d/4bd94f804719672dd7e3cb29150ea6f777eb0aec.jpeg","dark":"/img/wallpaper/dark.webp"},"title":"Shawn Yan's Tech Blog.","subtitle":{"text":["A blog about MySQL, Oracle, TiDB, PostgreSQL and other databases."],"hitokoto":{"enable":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":500,"backing_delay":1500,"loop":true,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"links":{"github":"https://github.com/shawn0915","instagram":null,"zhihu":null,"twitter":null,"email":"admin@shawnyan.cn"},"qrs":{"weixin":null}}},"plugins":{"feed":{"enable":true},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":"回忆的沙漏 (10周年版)","artist":"回忆的沙漏 (10周年版)","url":"https://music.163.com/song/media/outer/url?id=1329122067.mp3","cover":"https://p1.music.126.net/oJorrgJ3IotZUAbZkBMuFw==/109951167771736533.jpg?param=68y68"}]},"mermaid":{"enable":false,"version":"9.3.0"}},"version":"2.4.4","navbar":{"auto_hide":false,"color":{"left":"#f78736","right":"#367df7","transparency":35},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Blog":{"path":"/archives","icon":"fa-regular fa-archive"},"Categories":{"path":"/categories","icon":"fa-regular fa-stream"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Links":{"icon":"fa-regular fa-link","submenus":{"My-params":"/my-params","Friends":"/links","Q":"/q"}}},"search":{"enable":true,"preload":true}},"page_templates":{"friends_column":3,"tags_style":"cloud"},"home":{"sidebar":{"enable":true,"position":"left","first_item":"info","announcement":null,"links":null},"article_date_format":"YYYY-MM-DD","categories":{"enable":true,"limit":10},"tags":{"enable":true,"limit":10}},"footerStart":"2017/11/27 00:00:00"};
+    Global.language_ago = {"second":"%s seconds ago","minute":"%s minutes ago","hour":"%s hours ago","day":"%s days ago","week":"%s weeks ago","month":"%s months ago","year":"%s years ago"};
+    Global.data_config = {"masonry":false};
+  </script>
+
+    <!--- Fontawesome Part-->
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/fontawesome.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/brands.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/solid.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/regular.min.css">
+    
+    
+    
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+
+
+<body>
+<div class="progress-bar-container">
+    
+
+    
+        <span class="pjax-progress-bar"></span>
+        <span class="swup-progress-icon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+    
+</div>
+
+
+<main class="page-container" id="swup">
+
+    
+
+    <div class="main-content-container">
+
+
+        <div class="main-content-header">
+            <header class="navbar-container">
+    
+    <div class="navbar-content">
+        <div class="left">
+            
+                <a class="logo-image" href="https://shawnyan.cn/">
+                    <img src="/img/favicon.ico">
+                </a>
+            
+            <a class="logo-title" href="https://shawnyan.cn/">
+                
+                少安事务所
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-house"></i>
+                                        
+                                        HOME
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/archives"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-archive"></i>
+                                        
+                                        BLOG
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/categories"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-stream"></i>
+                                        
+                                        CATEGORIES
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/tags"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-tags"></i>
+                                        
+                                        TAGS
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/about"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-user"></i>
+                                        
+                                        ABOUT
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="has-dropdown" 
+                                    href="#" onClick="return false;">
+                                    
+                                        
+                                            <i class="fa-regular fa-link"></i>
+                                        
+                                        LINKS&nbsp;<i class="fa-solid fa-chevron-down"></i>
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                                    <ul class="sub-menu">
+                                    
+                                        <li>
+                                        <a href="/my-params">MY-PARAMS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/links">FRIENDS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/q">Q
+                                        </a>
+                                        </li>
+                                    
+                                    </ul>
+                                
+                            </li>
+                    
+                    
+                        <li class="navbar-item search search-popup-trigger">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </li>
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                    <div class="icon-item search search-popup-trigger"><i class="fa-solid fa-magnifying-glass"></i></div>
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="navbar-drawer w-full absolute top-0 left-0 bg-background-color">
+        <ul class="drawer-navbar-list flex flex-col justify-start items-center">
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/"  >
+                             
+                                
+                                    <i class="fa-regular fa-house"></i>
+                                
+                                HOME
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/archives"  >
+                             
+                                
+                                    <i class="fa-regular fa-archive"></i>
+                                
+                                BLOG
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/categories"  >
+                             
+                                
+                                    <i class="fa-regular fa-stream"></i>
+                                
+                                CATEGORIES
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/tags"  >
+                             
+                                
+                                    <i class="fa-regular fa-tags"></i>
+                                
+                                TAGS
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/about"  >
+                             
+                                
+                                    <i class="fa-regular fa-user"></i>
+                                
+                                ABOUT
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group has-dropdown" 
+                        href="#" onClick="return false;">
+                            
+                                
+                                    <i class="fa-regular fa-link"></i>
+                                
+                                LINKS&nbsp;<i class="group-hover:rotate-180 transition-transform fa-solid fa-chevron-down"></i>
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                              
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/my-params">MY-PARAMS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/links">FRIENDS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/q">Q</a>
+                            </li>
+                        
+                    
+            
+
+        </ul>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+        </div>
+
+        <div class="main-content-body">
+
+            
+
+            <div class="main-content">
+
+                
+                    <div class="post-page-container">
+    <div class="article-content-container">
+
+        <div class="article-title">
+            
+                
+                
+                <!-- 2023-10-03, edit by shawnyan. -->
+                <img src="/img/gbase/gbase-8a.png" alt="源码阅读 | 浅析 GBase 8a Python 连接器的源码" class="max-w-none" referrerpolicy="no-referrer"/>
+                
+                <h1 class="article-title-cover">源码阅读 | 浅析 GBase 8a Python 连接器的源码</h1>
+            
+            </div>
+
+
+
+        
+            <div class="article-header">
+                <div class="avatar">
+                    
+                        <img src="/img/avatar.jpg">
+                    
+                </div>
+                <div class="info">
+                    <div class="author">
+                        
+                            <span class="name">严少安</span>
+                        
+                        
+                            
+                                <span class="author-label">Lv.6</span>
+                            
+                        
+                    </div>
+                    <div class="meta-info">
+                        <div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2022-02-22 19:02:19</span>
+        <span class="mobile">2022-02-22 19:02:19</span>
+        <span class="hover-info">Created</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2022-02-22 19:02:19</span>
+            <span class="mobile">2022-02-22 19:02:19</span>
+            <span class="hover-info">Updated</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/gbase/">GBase</a>&nbsp;
+                        </li>
+                    
+                    
+                
+                    
+                        
+                            <li>></li>
+                        
+                        <li>
+                            <a href="/categories/gbase/gbase-8a/">GBase 8a</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/gbase/">gbase</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/gbase-8a/">gbase 8a</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/%E5%8D%97%E5%A4%A7%E9%80%9A%E7%94%A8/">南大通用</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/python/">python</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+        <span class="article-wordcount article-meta-item">
+            <i class="fa-regular fa-typewriter"></i>&nbsp;<span>1.4k Words</span>
+        </span>
+    
+    
+        <span class="article-min2read article-meta-item">
+            <i class="fa-regular fa-clock"></i>&nbsp;<span>5 Mins</span>
+        </span>
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+                    </div>
+                </div>
+            </div>
+        
+
+        
+
+
+        <div class="article-content markdown-body">
+            <h2 id="前言">前言</h2>
+<p>GBase 8a 是南大通用公司自主研发的，面向海量数据查询分析应用领域的一款高性能国产新型数据库，产品用于满足各个数据密集型行业日益增大的数据查询、数据统计、数据分析、数据挖掘和数据备份等数据存储、管理和处理需求，可用做数据仓库系统、BI系统和决策支持系统的承载数据库。<br>
+数据库开发过程中绕不开的一个环节就是开发接口。目前，适配 GBase 8a 的开发接口有 ODBC、JDBC、<a class="link"   target="_blank" rel="noopener" href="http://ADO.NET" >ADO.NET <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>、C API、Python API等。<br>
+本文以 GBase Python Connector v3.0.1 为例，着重讨论 GBase 8a 的 Python 接口。</p>
+<p><img  
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="/2022/gbase/gbase-8a-python-connector/2023-02-22-02.png"
+                      alt="Word Art.png" loading="lazy"
+                ></p>
+<h2 id="GBase-8a-Python-API-简述">GBase 8a Python API 简述</h2>
+<p>GBase Python 接口是 Python 语言连接并使用 GBase 数据库的接口驱动程序。GBase Python 接口基于 <a class="link"   target="_blank" rel="noopener" href="https://www.python.org/dev/peps/pep-0249/" >Python Database API Specification <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 标准编写。<br>
+接口兼容标准的同时并支持如下特性：</p>
+<ol>
+<li>支持 Python 2.x 和 Python 3.x</li>
+<li>完全支持 GBase 8a MPP Cluster 的特性</li>
+<li>完全支持 SQL 标准语法</li>
+<li>支持二进制流插入、更新</li>
+<li>支持批量插入优化</li>
+<li>支持多 SQL 语句执行和获取多结果集</li>
+<li>支持 TCP/IP 协议</li>
+<li>支持 Python 的 datetime 和 GBase 时间类型的映射</li>
+</ol>
+<h2 id="环境说明">环境说明</h2>
+<p>本文中的代码与示例均以此环境信息作为基准。</p>
+<ol>
+<li>GBase 8a Docker 版</li>
+<li>Python 3.6.8</li>
+<li>gbase-connector-python 3.0.1</li>
+</ol>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[root@centos7 data]# docker ps</span><br><span class="line">CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS                    NAMES</span><br><span class="line">32238848b375        shihd/gbase8a:1.0   &quot;sh start.sh&quot;       4 hours ago         Up 4 hours          0.0.0.0:5258-&gt;5258/tcp   gbase8a</span><br><span class="line">[root@centos7 data]# python3 --version</span><br><span class="line">Python 3.6.8</span><br></pre></td></tr></table></figure></div>
+<h2 id="代码结构">代码结构</h2>
+<p>GBase Python Connector 中包含9个主要模块。<br>
+其中有四个核心模块，分别为：</p>
+<ol>
+<li>GBaseConnection</li>
+<li>GBaseConstants</li>
+<li>GBaseCursor</li>
+<li>GBaseError</li>
+</ol>
+<p>其他5个基础模块，分别为：</p>
+<ol>
+<li>GBaseLogger</li>
+<li>GBaseProtocol</li>
+<li>GBaseSocket</li>
+<li>GBaseUtils</li>
+<li>GBaseErrorCode</li>
+</ol>
+<p>下面按模块进行具体说明。</p>
+<h3 id="GBaseConnection">GBaseConnection</h3>
+<p><code>GBaseConnection</code> 负责创建 GBase 数据库的连接，执行SQL语句，并获取返回行数。<br>
+引用了 GBaseLogger, GBaseCursor, GBaseSocket, GBaseProtocol, GBaseConstants, GBaseError 模块。</p>
+<p>从源码可以看出，使用该接口，有3个必填项：用户名、密码、库名。初始化时，默认连接超时时间为 <code>30s</code>，开启自动提交，字符集为 <code>utf8</code>。</p>
+<div class="highlight-container" data-rel="Python"><figure class="iseeu highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">self._host = <span class="string">&#x27;127.0.0.1&#x27;</span></span><br><span class="line">self._user = <span class="string">&#x27;&#x27;</span></span><br><span class="line">self._password = <span class="string">&#x27;&#x27;</span></span><br><span class="line">self._database = <span class="string">&#x27;&#x27;</span></span><br><span class="line">self._port = <span class="number">5258</span></span><br><span class="line">...</span><br><span class="line">self._connection_timeout = <span class="number">30</span></span><br><span class="line">self._autocommit = <span class="literal">True</span></span><br><span class="line">self._charset_id = <span class="number">33</span>  <span class="comment"># utf8</span></span><br></pre></td></tr></table></figure></div>
+<h3 id="GBaseConstants">GBaseConstants</h3>
+<p><code>GBaseConstants</code> 为常量类，定义客户端标记、字符集等。引用了 GBaseError 模块。</p>
+<p>客户端标记，主要是指在该类中，定义了一系列类方法，其中主要有：数据类型（如：DECIMAL、DATETIME）、保留字（如：NOT_NULL、SET）。<br>
+字符集，在源码中详细地罗列了字符集、校验规则，共127对。<br>
+此外，还定义了SQL Mode，共33种。</p>
+<p>这里提及一下 <strong><code>GBaseSocket</code></strong> 模块，因为 <code>GBaseSocket</code> 模块涉及到两个定义在 <code>GBaseConstants</code> 中的常量：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">MAX_PACKET_LENGTH = 16777215</span><br><span class="line">GBASE_PACKET_HEADER_LEN = 4</span><br></pre></td></tr></table></figure></div>
+<h3 id="GBaseCursor">GBaseCursor</h3>
+<p><code>GBaseCursor</code>，为执行GBase数据库操作的游标类，可以执行SQL语句、存储过程、获取结果集。<br>
+引用了 GBaseLogger, GBaseError, GBaseUtils, GBaseConstants 模块。</p>
+<p>该模块中定义的<code>execute</code>方法，可以启用<code>multi_stmt</code>开关，以此将多条语句同时发送。<br>
+这个开关的具体代码示例可参见文章：<a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/40982" >南大通用GBase 8a MPP Python接口技术（五） <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<h3 id="GBaseError">GBaseError</h3>
+<p><code>GBaseError</code>，该模块为异常处理类，定义接口抛出的异常。引用了 GBaseLogger 模块。</p>
+<p>具体来说，异常处理类分为：</p>
+<ol>
+<li>Warning：重要的告警异常</li>
+<li>DatabaseError：数据库相关异常
+<ol>
+<li>InternalError：数据库内部异常</li>
+<li>OperationalError：连接异常或访问受限</li>
+<li>ProgrammingError：程序异常，指非法参数、语句、命名等</li>
+</ol>
+</li>
+<li>InterfaceError：接口异常，其他模块会调用该接口来抛异常</li>
+</ol>
+<p>顺便说下 <strong><code>GBaseLogger</code></strong> 模块，该模块定义了四种类型的日志：“debug, error, sql, all”，这里的“sql”是指“SQL Mode”相关日志。</p>
+<h3 id="GBaseUtils">GBaseUtils</h3>
+<p>在该模块中，定义了若干方法来做Python和GBase之间的数据类型映射，例如上文提到的“支持Python的datetime和GBase时间类型的映射”，即是由 <code>_datetime_to_gbase / _DATETIME_to_python</code> 两个方法来实现的。</p>
+<h2 id="模块关系图">模块关系图</h2>
+<p>至此，几个模块的基础信息已分析完毕，下面以一张模块关系图来作为小结。</p>
+<p><img  
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="/2022/gbase/gbase-8a-python-connector/2023-02-22-03.png"
+                      alt="" loading="lazy"
+                ></p>
+<h2 id="实例演示">实例演示</h2>
+<p>最后，以一段演示代码来作为本文的结尾。<br>
+用Python代码通过 GBase Python 接口来连接 GBase 8a 数据库，并查询数据库中表数据大于0的表，按表数据行数逆序排序，展示表名、表引擎、表行数三个字段。</p>
+<div class="highlight-container" data-rel="Python"><figure class="iseeu highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> GBaseConnector <span class="keyword">import</span> connect, GBaseError</span><br><span class="line"></span><br><span class="line">config = &#123;<span class="string">&#x27;host&#x27;</span>: <span class="string">&#x27;192.168.195.128&#x27;</span>,</span><br><span class="line">          <span class="string">&#x27;user&#x27;</span>: <span class="string">&#x27;root&#x27;</span>,</span><br><span class="line">          <span class="string">&#x27;passwd&#x27;</span>: <span class="string">&#x27;root&#x27;</span>,</span><br><span class="line">          <span class="string">&#x27;port&#x27;</span>: <span class="number">5258</span>,</span><br><span class="line">          <span class="string">&#x27;db&#x27;</span>: <span class="string">&#x27;gbase&#x27;</span>&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">try</span>:</span><br><span class="line">    conn = connect()</span><br><span class="line">    conn.connect(**config)</span><br><span class="line">    cur = conn.cursor()</span><br><span class="line">    cur.execute(<span class="string">&quot;SELECT TABLE_NAME, ENGINE,TABLE_ROWS FROM information_schema.TABLES &quot;</span></span><br><span class="line">                <span class="string">&quot;WHERE TABLE_ROWS &gt; 0 ORDER BY TABLE_ROWS DESC;&quot;</span>)</span><br><span class="line">    row = cur.fetchmany(<span class="number">3</span>)</span><br><span class="line">    <span class="keyword">while</span> row:</span><br><span class="line">        <span class="built_in">print</span>(row)</span><br><span class="line">        row = cur.fetchmany(<span class="number">4</span>)</span><br><span class="line">    rowcnt = cur.rowcount</span><br><span class="line"></span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;Total:&quot;</span>, rowcnt, <span class="string">&quot;rows in set&quot;</span>)</span><br><span class="line"></span><br><span class="line"><span class="keyword">except</span> GBaseError <span class="keyword">as</span> err:</span><br><span class="line">    <span class="built_in">print</span>(err)</span><br><span class="line"><span class="keyword">finally</span>:</span><br><span class="line">    conn.close()</span><br></pre></td></tr></table></figure></div>
+<p>直接从GBase查询的结果集：</p>
+<p><img  
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="/2022/gbase/gbase-8a-python-connector/2023-02-22-04.jpg"
+                      alt="" loading="lazy"
+                ></p>
+<p>执行python代码的结果集：</p>
+<p><img  
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="/2022/gbase/gbase-8a-python-connector/2023-02-22-05.jpg"
+                      alt="" loading="lazy"
+                ></p>
+<h2 id="相关链接">相关链接</h2>
+<ul>
+<li><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/246258" >活动 | 第一届“GBase技术文章”有奖征文大赛活动公告 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/245537" >征文大赛 | 第一届“GBase技术文章”有奖征文常见问题解答 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/325922" >第一届“GBase技术征文大赛”首批入围文章发布啦🔈~（持续更新中） <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li><a href="https://shawnyan.cn/2021/gbase-8a-gdca/">资深DBA带您了解GBase培训</a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/Ije3hCvG4xtnZ3bH9WPI_w" >新春开课 | 欢迎参加GBase 8a MPP CLuster数据库2月训练营 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li><a href="https://shawnyan.cn/2022/gbase/gbase-8a-blog-case/">案例分析 | 搭建基于 GBase 8a 的博客系统过程中遇到的若干问题</a></li>
+</ul>
+<hr>
+<p>2022-02-22<br>
+Shawn Yan</p>
+<hr>
+<p><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/334411" >https://www.modb.pro/db/334411 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+
+        </div>
+
+        
+            <div class="post-copyright-info">
+                <div class="article-copyright-info-container">
+    <ul>
+    <!-- 2023-10-03, edit by shawnyan. -->
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Title:</strong> 源码阅读 | 浅析 GBase 8a Python 连接器的源码</li>
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Author:</strong>
+            
+                严少安
+            
+        </li>
+        <li><strong>Created at:</strong> 2022-02-22 19:02:19</li>
+        
+            <li><strong>Updated at:</strong> 2022-02-22 19:02:19</li>
+        
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Link:</strong> https://shawnyan.cn/2022/gbase/gbase-8a-python-connector/</li>
+        <li style="word-wrap: break-word; white-space: normal;">
+            <strong>
+                License:
+            </strong>
+            
+            This work is licensed under <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>.
+            
+
+        </li>
+    </ul>
+</div>
+
+            </div>
+        
+
+        
+            <ul class="post-tags-box">
+                
+                    <li class="tag-item">
+                        <a href="/tags/gbase/">#gbase</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/gbase-8a/">#gbase 8a</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/%E5%8D%97%E5%A4%A7%E9%80%9A%E7%94%A8/">#南大通用</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/python/">#python</a>&nbsp;
+                    </li>
+                
+            </ul>
+        
+
+        
+  <div class="recommended-article">
+   <div class="recommended-desktop">
+    <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+    </div>
+    <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/gbase/gbase-8c-my-story/" title="再遇 GBase 如沐春风" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240223-748ef1c3-5c59-47d8-96d7-5588035e4e47.png" alt="再遇 GBase 如沐春风" class="!max-w-none">
+  <span class="title">再遇 GBase 如沐春风</span>
+</a><a class="recommended-article-item" href="/2024/gbase/gbase-8s-v8-install/" title="如何快速安装、使用 GBase 8s 数据库" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240223-167f41f8-ed05-4f08-8c7c-85cdeb3b20c2.png" alt="如何快速安装、使用 GBase 8s 数据库" class="!max-w-none">
+  <span class="title">如何快速安装、使用 GBase 8s 数据库</span>
+</a><a class="recommended-article-item" href="/2021/gbase-8a-gdca/" title="资深 DBA 带您了解 GBase 培训" rel="bookmark">
+  <img src="/img/gbase/gbase-8a.png" alt="资深 DBA 带您了解 GBase 培训" class="!max-w-none">
+  <span class="title">资深 DBA 带您了解 GBase 培训</span>
+</a></div>
+   </div>
+   <div class="recommended-mobile">
+   <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+   </div>
+   <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/gbase/gbase-8c-my-story/" title="再遇 GBase 如沐春风" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240223-748ef1c3-5c59-47d8-96d7-5588035e4e47.png" alt="再遇 GBase 如沐春风" class="!max-w-none">
+  <span class="title">再遇 GBase 如沐春风</span>
+</a><a class="recommended-article-item" href="/2024/gbase/gbase-8s-v8-install/" title="如何快速安装、使用 GBase 8s 数据库" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240223-167f41f8-ed05-4f08-8c7c-85cdeb3b20c2.png" alt="如何快速安装、使用 GBase 8s 数据库" class="!max-w-none">
+  <span class="title">如何快速安装、使用 GBase 8s 数据库</span>
+</a></div>
+   </div>
+  </div>
+
+        
+            <div class="article-nav">
+                
+                    <div class="article-prev">
+                        <a class="prev"
+                        rel="prev"
+                        href="/2022/tidb/mydumper-and-dumpling/"
+                        >
+                            <span class="left arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </span>
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">温故知新 | mydumper &amp; dumpling 知识点汇总</span>
+                                <span class="post-nav-item">Prev posts</span>
+                            </span>
+                        </a>
+                    </div>
+                
+                
+                    <div class="article-next">
+                        <a class="next"
+                        rel="next"
+                        href="/2022/gbase/gbase-8a-blog-case/"
+                        >
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">案例分析 | 搭建基于 GBase8a 的博客系统遇到的若干问题</span>
+                                <span class="post-nav-item">Next posts</span>
+                            </span>
+                            <span class="right arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </a>
+                    </div>
+                
+            </div>
+        
+
+
+        
+            <div class="comment-container">
+                <div class="comments-container pjax">
+    <div id="comment-anchor"></div>
+    <div class="comment-area-title">
+        <i class="fa-solid fa-comments"></i>&nbsp;Comments
+    </div>
+    
+
+        
+            
+    <div id="gitalk-container"></div>
+    <script data-swup-reload-script
+            src="//cdn.staticfile.org/gitalk/1.8.0/gitalk.min.js"></script>
+    <script data-swup-reload-script>
+
+        function loadGitalk() {
+            let __gitalk__pathname = decodeURI(location.pathname);
+            const __gitalk__pathnameLength = __gitalk__pathname.length;
+            const __gitalk__pathnameMaxLength = 50;
+            if (__gitalk__pathnameLength > __gitalk__pathnameMaxLength) {
+                __gitalk__pathname = __gitalk__pathname.substring(0, __gitalk__pathnameMaxLength - 3) + '...';
+            }
+
+            try {
+                Gitalk && new Gitalk({
+                    clientID: '32d049bf3701e6791070',
+                    clientSecret: '36c295ad3dad4c739b530ef113d0a979d8c35c5d',
+                    repo: 'gitalk',
+                    owner: 'shawn0915',
+                    admin: ['shawn0915'],
+                    id: __gitalk__pathname,
+                    language: 'en'
+                }).render('gitalk-container');
+
+            } catch (e) {
+                window.Gitalk = null;
+            }
+        }
+
+        if ('true') {
+            const loadGitalkTimeout = setTimeout(() => {
+                loadGitalk();
+                clearTimeout(loadGitalkTimeout);
+            }, 1000);
+        } else {
+            window.addEventListener('DOMContentLoaded', loadGitalk);
+        }
+    </script>
+
+
+
+        
+    
+</div>
+
+            </div>
+        
+    </div>
+
+    
+        <div class="toc-content-container">
+            <div class="post-toc-wrap">
+    <div class="post-toc">
+        <div class="toc-title">On this page</div>
+<!--         <div class="page-title">源码阅读 | 浅析 GBase 8a Python 连接器的源码</div> -->
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#GBase-8a-Python-API-%E7%AE%80%E8%BF%B0"><span class="nav-text">GBase 8a Python API 简述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%8E%AF%E5%A2%83%E8%AF%B4%E6%98%8E"><span class="nav-text">环境说明</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%A3%E7%A0%81%E7%BB%93%E6%9E%84"><span class="nav-text">代码结构</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#GBaseConnection"><span class="nav-text">GBaseConnection</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#GBaseConstants"><span class="nav-text">GBaseConstants</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#GBaseCursor"><span class="nav-text">GBaseCursor</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#GBaseError"><span class="nav-text">GBaseError</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#GBaseUtils"><span class="nav-text">GBaseUtils</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A8%A1%E5%9D%97%E5%85%B3%E7%B3%BB%E5%9B%BE"><span class="nav-text">模块关系图</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%9E%E4%BE%8B%E6%BC%94%E7%A4%BA"><span class="nav-text">实例演示</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%9B%B8%E5%85%B3%E9%93%BE%E6%8E%A5"><span class="nav-text">相关链接</span></a></li></ol>
+
+    </div>
+</div>
+
+        </div>
+    
+</div>
+
+
+
+                
+
+            </div>
+
+            
+
+        </div>
+
+        <div class="main-content-footer">
+            <footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2017</span>
+              -
+            
+            2024&nbsp;&nbsp;<i class="fa-solid fa-heart fa-beat" style="--fa-animation-duration: 0.5s; color: #f54545"></i>&nbsp;&nbsp;<a href="/">Shawn Yan</a>
+        </div>
+        
+            <script data-swup-reload-script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">VISITOR COUNT</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">TOTAL PAGE VIEWS</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">POWERED BY <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a></span>
+            <span class="text-sm lg:block">THEME&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.4.4</a></span>
+        </div>
+        
+        
+            <div>
+                Blog up for <span class="odometer" id="runtime_days" ></span> days <span class="odometer" id="runtime_hours"></span> hrs <span class="odometer" id="runtime_minutes"></span> Min <span class="odometer" id="runtime_seconds"></span> Sec
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+
+    </div>
+</footer>
+
+        </div>
+    </div>
+
+    
+        <div class="post-tools">
+            <div class="post-tools-container">
+    <ul class="article-tools-list">
+        <!-- TOC aside toggle -->
+        
+            <li class="right-bottom-tools page-aside-toggle">
+                <i class="fa-regular fa-outdent"></i>
+            </li>
+        
+
+        <!-- go comment -->
+        
+            <li class="go-comment">
+                <i class="fa-regular fa-comments"></i>
+            </li>
+        
+    </ul>
+</div>
+
+        </div>
+    
+
+    <div class="right-side-tools-container">
+        <div class="side-tools-container">
+    <ul class="hidden-tools-list">
+        <li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-plus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-minus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-expand-width flex justify-center items-center">
+            <i class="fa-regular fa-expand"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+            <i class="fa-regular fa-moon"></i>
+        </li>
+
+        <!-- rss -->
+        
+            <li class="right-bottom-tools rss flex justify-center items-center">
+                <a class="flex justify-center items-center"
+                   href="/atom.xml"
+                   target="_blank"
+                >
+                <i class="fa-regular fa-rss"></i>
+                </a>
+            </li>
+        
+
+        
+
+        <li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+            <i class="fa-regular fa-arrow-down"></i>
+        </li>
+    </ul>
+
+    <ul class="visible-tools-list">
+        <li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+            <i class="fa-regular fa-cog fa-spin"></i>
+        </li>
+        
+            <li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+                <i class="arrow-up fas fa-arrow-up"></i>
+                <span class="percent"></span>
+            </li>
+        
+        
+    </ul>
+</div>
+
+    </div>
+
+    <div class="image-viewer-container">
+    <img src="">
+</div>
+
+
+    
+        <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+          <span class="search-input-field-pre">
+            <i class="fa-solid fa-keyboard"></i>
+          </span>
+            <div class="search-input-container">
+                <input autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       placeholder="Search..."
+                       spellcheck="false"
+                       type="search"
+                       class="search-input"
+                >
+            </div>
+            <span class="popup-btn-close">
+                <i class="fa-solid fa-times"></i>
+            </span>
+        </div>
+        <div id="search-result">
+            <div id="no-result">
+                <i class="fa-solid fa-spinner fa-spin-pulse fa-5x fa-fw"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+
+</main>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Swup.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupSlideTheme.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScriptsPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupProgressPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScrollPlugin.min.js"></script>
+<script>
+    const swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+        ],
+        containers: ["#swup"],
+    });
+
+    swup.hooks.on("page:view", () => {
+        Global.refresh();
+    });
+
+    // if (document.readyState === "complete") {
+    //
+    // } else {
+    //     document.addEventListener("DOMContentLoaded", () => init());
+    // }
+</script>
+
+
+
+
+
+<script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/utils.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/main.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/navbarShrink.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/scrollTopBottom.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/lightDarkSwitch.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/categoryList.js"></script>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/localSearch.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/codeBlock.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/lazyload.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/runtime.js"></script>
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/odometer.min.js"></script>
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/assets/odometer-theme-minimal.css">
+
+
+
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Typed.min.js"></script>
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/typed.js"></script>
+
+
+
+
+
+
+<div class="post-scripts" data-swup-reload-script>
+    
+        <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/anime.min.js"></script>
+        <script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/tocToggle.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/toc.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/tabs.js"></script>
+    
+</div>
+
+
+</body>
+</html>

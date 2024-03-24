@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="shawnyan,dba,oracle,mysql,tidb,mariadb,postgresql,gbase,proxysql">
+    
+    <meta name="author" content="Shawn Yan">
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+        
+        
+        
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://shawnyan.cn/2023/postgresql/ivorysql-v2.3-feature/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+        <meta name="description" content="引言 第一次接触到 IvorySQL 数据库是在编写 2022年5月中国数据库排行榜：openGauss 黑马首登顶，AntDB 冲进20强 的时候，那时候 IvorySQL 刚上榜，时隔一年多，IvorySQL 的排名已上升不少，更是在最近发布的 2023开源数据库排行  中，跻身三十强。过去一年，IvorySQL 在 Github 上的源码仓库 Star 数，从 90 上升到今天的 560，">
+<meta property="og:type" content="article">
+<meta property="og:title" content="象牙数据库 IvorySQL v2.3 特性浅析">
+<meta property="og:url" content="https://shawnyan.cn/2023/postgresql/ivorysql-v2.3-feature/index.html">
+<meta property="og:site_name" content="少安事务所">
+<meta property="og:description" content="引言 第一次接触到 IvorySQL 数据库是在编写 2022年5月中国数据库排行榜：openGauss 黑马首登顶，AntDB 冲进20强 的时候，那时候 IvorySQL 刚上榜，时隔一年多，IvorySQL 的排名已上升不少，更是在最近发布的 2023开源数据库排行  中，跻身三十强。过去一年，IvorySQL 在 Github 上的源码仓库 Star 数，从 90 上升到今天的 560，">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20220419-f0ca4139-24ab-4ec2-b9c4-02b613d5b6ea.jpg">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230727-130c1a7c-5840-4f6b-9210-ff93f65f8359.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230727-7e6a94e8-b912-4cd1-a0d2-c7477980d293.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230727-d3ebcfd3-2804-4552-b05f-fb5845eb604b.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230727-4c1d579e-6898-4df1-8642-70fdcb7d9c8d.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230727-6d3c0a5e-d1f9-41d8-997b-d089bca17d61.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230727-d66b0c69-3354-49ae-9926-7061775fa595.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230727-eb54f157-8d57-4523-843d-2470948351ab.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230727-0b475df8-f899-4fa4-9dce-32cfe8838d3a.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230727-68f0a2cf-f399-4f31-9508-20e30a4006f6.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230727-c0aac6a5-4663-43b0-8541-1b9cd9353b18.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230727-ee6488bf-360b-4ecc-9307-e4d388576b2c.png">
+<meta property="article:published_time" content="2023-07-27T12:17:26.000Z">
+<meta property="article:modified_time" content="2023-07-27T12:17:26.000Z">
+<meta property="article:author" content="Shawn Yan">
+<meta property="article:tag" content="postgresql">
+<meta property="article:tag" content="postgresql 15">
+<meta property="article:tag" content="ivorysql">
+<meta property="article:tag" content="highgo">
+<meta property="article:tag" content="orafce">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20220419-f0ca4139-24ab-4ec2-b9c4-02b613d5b6ea.jpg">
+    
+    
+        <!-- Google tag (gtag.js) -->
+        <script src="https://www.googletagmanager.com/gtag/js?id=G-ZH71L5F7X2"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-ZH71L5F7X2');
+        </script>
+    
+    <!-- baidu tongji -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?2fa794d82f74c0bb3617ba62ee962b46";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/img/favicon.ico" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon.ico">
+    <meta name="theme-color" content="#767FF6">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <!--- Page Info-->
+    
+    <title>
+        
+            象牙数据库 IvorySQL v2.3 特性浅析 -
+        
+        少安事务所
+    </title>
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+<!--- use 2.5.0
+    
+        
+<link rel="stylesheet" href="/assets/build/styles.css">
+
+    
+-->
+    <link rel="stylesheet" href="//cdn.staticfile.org/hexo-theme-redefine/2.5.0/assets/build/styles.min.css">
+
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/fonts.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Satoshi/satoshi.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Chillax/chillax.css">
+    <!--- Font Part-->
+    
+    
+    
+    
+
+    <!--- Inject Part-->
+    
+    <script id="hexo-configurations">
+    let Global = window.Global || {};
+    Global.hexo_config = {"hostname":"shawnyan.cn","root":"/","language":"en","path":"search.xml"};
+    Global.theme_config = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":true,"list":[]},"code_block":{"copy":true,"style":"mac","font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":4,"number":false,"expand":true,"init_open":true},"copyright":true,"lazyload":true,"recommendation":{"enable":true,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#767FF6","secondary":null},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"open_graph":true,"google_analytics":{"enable":true,"id":"G-ZH71L5F7X2"},"root_color_mode":"dark"},"home_banner":{"enable":true,"style":"fixed","image":{"light":"https://asktug.com/uploads/default/original/4X/4/b/d/4bd94f804719672dd7e3cb29150ea6f777eb0aec.jpeg","dark":"/img/wallpaper/dark.webp"},"title":"Shawn Yan's Tech Blog.","subtitle":{"text":["A blog about MySQL, Oracle, TiDB, PostgreSQL and other databases."],"hitokoto":{"enable":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":500,"backing_delay":1500,"loop":true,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"links":{"github":"https://github.com/shawn0915","instagram":null,"zhihu":null,"twitter":null,"email":"admin@shawnyan.cn"},"qrs":{"weixin":null}}},"plugins":{"feed":{"enable":true},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":"回忆的沙漏 (10周年版)","artist":"回忆的沙漏 (10周年版)","url":"https://music.163.com/song/media/outer/url?id=1329122067.mp3","cover":"https://p1.music.126.net/oJorrgJ3IotZUAbZkBMuFw==/109951167771736533.jpg?param=68y68"}]},"mermaid":{"enable":false,"version":"9.3.0"}},"version":"2.4.4","navbar":{"auto_hide":false,"color":{"left":"#f78736","right":"#367df7","transparency":35},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Blog":{"path":"/archives","icon":"fa-regular fa-archive"},"Categories":{"path":"/categories","icon":"fa-regular fa-stream"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Links":{"icon":"fa-regular fa-link","submenus":{"My-params":"/my-params","Friends":"/links","Q":"/q"}}},"search":{"enable":true,"preload":true}},"page_templates":{"friends_column":3,"tags_style":"cloud"},"home":{"sidebar":{"enable":true,"position":"left","first_item":"info","announcement":null,"links":null},"article_date_format":"YYYY-MM-DD","categories":{"enable":true,"limit":10},"tags":{"enable":true,"limit":10}},"footerStart":"2017/11/27 00:00:00"};
+    Global.language_ago = {"second":"%s seconds ago","minute":"%s minutes ago","hour":"%s hours ago","day":"%s days ago","week":"%s weeks ago","month":"%s months ago","year":"%s years ago"};
+    Global.data_config = {"masonry":false};
+  </script>
+
+    <!--- Fontawesome Part-->
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/fontawesome.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/brands.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/solid.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/regular.min.css">
+    
+    
+    
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+
+
+<body>
+<div class="progress-bar-container">
+    
+
+    
+        <span class="pjax-progress-bar"></span>
+        <span class="swup-progress-icon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+    
+</div>
+
+
+<main class="page-container" id="swup">
+
+    
+
+    <div class="main-content-container">
+
+
+        <div class="main-content-header">
+            <header class="navbar-container">
+    
+    <div class="navbar-content">
+        <div class="left">
+            
+                <a class="logo-image" href="https://shawnyan.cn/">
+                    <img src="/img/favicon.ico">
+                </a>
+            
+            <a class="logo-title" href="https://shawnyan.cn/">
+                
+                少安事务所
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-house"></i>
+                                        
+                                        HOME
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/archives"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-archive"></i>
+                                        
+                                        BLOG
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/categories"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-stream"></i>
+                                        
+                                        CATEGORIES
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/tags"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-tags"></i>
+                                        
+                                        TAGS
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/about"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-user"></i>
+                                        
+                                        ABOUT
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="has-dropdown" 
+                                    href="#" onClick="return false;">
+                                    
+                                        
+                                            <i class="fa-regular fa-link"></i>
+                                        
+                                        LINKS&nbsp;<i class="fa-solid fa-chevron-down"></i>
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                                    <ul class="sub-menu">
+                                    
+                                        <li>
+                                        <a href="/my-params">MY-PARAMS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/links">FRIENDS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/q">Q
+                                        </a>
+                                        </li>
+                                    
+                                    </ul>
+                                
+                            </li>
+                    
+                    
+                        <li class="navbar-item search search-popup-trigger">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </li>
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                    <div class="icon-item search search-popup-trigger"><i class="fa-solid fa-magnifying-glass"></i></div>
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="navbar-drawer w-full absolute top-0 left-0 bg-background-color">
+        <ul class="drawer-navbar-list flex flex-col justify-start items-center">
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/"  >
+                             
+                                
+                                    <i class="fa-regular fa-house"></i>
+                                
+                                HOME
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/archives"  >
+                             
+                                
+                                    <i class="fa-regular fa-archive"></i>
+                                
+                                BLOG
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/categories"  >
+                             
+                                
+                                    <i class="fa-regular fa-stream"></i>
+                                
+                                CATEGORIES
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/tags"  >
+                             
+                                
+                                    <i class="fa-regular fa-tags"></i>
+                                
+                                TAGS
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/about"  >
+                             
+                                
+                                    <i class="fa-regular fa-user"></i>
+                                
+                                ABOUT
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group has-dropdown" 
+                        href="#" onClick="return false;">
+                            
+                                
+                                    <i class="fa-regular fa-link"></i>
+                                
+                                LINKS&nbsp;<i class="group-hover:rotate-180 transition-transform fa-solid fa-chevron-down"></i>
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                              
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/my-params">MY-PARAMS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/links">FRIENDS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/q">Q</a>
+                            </li>
+                        
+                    
+            
+
+        </ul>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+        </div>
+
+        <div class="main-content-body">
+
+            
+
+            <div class="main-content">
+
+                
+                    <div class="post-page-container">
+    <div class="article-content-container">
+
+        <div class="article-title">
+            
+                
+                
+                <!-- 2023-10-03, edit by shawnyan. -->
+                <img src="https://oss-emcsprod-public.modb.pro/image/editor/20220419-f0ca4139-24ab-4ec2-b9c4-02b613d5b6ea.jpg" alt="象牙数据库 IvorySQL v2.3 特性浅析" class="max-w-none" referrerpolicy="no-referrer"/>
+                
+                <h1 class="article-title-cover">象牙数据库 IvorySQL v2.3 特性浅析</h1>
+            
+            </div>
+
+
+
+        
+            <div class="article-header">
+                <div class="avatar">
+                    
+                        <img src="/img/avatar.jpg">
+                    
+                </div>
+                <div class="info">
+                    <div class="author">
+                        
+                            <span class="name">严少安</span>
+                        
+                        
+                            
+                                <span class="author-label">Lv.6</span>
+                            
+                        
+                    </div>
+                    <div class="meta-info">
+                        <div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2023-07-27 20:17:26</span>
+        <span class="mobile">2023-07-27 20:17:26</span>
+        <span class="hover-info">Created</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2023-07-27 20:17:26</span>
+            <span class="mobile">2023-07-27 20:17:26</span>
+            <span class="hover-info">Updated</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/ivorysql/">IvorySQL</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/postgresql/">postgresql</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/postgresql-15/">postgresql 15</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/ivorysql/">ivorysql</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/highgo/">highgo</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/orafce/">orafce</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+        <span class="article-wordcount article-meta-item">
+            <i class="fa-regular fa-typewriter"></i>&nbsp;<span>2.3k Words</span>
+        </span>
+    
+    
+        <span class="article-min2read article-meta-item">
+            <i class="fa-regular fa-clock"></i>&nbsp;<span>10 Mins</span>
+        </span>
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+                    </div>
+                </div>
+            </div>
+        
+
+        
+
+
+        <div class="article-content markdown-body">
+            <img  alt="ivorysql-logo.jpg" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20220419-f0ca4139-24ab-4ec2-b9c4-02b613d5b6ea.jpg"
+                      referrerpolicy="no-referrer"
+                >
+<h2 id="引言">引言</h2>
+<p>第一次接触到 IvorySQL 数据库是在编写 <a href="https://shawnyan.cn/2022/modb/modb-2022-05-db-ranking/">2022年5月中国数据库排行榜：openGauss 黑马首登顶，AntDB 冲进20强</a> 的时候，那时候 IvorySQL 刚上榜，时隔一年多，IvorySQL 的排名已上升不少，更是在最近发布的 <a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/1684384461898194944" >2023开源数据库排行 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 中，跻身三十强。过去一年，IvorySQL 在 Github 上的源码仓库 Star 数，从 90 上升到今天的 560，真的很棒！</p>
+<img  alt="ivorysqlstar.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230727-130c1a7c-5840-4f6b-9210-ff93f65f8359.png"
+                      referrerpolicy="no-referrer"
+                >
+<h2 id="象牙数据库-IvorySQL">象牙数据库 IvorySQL</h2>
+<p>IvorySQL (Ivory 译为，象牙) 是由瀚高 (Highgo) 发起的基于 PostgreSQL 的衍生开源项目，采用 Apache-2.0 license，100% 兼容原生 PostgreSQL。IvorySQL 导入并增强了 Orafce 扩展插件，以此支持、兼容 Oracle 的诸多特性，如 PACKAGE、数据类型、转换函数等。IvorySQL 增加了 <code>compatible_mode</code> 开关，可以切换 PostgreSQL 和 Oracle 兼容模式。在 Oracle 兼容性方面，IvorySQL 还增加了独有的 PL/iSQL 过程语言，以此来支持 Oracle 的 PL/SQL 语法和 Oracle 风格的 PACKAGES。在即将发布的 IvorySQL v3.0 中，将支持双端口，即端口 5333 用于 IvorySQL 连接，端口 1521 用于 Oracle 模式连接。</p>
+<p>2021 年 12 月 15 日，发布了 IvorySQL 的第一个版本。今年 6 月 28 日，发布了 IvorySQL 2.3，下图为目前 IvorySQL 的发布时间线。</p>
+<img  alt="ivorysql-timeline.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230727-7e6a94e8-b912-4cd1-a0d2-c7477980d293.png"
+                      referrerpolicy="no-referrer"
+                >
+<h2 id="IvorySQL-源码编译">IvorySQL 源码编译</h2>
+<p>IvorySQL v2.3 是基于 PostgreSQL 15.3 开发的，所以 IvorySQL 编译过程大致与 PG 15 类似，前段时间写过一篇 PG 15 源码编译的文章 <a href="https://shawnyan.cn/2023/postgresql/pg-15-compile-with-dockerfile/">《【PG15】【番外篇】自定义 Dockerfile 构建 PostgreSQL 15 编译版 Docker 镜像》</a> ，这里只再强调一下区别，详细过程不再复述。</p>
+<ol>
+<li>下载 IvorySQL 2.3 的源码包</li>
+</ol>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">wget https://github.com/IvorySQL/IvorySQL/archive/refs/tags/Ivory_REL_$PG_VERSION.tar.gz</span><br></pre></td></tr></table></figure></div>
+<ol start="2">
+<li>IvorySQL 的默认监听端口为 5333，以区别于 PostgreSQL 的 5432。服务启动后，在日志文件中可看到监听端口，或直接查看 postgres 进程的端口也可以看到 5333。</li>
+</ol>
+<img  alt="ivory5333.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230727-d3ebcfd3-2804-4552-b05f-fb5845eb604b.png"
+                      referrerpolicy="no-referrer"
+                >
+<ol start="3">
+<li>
+<p>源码包 (<code>Ivory_REL_2_3.tar.gz</code>) 和解压后的文件夹 (<code>IvorySQL-Ivory_REL_2_3</code>) 名称不一致，在编译过程中需要注意一下，希望官方可以将命名统一。(<a class="link"   target="_blank" rel="noopener" href="https://github.com/IvorySQL/IvorySQL/issues/332" >IvorySQL#332 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>)</p>
+</li>
+<li>
+<p>IvorySQL 编译时，使用命令 <code>make</code> 会将所有 contrib 扩展进行编译，而在 PostgreSQL 中需要使用 <code>make world</code> 才可以。</p>
+</li>
+<li>
+<p>IvorySQL 编译时，会默认将扩展插件 orafce 也进行编译，并在 IvorySQL 启动时默认 enable （1.x 是没有问题的，2.x 暂不会自动加载）。(<a class="link"   target="_blank" rel="noopener" href="https://github.com/IvorySQL/IvorySQL/issues/183" >IvorySQL#183 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>)</p>
+</li>
+</ol>
+<h2 id="IvorySQL-特性">IvorySQL 特性</h2>
+<h3 id="IvorySQL-数据库">IvorySQL 数据库</h3>
+<p>IvorySQL 编译后，便可初始化数据库，并启动数据库。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">initdb --pgdata=$PGDATA</span><br><span class="line">pg_ctl -D $PGDATA -l logfile start</span><br></pre></td></tr></table></figure></div>
+<p>启动后，分别查看版本，用户，数据库，模式，扩展，兼容模式信息。</p>
+<img  alt="ivoryversion.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230727-4c1d579e-6898-4df1-8642-70fdcb7d9c8d.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>可以看到，IvorySQL 数据库已默认创建超级用户 <code>ivorysql</code>，并以 <code>template1</code> 为模板创建数据库 <code>ivorysql</code>。</p>
+<h3 id="IvorySQL-表-pg-catalog-pg-proc-新增字段-proaccess">IvorySQL: 表 <code>pg_catalog.pg_proc</code> 新增字段 <code>proaccess</code></h3>
+<p>对比 IvorySQL v2.3 和 PostgreSQL v15.2 可以发现，在 IvorySQL 中，表 <code>pg_catalog.pg_proc</code> 增加了一个字段 <code>proaccess</code>。</p>
+<ul>
+<li>IvorySQL</li>
+</ul>
+<img  alt="ivorydiffproc.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230727-6d3c0a5e-d1f9-41d8-997b-d089bca17d61.png"
+                      referrerpolicy="no-referrer"
+                >
+<ul>
+<li>PostgreSQL</li>
+</ul>
+<img  alt="ivorydiffprocpg.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230727-d66b0c69-3354-49ae-9926-7061775fa595.png"
+                      referrerpolicy="no-referrer"
+                >
+<h3 id="IvorySQL-新增表-pg-catalog-pg-variable">IvorySQL: 新增表 <code>pg_catalog.pg_variable</code></h3>
+<p>在 IvorySQL 中新增表 <code>pg_catalog.pg_variable</code>，这在 PostgreSQL 中是没有的。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">postgres<span class="operator">=</span># <span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> pg_catalog.pg_variable;</span><br><span class="line">ERROR:  relation &quot;pg_catalog.pg_variable&quot; does <span class="keyword">not</span> exist</span><br><span class="line">LINE <span class="number">1</span>: <span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> pg_catalog.pg_variable;</span><br></pre></td></tr></table></figure></div>
+<p>表结构如下：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">ivorysql<span class="operator">=</span># \d<span class="operator">+</span> pg_catalog.pg_variable</span><br><span class="line">                                            <span class="keyword">Table</span> &quot;pg_catalog.pg_variable&quot;</span><br><span class="line">     <span class="keyword">Column</span>     <span class="operator">|</span>     Type     <span class="operator">|</span> <span class="keyword">Collation</span> <span class="operator">|</span> Nullable <span class="operator">|</span> <span class="keyword">Default</span> <span class="operator">|</span> Storage  <span class="operator">|</span> Compression <span class="operator">|</span> Stats target <span class="operator">|</span> Description</span><br><span class="line"><span class="comment">----------------+--------------+-----------+----------+---------+----------+-------------+--------------+-------------</span></span><br><span class="line">oid            <span class="operator">|</span> oid          <span class="operator">|</span>           <span class="operator">|</span> <span class="keyword">not</span> <span class="keyword">null</span> <span class="operator">|</span>         <span class="operator">|</span> plain    <span class="operator">|</span>             <span class="operator">|</span>              <span class="operator">|</span></span><br><span class="line">varname        <span class="operator">|</span> name         <span class="operator">|</span>           <span class="operator">|</span> <span class="keyword">not</span> <span class="keyword">null</span> <span class="operator">|</span>         <span class="operator">|</span> plain    <span class="operator">|</span>             <span class="operator">|</span>              <span class="operator">|</span></span><br><span class="line">varnamespace   <span class="operator">|</span> oid          <span class="operator">|</span>           <span class="operator">|</span> <span class="keyword">not</span> <span class="keyword">null</span> <span class="operator">|</span>         <span class="operator">|</span> plain    <span class="operator">|</span>             <span class="operator">|</span>              <span class="operator">|</span></span><br><span class="line">vartype        <span class="operator">|</span> oid          <span class="operator">|</span>           <span class="operator">|</span> <span class="keyword">not</span> <span class="keyword">null</span> <span class="operator">|</span>         <span class="operator">|</span> plain    <span class="operator">|</span>             <span class="operator">|</span>              <span class="operator">|</span></span><br><span class="line">vartypmod      <span class="operator">|</span> <span class="type">integer</span>      <span class="operator">|</span>           <span class="operator">|</span> <span class="keyword">not</span> <span class="keyword">null</span> <span class="operator">|</span>         <span class="operator">|</span> plain    <span class="operator">|</span>             <span class="operator">|</span>              <span class="operator">|</span></span><br><span class="line">varowner       <span class="operator">|</span> oid          <span class="operator">|</span>           <span class="operator">|</span> <span class="keyword">not</span> <span class="keyword">null</span> <span class="operator">|</span>         <span class="operator">|</span> plain    <span class="operator">|</span>             <span class="operator">|</span>              <span class="operator">|</span></span><br><span class="line">varcollation   <span class="operator">|</span> oid          <span class="operator">|</span>           <span class="operator">|</span> <span class="keyword">not</span> <span class="keyword">null</span> <span class="operator">|</span>         <span class="operator">|</span> plain    <span class="operator">|</span>             <span class="operator">|</span>              <span class="operator">|</span></span><br><span class="line">varisnotnull   <span class="operator">|</span> <span class="type">boolean</span>      <span class="operator">|</span>           <span class="operator">|</span> <span class="keyword">not</span> <span class="keyword">null</span> <span class="operator">|</span>         <span class="operator">|</span> plain    <span class="operator">|</span>             <span class="operator">|</span>              <span class="operator">|</span></span><br><span class="line">varisimmutable <span class="operator">|</span> <span class="type">boolean</span>      <span class="operator">|</span>           <span class="operator">|</span> <span class="keyword">not</span> <span class="keyword">null</span> <span class="operator">|</span>         <span class="operator">|</span> plain    <span class="operator">|</span>             <span class="operator">|</span>              <span class="operator">|</span></span><br><span class="line">vareoxaction   <span class="operator">|</span> &quot;char&quot;       <span class="operator">|</span>           <span class="operator">|</span> <span class="keyword">not</span> <span class="keyword">null</span> <span class="operator">|</span>         <span class="operator">|</span> plain    <span class="operator">|</span>             <span class="operator">|</span>              <span class="operator">|</span></span><br><span class="line">vardefexpr     <span class="operator">|</span> pg_node_tree <span class="operator">|</span> C         <span class="operator">|</span>          <span class="operator">|</span>         <span class="operator">|</span> extended <span class="operator">|</span>             <span class="operator">|</span>              <span class="operator">|</span></span><br><span class="line">varacl         <span class="operator">|</span> aclitem[]    <span class="operator">|</span>           <span class="operator">|</span>          <span class="operator">|</span>         <span class="operator">|</span> extended <span class="operator">|</span>             <span class="operator">|</span>              <span class="operator">|</span></span><br><span class="line">varaccess      <span class="operator">|</span> &quot;char&quot;       <span class="operator">|</span>           <span class="operator">|</span>          <span class="operator">|</span>         <span class="operator">|</span> plain    <span class="operator">|</span>             <span class="operator">|</span>              <span class="operator">|</span></span><br><span class="line">Indexes:</span><br><span class="line">    &quot;pg_variable_oid_index&quot; <span class="keyword">PRIMARY</span> KEY, btree (oid)</span><br><span class="line">    &quot;pg_variable_varname_nsp_index&quot; <span class="keyword">UNIQUE</span> <span class="keyword">CONSTRAINT</span>, btree (varname, varnamespace)</span><br><span class="line">Access <span class="keyword">method</span>: heap</span><br></pre></td></tr></table></figure></div>
+<h3 id="IvorySQL-兼容模式-compatible-mode">IvorySQL: 兼容模式 <code>compatible_mode</code></h3>
+<p>IvorySQL 中增加了配置项 <code>compatible_mode</code> 用于选择兼容 PostgreSQL 模式还是 Oracle 模式，默认值为 <code>postgres</code>，配置方法：</p>
+<ol>
+<li>
+<p>在初始化时，<code>initdb</code> 后接选项 <code>-c, --compatible-mode = oracle</code>，如果不指定，则默认使用 <code>postgres</code>。</p>
+</li>
+<li>
+<p>可以在配置文件中进行修改：</p>
+</li>
+</ol>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[ivorysql@centos7 data]$ grep mode postgresql.conf</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">default configuration <span class="keyword">for</span> compatibility mode</span></span><br><span class="line"><span class="meta prompt_">#</span><span class="language-bash">compatible_mode = postgres             <span class="comment"># postgres, oracle</span></span></span><br></pre></td></tr></table></figure></div>
+<ol start="3">
+<li>也可以在会话中进行修改：</li>
+</ol>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">set</span> compatible_mode <span class="operator">=</span> <span class="string">&#x27;oracle&#x27;</span> ;</span><br><span class="line"><span class="keyword">SET</span></span><br><span class="line"></span><br><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">show</span> compatible_mode ;</span><br><span class="line">compatible_mode</span><br><span class="line"><span class="comment">-----------------</span></span><br><span class="line">oracle</span><br><span class="line">(<span class="number">1</span> <span class="type">row</span>)</span><br></pre></td></tr></table></figure></div>
+<h3 id="IvorySQL-orafce-扩展">IvorySQL: orafce 扩展</h3>
+<p>前文提到 IvorySQL 通过支持、增强 orafce 扩展从而对 Oracle 进行兼容，但是在 IvorySQL 2.3 中，这个插件并非开箱即用，而是需要手动安装：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">ivorysql<span class="operator">=</span># \dx</span><br><span class="line">                 List <span class="keyword">of</span> installed extensions</span><br><span class="line">  Name   <span class="operator">|</span> Version <span class="operator">|</span>   Schema   <span class="operator">|</span>         Description</span><br><span class="line"><span class="comment">---------+---------+------------+------------------------------</span></span><br><span class="line"> plisql  <span class="operator">|</span> <span class="number">1.0</span>     <span class="operator">|</span> pg_catalog <span class="operator">|</span> PL<span class="operator">/</span>iSQL procedural <span class="keyword">language</span></span><br><span class="line"> plpgsql <span class="operator">|</span> <span class="number">1.0</span>     <span class="operator">|</span> pg_catalog <span class="operator">|</span> PL<span class="operator">/</span>pgSQL procedural <span class="keyword">language</span></span><br><span class="line">(<span class="number">2</span> <span class="keyword">rows</span>)</span><br><span class="line"></span><br><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">CREATE</span> EXTENSION orafce;</span><br><span class="line"><span class="keyword">CREATE</span> EXTENSION</span><br><span class="line">ivorysql<span class="operator">=</span>#</span><br><span class="line">ivorysql<span class="operator">=</span># \dx</span><br><span class="line">                                                  List <span class="keyword">of</span> installed extensions</span><br><span class="line">  Name   <span class="operator">|</span> Version <span class="operator">|</span>   Schema   <span class="operator">|</span>                                          Description</span><br><span class="line"><span class="comment">---------+---------+------------+-----------------------------------------------------------------------------------------------</span></span><br><span class="line"> orafce  <span class="operator">|</span> <span class="number">3.18</span>    <span class="operator">|</span> public     <span class="operator">|</span> Functions <span class="keyword">and</span> operators that emulate a <span class="keyword">subset</span> <span class="keyword">of</span> functions <span class="keyword">and</span> packages <span class="keyword">from</span> the Oracle RDBMS</span><br><span class="line"> plisql  <span class="operator">|</span> <span class="number">1.0</span>     <span class="operator">|</span> pg_catalog <span class="operator">|</span> PL<span class="operator">/</span>iSQL procedural <span class="keyword">language</span></span><br><span class="line"> plpgsql <span class="operator">|</span> <span class="number">1.0</span>     <span class="operator">|</span> pg_catalog <span class="operator">|</span> PL<span class="operator">/</span>pgSQL procedural <span class="keyword">language</span></span><br><span class="line">(<span class="number">3</span> <span class="keyword">rows</span>)</span><br></pre></td></tr></table></figure></div>
+<p>至于不能“开箱即用”的原因，则是因为一个 Bug，具体可参考 issue：<a class="link"   target="_blank" rel="noopener" href="https://github.com/ivorySQL/ivorySQL/issues/183" >Initdb -c Oracle failed to load orafce automatically#183 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<h3 id="IvorySQL-Oracle-兼容性-–-包-PACKAGE">IvorySQL: Oracle 兼容性 – 包 (PACKAGE)</h3>
+<p>这个特性在文章 <a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/411935" >IvorySQL功能点介绍–软件包 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 中已经介绍地很详细了，这里需要强调的是，如果想要使用 PACKAGE，那么首先需要将兼容模式切换到 oracle，并且需要确认已经安装扩展 orafce。</p>
+<p>这里借用文中的案例做以演示：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- create table</span></span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> books (</span><br><span class="line">id <span class="type">INT</span>,</span><br><span class="line">title VARCHAR2(<span class="number">100</span>),</span><br><span class="line">author VARCHAR2(<span class="number">100</span>),</span><br><span class="line">price NUMBER);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- insert data</span></span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> books <span class="keyword">VALUES</span> (<span class="number">10</span>, <span class="string">&#x27;The Hobbit&#x27;</span>, <span class="string">&#x27;J. R. R. Tolkien&#x27;</span>, <span class="number">10.0</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> books <span class="keyword">VALUES</span> (<span class="number">11</span>, <span class="string">&#x27;Winnie-the-Pooh&#x27;</span>, <span class="string">&#x27;A. A. Milne&#x27;</span>, <span class="number">5.0</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> books <span class="keyword">VALUES</span> (<span class="number">12</span>, <span class="string">&#x27;Peter Pan&#x27;</span>, <span class="string">&#x27;James Matthew Barrie&#x27;</span>, <span class="number">4.0</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> books <span class="keyword">VALUES</span> (<span class="number">13</span>, <span class="string">&#x27;Charlie and the Chocolate Factory&#x27;</span>, <span class="string">&#x27;Roald Dahl&#x27;</span>, <span class="number">5.0</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> books <span class="keyword">VALUES</span> (<span class="number">14</span>, <span class="string">&#x27;SThe Jungle Book&#x27;</span>, <span class="string">&#x27;Rudyard Kipling&#x27;</span>, <span class="number">9.0</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> books <span class="keyword">VALUES</span> (<span class="number">15</span>, <span class="string">&#x27;The Little White Bird&#x27;</span>, <span class="string">&#x27;James Matthew Barrie&#x27;</span>, <span class="number">3.0</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- create package</span></span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">OR</span> REPLACE PACKAGE mybooks <span class="keyword">AS</span></span><br><span class="line"><span class="keyword">CURSOR</span> booksinfo <span class="keyword">IS</span> <span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">from</span> BOOKS;</span><br><span class="line"></span><br><span class="line"><span class="keyword">PROCEDURE</span> list_books;</span><br><span class="line"><span class="keyword">FUNCTION</span> add_book(title VARCHAR2(<span class="number">100</span>), author VARCHAR2(<span class="number">100</span>),</span><br><span class="line">price NUMBER) <span class="keyword">RETURN</span> bool;</span><br><span class="line"><span class="keyword">PROCEDURE</span> remove_book(book_title VARCHAR2(<span class="number">100</span>));</span><br><span class="line"><span class="keyword">END</span>;</span><br><span class="line"><span class="operator">/</span></span><br></pre></td></tr></table></figure></div>
+<img  alt="ivorydpkg.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230727-eb54f157-8d57-4523-843d-2470948351ab.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>BTW, 创建包时只能使用语法 <code>CREATE [OR REPLACE] PACKAGE</code>，目前尚不支持 <code>CREATE [IF NOT EXISTS] PACKAGE</code> 语法。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">drop</span> package if <span class="keyword">exists</span> mybooks;</span><br><span class="line">ERROR:  syntax error <span class="keyword">at</span> <span class="keyword">or</span> near &quot;exists&quot;</span><br><span class="line">LINE <span class="number">1</span>: <span class="keyword">drop</span> package if <span class="keyword">exists</span> mybooks;</span><br><span class="line">                        <span class="operator">^</span></span><br><span class="line">ivorysql<span class="operator">=</span>#</span><br></pre></td></tr></table></figure></div>
+<h3 id="IvorySQL-元命令-dPKG">IvorySQL: 元命令 <code>\dPKG</code></h3>
+<p>上图中已经演示 <code>\dPKG</code> 的用法，这个元命令是 IvorySQL 特有的，用来查看已经创建包的相关信息。</p>
+<p>这里还有个小插曲，因为这条命令在官方文档中并无体现，所以翻了下源码，然后就发现了代码注释中的 typo，顺手提了个 <a class="link"   target="_blank" rel="noopener" href="https://github.com/IvorySQL/IvorySQL/pull/331" >PR #331 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>，不知是否会顺利 merge。(2023-07-28, PR 已经 merge，IvorySQL 研发响应蛮快 👍‍)</p>
+<p>此外，关于 PACKAGE 的信息也可直接查询表 <code>pg_catalog.pg_package</code>。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> pg_catalog.pg_package;</span><br><span class="line">  oid  <span class="operator">|</span> pkgname <span class="operator">|</span> pkgnamespace <span class="operator">|</span> pkgowner <span class="operator">|</span> pkgsecdef <span class="operator">|</span>                              pkgspec                              <span class="operator">|</span> pkgbody <span class="operator">|</span> pkgaccessor <span class="operator">|</span> pkgacl</span><br><span class="line"><span class="comment">-------+---------+--------------+----------+-----------+-------------------------------------------------------------------+---------+-------------+--------</span></span><br><span class="line"> <span class="number">19041</span> <span class="operator">|</span> mybooks <span class="operator">|</span>         <span class="number">2200</span> <span class="operator">|</span>       <span class="number">10</span> <span class="operator">|</span> t         <span class="operator">|</span> <span class="keyword">CREATE</span> <span class="keyword">OR</span> REPLACE PACKAGE mybooks <span class="keyword">AS</span>                             <span class="operator">+</span><span class="operator">|</span>         <span class="operator">|</span>             <span class="operator">|</span></span><br><span class="line">       <span class="operator">|</span>         <span class="operator">|</span>              <span class="operator">|</span>          <span class="operator">|</span>           <span class="operator">|</span>     <span class="keyword">CURSOR</span>      booksinfo <span class="keyword">IS</span> <span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">from</span> BOOKS;                <span class="operator">+</span><span class="operator">|</span>         <span class="operator">|</span>             <span class="operator">|</span></span><br><span class="line">       <span class="operator">|</span>         <span class="operator">|</span>              <span class="operator">|</span>          <span class="operator">|</span>           <span class="operator">|</span>                                                                  <span class="operator">+</span><span class="operator">|</span>         <span class="operator">|</span>             <span class="operator">|</span></span><br><span class="line">       <span class="operator">|</span>         <span class="operator">|</span>              <span class="operator">|</span>          <span class="operator">|</span>           <span class="operator">|</span>     <span class="keyword">PROCEDURE</span> list_books;                                        <span class="operator">+</span><span class="operator">|</span>         <span class="operator">|</span>             <span class="operator">|</span></span><br><span class="line">       <span class="operator">|</span>         <span class="operator">|</span>              <span class="operator">|</span>          <span class="operator">|</span>           <span class="operator">|</span>     <span class="keyword">FUNCTION</span> add_book(title VARCHAR2(<span class="number">100</span>), author VARCHAR2(<span class="number">100</span>), <span class="operator">+</span><span class="operator">|</span>         <span class="operator">|</span>             <span class="operator">|</span></span><br><span class="line">       <span class="operator">|</span>         <span class="operator">|</span>              <span class="operator">|</span>          <span class="operator">|</span>           <span class="operator">|</span>          price NUMBER) <span class="keyword">RETURN</span> bool;                              <span class="operator">+</span><span class="operator">|</span>         <span class="operator">|</span>             <span class="operator">|</span></span><br><span class="line">       <span class="operator">|</span>         <span class="operator">|</span>              <span class="operator">|</span>          <span class="operator">|</span>           <span class="operator">|</span>     <span class="keyword">PROCEDURE</span> remove_book(book_title VARCHAR2(<span class="number">100</span>));             <span class="operator">+</span><span class="operator">|</span>         <span class="operator">|</span>             <span class="operator">|</span></span><br><span class="line">       <span class="operator">|</span>         <span class="operator">|</span>              <span class="operator">|</span>          <span class="operator">|</span>           <span class="operator">|</span> <span class="keyword">END</span>                                                               <span class="operator">|</span>         <span class="operator">|</span>             <span class="operator">|</span></span><br><span class="line">(<span class="number">1</span> <span class="type">row</span>)</span><br></pre></td></tr></table></figure></div>
+<h3 id="IvorySQL-全局唯一索引-Global-Unique-Index">IvorySQL: 全局唯一索引 (Global Unique Index)</h3>
+<p>IvorySQL 支持在分区表上创建跨分区的唯一性检查，索引创建成功后，在插入或者更改数据时，如果有重复值将报错。可用于对非分区键的其他列做唯一性检查。举例如下：</p>
+<ul>
+<li>PG</li>
+</ul>
+<p>可以正常创建分区表，但不支持 <code>global</code> 语法，也无法只对 <code>v</code> 列创建唯一索引，因为它不是分区键。</p>
+<img  alt="ivoryglobalindexpg1.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230727-0b475df8-f899-4fa4-9dce-32cfe8838d3a.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>只能在分区键 <code>d</code> 列创建分区索引 <code>idx_g_u</code>。所有测试数据均可写入，但可以看到 <code>v</code> 列存在重复值。</p>
+<img  alt="ivoryglobalindexpg2.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230727-68f0a2cf-f399-4f31-9508-20e30a4006f6.png"
+                      referrerpolicy="no-referrer"
+                >
+<ul>
+<li>IvorySQL</li>
+</ul>
+<p>可以正常创建分区表，以及全局唯一索引 <code>idx_g_u</code>。</p>
+<img  alt="ivoryglobalindexIvory1.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230727-c0aac6a5-4663-43b0-8541-1b9cd9353b18.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>接下来写入测试数据，第一部分正常写入，第二部分报错，提示重复的值违反唯一约束。查询表 <code>tpg</code> 中的数据，发现只有第一部分测试数据写入成功。</p>
+<img  alt="ivoryglobalindexIvory2.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230727-ee6488bf-360b-4ecc-9307-e4d388576b2c.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>注：</p>
+<p>在本例中，<code>relkind</code> 表示对象类型，<code>relkind</code> 的三个取值含义分别为：<code>i</code> 表示索引 (index)，<code>I</code> 表示分区索引 (partitioned index)，<code>g</code> 表示全局索引 (global index)。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">ivorysql<span class="operator">=</span># \dt<span class="operator">+</span> pg_class</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> QUERY <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line"><span class="keyword">SELECT</span> n.nspname <span class="keyword">as</span> &quot;Schema&quot;,</span><br><span class="line">  c.relname <span class="keyword">as</span> &quot;Name&quot;,</span><br><span class="line">  <span class="keyword">CASE</span> c.relkind <span class="keyword">WHEN</span> <span class="string">&#x27;r&#x27;</span> <span class="keyword">THEN</span> <span class="string">&#x27;table&#x27;</span> <span class="keyword">WHEN</span> <span class="string">&#x27;v&#x27;</span> <span class="keyword">THEN</span> <span class="string">&#x27;view&#x27;</span> <span class="keyword">WHEN</span> <span class="string">&#x27;m&#x27;</span> <span class="keyword">THEN</span> <span class="string">&#x27;materialized view&#x27;</span> <span class="keyword">WHEN</span> <span class="string">&#x27;i&#x27;</span> <span class="keyword">THEN</span> <span class="string">&#x27;index&#x27;</span> <span class="keyword">WHEN</span> <span class="string">&#x27;g&#x27;</span> <span class="keyword">THEN</span> <span class="string">&#x27;global index&#x27;</span> <span class="keyword">WHEN</span> <span class="string">&#x27;S&#x27;</span> <span class="keyword">THEN</span> <span class="string">&#x27;sequence&#x27;</span> <span class="keyword">WHEN</span> <span class="string">&#x27;t&#x27;</span> <span class="keyword">THEN</span> <span class="string">&#x27;TOAST table&#x27;</span> <span class="keyword">WHEN</span> <span class="string">&#x27;f&#x27;</span> <span class="keyword">THEN</span> <span class="string">&#x27;foreign table&#x27;</span> <span class="keyword">WHEN</span> <span class="string">&#x27;p&#x27;</span> <span class="keyword">THEN</span> <span class="string">&#x27;partitioned table&#x27;</span> <span class="keyword">WHEN</span> <span class="string">&#x27;I&#x27;</span> <span class="keyword">THEN</span> <span class="string">&#x27;partitioned index&#x27;</span> <span class="keyword">END</span> <span class="keyword">as</span> &quot;Type&quot;,</span><br><span class="line">  pg_catalog.pg_get_userbyid(c.relowner) <span class="keyword">as</span> &quot;Owner&quot;,</span><br><span class="line">  <span class="keyword">CASE</span> c.relpersistence <span class="keyword">WHEN</span> <span class="string">&#x27;p&#x27;</span> <span class="keyword">THEN</span> <span class="string">&#x27;permanent&#x27;</span> <span class="keyword">WHEN</span> <span class="string">&#x27;t&#x27;</span> <span class="keyword">THEN</span> <span class="string">&#x27;temporary&#x27;</span> <span class="keyword">WHEN</span> <span class="string">&#x27;u&#x27;</span> <span class="keyword">THEN</span> <span class="string">&#x27;unlogged&#x27;</span> <span class="keyword">END</span> <span class="keyword">as</span> &quot;Persistence&quot;,</span><br><span class="line">  am.amname <span class="keyword">as</span> &quot;Access method&quot;,</span><br><span class="line">  pg_catalog.pg_size_pretty(pg_catalog.pg_table_size(c.oid)) <span class="keyword">as</span> &quot;Size&quot;,</span><br><span class="line">  pg_catalog.obj_description(c.oid, <span class="string">&#x27;pg_class&#x27;</span>) <span class="keyword">as</span> &quot;Description&quot;</span><br><span class="line"><span class="keyword">FROM</span> pg_catalog.pg_class c</span><br><span class="line">     <span class="keyword">LEFT</span> <span class="keyword">JOIN</span> pg_catalog.pg_namespace n <span class="keyword">ON</span> n.oid <span class="operator">=</span> c.relnamespace</span><br><span class="line">     <span class="keyword">LEFT</span> <span class="keyword">JOIN</span> pg_catalog.pg_am am <span class="keyword">ON</span> am.oid <span class="operator">=</span> c.relam</span><br><span class="line"><span class="keyword">WHERE</span> c.relkind <span class="keyword">IN</span> (<span class="string">&#x27;r&#x27;</span>,<span class="string">&#x27;p&#x27;</span>,<span class="string">&#x27;t&#x27;</span>,<span class="string">&#x27;s&#x27;</span>,<span class="string">&#x27;&#x27;</span>)</span><br><span class="line">  <span class="keyword">AND</span> c.relname OPERATOR(pg_catalog.<span class="operator">~</span>) <span class="string">&#x27;^(pg_class)$&#x27;</span> <span class="keyword">COLLATE</span> pg_catalog.default</span><br><span class="line">  <span class="keyword">AND</span> pg_catalog.pg_table_is_visible(c.oid)</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> <span class="number">1</span>,<span class="number">2</span>;</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line"></span><br><span class="line">                                       List <span class="keyword">of</span> relations</span><br><span class="line">   Schema   <span class="operator">|</span>   Name   <span class="operator">|</span> Type  <span class="operator">|</span>  Owner   <span class="operator">|</span> Persistence <span class="operator">|</span> Access <span class="keyword">method</span> <span class="operator">|</span>  Size  <span class="operator">|</span> Description</span><br><span class="line"><span class="comment">------------+----------+-------+----------+-------------+---------------+--------+-------------</span></span><br><span class="line"> pg_catalog <span class="operator">|</span> pg_class <span class="operator">|</span> <span class="keyword">table</span> <span class="operator">|</span> ivorysql <span class="operator">|</span> permanent   <span class="operator">|</span> heap          <span class="operator">|</span> <span class="number">144</span> kB <span class="operator">|</span></span><br><span class="line">(<span class="number">1</span> <span class="type">row</span>)</span><br></pre></td></tr></table></figure></div>
+<h2 id="期待改进">期待改进</h2>
+<ol>
+<li>Github 上的 Release Notes 展示格式不够友好，建议调整一下，会显得更加专业。</li>
+<li>最好能够搭建 IvorySQL 自己的 yum 仓库， highgo 上的信息不完全准确。</li>
+<li>IvorySQL 的文档中心亟需迭代更新，建议多增加“特色”功能介绍与演示，期待新版文档站点上线。</li>
+</ol>
+<h2 id="The-End">The End.</h2>
+<p>作为国产开源关系型数据库产品，在竞争如此激烈的竞“技”场，IvorySQL 要奋力加油啊！<br>
+期待 IvorySQL 3.0 的发布，并期望带来更多“惊喜”的新特性。</p>
+<h2 id="REF">REF</h2>
+<ul>
+<li><a class="link"   target="_blank" rel="noopener" href="https://www.ivorysql.org/zh-cn/" >IvorySQL 官方主页 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/u/471017" >IvorySQL 的个人主页 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+</ul>
+<hr>
+<p><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/1684535632080216064" >https://www.modb.pro/db/1684535632080216064 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+
+        </div>
+
+        
+            <div class="post-copyright-info">
+                <div class="article-copyright-info-container">
+    <ul>
+    <!-- 2023-10-03, edit by shawnyan. -->
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Title:</strong> 象牙数据库 IvorySQL v2.3 特性浅析</li>
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Author:</strong>
+            
+                严少安
+            
+        </li>
+        <li><strong>Created at:</strong> 2023-07-27 20:17:26</li>
+        
+            <li><strong>Updated at:</strong> 2023-07-27 20:17:26</li>
+        
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Link:</strong> https://shawnyan.cn/2023/postgresql/ivorysql-v2.3-feature/</li>
+        <li style="word-wrap: break-word; white-space: normal;">
+            <strong>
+                License:
+            </strong>
+            
+            This work is licensed under <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>.
+            
+
+        </li>
+    </ul>
+</div>
+
+            </div>
+        
+
+        
+            <ul class="post-tags-box">
+                
+                    <li class="tag-item">
+                        <a href="/tags/postgresql/">#postgresql</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/postgresql-15/">#postgresql 15</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/ivorysql/">#ivorysql</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/highgo/">#highgo</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/orafce/">#orafce</a>&nbsp;
+                    </li>
+                
+            </ul>
+        
+
+        
+  <div class="recommended-article">
+   <div class="recommended-desktop">
+    <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+    </div>
+    <div class="recommended-article-group"><a class="recommended-article-item" href="/2024/postgresql/ivorysql-3.1-sys-vars-1/" title="IvorySQL 3.1 和 2.3 系统参数变化（上篇）" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240207-d856ff9f-5e9e-474b-b5c0-0ff3718eb5c8.png" alt="IvorySQL 3.1 和 2.3 系统参数变化（上篇）" class="!max-w-none">
+  <span class="title">IvorySQL 3.1 和 2.3 系统参数变化（上篇）</span>
+</a><a class="recommended-article-item" href="/2023/postgresql/ivorysql-v3.0-feature/" title="IvorySQL v3.0 新特性浅测" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20220419-f0ca4139-24ab-4ec2-b9c4-02b613d5b6ea.jpg" alt="IvorySQL v3.0 新特性浅测" class="!max-w-none">
+  <span class="title">IvorySQL v3.0 新特性浅测</span>
+</a><a class="recommended-article-item" href="/2024/postgresql/ivorysql-3.1-released/" title="🎉好消息！IvorySQL 库回归啦~" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240207-d856ff9f-5e9e-474b-b5c0-0ff3718eb5c8.png" alt="🎉好消息！IvorySQL 库回归啦~" class="!max-w-none">
+  <span class="title">🎉好消息！IvorySQL 库回归啦~</span>
+</a></div>
+   </div>
+   <div class="recommended-mobile">
+   <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+   </div>
+   <div class="recommended-article-group"><a class="recommended-article-item" href="/2024/postgresql/ivorysql-3.1-sys-vars-1/" title="IvorySQL 3.1 和 2.3 系统参数变化（上篇）" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240207-d856ff9f-5e9e-474b-b5c0-0ff3718eb5c8.png" alt="IvorySQL 3.1 和 2.3 系统参数变化（上篇）" class="!max-w-none">
+  <span class="title">IvorySQL 3.1 和 2.3 系统参数变化（上篇）</span>
+</a><a class="recommended-article-item" href="/2023/postgresql/ivorysql-v3.0-feature/" title="IvorySQL v3.0 新特性浅测" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20220419-f0ca4139-24ab-4ec2-b9c4-02b613d5b6ea.jpg" alt="IvorySQL v3.0 新特性浅测" class="!max-w-none">
+  <span class="title">IvorySQL v3.0 新特性浅测</span>
+</a></div>
+   </div>
+  </div>
+
+        
+            <div class="article-nav">
+                
+                    <div class="article-prev">
+                        <a class="prev"
+                        rel="prev"
+                        href="/2023/tidb/tidb-7.x-compile-pd/"
+                        >
+                            <span class="left arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </span>
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">TiDB 7.x 源码编译之 PD/TiDB Dashboard 篇</span>
+                                <span class="post-nav-item">Prev posts</span>
+                            </span>
+                        </a>
+                    </div>
+                
+                
+                    <div class="article-next">
+                        <a class="next"
+                        rel="next"
+                        href="/2023/mysql/mysql-8.0.26-bug-crash/"
+                        >
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">再遇 MySQL “一招必杀” Bug</span>
+                                <span class="post-nav-item">Next posts</span>
+                            </span>
+                            <span class="right arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </a>
+                    </div>
+                
+            </div>
+        
+
+
+        
+            <div class="comment-container">
+                <div class="comments-container pjax">
+    <div id="comment-anchor"></div>
+    <div class="comment-area-title">
+        <i class="fa-solid fa-comments"></i>&nbsp;Comments
+    </div>
+    
+
+        
+            
+    <div id="gitalk-container"></div>
+    <script data-swup-reload-script
+            src="//cdn.staticfile.org/gitalk/1.8.0/gitalk.min.js"></script>
+    <script data-swup-reload-script>
+
+        function loadGitalk() {
+            let __gitalk__pathname = decodeURI(location.pathname);
+            const __gitalk__pathnameLength = __gitalk__pathname.length;
+            const __gitalk__pathnameMaxLength = 50;
+            if (__gitalk__pathnameLength > __gitalk__pathnameMaxLength) {
+                __gitalk__pathname = __gitalk__pathname.substring(0, __gitalk__pathnameMaxLength - 3) + '...';
+            }
+
+            try {
+                Gitalk && new Gitalk({
+                    clientID: '32d049bf3701e6791070',
+                    clientSecret: '36c295ad3dad4c739b530ef113d0a979d8c35c5d',
+                    repo: 'gitalk',
+                    owner: 'shawn0915',
+                    admin: ['shawn0915'],
+                    id: __gitalk__pathname,
+                    language: 'en'
+                }).render('gitalk-container');
+
+            } catch (e) {
+                window.Gitalk = null;
+            }
+        }
+
+        if ('true') {
+            const loadGitalkTimeout = setTimeout(() => {
+                loadGitalk();
+                clearTimeout(loadGitalkTimeout);
+            }, 1000);
+        } else {
+            window.addEventListener('DOMContentLoaded', loadGitalk);
+        }
+    </script>
+
+
+
+        
+    
+</div>
+
+            </div>
+        
+    </div>
+
+    
+        <div class="toc-content-container">
+            <div class="post-toc-wrap">
+    <div class="post-toc">
+        <div class="toc-title">On this page</div>
+<!--         <div class="page-title">象牙数据库 IvorySQL v2.3 特性浅析</div> -->
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%BC%95%E8%A8%80"><span class="nav-text">引言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%B1%A1%E7%89%99%E6%95%B0%E6%8D%AE%E5%BA%93-IvorySQL"><span class="nav-text">象牙数据库 IvorySQL</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#IvorySQL-%E6%BA%90%E7%A0%81%E7%BC%96%E8%AF%91"><span class="nav-text">IvorySQL 源码编译</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#IvorySQL-%E7%89%B9%E6%80%A7"><span class="nav-text">IvorySQL 特性</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#IvorySQL-%E6%95%B0%E6%8D%AE%E5%BA%93"><span class="nav-text">IvorySQL 数据库</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#IvorySQL-%E8%A1%A8-pg-catalog-pg-proc-%E6%96%B0%E5%A2%9E%E5%AD%97%E6%AE%B5-proaccess"><span class="nav-text">IvorySQL: 表 pg_catalog.pg_proc 新增字段 proaccess</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#IvorySQL-%E6%96%B0%E5%A2%9E%E8%A1%A8-pg-catalog-pg-variable"><span class="nav-text">IvorySQL: 新增表 pg_catalog.pg_variable</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#IvorySQL-%E5%85%BC%E5%AE%B9%E6%A8%A1%E5%BC%8F-compatible-mode"><span class="nav-text">IvorySQL: 兼容模式 compatible_mode</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#IvorySQL-orafce-%E6%89%A9%E5%B1%95"><span class="nav-text">IvorySQL: orafce 扩展</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#IvorySQL-Oracle-%E5%85%BC%E5%AE%B9%E6%80%A7-%E2%80%93-%E5%8C%85-PACKAGE"><span class="nav-text">IvorySQL: Oracle 兼容性 – 包 (PACKAGE)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#IvorySQL-%E5%85%83%E5%91%BD%E4%BB%A4-dPKG"><span class="nav-text">IvorySQL: 元命令 \dPKG</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#IvorySQL-%E5%85%A8%E5%B1%80%E5%94%AF%E4%B8%80%E7%B4%A2%E5%BC%95-Global-Unique-Index"><span class="nav-text">IvorySQL: 全局唯一索引 (Global Unique Index)</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%9C%9F%E5%BE%85%E6%94%B9%E8%BF%9B"><span class="nav-text">期待改进</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#The-End"><span class="nav-text">The End.</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#REF"><span class="nav-text">REF</span></a></li></ol>
+
+    </div>
+</div>
+
+        </div>
+    
+</div>
+
+
+
+                
+
+            </div>
+
+            
+
+        </div>
+
+        <div class="main-content-footer">
+            <footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2017</span>
+              -
+            
+            2024&nbsp;&nbsp;<i class="fa-solid fa-heart fa-beat" style="--fa-animation-duration: 0.5s; color: #f54545"></i>&nbsp;&nbsp;<a href="/">Shawn Yan</a>
+        </div>
+        
+            <script data-swup-reload-script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">VISITOR COUNT</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">TOTAL PAGE VIEWS</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">POWERED BY <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a></span>
+            <span class="text-sm lg:block">THEME&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.4.4</a></span>
+        </div>
+        
+        
+            <div>
+                Blog up for <span class="odometer" id="runtime_days" ></span> days <span class="odometer" id="runtime_hours"></span> hrs <span class="odometer" id="runtime_minutes"></span> Min <span class="odometer" id="runtime_seconds"></span> Sec
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+
+    </div>
+</footer>
+
+        </div>
+    </div>
+
+    
+        <div class="post-tools">
+            <div class="post-tools-container">
+    <ul class="article-tools-list">
+        <!-- TOC aside toggle -->
+        
+            <li class="right-bottom-tools page-aside-toggle">
+                <i class="fa-regular fa-outdent"></i>
+            </li>
+        
+
+        <!-- go comment -->
+        
+            <li class="go-comment">
+                <i class="fa-regular fa-comments"></i>
+            </li>
+        
+    </ul>
+</div>
+
+        </div>
+    
+
+    <div class="right-side-tools-container">
+        <div class="side-tools-container">
+    <ul class="hidden-tools-list">
+        <li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-plus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-minus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-expand-width flex justify-center items-center">
+            <i class="fa-regular fa-expand"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+            <i class="fa-regular fa-moon"></i>
+        </li>
+
+        <!-- rss -->
+        
+            <li class="right-bottom-tools rss flex justify-center items-center">
+                <a class="flex justify-center items-center"
+                   href="/atom.xml"
+                   target="_blank"
+                >
+                <i class="fa-regular fa-rss"></i>
+                </a>
+            </li>
+        
+
+        
+
+        <li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+            <i class="fa-regular fa-arrow-down"></i>
+        </li>
+    </ul>
+
+    <ul class="visible-tools-list">
+        <li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+            <i class="fa-regular fa-cog fa-spin"></i>
+        </li>
+        
+            <li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+                <i class="arrow-up fas fa-arrow-up"></i>
+                <span class="percent"></span>
+            </li>
+        
+        
+    </ul>
+</div>
+
+    </div>
+
+    <div class="image-viewer-container">
+    <img src="">
+</div>
+
+
+    
+        <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+          <span class="search-input-field-pre">
+            <i class="fa-solid fa-keyboard"></i>
+          </span>
+            <div class="search-input-container">
+                <input autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       placeholder="Search..."
+                       spellcheck="false"
+                       type="search"
+                       class="search-input"
+                >
+            </div>
+            <span class="popup-btn-close">
+                <i class="fa-solid fa-times"></i>
+            </span>
+        </div>
+        <div id="search-result">
+            <div id="no-result">
+                <i class="fa-solid fa-spinner fa-spin-pulse fa-5x fa-fw"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+
+</main>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Swup.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupSlideTheme.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScriptsPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupProgressPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScrollPlugin.min.js"></script>
+<script>
+    const swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+        ],
+        containers: ["#swup"],
+    });
+
+    swup.hooks.on("page:view", () => {
+        Global.refresh();
+    });
+
+    // if (document.readyState === "complete") {
+    //
+    // } else {
+    //     document.addEventListener("DOMContentLoaded", () => init());
+    // }
+</script>
+
+
+
+
+
+<script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/utils.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/main.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/navbarShrink.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/scrollTopBottom.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/lightDarkSwitch.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/categoryList.js"></script>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/localSearch.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/codeBlock.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/lazyload.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/runtime.js"></script>
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/odometer.min.js"></script>
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/assets/odometer-theme-minimal.css">
+
+
+
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Typed.min.js"></script>
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/typed.js"></script>
+
+
+
+
+
+
+<div class="post-scripts" data-swup-reload-script>
+    
+        <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/anime.min.js"></script>
+        <script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/tocToggle.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/toc.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/tabs.js"></script>
+    
+</div>
+
+
+</body>
+</html>

@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="shawnyan,dba,oracle,mysql,tidb,mariadb,postgresql,gbase,proxysql">
+    
+    <meta name="author" content="Shawn Yan">
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+        
+        
+        
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://shawnyan.cn/2023/tidb/tidb-7.x-compile-tidb/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+        <meta name="description" content="目录     TL;DR     前情提要     一、TiDB Server 编译         1.1 编译环境         1.2 编译步骤         1.3 启动 TiDB Server     二、TiDB Server v7.x 新特性         🔑 2.1 资源管控能力增强         🥳 2.2 TiDB 相关 SQL 再扩展">
+<meta property="og:type" content="article">
+<meta property="og:title" content="TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）">
+<meta property="og:url" content="https://shawnyan.cn/2023/tidb/tidb-7.x-compile-tidb/index.html">
+<meta property="og:site_name" content="少安事务所">
+<meta property="og:description" content="目录     TL;DR     前情提要     一、TiDB Server 编译         1.1 编译环境         1.2 编译步骤         1.3 启动 TiDB Server     二、TiDB Server v7.x 新特性         🔑 2.1 资源管控能力增强         🥳 2.2 TiDB 相关 SQL 再扩展">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png">
+<meta property="og:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/new-1697647481934.png">
+<meta property="og:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/t01-301-tidb-config-1697647536009.png">
+<meta property="og:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/t02-collate-1697647545188.png">
+<meta property="og:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/TiDBReleaseTimeline-Map1(1)-1698209426314.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg">
+<meta property="article:published_time" content="2023-10-17T04:00:00.000Z">
+<meta property="article:modified_time" content="2023-11-14T17:00:00.000Z">
+<meta property="article:author" content="Shawn Yan">
+<meta property="article:tag" content="mysql">
+<meta property="article:tag" content="tidb">
+<meta property="article:tag" content="compile">
+<meta property="article:tag" content="pingcap">
+<meta property="article:tag" content="tidb 7.x">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png">
+    
+    
+        <!-- Google tag (gtag.js) -->
+        <script src="https://www.googletagmanager.com/gtag/js?id=G-ZH71L5F7X2"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-ZH71L5F7X2');
+        </script>
+    
+    <!-- baidu tongji -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?2fa794d82f74c0bb3617ba62ee962b46";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/img/favicon.ico" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon.ico">
+    <meta name="theme-color" content="#767FF6">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <!--- Page Info-->
+    
+    <title>
+        
+            TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋） -
+        
+        少安事务所
+    </title>
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+<!--- use 2.5.0
+    
+        
+<link rel="stylesheet" href="/assets/build/styles.css">
+
+    
+-->
+    <link rel="stylesheet" href="//cdn.staticfile.org/hexo-theme-redefine/2.5.0/assets/build/styles.min.css">
+
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/fonts.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Satoshi/satoshi.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Chillax/chillax.css">
+    <!--- Font Part-->
+    
+    
+    
+    
+
+    <!--- Inject Part-->
+    
+    <script id="hexo-configurations">
+    let Global = window.Global || {};
+    Global.hexo_config = {"hostname":"shawnyan.cn","root":"/","language":"en","path":"search.xml"};
+    Global.theme_config = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":true,"list":[]},"code_block":{"copy":true,"style":"mac","font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":4,"number":false,"expand":true,"init_open":true},"copyright":true,"lazyload":true,"recommendation":{"enable":true,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#767FF6","secondary":null},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"open_graph":true,"google_analytics":{"enable":true,"id":"G-ZH71L5F7X2"},"root_color_mode":"dark"},"home_banner":{"enable":true,"style":"fixed","image":{"light":"https://asktug.com/uploads/default/original/4X/4/b/d/4bd94f804719672dd7e3cb29150ea6f777eb0aec.jpeg","dark":"/img/wallpaper/dark.webp"},"title":"Shawn Yan's Tech Blog.","subtitle":{"text":["A blog about MySQL, Oracle, TiDB, PostgreSQL and other databases."],"hitokoto":{"enable":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":500,"backing_delay":1500,"loop":true,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"links":{"github":"https://github.com/shawn0915","instagram":null,"zhihu":null,"twitter":null,"email":"admin@shawnyan.cn"},"qrs":{"weixin":null}}},"plugins":{"feed":{"enable":true},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":"回忆的沙漏 (10周年版)","artist":"回忆的沙漏 (10周年版)","url":"https://music.163.com/song/media/outer/url?id=1329122067.mp3","cover":"https://p1.music.126.net/oJorrgJ3IotZUAbZkBMuFw==/109951167771736533.jpg?param=68y68"}]},"mermaid":{"enable":false,"version":"9.3.0"}},"version":"2.4.4","navbar":{"auto_hide":false,"color":{"left":"#f78736","right":"#367df7","transparency":35},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Blog":{"path":"/archives","icon":"fa-regular fa-archive"},"Categories":{"path":"/categories","icon":"fa-regular fa-stream"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Links":{"icon":"fa-regular fa-link","submenus":{"My-params":"/my-params","Friends":"/links","Q":"/q"}}},"search":{"enable":true,"preload":true}},"page_templates":{"friends_column":3,"tags_style":"cloud"},"home":{"sidebar":{"enable":true,"position":"left","first_item":"info","announcement":null,"links":null},"article_date_format":"YYYY-MM-DD","categories":{"enable":true,"limit":10},"tags":{"enable":true,"limit":10}},"footerStart":"2017/11/27 00:00:00"};
+    Global.language_ago = {"second":"%s seconds ago","minute":"%s minutes ago","hour":"%s hours ago","day":"%s days ago","week":"%s weeks ago","month":"%s months ago","year":"%s years ago"};
+    Global.data_config = {"masonry":false};
+  </script>
+
+    <!--- Fontawesome Part-->
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/fontawesome.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/brands.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/solid.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/regular.min.css">
+    
+    
+    
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+
+
+<body>
+<div class="progress-bar-container">
+    
+
+    
+        <span class="pjax-progress-bar"></span>
+        <span class="swup-progress-icon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+    
+</div>
+
+
+<main class="page-container" id="swup">
+
+    
+
+    <div class="main-content-container">
+
+
+        <div class="main-content-header">
+            <header class="navbar-container">
+    
+    <div class="navbar-content">
+        <div class="left">
+            
+                <a class="logo-image" href="https://shawnyan.cn/">
+                    <img src="/img/favicon.ico">
+                </a>
+            
+            <a class="logo-title" href="https://shawnyan.cn/">
+                
+                少安事务所
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-house"></i>
+                                        
+                                        HOME
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/archives"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-archive"></i>
+                                        
+                                        BLOG
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/categories"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-stream"></i>
+                                        
+                                        CATEGORIES
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/tags"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-tags"></i>
+                                        
+                                        TAGS
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/about"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-user"></i>
+                                        
+                                        ABOUT
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="has-dropdown" 
+                                    href="#" onClick="return false;">
+                                    
+                                        
+                                            <i class="fa-regular fa-link"></i>
+                                        
+                                        LINKS&nbsp;<i class="fa-solid fa-chevron-down"></i>
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                                    <ul class="sub-menu">
+                                    
+                                        <li>
+                                        <a href="/my-params">MY-PARAMS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/links">FRIENDS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/q">Q
+                                        </a>
+                                        </li>
+                                    
+                                    </ul>
+                                
+                            </li>
+                    
+                    
+                        <li class="navbar-item search search-popup-trigger">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </li>
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                    <div class="icon-item search search-popup-trigger"><i class="fa-solid fa-magnifying-glass"></i></div>
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="navbar-drawer w-full absolute top-0 left-0 bg-background-color">
+        <ul class="drawer-navbar-list flex flex-col justify-start items-center">
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/"  >
+                             
+                                
+                                    <i class="fa-regular fa-house"></i>
+                                
+                                HOME
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/archives"  >
+                             
+                                
+                                    <i class="fa-regular fa-archive"></i>
+                                
+                                BLOG
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/categories"  >
+                             
+                                
+                                    <i class="fa-regular fa-stream"></i>
+                                
+                                CATEGORIES
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/tags"  >
+                             
+                                
+                                    <i class="fa-regular fa-tags"></i>
+                                
+                                TAGS
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/about"  >
+                             
+                                
+                                    <i class="fa-regular fa-user"></i>
+                                
+                                ABOUT
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group has-dropdown" 
+                        href="#" onClick="return false;">
+                            
+                                
+                                    <i class="fa-regular fa-link"></i>
+                                
+                                LINKS&nbsp;<i class="group-hover:rotate-180 transition-transform fa-solid fa-chevron-down"></i>
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                              
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/my-params">MY-PARAMS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/links">FRIENDS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/q">Q</a>
+                            </li>
+                        
+                    
+            
+
+        </ul>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+        </div>
+
+        <div class="main-content-body">
+
+            
+
+            <div class="main-content">
+
+                
+                    <div class="post-page-container">
+    <div class="article-content-container">
+
+        <div class="article-title">
+            
+                
+                
+                <!-- 2023-10-03, edit by shawnyan. -->
+                <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png" alt="TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）" class="max-w-none" referrerpolicy="no-referrer"/>
+                
+                <h1 class="article-title-cover">TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）</h1>
+            
+            </div>
+
+
+
+        
+            <div class="article-header">
+                <div class="avatar">
+                    
+                        <img src="/img/avatar.jpg">
+                    
+                </div>
+                <div class="info">
+                    <div class="author">
+                        
+                            <span class="name">ShawnYan</span>
+                        
+                        
+                            
+                                <span class="author-label">Lv.6</span>
+                            
+                        
+                    </div>
+                    <div class="meta-info">
+                        <div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2023-10-17 12:00</span>
+        <span class="mobile">2023-10-17 12:00</span>
+        <span class="hover-info">Created</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2023-11-15 01:00</span>
+            <span class="mobile">2023-11-15 01:00</span>
+            <span class="hover-info">Updated</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/tidb/">TiDB</a>&nbsp;
+                        </li>
+                    
+                    
+                
+                    
+                        
+                            <li>></li>
+                        
+                        <li>
+                            <a href="/categories/tidb/tidb-7-x/">TiDB 7.x</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/mysql/">mysql</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/tidb/">tidb</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/compile/">compile</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/pingcap/">pingcap</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/tidb-7-x/">tidb 7.x</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+        <span class="article-wordcount article-meta-item">
+            <i class="fa-regular fa-typewriter"></i>&nbsp;<span>5.5k Words</span>
+        </span>
+    
+    
+        <span class="article-min2read article-meta-item">
+            <i class="fa-regular fa-clock"></i>&nbsp;<span>25 Mins</span>
+        </span>
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+                    </div>
+                </div>
+            </div>
+        
+
+        
+
+
+        <div class="article-content markdown-body">
+            <img  alt="tidb-7.x-new-feature-banner.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png"
+                      referrerpolicy="no-referrer"
+                >
+<!-- modb
+@[toc](目录)
+-->
+<h2 id="目录">目录</h2>
+<pre><code>    TL;DR
+    前情提要
+    一、TiDB Server 编译
+        1.1 编译环境
+        1.2 编译步骤
+        1.3 启动 TiDB Server
+    二、TiDB Server v7.x 新特性
+        🔑 2.1 资源管控能力增强
+        🥳 2.2 TiDB 相关 SQL 再扩展
+            1️⃣ TiDB 7.1.0，新增支持 Fix Control 特性
+            2️⃣ TiDB 7.2.0，支持对 DDL 任务进行暂停和恢复
+            3️⃣ TiDB 7.3.0，新增支持 8 项 Optimizer Hint
+            4️⃣ TiDB 7.4.0，新增支持 `TIDB_PARSE_TSO_LOGICAL()` 语法
+            5️⃣ TiDB 7.4.0，新增支持分区类型管理功能
+        Ⓜ️ 2.3 MySQL 8.0 兼容性
+            1️⃣ TiDB 7.2.0，新增支持 `CHECK` 约束
+            2️⃣ TiDB 7.2.0，支持指定 `utf8mb3` 字符集；TiDB 7.4.0，支持指定 `utf8mb4_0900_ai_ci`/`utf8mb4_0900_bin` 排序规则
+            3️⃣ TiDB 7.4.0，`version()` 返回信息变更
+            4️⃣ TiDB 7.4.0，新增支持使用 Hint `SER_VAR()` 修改系统变量
+            5️⃣ TiDB 7.4.0, 新增会话连接属性表 `session_account_connect_attrs`
+            6️⃣ TiDB 7.4.0, 新增支持数据类型 `FLOAT4`, `FLOAT8` 和 `MIDDLEINT`
+    三、总结
+    感谢
+    彩蛋
+</code></pre>
+<hr>
+<h2 id="TL-DR">TL;DR</h2>
+<p>本文将延续本系列文章，介绍如何编译 TiDB Server 源码。以及，阐释 TiDB Server 7.x 的部分新特性。</p>
+<p><img  alt="new.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/new-1697647481934.png"
+                      width="50" height="20" align="left" referrerpolicy="no-referrer"
+                > News !!!</p>
+<p>TiDB v7.5.0 LTS 计划于 2023-11-23 正式 Release<sup class="footnote-ref"><a href="#fn1" id="fnref1">[1]</a></sup>，目前代码虽未冻结，但已经可以看到 Alpha 版本的 Code 了，本文代码将以 <code>v7.5.0-alpha</code> 为基准。</p>
+<h2 id="前情提要">前情提要</h2>
+<p>本文是该系列文章的第 5 篇，前四篇文章分别是：</p>
+<ul>
+<li><a href="https://shawnyan.cn/2023/tidb/tidb-7.x-compile-pd/">TiDB 7.x 源码编译之 PD/TiDB Dashboard 篇</a></li>
+<li><a href="https://shawnyan.cn/2023/tidb/tidb-7.x-compile-tiup/">TiDB 7.x 源码编译之 TiUP 篇，及新特性解析</a></li>
+<li><a href="https://shawnyan.cn/2023/tidb/tidb-7.x-compile-tiflash/">TiDB 7.x 源码编译之 TiFlash 篇</a></li>
+<li><a href="https://shawnyan.cn/2023/tidb/tidb-7.x-compile-tiproxy/">TiDB 7.x 源码编译之 TiProxy 篇，及尝鲜体验</a></li>
+</ul>
+<h2 id="font-color-0080FF-一、TiDB-Server-编译-font"><font color='#0080FF'>一、TiDB Server 编译</font></h2>
+<h3 id="1-1-编译环境">1.1 编译环境</h3>
+<p>与前几篇文章有所区别的是，本文使用 CentOS 7.9 和 Rocky Linux 9.2 两个版本的操作系统，分别进行编译测试。由于 TiDB Server 是 go 语言开发，所以在两个系统编译过程几乎没有区别，只需注意在编译之前安装系统开发工具包（<code>yum groupinstall 'Development Tools'</code>）。现已支持 Rocky Linux 9.1 及以上版本，可以在生产环境放心使用。<sup class="footnote-ref"><a href="#fn2" id="fnref2">[2]</a></sup></p>
+<p>查看版本信息：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">cat /etc/redhat-release</span><br><span class="line">uname -a</span><br></pre></td></tr></table></figure></div>
+<p>输出日志：</p>
+<ul>
+<li>CentOS 7</li>
+</ul>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@centos7 ~]$ cat /etc/redhat-release</span><br><span class="line">CentOS Linux release 7.9.2009 (Core)</span><br><span class="line">[shawnyan@centos7 ~]$ uname -a</span><br><span class="line">Linux centos7.shawnyan.cn 3.10.0-1160.92.1.el7.x86_64 #1 SMP Tue Jun 20 11:48:01 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>Rocky Linux 9</li>
+</ul>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@rocky9 ~]# cat /etc/redhat-release </span><br><span class="line">Rocky Linux release 9.2 (Blue Onyx)</span><br><span class="line">[root@rocky9 ~]# uname -a</span><br><span class="line">Linux rocky9.shawnyan.cn 5.14.0-284.11.1.el9_2.x86_64 #1 SMP PREEMPT_DYNAMIC Tue May 9 17:09:15 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux</span><br></pre></td></tr></table></figure></div>
+<p>在 TiDB v7.5.0-alpha 的代码中，Go 版本升级到 1.21.1 (released 2023-08-08)<sup class="footnote-ref"><a href="#fn3" id="fnref3">[3]</a></sup><sup class="footnote-ref"><a href="#fn4" id="fnref4">[4]</a></sup>。本文所使用的 Go 版本为 1.21.3 (released 2023-10-10)<sup class="footnote-ref"><a href="#fn5" id="fnref5">[5]</a></sup>。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">go install golang.org/dl/go1.21.3@latest</span><br><span class="line">go1.21.3 download</span><br><span class="line">go1.21.3 version</span><br></pre></td></tr></table></figure></div>
+<!--
+wget https://studygolang.com/dl/golang/go1.21.3.linux-amd64.tar.gz
+tar zxvf go1.21.3.linux-amd64.tar.gz
+sudo mv go /opt
+-->
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">go version go1.21.3 linux/amd64</span><br></pre></td></tr></table></figure></div>
+<p>Ps. 同时，关于 Go 版本，给 QE 团队提了个 Issue：</p>
+<ul>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/PingCAP-QE/ci/issues/2507" >[Closed] update go v1.21.3 #2507 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+</ul>
+<blockquote>
+<p>Update: 2023-10-17</p>
+</blockquote>
+<p>TiDB 源码仓库新建了 <a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/tree/release-7.5" >release-7.5 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 分支，并且 Go 版本升级到了 1.21.3。<sup class="footnote-ref"><a href="#fn6" id="fnref6">[6]</a></sup></p>
+<h3 id="1-2-编译步骤">1.2 编译步骤</h3>
+<p>克隆下载源码到本地，这里指定 <code>v7.5.0-alpha</code> 分支。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">git <span class="built_in">clone</span> https://github.com/pingcap/tidb.git --depth=1 -b v7.5.0-alpha tidb7</span></span><br><span class="line"><span class="meta prompt_">$ </span><span class="language-bash"><span class="built_in">cd</span> tidb7</span></span><br><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">git lg</span></span><br><span class="line">* 8cfe7f3 - (grafted, HEAD -&gt; v7.5.0-alpha, tag: v7.5.0-alpha) executor, tests:  move some test cases from `admin_test.go` and `foreign_key_test.go` to  `integrationtest` (#47333) (12 days ago) &lt;SeaRise&gt;</span><br></pre></td></tr></table></figure></div>
+<p>编译 TiDB Server 仅需一条命令搞定。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">make</span><br></pre></td></tr></table></figure></div>
+<p>输出日志：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@centos7 tidb7]$ make</span><br><span class="line">CGO_ENABLED=1 GO111MODULE=on go build  -tags codes  -ldflags &#x27;-X &quot;github.com/pingcap/tidb/parser/mysql.TiDBReleaseVersion=v7.5.0-alpha&quot; -X &quot;github.com/pingcap/tidb/util/versioninfo.TiDBBuildTS=2023-10-11 06:08:32&quot; -X &quot;github.com/pingcap/tidb/util/versioninfo.TiDBGitHash=8cfe7f329b56899a96422596da2b67d4e2bd1e94&quot; -X &quot;github.com/pingcap/tidb/util/versioninfo.TiDBGitBranch=HEAD&quot; -X &quot;github.com/pingcap/tidb/util/versioninfo.TiDBEdition=Community&quot; &#x27; -o bin/tidb-server ./tidb-server</span><br><span class="line">Build TiDB Server successfully!</span><br></pre></td></tr></table></figure></div>
+<p>查看二进制文件的版本：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@centos7 bin]$ ./tidb-server -V</span><br><span class="line">Release Version: v7.5.0-alpha</span><br><span class="line">Edition: Community</span><br><span class="line">Git Commit Hash: 8cfe7f329b56899a96422596da2b67d4e2bd1e94</span><br><span class="line">Git Branch: HEAD</span><br><span class="line">UTC Build Time: 2023-10-11 06:08:32</span><br><span class="line">GoVersion: go1.21.3</span><br><span class="line">Race Enabled: false</span><br><span class="line">Check Table Before Drop: false</span><br><span class="line">Store: unistore</span><br></pre></td></tr></table></figure></div>
+<blockquote>
+<p>Update: 2023-10-16</p>
+</blockquote>
+<p>TiDB 仓库的代码结构发生了大调整，TiDB Server 核心文件移动到了新目录 <code>pkg</code> <sup class="footnote-ref"><a href="#fn7" id="fnref7">[7]</a></sup>，这一变更影响到近 4500 个文件。随之而来的好处是，TiDB 源码根目录更加清晰。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@centos7 tidb7]$ tree . -L 1</span><br><span class="line">.</span><br><span class="line">├── br                    --&gt; BR</span><br><span class="line">├── build</span><br><span class="line">...</span><br><span class="line">├── cmd</span><br><span class="line">...</span><br><span class="line">├── docs</span><br><span class="line">├── dumpling               --&gt; Dumpling</span><br><span class="line">...</span><br><span class="line">├── pkg                    --&gt; TiDB core</span><br><span class="line">...</span><br><span class="line">├── tests</span><br><span class="line">├── tools</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">10 directories, 24 files</span><br></pre></td></tr></table></figure></div>
+<h3 id="1-3-启动-TiDB-Server">1.3 启动 TiDB Server</h3>
+<p>TiDB Server 其实可以不依赖于 TiKV 而单独启动，这里选择单机存储引擎 UniStore 启动 TiDB Server，启动命令如下。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./tidb-server -store unistore</span><br></pre></td></tr></table></figure></div>
+<p>启动后，连接 TiDB，并查看版本信息。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">tidb<span class="operator">&gt;</span> <span class="keyword">select</span> tidb_version()\G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">tidb_version(): <span class="keyword">Release</span> Version: v7<span class="number">.5</span><span class="number">.0</span><span class="operator">-</span>alpha</span><br><span class="line">Edition: Community</span><br><span class="line">Git <span class="keyword">Commit</span> Hash: <span class="number">8</span>cfe7f329b56899a96422596da2b67d4e2bd1e94</span><br><span class="line">Git Branch: HEAD</span><br><span class="line">UTC Build <span class="type">Time</span>: <span class="number">2023</span><span class="number">-10</span><span class="number">-11</span> <span class="number">06</span>:<span class="number">08</span>:<span class="number">32</span></span><br><span class="line">GoVersion: go1<span class="number">.21</span><span class="number">.3</span></span><br><span class="line">Race Enabled: <span class="literal">false</span></span><br><span class="line"><span class="keyword">Check</span> <span class="keyword">Table</span> Before <span class="keyword">Drop</span>: <span class="literal">false</span></span><br><span class="line">Store: unistore</span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure></div>
+<p>需要注意的是，TiDB Server 的参数分为命令行参数（直接启动 Server 时传递的参数）<sup class="footnote-ref"><a href="#fn8" id="fnref8">[8]</a></sup>，配置文件参数（比命令行参数更丰富）<sup class="footnote-ref"><a href="#fn9" id="fnref9">[9]</a></sup>，以及系统变量（连接 TiDB 后可修改）<sup class="footnote-ref"><a href="#fn10" id="fnref10">[10]</a></sup>，所以在查看官方文档的时候，这三类参数的页面都可能用到，概念上的变量和参数非常容易混淆，如果接触 TiDB 时间不长，需要多加区分、辨别。</p>
+<p>BTW，关于这部分的内容，欢迎学习、复习 PingCAP 相关课程：</p>
+<ul>
+<li><a class="link"   target="_blank" rel="noopener" href="https://learn.pingcap.com/learner/course/30002" >TiDB 系统管理基础 [TiDB v5.x] (301) <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> ，第十课: TiDB 的配置</li>
+</ul>
+<img  alt="t01-301-tidb-config.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/t01-301-tidb-config-1697647536009.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>到此，我们可以看到 TiDB Server 已经编译成功，并成功启动运行，TiDB Server 的版本为 <code>v7.5.0-alpha</code>。</p>
+<h2 id="font-color-0080FF-二、TiDB-Server-v7-x-新特性-font"><font color='#0080FF'>二、TiDB Server v7.x 新特性</font></h2>
+<p>依据现行 TiDB 发版规则，<strong>TiDB 7.5.0 LTS 版本将包含 7.2.0-DMR (Released: 2023-06-29)，7.3.0-DMR (Released: 2023-08-14) 和 7.4.0-DMR (Released: 2023-10-12) 中已发布的新特性。</strong> 下面的篇幅将介绍若干 TiDB 7.x 的新特性。</p>
+<h3 id="🔑-font-color-0080FF-2-1-资源管控能力增强-font">🔑 <font color='#0080FF'>2.1 资源管控能力增强</font></h3>
+<p>在 TiDB 7.1.0 LTS 中，资源管控特性正式发布，这部分的详细内容请参考文章：</p>
+<p>《 <a class="link"   target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/0r_LE4uZX7ENNAvFJhy4Dg" >TiDB 7.1.0 LTS 特性解读丨关于资源管控 (Resource Control) 应该知道的 6 件事 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 》</p>
+<p>在 TiDB 7.4.0 DMR 中，资源管控能力得到增强，引入了对后台任务的管理。主要实现在 TiKV 层。</p>
+<blockquote>
+<p>当一种任务被标记为后台任务时，TiKV 会动态地限制该任务的资源使用，以尽量避免此类任务在执行时对其他前台任务的性能产生影响。TiKV 通过实时地监测所有前台任务所消耗的 CPU 和 IO 等资源，并根据实例总的资源上限计算出后台任务可使用的资源阈值，所有后台任务在执行时会受此阈值的限制。</p>
+</blockquote>
+<p>同时，在 v7.4.0 中，TiFlash 支持资源管控特性，完善了 TiDB 整体的资源管控能力。<a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tiflash/issues/7660" >#7660 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<h3 id="🥳-font-color-0080FF-2-2-TiDB-相关-SQL-再扩展-font">🥳 <font color='#0080FF'>2.2 TiDB 相关 SQL 再扩展</font></h3>
+<p>之前的文章 《 <a href="https://shawnyan.cn/2023/tidb/tidb-7.1-resource-control/#font-color-0080FF-2-%E2%80%9C%E8%B5%84%E6%BA%90%E6%8E%A7%E5%88%B6%E2%80%9D%E7%9B%B8%E5%85%B3-SQL%EF%BC%8C%E7%94%A8%E8%BF%99%E4%BA%9B%E5%B0%B1%E5%A4%9F%E4%BA%86-font">TiDB 7.1.0 LTS 特性解读 | 资源管控 (Resource Control) 应该知道的 6 件事</a> 》 中，增加了“资源管控”相关 SQL，这里再次进行扩展，也是本文的第一个彩蛋。</p>
+<h4 id="1️⃣-TiDB-7-1-0，新增支持-Fix-Control-特性">1️⃣ TiDB 7.1.0，新增支持 Fix Control 特性</h4>
+<p>从 TiDB v7.1.0 开始，支持 <a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/dev/optimizer-fix-controls" >Optimizer Fix Controls <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 特性，并引入 <code>tidb_opt_fix_control</code> 系统变量，以更细粒度控制优化器行为。</p>
+<p>现在，该变量支持全局、会话、Hint，三种方式进行控制，正式发布支持的控制项有 6 个，另有 1 个已合入 Master，预计会随下个版本发布，具体列表如下。</p>
+<ul>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/issues/44262" >44262 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> – New in v7.2.0/v7.1.1
+<ul>
+<li>控制是否允许使用动态模式访问没有全局统计信息的分区表。</li>
+</ul>
+</li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/issues/44389" >44389 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> – New in v7.2.0/v7.1.1
+<ul>
+<li>控制在构建范围时是否考虑某些 CNF 项的非点范围（non-point ranges）。</li>
+</ul>
+</li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/issues/44823" >44823 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> – New in v7.3.0/v7.1.1
+<ul>
+<li>控制可以在计划缓存中缓存的查询参数的最大数量。</li>
+</ul>
+</li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/issues/44830" >44830 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> – New in v7.3.0
+<ul>
+<li>控制是否允许缓存某些复杂场景中的 Batch/PointGet。</li>
+</ul>
+</li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/issues/44855" >44855 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> – New in v7.3.0/v7.1.1
+<ul>
+<li>控制在估计索引连接内侧下索引范围扫描的行数时是否使用更准确的上限。</li>
+</ul>
+</li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/issues/45132" >45132 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> – New in v7.4.0
+<ul>
+<li>控制是否使用访问范围行计数来确定 Skyline 修剪上的访问路径。</li>
+</ul>
+</li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/issues/45798" >45798 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> – New in v7.5.0 ??? TBD
+<ul>
+<li>控制是否缓存访问生成列的计划。</li>
+</ul>
+</li>
+</ul>
+<p>基础用法示例如下：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SET</span> @<span class="variable">@tidb_opt_fix_control</span><span class="operator">=</span><span class="keyword">default</span>;</span><br><span class="line"><span class="keyword">select</span> @<span class="variable">@tidb_opt_fix_control</span>;</span><br><span class="line"><span class="keyword">SET</span> SESSION tidb_opt_fix_control <span class="operator">=</span> <span class="string">&#x27;44262:ON,44389:ON,44823:500,44830:ON,44855:ON,45132:0,45798:ON&#x27;</span>;</span><br><span class="line"><span class="keyword">SET</span> <span class="keyword">GLOBAL</span> tidb_opt_fix_control <span class="operator">=</span> <span class="string">&#x27;&#x27;</span>;</span><br><span class="line"><span class="keyword">select</span> <span class="comment">/*+ set_var(tidb_opt_fix_control=&quot;1:ok&quot;) */</span> @<span class="variable">@tidb_opt_fix_control</span>;</span><br></pre></td></tr></table></figure></div>
+<h4 id="2️⃣-TiDB-7-2-0，支持对-DDL-任务进行暂停和恢复">2️⃣ TiDB 7.2.0，支持对 DDL 任务进行暂停和恢复</h4>
+<p>TiDB 7.2 引入了新的实验特性，DDL 任务支持暂停（PAUSE）<sup class="footnote-ref"><a href="#fn11" id="fnref11">[11]</a></sup>和恢复（RESUME）操作，比如，对正在创建索引的任务进行暂停和恢复。相关命令如下：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">ADMIN PAUSE DDL JOBS job_id [, job_id]</span><br><span class="line">ADMIN RESUME DDL JOBS job_id [, job_id]</span><br></pre></td></tr></table></figure></div>
+<h4 id="3️⃣-TiDB-7-3-0，新增支持-8-项-Optimizer-Hint">3️⃣ TiDB 7.3.0，新增支持 8 项 Optimizer Hint</h4>
+<p>从 TiDB 7.3.0 开始，新增支持 8 (4+1+3) 项表级别 Optimizer Hint，这一特性也在 TiDB v7.1.1 中引入。</p>
+<p>“4+1+3” 的意思是，增加 4 个名为 <code>NO_xxx_JOIN</code> 的 TiDB Hint，兼容（MySQL）一个名为 <code>NO_HASH_JOIN</code><sup class="footnote-ref"><a href="#fn12" id="fnref12">[12]</a></sup> 的 Hint，以及，增加 3 个名为 <code>INDEX_xxx_JOIN</code> 的 TiDB Hint，具体名称如下。</p>
+<div class="highlight-container" data-rel="Yaml"><figure class="iseeu highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">NO_INDEX_JOIN</span></span><br><span class="line"><span class="string">NO_INDEX_HASH_JOIN</span></span><br><span class="line"><span class="string">NO_INDEX_MERGE_JOIN</span></span><br><span class="line"><span class="string">NO_MERGE_JOIN</span></span><br><span class="line"></span><br><span class="line"><span class="string">NO_HASH_JOIN</span></span><br><span class="line"></span><br><span class="line"><span class="string">INDEX_JOIN</span></span><br><span class="line"><span class="string">INDEX_HASH_JOIN</span></span><br><span class="line"><span class="string">INDEX_MERGE_JOIN</span></span><br></pre></td></tr></table></figure></div>
+<p>此外，在使用 Hint 时，如果 <code>INDEX_xxx_JOIN</code> 与 <code>NO_INDEX_xxx_JOIN</code> 发生冲突，<code>NO_INDEX_xxx_JOIN</code> 可能会被忽略。</p>
+<p>另外一个知识点，在 TiDB 中，<code>TIDB_INLJ</code> 是 <code>INL_JOIN</code> 的别名。</p>
+<blockquote>
+<p>在 3.0.x 及之前版本仅支持使用该别名；之后的版本同时支持使用这两种名称，但推荐使用 <code>INL_JOIN</code>。<sup class="footnote-ref"><a href="#fn13" id="fnref13">[13]</a></sup></p>
+</blockquote>
+<div class="highlight-container" data-rel="Go"><figure class="iseeu highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// TiDB hint aliases</span></span><br><span class="line"><span class="string">&quot;TIDB_HJ&quot;</span>:   hintHashJoin,	-&gt; HASH_JOIN</span><br><span class="line"><span class="string">&quot;TIDB_INLJ&quot;</span>: hintInlJoin,	-&gt; INL_JOIN</span><br><span class="line"><span class="string">&quot;TIDB_SMJ&quot;</span>:  hintSMJoin,	-&gt; MERGE_JOIN</span><br></pre></td></tr></table></figure></div>
+<p>在使用方法上，还可以结合 <code>SEV_VAR</code> Hint 使用，本文下面有章节会再介绍。</p>
+<p>示例：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">explain format <span class="operator">=</span> <span class="string">&#x27;hint&#x27;</span> </span><br><span class="line"><span class="keyword">SELECT</span> </span><br><span class="line"><span class="comment">/*+ NO_INDEX_JOIN(t1),NO_INDEX_HASH_JOIN(t1),NO_INDEX_MERGE_JOIN(t1),NO_MERGE_JOIN(t1)</span></span><br><span class="line"><span class="comment">,NO_HASH_JOIN(t1),INDEX_JOIN(t1),INDEX_HASH_JOIN(t1),INDEX_MERGE_JOIN(t1) */</span> </span><br><span class="line"><span class="operator">*</span> </span><br><span class="line"><span class="keyword">FROM</span> t1\G</span><br></pre></td></tr></table></figure></div>
+<p>输出：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">mysql<span class="operator">&gt;</span> explain format <span class="operator">=</span> <span class="string">&#x27;hint&#x27;</span>  <span class="keyword">SELECT</span>  <span class="comment">/*+ NO_INDEX_JOIN(t1),NO_INDEX_HASH_JOIN(t1),NO_INDEX_MERGE_JOIN(t1),NO_MERGE_JOIN(t1) ,NO_HASH_JOIN(t1),INDEX_JOIN(t1),INDEX_HASH_JOIN(t1),INDEX_MERGE_JOIN(t1) */</span>  <span class="operator">*</span>  <span class="keyword">FROM</span> t1\G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">hint: use_index(@`sel_1` `test`.`t1` `idx_t1`), no_order_index(@`sel_1` `test`.`t1` `idx_t1`), no_index_join(), no_index_hash_join(), no_index_merge_join(), no_merge_join(), no_hash_join(), index_join(), index_hash_join(), index_merge_join()</span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure></div>
+<p>相关 PR 参见：<a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/pull/45525" >parser: support more join hints on parser #45525 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<p>具体相关文档参见：<a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/dev/optimizer-hints" >Optimizer Hints <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<p>Ps. 文档有部分描述缺失，已提 Issue，期待更新。</p>
+<ul>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/docs-cn/issues/15358" >[Open] docs: add description about optimizer hint #15358 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+</ul>
+<h4 id="4️⃣-TiDB-7-4-0，新增支持-TIDB-PARSE-TSO-LOGICAL-语法">4️⃣ TiDB 7.4.0，新增支持 <code>TIDB_PARSE_TSO_LOGICAL()</code> 语法</h4>
+<p>对于 TSO，如果想查看逻辑计数器，之前的版本需要通过 pd 命令进行解析，从 7.4 开始支持直接从 TiDB 进行查询。</p>
+<blockquote>
+<p>TSO 指 Time Stamp Oracle，是 PD (Placement Driver) 为每个事务提供的单调递增的时间戳。TSO 是一串数字，包含以下两部分：一个物理时间戳； 一个逻辑计数器<sup class="footnote-ref"><a href="#fn14" id="fnref14">[14]</a></sup></p>
+</blockquote>
+<p>示例：获取物理时间戳和逻辑计数器的值。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">tidb<span class="operator">&gt;</span> <span class="keyword">select</span> @<span class="variable">@tidb_current_ts</span>;</span><br><span class="line"><span class="operator">+</span><span class="comment">--------------------+</span></span><br><span class="line"><span class="operator">|</span> @<span class="variable">@tidb_current_ts</span>  <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">--------------------+</span></span><br><span class="line"><span class="operator">|</span> <span class="number">444995429049565185</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">--------------------+</span></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br><span class="line"></span><br><span class="line">tidb<span class="operator">&gt;</span> <span class="keyword">SELECT</span> TIDB_PARSE_TSO(@<span class="variable">@tidb_current_ts</span>);</span><br><span class="line"><span class="operator">+</span><span class="comment">-----------------------------------+</span></span><br><span class="line"><span class="operator">|</span> TIDB_PARSE_TSO(@<span class="variable">@tidb_current_ts</span>) <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-----------------------------------+</span></span><br><span class="line"><span class="operator">|</span> <span class="number">2023</span><span class="number">-10</span><span class="number">-17</span> <span class="number">15</span>:<span class="number">07</span>:<span class="number">26.411000</span>        <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-----------------------------------+</span></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br><span class="line"></span><br><span class="line">tidb<span class="operator">&gt;</span> <span class="keyword">SELECT</span> TIDB_PARSE_TSO_LOGICAL(@<span class="variable">@tidb_current_ts</span>);</span><br><span class="line"><span class="operator">+</span><span class="comment">-------------------------------------------+</span></span><br><span class="line"><span class="operator">|</span> TIDB_PARSE_TSO_LOGICAL(@<span class="variable">@tidb_current_ts</span>) <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-------------------------------------------+</span></span><br><span class="line"><span class="operator">|</span>                                         <span class="number">1</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-------------------------------------------+</span></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure></div>
+<p>与 pd 命令解析的结果一致。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">tidb<span class="operator">&gt;</span> \<span class="operator">!</span> tiup ctl:v7<span class="number">.4</span><span class="number">.0</span> pd tso <span class="number">444995429049565185</span></span><br><span class="line">The component `ctl` version v7<span class="number">.4</span><span class="number">.0</span> <span class="keyword">is</span> <span class="keyword">not</span> installed; downloading <span class="keyword">from</span> repository.</span><br><span class="line">Starting component `ctl`: <span class="operator">/</span>home<span class="operator">/</span>shawnyan<span class="operator">/</span>.tiup<span class="operator">/</span>components<span class="operator">/</span>ctl<span class="operator">/</span>v7<span class="number">.4</span><span class="number">.0</span><span class="operator">/</span>ctl pd tso <span class="number">444995429049565185</span></span><br><span class="line"><span class="keyword">system</span>:  <span class="number">2023</span><span class="number">-10</span><span class="number">-17</span> <span class="number">15</span>:<span class="number">07</span>:<span class="number">26.411</span> <span class="operator">+</span><span class="number">0800</span> CST</span><br><span class="line">logic:   <span class="number">1</span></span><br><span class="line">tidb<span class="operator">&gt;</span></span><br></pre></td></tr></table></figure></div>
+<h4 id="5️⃣-TiDB-7-4-0，新增支持分区类型管理功能">5️⃣ TiDB 7.4.0，新增支持分区类型管理功能</h4>
+<p>TiDB 7.4 的分区表管理功能更加完备，期待已久的普通表转分区表功能终于上线。<sup class="footnote-ref"><a href="#fn15" id="fnref15">[15]</a></sup></p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 将非分区表转为分区表、修改分区表的分区类型</span></span><br><span class="line"><span class="keyword">ALTER</span> <span class="keyword">TABLE</span> <span class="operator">&lt;</span>table_name<span class="operator">&gt;</span> <span class="keyword">PARTITION</span> <span class="keyword">BY</span> <span class="operator">&lt;</span><span class="keyword">new</span> <span class="keyword">partition</span> type <span class="keyword">and</span> definitions<span class="operator">&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 将分区表转为非分区表</span></span><br><span class="line"><span class="keyword">ALTER</span> <span class="keyword">TABLE</span> <span class="operator">&lt;</span>table_name<span class="operator">&gt;</span> REMOVE PARTITIONING</span><br></pre></td></tr></table></figure></div>
+<p>举个栗子，将既存表按年龄划定分区，分区类型使用 <code>RANGE</code>，然后将分区类型变更为 <code>LIST</code>，最后移除分区。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br></pre></td><td class="code"><pre><span class="line">tidb<span class="operator">&gt;</span> <span class="keyword">show</span> <span class="keyword">create</span> <span class="keyword">table</span> t_age\G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">       <span class="keyword">Table</span>: t_age</span><br><span class="line"><span class="keyword">Create</span> <span class="keyword">Table</span>: <span class="keyword">CREATE</span> <span class="keyword">TABLE</span> `t_age` (</span><br><span class="line">  `a` <span class="type">int</span>(<span class="number">11</span>) <span class="keyword">DEFAULT</span> <span class="keyword">NULL</span></span><br><span class="line">) ENGINE<span class="operator">=</span>InnoDB <span class="keyword">DEFAULT</span> CHARSET<span class="operator">=</span>utf8mb4 <span class="keyword">COLLATE</span><span class="operator">=</span>utf8mb4_bin</span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 转为分区表</span></span><br><span class="line">tidb<span class="operator">&gt;</span> <span class="keyword">ALTER</span> <span class="keyword">TABLE</span> t_age <span class="keyword">PARTITION</span> <span class="keyword">BY</span> <span class="keyword">RANGE</span> (a) </span><br><span class="line">   <span class="operator">-</span><span class="operator">&gt;</span> ( <span class="keyword">PARTITION</span> p0 <span class="keyword">VALUES</span> LESS THAN (<span class="number">18</span>)</span><br><span class="line">   <span class="operator">-</span><span class="operator">&gt;</span> , <span class="keyword">PARTITION</span> p1 <span class="keyword">VALUES</span> LESS THAN (<span class="number">35</span>)</span><br><span class="line">   <span class="operator">-</span><span class="operator">&gt;</span> , <span class="keyword">PARTITION</span> p2 <span class="keyword">VALUES</span> LESS THAN (MAXVALUE));</span><br><span class="line">Query OK, <span class="number">0</span> <span class="keyword">rows</span> affected, <span class="number">1</span> warning (<span class="number">0.11</span> sec)</span><br><span class="line"></span><br><span class="line">tidb<span class="operator">&gt;</span> <span class="keyword">show</span> <span class="keyword">create</span> <span class="keyword">table</span> t_age\G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">       <span class="keyword">Table</span>: t_age</span><br><span class="line"><span class="keyword">Create</span> <span class="keyword">Table</span>: <span class="keyword">CREATE</span> <span class="keyword">TABLE</span> `t_age` (</span><br><span class="line">  `a` <span class="type">int</span>(<span class="number">11</span>) <span class="keyword">DEFAULT</span> <span class="keyword">NULL</span></span><br><span class="line">) ENGINE<span class="operator">=</span>InnoDB <span class="keyword">DEFAULT</span> CHARSET<span class="operator">=</span>utf8mb4 <span class="keyword">COLLATE</span><span class="operator">=</span>utf8mb4_bin</span><br><span class="line"><span class="keyword">PARTITION</span> <span class="keyword">BY</span> <span class="keyword">RANGE</span> (`a`)</span><br><span class="line">(<span class="keyword">PARTITION</span> `p0` <span class="keyword">VALUES</span> LESS THAN (<span class="number">18</span>),</span><br><span class="line"><span class="keyword">PARTITION</span> `p1` <span class="keyword">VALUES</span> LESS THAN (<span class="number">35</span>),</span><br><span class="line"><span class="keyword">PARTITION</span> `p2` <span class="keyword">VALUES</span> LESS THAN (MAXVALUE))</span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 分区定义从 RANGE 变更为 LIST</span></span><br><span class="line">tidb<span class="operator">&gt;</span> <span class="keyword">ALTER</span> <span class="keyword">TABLE</span> t_age <span class="keyword">PARTITION</span> <span class="keyword">BY</span> LIST (a)</span><br><span class="line">   <span class="operator">-</span><span class="operator">&gt;</span> ( <span class="keyword">PARTITION</span> p0 <span class="keyword">VALUES</span> <span class="keyword">IN</span> (<span class="number">18</span>)</span><br><span class="line">   <span class="operator">-</span><span class="operator">&gt;</span> , <span class="keyword">PARTITION</span> p1 <span class="keyword">VALUES</span> <span class="keyword">IN</span> (<span class="number">35</span>)</span><br><span class="line">   <span class="operator">-</span><span class="operator">&gt;</span> , <span class="keyword">PARTITION</span> p2 <span class="keyword">VALUES</span> <span class="keyword">IN</span> (<span class="number">65</span>));</span><br><span class="line">Query OK, <span class="number">0</span> <span class="keyword">rows</span> affected, <span class="number">1</span> warning (<span class="number">0.12</span> sec)</span><br><span class="line"></span><br><span class="line">tidb<span class="operator">&gt;</span> <span class="keyword">show</span> <span class="keyword">create</span> <span class="keyword">table</span> t_age\G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">       <span class="keyword">Table</span>: t_age</span><br><span class="line"><span class="keyword">Create</span> <span class="keyword">Table</span>: <span class="keyword">CREATE</span> <span class="keyword">TABLE</span> `t_age` (</span><br><span class="line">  `a` <span class="type">int</span>(<span class="number">11</span>) <span class="keyword">DEFAULT</span> <span class="keyword">NULL</span></span><br><span class="line">) ENGINE<span class="operator">=</span>InnoDB <span class="keyword">DEFAULT</span> CHARSET<span class="operator">=</span>utf8mb4 <span class="keyword">COLLATE</span><span class="operator">=</span>utf8mb4_bin</span><br><span class="line"><span class="keyword">PARTITION</span> <span class="keyword">BY</span> LIST (`a`)</span><br><span class="line">(<span class="keyword">PARTITION</span> `p0` <span class="keyword">VALUES</span> <span class="keyword">IN</span> (<span class="number">18</span>),</span><br><span class="line"><span class="keyword">PARTITION</span> `p1` <span class="keyword">VALUES</span> <span class="keyword">IN</span> (<span class="number">35</span>),</span><br><span class="line"><span class="keyword">PARTITION</span> `p2` <span class="keyword">VALUES</span> <span class="keyword">IN</span> (<span class="number">65</span>))</span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 移除分区</span></span><br><span class="line">tidb<span class="operator">&gt;</span> <span class="keyword">alter</span> <span class="keyword">table</span> t_age remove partitioning;</span><br><span class="line">Query OK, <span class="number">0</span> <span class="keyword">rows</span> affected (<span class="number">0.10</span> sec)</span><br><span class="line"></span><br><span class="line">tidb<span class="operator">&gt;</span> <span class="keyword">show</span> <span class="keyword">create</span> <span class="keyword">table</span> t_age\G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">       <span class="keyword">Table</span>: t_age</span><br><span class="line"><span class="keyword">Create</span> <span class="keyword">Table</span>: <span class="keyword">CREATE</span> <span class="keyword">TABLE</span> `t_age` (</span><br><span class="line">  `a` <span class="type">int</span>(<span class="number">11</span>) <span class="keyword">DEFAULT</span> <span class="keyword">NULL</span></span><br><span class="line">) ENGINE<span class="operator">=</span>InnoDB <span class="keyword">DEFAULT</span> CHARSET<span class="operator">=</span>utf8mb4 <span class="keyword">COLLATE</span><span class="operator">=</span>utf8mb4_bin</span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure></div>
+<p>!!! Tips 提示：</p>
+<p>在分区表定义更新后，建议手动更新统计信息（有些环境可能已经关闭自动更新<sup class="footnote-ref"><a href="#fn16" id="fnref16">[16]</a></sup>）。</p>
+<h3 id="M️-font-color-0080FF-2-3-MySQL-8-0-兼容性-font">Ⓜ️ <font color='#0080FF'>2.3 MySQL 8.0 兼容性</font></h3>
+<p>在 PingCAP 公众号最近发布的通告中，<a class="link"   target="_blank" rel="noopener" href="https://tidb.net/blog/ebd9dba5" >TiDB 7.4 发版：正式兼容 MySQL 8.0 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> ，详细地介绍了 TiDB 7.4 DMR 在 MySQL 8.0 兼容性方面取得的最新进展。<br>
+通告中已经列举了若干新特性，本文将做进一步补充。同时，在 TiDB 7.4 DMR 的发版说明中有些小改动并未列出，下面也将进行列举说明，以供参考。</p>
+<h4 id="1️⃣-TiDB-7-2-0，新增支持-CHECK-约束">1️⃣ TiDB 7.2.0，新增支持 <code>CHECK</code> 约束</h4>
+<p>从 MySQL 8.0.16 开始，MySQL 实现了 CHECK 约束核心特性，并增加了新的信息表 <code>INFORMATION_SCHEMA.CHECK_CONSTRAINTS</code> 用来展示 CHECK 约束定义。<sup class="footnote-ref"><a href="#fn17" id="fnref17">[17]</a></sup></p>
+<p>从 TiDB 7.2.0 开始，TiDB 新增支持 <code>CHECK</code> 约束，并在 7.4 中增加表 <code>I_S.CHECK_CONSTRAINTS</code>。需要注意的是，该功能默认关闭，需要通过变量 <code>tidb_enable_check_constraint</code> 进行控制。相关 SQL 控制命令如下：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 启用 CHECK 约束功能</span></span><br><span class="line"><span class="keyword">SET</span> <span class="keyword">GLOBAL</span> tidb_enable_check_constraint<span class="operator">=</span><span class="keyword">ON</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 添加约束</span></span><br><span class="line"><span class="keyword">ALTER</span> <span class="keyword">TABLE</span> t <span class="keyword">ADD</span> <span class="keyword">CONSTRAINT</span> <span class="keyword">CHECK</span> (<span class="number">1</span> <span class="operator">&lt;</span> a);</span><br><span class="line"><span class="keyword">ALTER</span> <span class="keyword">TABLE</span> t <span class="keyword">ADD</span> <span class="keyword">CONSTRAINT</span> <span class="keyword">CHECK</span> (<span class="number">1</span> <span class="operator">&lt;</span> a) <span class="keyword">NOT</span> ENFORCED;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 删除约束</span></span><br><span class="line"><span class="keyword">ALTER</span> <span class="keyword">TABLE</span> t <span class="keyword">DROP</span> <span class="keyword">CONSTRAINT</span> t_chk_1;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 启用约束</span></span><br><span class="line"><span class="keyword">ALTER</span> <span class="keyword">TABLE</span> t <span class="keyword">ALTER</span> <span class="keyword">CONSTRAINT</span> t_chk_1 ENFORCED;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 禁用约束</span></span><br><span class="line"><span class="keyword">ALTER</span> <span class="keyword">TABLE</span> t <span class="keyword">ALTER</span> <span class="keyword">CONSTRAINT</span> t_chk_1 <span class="keyword">NOT</span> ENFORCED;</span><br></pre></td></tr></table></figure></div>
+<p>Ps. 在测试该特性时遇到了两个问题，分别提了 Issue，期待在 TiDB 7.5.0 LTS 代码冻结之前修复。</p>
+<ul>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/issues/47567" >[Merged] CHECK CONSTRAINT loss when ENFORCED again #47567 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/issues/47565" >[Open] Support TABLE_NAME in CHECK_CONSTRAINTS #47565 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/docs-cn/issues/15376" >[Closed] doc: I_S.CHECK_CONSTRAINTS #15376 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+</ul>
+<h4 id="2️⃣-TiDB-7-2-0，支持指定-utf8mb3-字符集；TiDB-7-4-0，支持指定-utf8mb4-0900-ai-ci-utf8mb4-0900-bin-排序规则">2️⃣ TiDB 7.2.0，支持指定 <code>utf8mb3</code> 字符集；TiDB 7.4.0，支持指定 <code>utf8mb4_0900_ai_ci</code>/<code>utf8mb4_0900_bin</code> 排序规则</h4>
+<p>在之前的文章中，<a href="https://shawnyan.cn/2022/tidb/tidb-6.0-new-collation/">TiDB 6.x 新特性解读 | Collation 规则</a> ，介绍过 TiDB 的字符集和排序规则，经过若干版本的迭代，TiDB 在全面兼容 MySQL 8.0 的征途上又更进一步。</p>
+<p>从 TiDB 7.2.0 开始，支持 utf8mb3 字符集，其作为 utf8 的别名。示例如下：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">tidb<span class="operator">&gt;</span> <span class="keyword">create</span> <span class="keyword">table</span> t_utf8 (a <span class="type">int</span>) charset<span class="operator">=</span>utf8;</span><br><span class="line">Query OK, <span class="number">0</span> <span class="keyword">rows</span> affected (<span class="number">0.02</span> sec)</span><br><span class="line"></span><br><span class="line">tidb<span class="operator">&gt;</span> <span class="keyword">create</span> <span class="keyword">table</span> t_utf8mb3 (a <span class="type">int</span>) charset<span class="operator">=</span>utf8mb3;</span><br><span class="line">Query OK, <span class="number">0</span> <span class="keyword">rows</span> affected (<span class="number">0.04</span> sec)</span><br><span class="line"></span><br><span class="line">tidb<span class="operator">&gt;</span> <span class="keyword">show</span> <span class="keyword">create</span> <span class="keyword">table</span> t_utf8\G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">       <span class="keyword">Table</span>: t_utf8</span><br><span class="line"><span class="keyword">Create</span> <span class="keyword">Table</span>: <span class="keyword">CREATE</span> <span class="keyword">TABLE</span> `t_utf8` (</span><br><span class="line">  `a` <span class="type">int</span>(<span class="number">11</span>) <span class="keyword">DEFAULT</span> <span class="keyword">NULL</span></span><br><span class="line">) ENGINE<span class="operator">=</span>InnoDB <span class="keyword">DEFAULT</span> CHARSET<span class="operator">=</span>utf8 <span class="keyword">COLLATE</span><span class="operator">=</span>utf8_bin</span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br><span class="line"></span><br><span class="line">tidb<span class="operator">&gt;</span> <span class="keyword">show</span> <span class="keyword">create</span> <span class="keyword">table</span> t_utf8mb3\G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">       <span class="keyword">Table</span>: t_utf8mb3</span><br><span class="line"><span class="keyword">Create</span> <span class="keyword">Table</span>: <span class="keyword">CREATE</span> <span class="keyword">TABLE</span> `t_utf8mb3` (</span><br><span class="line">  `a` <span class="type">int</span>(<span class="number">11</span>) <span class="keyword">DEFAULT</span> <span class="keyword">NULL</span></span><br><span class="line">) ENGINE<span class="operator">=</span>InnoDB <span class="keyword">DEFAULT</span> CHARSET<span class="operator">=</span>utf8 <span class="keyword">COLLATE</span><span class="operator">=</span>utf8_bin</span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure></div>
+<p>从 TiDB 7.4.0 开始，支持指定 utf8mb4_0900_ai_ci/utf8mb4_0900_bin 排序规则，在 7.4.0 的发版说明中有这样一段描述<sup class="footnote-ref"><a href="#fn18" id="fnref18">[18]</a></sup>：</p>
+<blockquote>
+<p>TiDB v7.4.0 增强了从 MySQL 8.0 迁移数据的支持。新增两个排序规则 (Collation) <code>utf8mb4_0900_ai_ci</code> 和 <code>utf8mb4_0900_bin</code>。其中 <code>utf8mb4_0900_ai_ci</code> 为 MySQL 8.0 的默认排序规则。<br>
+同时新增支持 MySQL 8.0 兼容的系统变量 <code>default_collation_for_utf8mb4</code>，允许用户为 utf8mb4 字符集指定默认的排序方式，以兼容从 MySQL 5.7 或之前版本迁移或数据复制的场景。</p>
+</blockquote>
+<p>这里需要注意的是，在 TiDB 中，utf8mb4 字符集的默认排序规则仍然是 <code>utf8mb4_bin</code>。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">tidb<span class="operator">&gt;</span> <span class="keyword">select</span> @<span class="variable">@default_collation_for_utf8mb4</span>;</span><br><span class="line"><span class="operator">+</span><span class="comment">---------------------------------+</span></span><br><span class="line"><span class="operator">|</span> @<span class="variable">@default_collation_for_utf8mb4</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">---------------------------------+</span></span><br><span class="line"><span class="operator">|</span> utf8mb4_bin                     <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">---------------------------------+</span></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure></div>
+<p>做个对照实验，更加直观地展示区别：</p>
+<img  alt="t02-collate.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/t02-collate-1697647545188.png"
+                      referrerpolicy="no-referrer"
+                >
+<h4 id="3️⃣-TiDB-7-4-0，version-返回信息变更">3️⃣ TiDB 7.4.0，<code>version()</code> 返回信息变更</h4>
+<blockquote>
+<p>自 v7.4.0 起，TiDB 已经兼容 MySQL 8.0 的核心功能，<code>version()</code> 将返回以 <code>8.0.11</code> 为前缀的版本信息。<sup class="footnote-ref"><a href="#fn19" id="fnref19">[19]</a></sup><sup class="footnote-ref"><a href="#fn20" id="fnref20">[20]</a></sup></p>
+</blockquote>
+<p>补充：MySQL 8.0.11 是 MySQL 8.0 系列的第一个 GA 版本。</p>
+<p>示例：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">tidb<span class="operator">&gt;</span> <span class="keyword">select</span> version();</span><br><span class="line"><span class="operator">+</span><span class="comment">--------------------------+</span></span><br><span class="line"><span class="operator">|</span> version()                <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">--------------------------+</span></span><br><span class="line"><span class="operator">|</span> <span class="number">8.0</span><span class="number">.11</span><span class="operator">-</span>TiDB<span class="operator">-</span>v7<span class="number">.5</span><span class="number">.0</span><span class="operator">-</span>alpha <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">--------------------------+</span></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure></div>
+<p>当然，如果为了合理规划漏扫，也可以自定义将 <code>8.0.11</code> 改为更新的版本，比如 <code>8.0.35</code>，修改方法参照 <a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/high-reliability-faq#%E6%88%91%E4%BB%AC%E7%9A%84%E5%AE%89%E5%85%A8%E6%BC%8F%E6%B4%9E%E6%89%AB%E6%8F%8F%E5%B7%A5%E5%85%B7%E5%AF%B9-mysql-version-%E6%9C%89%E8%A6%81%E6%B1%82tidb-%E6%98%AF%E5%90%A6%E6%94%AF%E6%8C%81%E4%BF%AE%E6%94%B9-server-%E7%89%88%E6%9C%AC%E5%8F%B7%E5%91%A2" >官方文档 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 。</p>
+<p>关于 TiDB 兼容 MySQL 8.0 的更多讨论，欢迎访问 AskTUG 论坛：<br>
+<a class="link"   target="_blank" rel="noopener" href="https://asktug.com/t/topic/1013682" >【唠嗑茶话会 88】关于 TiDB 兼容 MySQL 8.0 ，你最想支持的特性/功能是什么？ <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<h4 id="4️⃣-TiDB-7-4-0，新增支持使用-Hint-SER-VAR-修改系统变量">4️⃣ TiDB 7.4.0，新增支持使用 Hint <code>SER_VAR()</code> 修改系统变量</h4>
+<blockquote>
+<p>TiDB v7.4.0 新增支持与 MySQL 8.0 相似的优化器提示 <code>SET_VAR()</code>。通过在 SQL 语句中添加 Hint <code>SET_VAR()</code>，可以在语句运行过程中临时修改部分系统变量，以针对不同语句设置环境。<sup class="footnote-ref"><a href="#fn21" id="fnref21">[21]</a></sup></p>
+</blockquote>
+<p>举个栗子，在之前的版本中，如果想控制当前 Session 只从 TiFlash 读取数据，需要用到下面的语句：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">set</span> session tidb_isolation_read_engines <span class="operator">=</span> &quot;tiflash&quot;;</span><br><span class="line"><span class="keyword">select</span> <span class="built_in">count</span>(<span class="operator">*</span>) <span class="keyword">from</span> t;</span><br></pre></td></tr></table></figure></div>
+<p>或者：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="comment">/*+ read_from_storage(tiflash[t]) */</span> <span class="built_in">count</span>(<span class="operator">*</span>) <span class="keyword">from</span> t;</span><br></pre></td></tr></table></figure></div>
+<p>而从 TiDB 7.4.0 开始，可以使用 <code>SET_VAR()</code> 语法进行控制，更加灵活、便利：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="comment">/*+ set_var(tidb_isolation_read_engines=tiflash) */</span> <span class="built_in">count</span>(<span class="operator">*</span>) <span class="keyword">from</span> t;</span><br></pre></td></tr></table></figure></div>
+<p>从 TiDB 7.4 开始，官方文档的系统变量部分增加一个说明项“是否受 Hint <code>SET_VAR</code> 控制”<sup class="footnote-ref"><a href="#fn22" id="fnref22">[22]</a></sup>，当前版本中，受该 Hint <code>SET_VAR</code> 控制的系统变量共有 91 个：</p>
+<ul>
+<li><code>cte_max_recursion_depth</code></li>
+<li><code>max_execution_time</code></li>
+<li><code>mpp_exchange_compression_mode</code></li>
+<li><code>mpp_version</code></li>
+<li><code>sql_mode</code></li>
+<li><code>tidb_allow_batch_cop</code></li>
+<li><code>tidb_allow_fallback_to_tikv</code></li>
+<li><code>tidb_allow_mpp</code></li>
+<li><code>tidb_broadcast_join_threshold_count</code></li>
+<li><code>tidb_broadcast_join_threshold_size</code></li>
+<li><code>tidb_cost_model_version</code></li>
+<li><code>tidb_default_string_match_selectivity</code></li>
+<li><code>tidb_distsql_scan_concurrency</code></li>
+<li><code>tidb_enable_cascades_planner</code></li>
+<li><code>tidb_enable_extended_stats</code></li>
+<li><code>tidb_enable_index_merge</code></li>
+<li><code>tidb_enable_index_merge_join</code></li>
+<li><code>tidb_enable_inl_join_inner_multi_pattern</code></li>
+<li><code>tidb_enable_new_only_full_group_by_check</code></li>
+<li><code>tidb_enable_non_prepared_plan_cache</code></li>
+<li><code>tidb_enable_null_aware_anti_join</code></li>
+<li><code>tidb_enable_ordered_result_mode</code></li>
+<li><code>tidb_enable_outer_join_reorder</code></li>
+<li><code>tidb_enable_paging</code></li>
+<li><code>tidb_enable_prepared_plan_cache</code></li>
+<li><code>tidb_enable_pseudo_for_outdated_stats</code></li>
+<li><code>tidb_enable_vectorized_expression</code></li>
+<li><code>tidb_enforce_mpp</code></li>
+<li><code>tidb_executor_concurrency</code></li>
+<li><code>tidb_index_join_batch_size</code></li>
+<li><code>tidb_index_join_double_read_penalty_cost_rate</code></li>
+<li><code>tidb_index_lookup_size</code></li>
+<li><code>tidb_index_merge_intersection_concurrency</code></li>
+<li><code>tidb_index_serial_scan_concurrency</code></li>
+<li><code>tidb_isolation_read_engines</code></li>
+<li><code>tidb_max_bytes_before_tiflash_external_group_by</code></li>
+<li><code>tidb_max_bytes_before_tiflash_external_join</code></li>
+<li><code>tidb_max_bytes_before_tiflash_external_sort</code></li>
+<li><code>tidb_max_paging_size</code></li>
+<li><code>tidb_merge_join_concurrency</code></li>
+<li><code>tidb_min_paging_size</code></li>
+<li><code>tidb_opt_advanced_join_hint</code></li>
+<li><code>tidb_opt_agg_push_down</code></li>
+<li><code>tidb_opt_broadcast_cartesian_join</code></li>
+<li><code>tidb_opt_concurrency_factor</code></li>
+<li><code>tidb_opt_copcpu_factor</code></li>
+<li><code>tidb_opt_correlation_exp_factor</code></li>
+<li><code>tidb_opt_correlation_threshold</code></li>
+<li><code>tidb_opt_cpu_factor</code></li>
+<li><code>tidb_opt_derive_topn</code></li>
+<li><code>tidb_opt_desc_factor</code></li>
+<li><code>tidb_opt_disk_factor</code></li>
+<li><code>tidb_opt_distinct_agg_push_down</code></li>
+<li><code>tidb_opt_enable_correlation_adjustment</code></li>
+<li><code>tidb_opt_enable_late_materialization</code></li>
+<li><code>tidb_opt_enable_mpp_shared_cte_execution</code></li>
+<li><code>tidb_opt_fix_control</code></li>
+<li><code>tidb_opt_force_inline_cte</code></li>
+<li><code>tidb_optimizer_selectivity_level</code></li>
+<li><code>tidb_opt_insubq_to_join_and_agg</code></li>
+<li><code>tidb_opt_join_reorder_threshold</code></li>
+<li><code>tidb_opt_limit_push_down_threshold</code></li>
+<li><code>tidb_opt_memory_factor</code></li>
+<li><code>tidb_opt_mpp_outer_join_fixed_build_side</code></li>
+<li><code>tidb_opt_network_factor</code></li>
+<li><code>tidb_opt_objective</code></li>
+<li><code>tidb_opt_ordering_index_selectivity_threshold</code></li>
+<li><code>tidb_opt_prefer_range_scan</code></li>
+<li><code>tidb_opt_prefix_index_single_scan</code></li>
+<li><code>tidb_opt_projection_push_down</code></li>
+<li><code>tidb_opt_range_max_size</code></li>
+<li><code>tidb_opt_scan_factor</code></li>
+<li><code>tidb_opt_seek_factor</code></li>
+<li><code>tidb_opt_skew_distinct_agg</code></li>
+<li><code>tidb_opt_three_stage_distinct_agg</code></li>
+<li><code>tidb_opt_tiflash_concurrency_factor</code></li>
+<li><code>tidb_opt_write_row_id</code></li>
+<li><code>tidb_partition_prune_mode</code></li>
+<li><code>tidb_plan_cache_max_plan_size</code></li>
+<li><code>tidb_prefer_broadcast_join_by_exchange_data_size</code></li>
+<li><code>tidb_read_consistency</code></li>
+<li><code>tidb_read_staleness</code></li>
+<li><code>tidb_replica_read</code></li>
+<li><code>tidb_runtime_filter_mode</code></li>
+<li><code>tidb_runtime_filter_type</code></li>
+<li><code>tidb_session_alias</code></li>
+<li><code>tidb_stats_load_sync_wait</code></li>
+<li><code>tidb_store_batch_size</code></li>
+<li><code>tiflash_fastscan</code></li>
+<li><code>tiflash_find_grained_shuffle_stream_count</code></li>
+<li><code>tiflash_fine_grained_shuffle_batch_size</code></li>
+</ul>
+<p>Ps. 在研究这一特性时，发现了一个源码和若干中英文文档问题中的小问题，这是第一次给 <code>pingcap/tidb</code> 和 <code>pingcap/docs</code> 提 PR，特此“马克”一下。</p>
+<ul>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/pull/47609" >[Merged] sessionctx: fix var typo #47609 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/docs/pull/15059" >[Merged] system-variables: update docs for hint SET_VAR #15059 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/docs-cn/pull/15207" >[Merged] system-variables: update docs for hint SET_VAR #15207 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+</ul>
+<h4 id="5️⃣-TiDB-7-4-0-新增会话连接属性表-session-account-connect-attrs">5️⃣ TiDB 7.4.0, 新增会话连接属性表 <code>session_account_connect_attrs</code></h4>
+<p>在 MySQL 早期版本中，支持从 <code>P_S.session_account_connect_attrs</code> 查看会话的连接属性。<sup class="footnote-ref"><a href="#fn23" id="fnref23">[23]</a></sup></p>
+<p>在 TiDB 7.4 中，也已经实现。举例如下：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">tidb<span class="operator">&gt;</span> <span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> performance_schema.session_account_connect_attrs;</span><br><span class="line"><span class="operator">+</span><span class="comment">----------------+-----------------+-------------+------------------+</span></span><br><span class="line"><span class="operator">|</span> PROCESSLIST_ID <span class="operator">|</span> ATTR_NAME       <span class="operator">|</span> ATTR_VALUE  <span class="operator">|</span> ORDINAL_POSITION <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">----------------+-----------------+-------------+------------------+</span></span><br><span class="line"><span class="operator">|</span>        <span class="number">2097154</span> <span class="operator">|</span> _client_name    <span class="operator">|</span> libmysql    <span class="operator">|</span>                <span class="number">0</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span>        <span class="number">2097154</span> <span class="operator">|</span> _client_version <span class="operator">|</span> <span class="number">8.0</span><span class="number">.33</span>      <span class="operator">|</span>                <span class="number">1</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span>        <span class="number">2097154</span> <span class="operator">|</span> _os             <span class="operator">|</span> Linux       <span class="operator">|</span>                <span class="number">2</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span>        <span class="number">2097154</span> <span class="operator">|</span> _pid            <span class="operator">|</span> <span class="number">103036</span>      <span class="operator">|</span>                <span class="number">3</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span>        <span class="number">2097154</span> <span class="operator">|</span> _platform       <span class="operator">|</span> x86_64      <span class="operator">|</span>                <span class="number">4</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span>        <span class="number">2097154</span> <span class="operator">|</span> os_user         <span class="operator">|</span> shawnyan    <span class="operator">|</span>                <span class="number">5</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span>        <span class="number">2097154</span> <span class="operator">|</span> program_name    <span class="operator">|</span> mysql       <span class="operator">|</span>                <span class="number">6</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">----------------+-----------------+-------------+------------------+</span></span><br><span class="line"><span class="number">7</span> <span class="keyword">rows</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure></div>
+<p>如果通过第三方工具连接，比如 HeidiSQL，则显示为：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">tidb<span class="operator">&gt;</span> <span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> performance_schema.session_account_connect_attrs <span class="keyword">where</span> PROCESSLIST_ID <span class="operator">=</span> <span class="string">&#x27;2097170&#x27;</span>;</span><br><span class="line"><span class="operator">+</span><span class="comment">----------------+-----------------+------------+------------------+</span></span><br><span class="line"><span class="operator">|</span> PROCESSLIST_ID <span class="operator">|</span> ATTR_NAME       <span class="operator">|</span> ATTR_VALUE <span class="operator">|</span> ORDINAL_POSITION <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">----------------+-----------------+------------+------------------+</span></span><br><span class="line"><span class="operator">|</span>        <span class="number">2097170</span> <span class="operator">|</span> _client_name    <span class="operator">|</span> libmariadb <span class="operator">|</span>                <span class="number">0</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span>        <span class="number">2097170</span> <span class="operator">|</span> _client_version <span class="operator">|</span> <span class="number">3.2</span><span class="number">.5</span>      <span class="operator">|</span>                <span class="number">1</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span>        <span class="number">2097170</span> <span class="operator">|</span> _os             <span class="operator">|</span> Windows    <span class="operator">|</span>                <span class="number">2</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span>        <span class="number">2097170</span> <span class="operator">|</span> _pid            <span class="operator">|</span> <span class="number">3828</span>       <span class="operator">|</span>                <span class="number">3</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span>        <span class="number">2097170</span> <span class="operator">|</span> _platform       <span class="operator">|</span> AMD64      <span class="operator">|</span>                <span class="number">4</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span>        <span class="number">2097170</span> <span class="operator">|</span> _server_host    <span class="operator">|</span> <span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span>  <span class="operator">|</span>                <span class="number">5</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span>        <span class="number">2097170</span> <span class="operator">|</span> _thread         <span class="operator">|</span> <span class="number">18236</span>      <span class="operator">|</span>                <span class="number">6</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span>        <span class="number">2097170</span> <span class="operator">|</span> program_name    <span class="operator">|</span> HeidiSQL   <span class="operator">|</span>                <span class="number">7</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">----------------+-----------------+------------+------------------+</span></span><br><span class="line"><span class="number">8</span> <span class="keyword">rows</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure></div>
+<h4 id="6️⃣-TiDB-7-4-0-新增支持数据类型-FLOAT4-FLOAT8-和-MIDDLEINT">6️⃣ TiDB 7.4.0, 新增支持数据类型 <code>FLOAT4</code>, <code>FLOAT8</code> 和 <code>MIDDLEINT</code></h4>
+<p>从 TiDB 7.4 开始，新增数据类型 <code>FLOAT4</code>, <code>FLOAT8</code> 和 <code>MIDDLEINT</code>，以增强 MySQL 兼容性。其中 <code>FLOAT4</code> 实现为 <code>FLOAT</code> 的别名，<code>FLOAT8</code> 实现为 <code>DOUBLE</code> 的别名，<code>MIDDLEINT</code> 实现为 <code>MEDIUMINT</code> 的别名。</p>
+<p>示例：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> t_type (c1 float4, c2 float8, c3 middleint, c4 int3);</span><br></pre></td></tr></table></figure></div>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">tidb<span class="operator">&gt;</span> <span class="keyword">show</span> <span class="keyword">create</span> <span class="keyword">table</span> t_type\G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">       <span class="keyword">Table</span>: t_type</span><br><span class="line"><span class="keyword">Create</span> <span class="keyword">Table</span>: <span class="keyword">CREATE</span> <span class="keyword">TABLE</span> `t_type` (</span><br><span class="line">  `c1` <span class="type">float</span> <span class="keyword">DEFAULT</span> <span class="keyword">NULL</span>,</span><br><span class="line">  `c2` <span class="keyword">double</span> <span class="keyword">DEFAULT</span> <span class="keyword">NULL</span>,</span><br><span class="line">  `c3` mediumint(<span class="number">9</span>) <span class="keyword">DEFAULT</span> <span class="keyword">NULL</span>,</span><br><span class="line">  `c4` mediumint(<span class="number">9</span>) <span class="keyword">DEFAULT</span> <span class="keyword">NULL</span></span><br><span class="line">) ENGINE<span class="operator">=</span>InnoDB <span class="keyword">DEFAULT</span> CHARSET<span class="operator">=</span>utf8mb4 <span class="keyword">COLLATE</span><span class="operator">=</span>utf8mb4_bin</span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure></div>
+<p>到此，MySQL 8.1 官方文档<sup class="footnote-ref"><a href="#fn24" id="fnref24">[24]</a></sup>中罗列的 16 个来自其他数据库的数据类型，TiDB 7.4 已全部支持。</p>
+<p>Ps. 最新版的文档中有一处兼容性描述未更新，已反馈，待更新。</p>
+<ul>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/docs-cn/issues/15269" >[Closed] Remove unsupport FLOAT4/FLOAT8 #15269 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+</ul>
+<h2 id="font-color-0080FF-三、总结-font"><font color='#0080FF'>三、总结</font></h2>
+<p>到 11 月 15 日，2023 年已过去 87%，TiDB 7.x 系列即将迎来 7.5 LTS 版本。TiDB 在 MySQL 5.7 EOL 之际正式兼容 MySQL 8.0，为用户从 MySQL 5.7 迁移到 TiDB 减轻了工作量，并提供了更多助力。</p>
+<p>最后，推荐一篇文章：</p>
+<ul>
+<li>中文版：<a class="link"   target="_blank" rel="noopener" href="https://tidb.net/blog/c91c844c" >是时候了！MySQL 5.7 的下一站，不如试试 TiDB？ <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li>英文版：<a class="link"   target="_blank" rel="noopener" href="https://www.pingcap.com/blog/mysql-57-eol-mysql-alternatives-tidb/" >MySQL 5.7 EOL: Migrating to a MySQL Alternative <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li>日文版：<a class="link"   target="_blank" rel="noopener" href="https://pingcap.co.jp/mysql-5-7-eol-migrating-to-a-mysql-alternative/" >MySQL 5.7サポート終了：MySQL代替データベースへの移行 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+</ul>
+<blockquote>
+<p>2023-11-02, update.</p>
+<p>Per Oracle’s Lifetime Support policy, as of <strong>October 25, 2023</strong>, MySQL 5.7 is covered under Oracle Sustaining Support.<sup class="footnote-ref"><a href="#fn25" id="fnref25">[25]</a></sup></p>
+</blockquote>
+<h2 id="感谢">感谢</h2>
+<p>在 TiDB 7.4.0 DMR 的发版说明<sup class="footnote-ref"><a href="#fn26" id="fnref26">[26]</a></sup>中发现了自己的名字，感谢 TiDB 社区。</p>
+<p>欢迎更多伙伴加入 <a class="link"   target="_blank" rel="noopener" href="https://tidb.net/" >TiDB 社区 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 。</p>
+<h2 id="彩蛋">彩蛋</h2>
+<p><strong>TiDB Release Timeline 2023 版</strong></p>
+<img  alt="TiDB-Release-Timeline-Map.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/TiDBReleaseTimeline-Map1(1)-1698209426314.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>数据来源：</p>
+<ul>
+<li><a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/dev/release-timeline" >TiDB 版本发布时间线 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/projects/63" >TiDB Release Kanban <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+</ul>
+<p>End.</p>
+<p>ShawnYan<br>
+2023-10-17</p>
+<img  alt="logo.jpg" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg"
+                      referrerpolicy="no-referrer"
+                >
+<hr class="footnotes-sep">
+<section class="footnotes">
+<ol class="footnotes-list">
+<li id="fn1" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/issues/47332" >https://github.com/pingcap/tidb/issues/47332 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref1" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn2" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/dev/hardware-and-software-requirements" >https://docs.pingcap.com/zh/tidb/dev/hardware-and-software-requirements <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref2" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn3" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/pull/45923" >https://github.com/pingcap/tidb/pull/45923 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref3" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn4" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/pull/46764" >https://github.com/pingcap/tidb/pull/46764 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref4" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn5" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://groups.google.com/g/golang-announce/c/iNNxDTCjZvo" >https://groups.google.com/g/golang-announce/c/iNNxDTCjZvo <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref5" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn6" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/pull/47440" >https://github.com/pingcap/tidb/pull/47440 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref6" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn7" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/pull/47123" >https://github.com/pingcap/tidb/pull/47123 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref7" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn8" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/command-line-flags-for-tidb-configuration" >https://docs.pingcap.com/zh/tidb/stable/command-line-flags-for-tidb-configuration <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref8" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn9" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/tidb-configuration-file" >https://docs.pingcap.com/zh/tidb/stable/tidb-configuration-file <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref9" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn10" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/system-variables" >https://docs.pingcap.com/zh/tidb/stable/system-variables <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref10" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn11" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/dev/sql-statement-admin-pause-ddl" >https://docs.pingcap.com/zh/tidb/dev/sql-statement-admin-pause-ddl <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref11" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn12" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/8.0/en/optimizer-hints.html#optimizer-hints-table-level" >https://dev.mysql.com/doc/refman/8.0/en/optimizer-hints.html#optimizer-hints-table-level <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref12" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn13" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/dev/optimizer-hints#inl_joint1_name--tl_name-" >https://docs.pingcap.com/zh/tidb/dev/optimizer-hints#inl_joint1_name--tl_name- <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref13" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn14" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/tidb-functions#tidb_parse_tso" >https://docs.pingcap.com/zh/tidb/stable/tidb-functions#tidb_parse_tso <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref14" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn15" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/v7.4/partitioned-table#%E5%AF%B9%E7%8E%B0%E6%9C%89%E8%A1%A8%E8%BF%9B%E8%A1%8C%E5%88%86%E5%8C%BA" >https://docs.pingcap.com/zh/tidb/v7.4/partitioned-table#对现有表进行分区 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref15" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn16" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/statistics#%E8%87%AA%E5%8A%A8%E6%9B%B4%E6%96%B0" >https://docs.pingcap.com/zh/tidb/stable/statistics#自动更新 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref16" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn17" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://dev.mysql.com/doc/relnotes/mysql/8.0/en/news-8-0-16.html" >https://dev.mysql.com/doc/relnotes/mysql/8.0/en/news-8-0-16.html <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref17" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn18" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/v7.4/release-7.4.0#%E6%95%B0%E6%8D%AE%E5%BA%93%E7%AE%A1%E7%90%86" >https://docs.pingcap.com/zh/tidb/v7.4/release-7.4.0#数据库管理 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref18" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn19" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/v7.4/release-7.4.0#%E8%A1%8C%E4%B8%BA%E5%8F%98%E6%9B%B4" >https://docs.pingcap.com/zh/tidb/v7.4/release-7.4.0#行为变更 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref19" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn20" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/pull/46155" >https://github.com/pingcap/tidb/pull/46155 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref20" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn21" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/v7.4/release-7.4.0#%E7%A8%B3%E5%AE%9A%E6%80%A7" >https://docs.pingcap.com/zh/tidb/v7.4/release-7.4.0#稳定性 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref21" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn22" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/v7.4/system-variables" >https://docs.pingcap.com/zh/tidb/v7.4/system-variables <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref22" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn23" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/8.0/en/performance-schema-connection-attribute-tables.html" >https://dev.mysql.com/doc/refman/8.0/en/performance-schema-connection-attribute-tables.html <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref23" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn24" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/8.1/en/other-vendor-data-types.html" >https://dev.mysql.com/doc/refman/8.1/en/other-vendor-data-types.html <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref24" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn25" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://www.mysql.com/support/eol-notice.html" >https://www.mysql.com/support/eol-notice.html <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref25" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn26" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/v7.4/release-7.4.0#%E8%B4%A1%E7%8C%AE%E8%80%85" >https://docs.pingcap.com/zh/tidb/v7.4/release-7.4.0#贡献者 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref26" class="footnote-backref">↩︎</a></p>
+</li>
+</ol>
+</section>
+
+        </div>
+
+        
+            <div class="post-copyright-info">
+                <div class="article-copyright-info-container">
+    <ul>
+    <!-- 2023-10-03, edit by shawnyan. -->
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Title:</strong> TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）</li>
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Author:</strong>
+            
+                ShawnYan
+            
+        </li>
+        <li><strong>Created at:</strong> 2023-10-17 12:00:00</li>
+        
+            <li><strong>Updated at:</strong> 2023-11-15 01:00:00</li>
+        
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Link:</strong> https://shawnyan.cn/2023/tidb/tidb-7.x-compile-tidb/</li>
+        <li style="word-wrap: break-word; white-space: normal;">
+            <strong>
+                License:
+            </strong>
+            
+            This work is licensed under <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>.
+            
+
+        </li>
+    </ul>
+</div>
+
+            </div>
+        
+
+        
+            <ul class="post-tags-box">
+                
+                    <li class="tag-item">
+                        <a href="/tags/mysql/">#mysql</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/tidb/">#tidb</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/compile/">#compile</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/pingcap/">#pingcap</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/tidb-7-x/">#tidb 7.x</a>&nbsp;
+                    </li>
+                
+            </ul>
+        
+
+        
+  <div class="recommended-article">
+   <div class="recommended-desktop">
+    <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+    </div>
+    <div class="recommended-article-group"><a class="recommended-article-item" href="/2022/tidb/tidb-6.0-new-collation/" title="TiDB 6.x 新特性解读 | Collation 规则" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/IMG_2005-1652257515326.jpg" alt="TiDB 6.x 新特性解读 | Collation 规则" class="!max-w-none">
+  <span class="title">TiDB 6.x 新特性解读 | Collation 规则</span>
+</a><a class="recommended-article-item" href="/2023/tidb/tidb-aliyun-trial/" title="TiDB x Aliyun 免费试用，竟还有这般福利？" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-aliyun-trial-banner-1696311280028.jpg" alt="TiDB x Aliyun 免费试用，竟还有这般福利？" class="!max-w-none">
+  <span class="title">TiDB x Aliyun 免费试用，竟还有这般福利？</span>
+</a><a class="recommended-article-item" href="/2024/tidb/tidb-story-with-tidb-blog/" title="【我和 TiDB 社区的故事】我与 TiDB 专栏的故事" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/%E5%BE%AE%E4%BF%A1%E5%9B%BE%E7%89%87_20240304122542-1709527822045.jpg" alt="【我和 TiDB 社区的故事】我与 TiDB 专栏的故事" class="!max-w-none">
+  <span class="title">【我和 TiDB 社区的故事】我与 TiDB 专栏的故事</span>
+</a></div>
+   </div>
+   <div class="recommended-mobile">
+   <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+   </div>
+   <div class="recommended-article-group"><a class="recommended-article-item" href="/2022/tidb/tidb-6.0-new-collation/" title="TiDB 6.x 新特性解读 | Collation 规则" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/IMG_2005-1652257515326.jpg" alt="TiDB 6.x 新特性解读 | Collation 规则" class="!max-w-none">
+  <span class="title">TiDB 6.x 新特性解读 | Collation 规则</span>
+</a><a class="recommended-article-item" href="/2023/tidb/tidb-aliyun-trial/" title="TiDB x Aliyun 免费试用，竟还有这般福利？" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-aliyun-trial-banner-1696311280028.jpg" alt="TiDB x Aliyun 免费试用，竟还有这般福利？" class="!max-w-none">
+  <span class="title">TiDB x Aliyun 免费试用，竟还有这般福利？</span>
+</a></div>
+   </div>
+  </div>
+
+        
+            <div class="article-nav">
+                
+                    <div class="article-prev">
+                        <a class="prev"
+                        rel="prev"
+                        href="/2023/linux/rocky-9.2-install/"
+                        >
+                            <span class="left arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </span>
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">【Rocky 9】Step by Step 安装 Rocky Linux 9.2 系统</span>
+                                <span class="post-nav-item">Prev posts</span>
+                            </span>
+                        </a>
+                    </div>
+                
+                
+                    <div class="article-next">
+                        <a class="next"
+                        rel="next"
+                        href="/2023/postgresql/pg-16-run-on-centos-7/"
+                        >
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">【PG16】后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行</span>
+                                <span class="post-nav-item">Next posts</span>
+                            </span>
+                            <span class="right arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </a>
+                    </div>
+                
+            </div>
+        
+
+
+        
+            <div class="comment-container">
+                <div class="comments-container pjax">
+    <div id="comment-anchor"></div>
+    <div class="comment-area-title">
+        <i class="fa-solid fa-comments"></i>&nbsp;Comments
+    </div>
+    
+
+        
+            
+    <div id="gitalk-container"></div>
+    <script data-swup-reload-script
+            src="//cdn.staticfile.org/gitalk/1.8.0/gitalk.min.js"></script>
+    <script data-swup-reload-script>
+
+        function loadGitalk() {
+            let __gitalk__pathname = decodeURI(location.pathname);
+            const __gitalk__pathnameLength = __gitalk__pathname.length;
+            const __gitalk__pathnameMaxLength = 50;
+            if (__gitalk__pathnameLength > __gitalk__pathnameMaxLength) {
+                __gitalk__pathname = __gitalk__pathname.substring(0, __gitalk__pathnameMaxLength - 3) + '...';
+            }
+
+            try {
+                Gitalk && new Gitalk({
+                    clientID: '32d049bf3701e6791070',
+                    clientSecret: '36c295ad3dad4c739b530ef113d0a979d8c35c5d',
+                    repo: 'gitalk',
+                    owner: 'shawn0915',
+                    admin: ['shawn0915'],
+                    id: __gitalk__pathname,
+                    language: 'en'
+                }).render('gitalk-container');
+
+            } catch (e) {
+                window.Gitalk = null;
+            }
+        }
+
+        if ('true') {
+            const loadGitalkTimeout = setTimeout(() => {
+                loadGitalk();
+                clearTimeout(loadGitalkTimeout);
+            }, 1000);
+        } else {
+            window.addEventListener('DOMContentLoaded', loadGitalk);
+        }
+    </script>
+
+
+
+        
+    
+</div>
+
+            </div>
+        
+    </div>
+
+    
+        <div class="toc-content-container">
+            <div class="post-toc-wrap">
+    <div class="post-toc">
+        <div class="toc-title">On this page</div>
+<!--         <div class="page-title">TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）</div> -->
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%9B%AE%E5%BD%95"><span class="nav-text">目录</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#TL-DR"><span class="nav-text">TL;DR</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E6%83%85%E6%8F%90%E8%A6%81"><span class="nav-text">前情提要</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#font-color-0080FF-%E4%B8%80%E3%80%81TiDB-Server-%E7%BC%96%E8%AF%91-font"><span class="nav-text">一、TiDB Server 编译</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-1-%E7%BC%96%E8%AF%91%E7%8E%AF%E5%A2%83"><span class="nav-text">1.1 编译环境</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-2-%E7%BC%96%E8%AF%91%E6%AD%A5%E9%AA%A4"><span class="nav-text">1.2 编译步骤</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-3-%E5%90%AF%E5%8A%A8-TiDB-Server"><span class="nav-text">1.3 启动 TiDB Server</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#font-color-0080FF-%E4%BA%8C%E3%80%81TiDB-Server-v7-x-%E6%96%B0%E7%89%B9%E6%80%A7-font"><span class="nav-text">二、TiDB Server v7.x 新特性</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%F0%9F%94%91-font-color-0080FF-2-1-%E8%B5%84%E6%BA%90%E7%AE%A1%E6%8E%A7%E8%83%BD%E5%8A%9B%E5%A2%9E%E5%BC%BA-font"><span class="nav-text">🔑 2.1 资源管控能力增强</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%F0%9F%A5%B3-font-color-0080FF-2-2-TiDB-%E7%9B%B8%E5%85%B3-SQL-%E5%86%8D%E6%89%A9%E5%B1%95-font"><span class="nav-text">🥳 2.2 TiDB 相关 SQL 再扩展</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1%EF%B8%8F%E2%83%A3-TiDB-7-1-0%EF%BC%8C%E6%96%B0%E5%A2%9E%E6%94%AF%E6%8C%81-Fix-Control-%E7%89%B9%E6%80%A7"><span class="nav-text">1️⃣ TiDB 7.1.0，新增支持 Fix Control 特性</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2%EF%B8%8F%E2%83%A3-TiDB-7-2-0%EF%BC%8C%E6%94%AF%E6%8C%81%E5%AF%B9-DDL-%E4%BB%BB%E5%8A%A1%E8%BF%9B%E8%A1%8C%E6%9A%82%E5%81%9C%E5%92%8C%E6%81%A2%E5%A4%8D"><span class="nav-text">2️⃣ TiDB 7.2.0，支持对 DDL 任务进行暂停和恢复</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3%EF%B8%8F%E2%83%A3-TiDB-7-3-0%EF%BC%8C%E6%96%B0%E5%A2%9E%E6%94%AF%E6%8C%81-8-%E9%A1%B9-Optimizer-Hint"><span class="nav-text">3️⃣ TiDB 7.3.0，新增支持 8 项 Optimizer Hint</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4%EF%B8%8F%E2%83%A3-TiDB-7-4-0%EF%BC%8C%E6%96%B0%E5%A2%9E%E6%94%AF%E6%8C%81-TIDB-PARSE-TSO-LOGICAL-%E8%AF%AD%E6%B3%95"><span class="nav-text">4️⃣ TiDB 7.4.0，新增支持 TIDB_PARSE_TSO_LOGICAL() 语法</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#5%EF%B8%8F%E2%83%A3-TiDB-7-4-0%EF%BC%8C%E6%96%B0%E5%A2%9E%E6%94%AF%E6%8C%81%E5%88%86%E5%8C%BA%E7%B1%BB%E5%9E%8B%E7%AE%A1%E7%90%86%E5%8A%9F%E8%83%BD"><span class="nav-text">5️⃣ TiDB 7.4.0，新增支持分区类型管理功能</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#M%EF%B8%8F-font-color-0080FF-2-3-MySQL-8-0-%E5%85%BC%E5%AE%B9%E6%80%A7-font"><span class="nav-text">Ⓜ️ 2.3 MySQL 8.0 兼容性</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1%EF%B8%8F%E2%83%A3-TiDB-7-2-0%EF%BC%8C%E6%96%B0%E5%A2%9E%E6%94%AF%E6%8C%81-CHECK-%E7%BA%A6%E6%9D%9F"><span class="nav-text">1️⃣ TiDB 7.2.0，新增支持 CHECK 约束</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2%EF%B8%8F%E2%83%A3-TiDB-7-2-0%EF%BC%8C%E6%94%AF%E6%8C%81%E6%8C%87%E5%AE%9A-utf8mb3-%E5%AD%97%E7%AC%A6%E9%9B%86%EF%BC%9BTiDB-7-4-0%EF%BC%8C%E6%94%AF%E6%8C%81%E6%8C%87%E5%AE%9A-utf8mb4-0900-ai-ci-utf8mb4-0900-bin-%E6%8E%92%E5%BA%8F%E8%A7%84%E5%88%99"><span class="nav-text">2️⃣ TiDB 7.2.0，支持指定 utf8mb3 字符集；TiDB 7.4.0，支持指定 utf8mb4_0900_ai_ci&#x2F;utf8mb4_0900_bin 排序规则</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3%EF%B8%8F%E2%83%A3-TiDB-7-4-0%EF%BC%8Cversion-%E8%BF%94%E5%9B%9E%E4%BF%A1%E6%81%AF%E5%8F%98%E6%9B%B4"><span class="nav-text">3️⃣ TiDB 7.4.0，version() 返回信息变更</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4%EF%B8%8F%E2%83%A3-TiDB-7-4-0%EF%BC%8C%E6%96%B0%E5%A2%9E%E6%94%AF%E6%8C%81%E4%BD%BF%E7%94%A8-Hint-SER-VAR-%E4%BF%AE%E6%94%B9%E7%B3%BB%E7%BB%9F%E5%8F%98%E9%87%8F"><span class="nav-text">4️⃣ TiDB 7.4.0，新增支持使用 Hint SER_VAR() 修改系统变量</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#5%EF%B8%8F%E2%83%A3-TiDB-7-4-0-%E6%96%B0%E5%A2%9E%E4%BC%9A%E8%AF%9D%E8%BF%9E%E6%8E%A5%E5%B1%9E%E6%80%A7%E8%A1%A8-session-account-connect-attrs"><span class="nav-text">5️⃣ TiDB 7.4.0, 新增会话连接属性表 session_account_connect_attrs</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#6%EF%B8%8F%E2%83%A3-TiDB-7-4-0-%E6%96%B0%E5%A2%9E%E6%94%AF%E6%8C%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B-FLOAT4-FLOAT8-%E5%92%8C-MIDDLEINT"><span class="nav-text">6️⃣ TiDB 7.4.0, 新增支持数据类型 FLOAT4, FLOAT8 和 MIDDLEINT</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#font-color-0080FF-%E4%B8%89%E3%80%81%E6%80%BB%E7%BB%93-font"><span class="nav-text">三、总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%84%9F%E8%B0%A2"><span class="nav-text">感谢</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%BD%A9%E8%9B%8B"><span class="nav-text">彩蛋</span></a></li></ol>
+
+    </div>
+</div>
+
+        </div>
+    
+</div>
+
+
+
+                
+
+            </div>
+
+            
+
+        </div>
+
+        <div class="main-content-footer">
+            <footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2017</span>
+              -
+            
+            2024&nbsp;&nbsp;<i class="fa-solid fa-heart fa-beat" style="--fa-animation-duration: 0.5s; color: #f54545"></i>&nbsp;&nbsp;<a href="/">Shawn Yan</a>
+        </div>
+        
+            <script data-swup-reload-script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">VISITOR COUNT</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">TOTAL PAGE VIEWS</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">POWERED BY <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a></span>
+            <span class="text-sm lg:block">THEME&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.4.4</a></span>
+        </div>
+        
+        
+            <div>
+                Blog up for <span class="odometer" id="runtime_days" ></span> days <span class="odometer" id="runtime_hours"></span> hrs <span class="odometer" id="runtime_minutes"></span> Min <span class="odometer" id="runtime_seconds"></span> Sec
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+
+    </div>
+</footer>
+
+        </div>
+    </div>
+
+    
+        <div class="post-tools">
+            <div class="post-tools-container">
+    <ul class="article-tools-list">
+        <!-- TOC aside toggle -->
+        
+            <li class="right-bottom-tools page-aside-toggle">
+                <i class="fa-regular fa-outdent"></i>
+            </li>
+        
+
+        <!-- go comment -->
+        
+            <li class="go-comment">
+                <i class="fa-regular fa-comments"></i>
+            </li>
+        
+    </ul>
+</div>
+
+        </div>
+    
+
+    <div class="right-side-tools-container">
+        <div class="side-tools-container">
+    <ul class="hidden-tools-list">
+        <li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-plus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-minus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-expand-width flex justify-center items-center">
+            <i class="fa-regular fa-expand"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+            <i class="fa-regular fa-moon"></i>
+        </li>
+
+        <!-- rss -->
+        
+            <li class="right-bottom-tools rss flex justify-center items-center">
+                <a class="flex justify-center items-center"
+                   href="/atom.xml"
+                   target="_blank"
+                >
+                <i class="fa-regular fa-rss"></i>
+                </a>
+            </li>
+        
+
+        
+
+        <li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+            <i class="fa-regular fa-arrow-down"></i>
+        </li>
+    </ul>
+
+    <ul class="visible-tools-list">
+        <li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+            <i class="fa-regular fa-cog fa-spin"></i>
+        </li>
+        
+            <li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+                <i class="arrow-up fas fa-arrow-up"></i>
+                <span class="percent"></span>
+            </li>
+        
+        
+    </ul>
+</div>
+
+    </div>
+
+    <div class="image-viewer-container">
+    <img src="">
+</div>
+
+
+    
+        <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+          <span class="search-input-field-pre">
+            <i class="fa-solid fa-keyboard"></i>
+          </span>
+            <div class="search-input-container">
+                <input autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       placeholder="Search..."
+                       spellcheck="false"
+                       type="search"
+                       class="search-input"
+                >
+            </div>
+            <span class="popup-btn-close">
+                <i class="fa-solid fa-times"></i>
+            </span>
+        </div>
+        <div id="search-result">
+            <div id="no-result">
+                <i class="fa-solid fa-spinner fa-spin-pulse fa-5x fa-fw"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+
+</main>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Swup.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupSlideTheme.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScriptsPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupProgressPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScrollPlugin.min.js"></script>
+<script>
+    const swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+        ],
+        containers: ["#swup"],
+    });
+
+    swup.hooks.on("page:view", () => {
+        Global.refresh();
+    });
+
+    // if (document.readyState === "complete") {
+    //
+    // } else {
+    //     document.addEventListener("DOMContentLoaded", () => init());
+    // }
+</script>
+
+
+
+
+
+<script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/utils.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/main.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/navbarShrink.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/scrollTopBottom.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/lightDarkSwitch.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/categoryList.js"></script>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/localSearch.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/codeBlock.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/lazyload.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/runtime.js"></script>
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/odometer.min.js"></script>
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/assets/odometer-theme-minimal.css">
+
+
+
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Typed.min.js"></script>
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/typed.js"></script>
+
+
+
+
+
+
+<div class="post-scripts" data-swup-reload-script>
+    
+        <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/anime.min.js"></script>
+        <script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/tocToggle.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/toc.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/tabs.js"></script>
+    
+</div>
+
+
+</body>
+</html>

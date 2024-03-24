@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="shawnyan,dba,oracle,mysql,tidb,mariadb,postgresql,gbase,proxysql">
+    
+    <meta name="author" content="Shawn Yan">
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+        
+        
+        
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://shawnyan.cn/2023/postgresql/pg-15-progress-memory/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+        <meta name="description" content="BG PG 学习群中提及了复杂且很难理解的 PostgreSQL 内存结构，但是有两个常用的必备工具是要学会如何使用的。  如图所示，上半部分是 smem 工具，下半部分是 htop 工具。 这两个是系统工具，OS层面使用，除此之外，还有 2 个 PG 15 引入的参数，以及几个 PG 插件，以 postgresql 的 extension 形式安装，当然还有 PostgreSQL ，下面会逐一说">
+<meta property="og:type" content="article">
+<meta property="og:title" content="【PG15】如何查看 PostgreSQL 进程占用内存情况">
+<meta property="og:url" content="https://shawnyan.cn/2023/postgresql/pg-15-progress-memory/index.html">
+<meta property="og:site_name" content="少安事务所">
+<meta property="og:description" content="BG PG 学习群中提及了复杂且很难理解的 PostgreSQL 内存结构，但是有两个常用的必备工具是要学会如何使用的。  如图所示，上半部分是 smem 工具，下半部分是 htop 工具。 这两个是系统工具，OS层面使用，除此之外，还有 2 个 PG 15 引入的参数，以及几个 PG 插件，以 postgresql 的 extension 形式安装，当然还有 PostgreSQL ，下面会逐一说">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230305-dc7512cb-cd63-4a46-b1ec-5209a64280ad.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230306-3e218cdc-9d0a-4ffe-85f9-6ad553a7435e.PNG">
+<meta property="article:published_time" content="2023-03-06T07:03:23.000Z">
+<meta property="article:modified_time" content="2023-03-06T07:03:23.000Z">
+<meta property="article:author" content="Shawn Yan">
+<meta property="article:tag" content="postgresql">
+<meta property="article:tag" content="postgresql 15">
+<meta property="article:tag" content="extension">
+<meta property="article:tag" content="smem">
+<meta property="article:tag" content="memory">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230305-dc7512cb-cd63-4a46-b1ec-5209a64280ad.png">
+    
+    
+        <!-- Google tag (gtag.js) -->
+        <script src="https://www.googletagmanager.com/gtag/js?id=G-ZH71L5F7X2"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-ZH71L5F7X2');
+        </script>
+    
+    <!-- baidu tongji -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?2fa794d82f74c0bb3617ba62ee962b46";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/img/favicon.ico" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon.ico">
+    <meta name="theme-color" content="#767FF6">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <!--- Page Info-->
+    
+    <title>
+        
+            【PG15】如何查看 PostgreSQL 进程占用内存情况 -
+        
+        少安事务所
+    </title>
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+<!--- use 2.5.0
+    
+        
+<link rel="stylesheet" href="/assets/build/styles.css">
+
+    
+-->
+    <link rel="stylesheet" href="//cdn.staticfile.org/hexo-theme-redefine/2.5.0/assets/build/styles.min.css">
+
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/fonts.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Satoshi/satoshi.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Chillax/chillax.css">
+    <!--- Font Part-->
+    
+    
+    
+    
+
+    <!--- Inject Part-->
+    
+    <script id="hexo-configurations">
+    let Global = window.Global || {};
+    Global.hexo_config = {"hostname":"shawnyan.cn","root":"/","language":"en","path":"search.xml"};
+    Global.theme_config = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":true,"list":[]},"code_block":{"copy":true,"style":"mac","font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":4,"number":false,"expand":true,"init_open":true},"copyright":true,"lazyload":true,"recommendation":{"enable":true,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#767FF6","secondary":null},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"open_graph":true,"google_analytics":{"enable":true,"id":"G-ZH71L5F7X2"},"root_color_mode":"dark"},"home_banner":{"enable":true,"style":"fixed","image":{"light":"https://asktug.com/uploads/default/original/4X/4/b/d/4bd94f804719672dd7e3cb29150ea6f777eb0aec.jpeg","dark":"/img/wallpaper/dark.webp"},"title":"Shawn Yan's Tech Blog.","subtitle":{"text":["A blog about MySQL, Oracle, TiDB, PostgreSQL and other databases."],"hitokoto":{"enable":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":500,"backing_delay":1500,"loop":true,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"links":{"github":"https://github.com/shawn0915","instagram":null,"zhihu":null,"twitter":null,"email":"admin@shawnyan.cn"},"qrs":{"weixin":null}}},"plugins":{"feed":{"enable":true},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":"回忆的沙漏 (10周年版)","artist":"回忆的沙漏 (10周年版)","url":"https://music.163.com/song/media/outer/url?id=1329122067.mp3","cover":"https://p1.music.126.net/oJorrgJ3IotZUAbZkBMuFw==/109951167771736533.jpg?param=68y68"}]},"mermaid":{"enable":false,"version":"9.3.0"}},"version":"2.4.4","navbar":{"auto_hide":false,"color":{"left":"#f78736","right":"#367df7","transparency":35},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Blog":{"path":"/archives","icon":"fa-regular fa-archive"},"Categories":{"path":"/categories","icon":"fa-regular fa-stream"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Links":{"icon":"fa-regular fa-link","submenus":{"My-params":"/my-params","Friends":"/links","Q":"/q"}}},"search":{"enable":true,"preload":true}},"page_templates":{"friends_column":3,"tags_style":"cloud"},"home":{"sidebar":{"enable":true,"position":"left","first_item":"info","announcement":null,"links":null},"article_date_format":"YYYY-MM-DD","categories":{"enable":true,"limit":10},"tags":{"enable":true,"limit":10}},"footerStart":"2017/11/27 00:00:00"};
+    Global.language_ago = {"second":"%s seconds ago","minute":"%s minutes ago","hour":"%s hours ago","day":"%s days ago","week":"%s weeks ago","month":"%s months ago","year":"%s years ago"};
+    Global.data_config = {"masonry":false};
+  </script>
+
+    <!--- Fontawesome Part-->
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/fontawesome.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/brands.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/solid.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/regular.min.css">
+    
+    
+    
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+
+
+<body>
+<div class="progress-bar-container">
+    
+
+    
+        <span class="pjax-progress-bar"></span>
+        <span class="swup-progress-icon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+    
+</div>
+
+
+<main class="page-container" id="swup">
+
+    
+
+    <div class="main-content-container">
+
+
+        <div class="main-content-header">
+            <header class="navbar-container">
+    
+    <div class="navbar-content">
+        <div class="left">
+            
+                <a class="logo-image" href="https://shawnyan.cn/">
+                    <img src="/img/favicon.ico">
+                </a>
+            
+            <a class="logo-title" href="https://shawnyan.cn/">
+                
+                少安事务所
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-house"></i>
+                                        
+                                        HOME
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/archives"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-archive"></i>
+                                        
+                                        BLOG
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/categories"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-stream"></i>
+                                        
+                                        CATEGORIES
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/tags"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-tags"></i>
+                                        
+                                        TAGS
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/about"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-user"></i>
+                                        
+                                        ABOUT
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="has-dropdown" 
+                                    href="#" onClick="return false;">
+                                    
+                                        
+                                            <i class="fa-regular fa-link"></i>
+                                        
+                                        LINKS&nbsp;<i class="fa-solid fa-chevron-down"></i>
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                                    <ul class="sub-menu">
+                                    
+                                        <li>
+                                        <a href="/my-params">MY-PARAMS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/links">FRIENDS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/q">Q
+                                        </a>
+                                        </li>
+                                    
+                                    </ul>
+                                
+                            </li>
+                    
+                    
+                        <li class="navbar-item search search-popup-trigger">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </li>
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                    <div class="icon-item search search-popup-trigger"><i class="fa-solid fa-magnifying-glass"></i></div>
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="navbar-drawer w-full absolute top-0 left-0 bg-background-color">
+        <ul class="drawer-navbar-list flex flex-col justify-start items-center">
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/"  >
+                             
+                                
+                                    <i class="fa-regular fa-house"></i>
+                                
+                                HOME
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/archives"  >
+                             
+                                
+                                    <i class="fa-regular fa-archive"></i>
+                                
+                                BLOG
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/categories"  >
+                             
+                                
+                                    <i class="fa-regular fa-stream"></i>
+                                
+                                CATEGORIES
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/tags"  >
+                             
+                                
+                                    <i class="fa-regular fa-tags"></i>
+                                
+                                TAGS
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/about"  >
+                             
+                                
+                                    <i class="fa-regular fa-user"></i>
+                                
+                                ABOUT
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group has-dropdown" 
+                        href="#" onClick="return false;">
+                            
+                                
+                                    <i class="fa-regular fa-link"></i>
+                                
+                                LINKS&nbsp;<i class="group-hover:rotate-180 transition-transform fa-solid fa-chevron-down"></i>
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                              
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/my-params">MY-PARAMS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/links">FRIENDS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/q">Q</a>
+                            </li>
+                        
+                    
+            
+
+        </ul>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+        </div>
+
+        <div class="main-content-body">
+
+            
+
+            <div class="main-content">
+
+                
+                    <div class="post-page-container">
+    <div class="article-content-container">
+
+        <div class="article-title">
+            
+                
+                
+                <!-- 2023-10-03, edit by shawnyan. -->
+                <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG15】如何查看 PostgreSQL 进程占用内存情况" class="max-w-none" referrerpolicy="no-referrer"/>
+                
+                <h1 class="article-title-cover">【PG15】如何查看 PostgreSQL 进程占用内存情况</h1>
+            
+            </div>
+
+
+
+        
+            <div class="article-header">
+                <div class="avatar">
+                    
+                        <img src="/img/avatar.jpg">
+                    
+                </div>
+                <div class="info">
+                    <div class="author">
+                        
+                            <span class="name">严少安</span>
+                        
+                        
+                            
+                                <span class="author-label">Lv.6</span>
+                            
+                        
+                    </div>
+                    <div class="meta-info">
+                        <div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2023-03-06 15:03:23</span>
+        <span class="mobile">2023-03-06 15:03:23</span>
+        <span class="hover-info">Created</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2023-03-06 15:03:23</span>
+            <span class="mobile">2023-03-06 15:03:23</span>
+            <span class="hover-info">Updated</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/postgresql/">PostgreSQL</a>&nbsp;
+                        </li>
+                    
+                    
+                
+                    
+                        
+                            <li>></li>
+                        
+                        <li>
+                            <a href="/categories/postgresql/postgresql-15/">PostgreSQL 15</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/postgresql/">postgresql</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/postgresql-15/">postgresql 15</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/extension/">extension</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/smem/">smem</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/memory/">memory</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+        <span class="article-wordcount article-meta-item">
+            <i class="fa-regular fa-typewriter"></i>&nbsp;<span>3.3k Words</span>
+        </span>
+    
+    
+        <span class="article-min2read article-meta-item">
+            <i class="fa-regular fa-clock"></i>&nbsp;<span>15 Mins</span>
+        </span>
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+                    </div>
+                </div>
+            </div>
+        
+
+        
+
+
+        <div class="article-content markdown-body">
+            <h2 id="BG">BG</h2>
+<p>PG 学习群中提及了复杂且很难理解的 PostgreSQL 内存结构，但是有两个常用的必备工具是要学会如何使用的。</p>
+<img  alt="p1.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230305-dc7512cb-cd63-4a46-b1ec-5209a64280ad.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>如图所示，上半部分是 <code>smem</code> 工具，下半部分是 <code>htop</code> 工具。</p>
+<p>这两个是系统工具，OS层面使用，除此之外，还有 2 个 PG 15 引入的参数，以及几个 PG 插件，以 postgresql 的 extension 形式安装，当然还有 PostgreSQL ，下面会逐一说明。</p>
+<h2 id="smem">smem</h2>
+<p>SMEM 是一个内存报告工具，可以根据GNU通用公共许可证第2版或更高版本的条款使用和分发。<br>
+可以通过 yum 直接安装，但其逻辑本身是通过 Python 语言实现。</p>
+<p>扫描系统的 <code>/proc/</code> 路径，抓取并处理相关信息。输入选项 <code>--help</code> 即可打印出所有选项。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">smem --<span class="built_in">help</span></span></span><br><span class="line">Usage: smem [options]</span><br><span class="line"></span><br><span class="line">Options:</span><br><span class="line">  -h, --help            show this help message and exit</span><br><span class="line">  -H, --no-header       disable header line</span><br><span class="line">  -c COLUMNS, --columns=COLUMNS</span><br><span class="line">                        columns to show</span><br><span class="line">  -t, --totals          show totals</span><br><span class="line">  -R REALMEM, --realmem=REALMEM</span><br><span class="line">                        amount of physical RAM</span><br><span class="line">  -K KERNEL, --kernel=KERNEL</span><br><span class="line">                        path to kernel image</span><br><span class="line">  -m, --mappings        show mappings</span><br><span class="line">  -u, --users           show users</span><br><span class="line">  -w, --system          show whole system</span><br><span class="line">  -P PROCESSFILTER, --processfilter=PROCESSFILTER</span><br><span class="line">                        process filter regex</span><br><span class="line">  -M MAPFILTER, --mapfilter=MAPFILTER</span><br><span class="line">                        map filter regex</span><br><span class="line">  -U USERFILTER, --userfilter=USERFILTER</span><br><span class="line">                        user filter regex</span><br><span class="line">  -n, --numeric         numeric output</span><br><span class="line">  -s SORT, --sort=SORT  field to sort on</span><br><span class="line">  -r, --reverse         reverse sort</span><br><span class="line">  -p, --percent         show percentage</span><br><span class="line">  -k, --abbreviate      show unit suffixes</span><br><span class="line">  --pie=PIE             show pie graph</span><br><span class="line">  --bar=BAR             show bar graph</span><br><span class="line">  -S SOURCE, --source=SOURCE</span><br><span class="line">                        /proc data source</span><br></pre></td></tr></table></figure></div>
+<p>列举几个日常用法:</p>
+<ol>
+<li>查看 postgres 用户的相关进程及内存使用情况</li>
+</ol>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">smem -U postgres</span></span><br><span class="line">  PID User     Command                         Swap      USS      PSS      RSS</span><br><span class="line">2294087 postgres postgres: archiver                 0      128      281     1952</span><br><span class="line">2294081 postgres postgres: logger                   0      204      348     1988</span><br><span class="line">2294088 postgres postgres: stats collector          0      268      424     2152</span><br><span class="line">2294089 postgres postgres: logical replicati        0      496      852     2912</span><br><span class="line">2294086 postgres postgres: autovacuum launch        0      652     1091     3304</span><br><span class="line">3037181 postgres -bash                              0     1348     1575     3064</span><br><span class="line">2294084 postgres postgres: background writer        0      224     6052    19192</span><br><span class="line">3037422 postgres python /bin/smem -U postgre        0     6028     6302     7404</span><br><span class="line">2294083 postgres postgres: checkpointer             0      616     6616    20128</span><br><span class="line">2294085 postgres postgres: walwriter                0      208     8581    18612</span><br><span class="line">2294080 postgres /opt/postgresql/bin/postgre        0    51252    65979    89356</span><br></pre></td></tr></table></figure></div>
+<ol start="2">
+<li>格式化输出数字，转为更为优雅的展示格式, 并计算打印总和。</li>
+</ol>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">smem -U postgres -k <span class="string">&#x27;M&#x27;</span> -t</span></span><br><span class="line">  PID User     Command                         Swap      USS      PSS      RSS</span><br><span class="line">2294087 postgres postgres: archiver                 0   128.0K   281.0K     1.9M</span><br><span class="line">2294081 postgres postgres: logger                   0   204.0K   348.0K     1.9M</span><br><span class="line">2294088 postgres postgres: stats collector          0   268.0K   424.0K     2.1M</span><br><span class="line">2294089 postgres postgres: logical replicati        0   496.0K   852.0K     2.8M</span><br><span class="line">2294086 postgres postgres: autovacuum launch        0   652.0K     1.1M     3.2M</span><br><span class="line">3037181 postgres -bash                              0     1.3M     1.5M     3.0M</span><br><span class="line">2294084 postgres postgres: background writer        0   224.0K     5.9M    18.7M</span><br><span class="line">3037559 postgres python /bin/smem -U postgre        0     5.9M     6.2M     7.2M</span><br><span class="line">2294083 postgres postgres: checkpointer             0   616.0K     6.5M    19.7M</span><br><span class="line">2294085 postgres postgres: walwriter                0   208.0K     8.4M    18.2M</span><br><span class="line">2294080 postgres /opt/postgresql/bin/postgre        0    50.1M    64.4M    87.3M</span><br><span class="line">-------------------------------------------------------------------------------</span><br><span class="line">   11 1                                           0    60.0M    95.8M   166.1M</span><br></pre></td></tr></table></figure></div>
+<ol start="3">
+<li>按 PSS 进行逆序排序。</li>
+</ol>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">smem -U postgres -k <span class="string">&#x27;M&#x27;</span> -t -s pss -r</span></span><br><span class="line">  PID User     Command                         Swap      USS      PSS      RSS</span><br><span class="line">2294080 postgres /opt/postgresql/bin/postgre        0    50.1M    64.4M    87.3M</span><br><span class="line">2294085 postgres postgres: walwriter                0   208.0K     8.4M    18.2M</span><br><span class="line">2294083 postgres postgres: checkpointer             0   616.0K     6.5M    19.7M</span><br><span class="line">3037672 postgres python /bin/smem -U postgre        0     5.9M     6.2M     7.2M</span><br><span class="line">2294084 postgres postgres: background writer        0   224.0K     5.9M    18.7M</span><br><span class="line">3037181 postgres -bash                              0     1.3M     1.5M     3.0M</span><br><span class="line">2294086 postgres postgres: autovacuum launch        0   652.0K     1.1M     3.2M</span><br><span class="line">2294089 postgres postgres: logical replicati        0   496.0K   852.0K     2.8M</span><br><span class="line">2294088 postgres postgres: stats collector          0   268.0K   424.0K     2.1M</span><br><span class="line">2294081 postgres postgres: logger                   0   204.0K   348.0K     1.9M</span><br><span class="line">2294087 postgres postgres: archiver                 0   128.0K   281.0K     1.9M</span><br><span class="line">-------------------------------------------------------------------------------</span><br><span class="line">   11 1                                           0    60.0M    95.8M   166.1M</span><br></pre></td></tr></table></figure></div>
+<ol start="4">
+<li>如需展示 VSS 需要指定列</li>
+</ol>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">smem -U postgres -k <span class="string">&#x27;M&#x27;</span> -s vss -r -c <span class="string">&#x27;command uss pss rss vss&#x27;</span></span></span><br><span class="line">Command                          USS      PSS      RSS      VSS</span><br><span class="line">postgres: autovacuum launch   652.0K     1.1M     3.2M     2.3G</span><br><span class="line">postgres: logical replicati   496.0K   852.0K     2.8M     2.3G</span><br><span class="line">postgres: checkpointer        616.0K     6.5M    19.7M     2.3G</span><br><span class="line">postgres: background writer   224.0K     5.9M    18.7M     2.3G</span><br><span class="line">postgres: walwriter           208.0K     8.4M    18.2M     2.3G</span><br><span class="line">/opt/postgresql/bin/postgre    50.1M    64.4M    87.3M     2.3G</span><br><span class="line">postgres: stats collector     268.0K   424.0K     2.1M   229.8M</span><br><span class="line">postgres: archiver            128.0K   281.0K     1.9M   229.7M</span><br><span class="line">postgres: logger              200.0K   344.0K     1.9M   227.6M</span><br><span class="line">-bash                           1.5M     1.7M     3.1M   113.9M</span><br><span class="line">python /bin/smem -U postgre     5.9M     6.2M     7.2M    44.1M</span><br></pre></td></tr></table></figure></div>
+<p>上述示例中，出现几个专业词汇缩写，其含义如下：</p>
+<ul>
+<li>Swap: 所消耗的交换空间量(忽略共享)</li>
+<li>USS: Unique Set Size 进程独自占用的物理内存</li>
+<li>PSS: Proportional Set Size 实际使用的物理内存 (包含共享)</li>
+<li>RSS: Resident Set Size 实际使用物理内存(忽略共享)</li>
+<li>VSS: Virtual Set Size 虚拟耗用内存(映射的虚拟内存总数)</li>
+</ul>
+<p>最后，smem 还可以输出饼图，图形化的方式，展示各进程的内存占比。</p>
+<h2 id="htop">htop</h2>
+<p>htop 是一个免费的(GPL)基于 ncurses(提供字符终端处理库) 的Linux进程查看器。<br>
+它与 top 类似，但允许您垂直和水平滚动，以便您可以看到系统上运行的所有进程及其完整的命令行，以及将它们视为进程树。</p>
+<img  alt="p2.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230306-3e218cdc-9d0a-4ffe-85f9-6ad553a7435e.PNG"
+                      referrerpolicy="no-referrer"
+                >
+<p>目前，htop 最新版本为 v3.2.2, 感兴趣的同学可以自行下载编译使用。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">./htop --<span class="built_in">help</span></span></span><br><span class="line">htop 3.2.2</span><br><span class="line">(C) 2004-2019 Hisham Muhammad. (C) 2020-2023 htop dev team.</span><br><span class="line">Released under the GNU GPLv2+.</span><br><span class="line">...</span><br></pre></td></tr></table></figure></div>
+<p>额外需要注意的是，htop 带有 kill 功能，此功能请慎用。</p>
+<h2 id="shared-memory-size-shared-memory-size-in-huge-pages">shared_memory_size &amp; shared_memory_size_in_huge_pages</h2>
+<p>在 <a class="link"   target="_blank" rel="noopener" href="https://www.postgresql.org/docs/release/15.0/" >PostgreSQL 15.0 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 的发版说明中有介绍到新增了两个参数。</p>
+<h3 id="shared-memory-size">shared_memory_size</h3>
+<p>添加服务器变量 <a class="link"   target="_blank" rel="noopener" href="https://www.postgresql.org/docs/15/runtime-config-preset.html#GUC-SHARED-MEMORY-SIZE" >shared_memory_size <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 来报告已分配共享内存的大小(Nathan Bossart)<br>
+报告主共享内存区域的大小，四舍五入到最近的兆字节。</p>
+<div class="highlight-container" data-rel="C"><figure class="iseeu highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">postgres=<span class="meta"># show shared_memory_size;</span></span><br><span class="line"> shared_memory_size</span><br><span class="line">--------------------</span><br><span class="line"> <span class="number">145</span>MB</span><br><span class="line">(<span class="number">1</span> row)</span><br></pre></td></tr></table></figure></div>
+<h3 id="shared-memory-size-in-huge-pages">shared_memory_size_in_huge_pages</h3>
+<p>添加服务器变量 shared_memory_size_in_huge_pages 以报告所需的巨大内存页的数量(Nathan Bossart)<br>
+根据指定的 huge_page_size 报告主共享内存区域所需的大页数。 如果不支持大页面，则该值为-1。<br>
+该设置仅在Linux操作系统下支持。 在其他平台上它总是被设置为-1。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">postgres<span class="operator">=</span># <span class="keyword">show</span> shared_memory_size_in_huge_pages;</span><br><span class="line"> shared_memory_size_in_huge_pages</span><br><span class="line"><span class="comment">----------------------------------</span></span><br><span class="line"> <span class="number">73</span></span><br><span class="line">(<span class="number">1</span> <span class="type">row</span>)</span><br></pre></td></tr></table></figure></div>
+<p>另外一个知识点，PG15 扩展了元命令 <code>\dconfig</code> 可以一次性查看若干参数设定。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">(postgres@[<span class="keyword">local</span>]) [postgres] <span class="number">12</span>:<span class="number">34</span>:<span class="number">51</span># \dconfig<span class="operator">+</span> <span class="operator">*</span>share<span class="operator">*</span></span><br><span class="line">                           List <span class="keyword">of</span> configuration parameters</span><br><span class="line"><span class="operator">+</span><span class="comment">----------------------------------+-------+---------+------------+-------------------+</span></span><br><span class="line"><span class="operator">|</span>            <span class="keyword">Parameter</span>             <span class="operator">|</span> <span class="keyword">Value</span> <span class="operator">|</span>  Type   <span class="operator">|</span>  Context   <span class="operator">|</span> Access privileges <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">----------------------------------+-------+---------+------------+-------------------+</span></span><br><span class="line"><span class="operator">|</span> dynamic_shared_memory_type       <span class="operator">|</span> posix <span class="operator">|</span> enum    <span class="operator">|</span> postmaster <span class="operator">|</span>                   <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> min_dynamic_shared_memory        <span class="operator">|</span> <span class="number">0</span>     <span class="operator">|</span> <span class="type">integer</span> <span class="operator">|</span> postmaster <span class="operator">|</span>                   <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> shared_buffers                   <span class="operator">|</span> <span class="number">128</span>MB <span class="operator">|</span> <span class="type">integer</span> <span class="operator">|</span> postmaster <span class="operator">|</span>                   <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> shared_memory_size               <span class="operator">|</span> <span class="number">143</span>MB <span class="operator">|</span> <span class="type">integer</span> <span class="operator">|</span> internal   <span class="operator">|</span>                   <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> shared_memory_size_in_huge_pages <span class="operator">|</span> <span class="number">72</span>    <span class="operator">|</span> <span class="type">integer</span> <span class="operator">|</span> internal   <span class="operator">|</span>                   <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> shared_memory_type               <span class="operator">|</span> mmap  <span class="operator">|</span> enum    <span class="operator">|</span> postmaster <span class="operator">|</span>                   <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> shared_preload_libraries         <span class="operator">|</span>       <span class="operator">|</span> string  <span class="operator">|</span> postmaster <span class="operator">|</span>                   <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">----------------------------------+-------+---------+------------+-------------------+</span></span><br><span class="line">(<span class="number">7</span> <span class="keyword">rows</span>)</span><br></pre></td></tr></table></figure></div>
+<p>可以看到当前 PG 的设定，<a class="link"   target="_blank" rel="noopener" href="https://www.postgresql.org/docs/current/runtime-config-resource.html#GUC-DYNAMIC-SHARED-MEMORY-TYPE" >dynamic_shared_memory_type <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 为 posix ，该参数指定服务器应使用的动态共享内存实现。 可能的值有posix(使用shm_open分配posix共享内存)、sysv(通过shmget分配System V共享内存)、windows(使用windows共享内存)和mmap(使用存储在data目录中的内存映射文件模拟共享内存)。</p>
+<h2 id="pg-stat-monitor">pg_stat_monitor</h2>
+<p>pg_stat_monitor 是由 Percona 公司开发的 PostgreSQL 的查询性能监控工具。 它在单个视图中收集性能统计信息并提供查询性能洞察。 这些见解允许数据库用户了解查询起源、执行、计划统计信息和详细信息、查询信息和元数据。 这极大地提高了可观察性，使用户能够调试和调优查询性能。</p>
+<p>该插件，编译安装好之后，需要加入到预加载配置项，并重新启动 postgres。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">shared_preload_libraries=&#x27;pg_stat_monitor&#x27;</span><br></pre></td></tr></table></figure></div>
+<p>安装后，可通过表格查询某条查询语句造成的共享块变动信息。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> </span><br><span class="line"> userid, datname, queryid, </span><br><span class="line"> shared_blks_hit, shared_blks_read, shared_blks_dirtied, shared_blks_written </span><br><span class="line"> <span class="keyword">from</span> pg_stat_monitor</span><br><span class="line"> <span class="keyword">order</span> <span class="keyword">by</span> shared_blks_hit <span class="keyword">desc</span>;</span><br></pre></td></tr></table></figure></div>
+<p>输出如下：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">+--------+----------+----------------------+-----------------+------------------+---------------------+---------------------+</span><br><span class="line">| userid | datname  |       queryid        | shared_blks_hit | shared_blks_read | shared_blks_dirtied | shared_blks_written |</span><br><span class="line">+--------+----------+----------------------+-----------------+------------------+---------------------+---------------------+</span><br><span class="line">|     10 | postgres | -7568047705441758065 |             186 |                0 |                   0 |                   0 |</span><br><span class="line">|     10 | postgres | -7568047705441758065 |             183 |                0 |                   0 |                   0 |</span><br><span class="line">|     10 | postgres |  3798936806175822236 |               7 |                0 |                   0 |                   0 |</span><br><span class="line">|     10 | postgres | -3691512427099624923 |               4 |                0 |                   0 |                   0 |</span><br><span class="line">|     10 | postgres | -3691512427099624923 |               4 |                0 |                   0 |                   0 |</span><br><span class="line">|     10 | postgres |  3798936806175822236 |               4 |                0 |                   0 |                   0 |</span><br><span class="line">|     10 | postgres | -4203261276791970850 |               3 |                0 |                   0 |                   0 |</span><br><span class="line">|     10 | postgres |  -821424691740446851 |               0 |                0 |                   0 |                   0 |</span><br><span class="line">|     10 | postgres | -4203261276791970850 |               0 |                0 |                   0 |                   0 |</span><br><span class="line">|     10 | postgres |  7280225642777516882 |               0 |                0 |                   0 |                   0 |</span><br><span class="line">|     10 | postgres | -9125306597209436601 |               0 |                0 |                   0 |                   0 |</span><br><span class="line">|     10 | postgres |  2301278004764654168 |               0 |                0 |                   0 |                   0 |</span><br><span class="line">|     10 | postgres |   229654144954915736 |               0 |                0 |                   0 |                   0 |</span><br><span class="line">|     10 | postgres | -9125306597209436601 |               0 |                0 |                   0 |                   0 |</span><br><span class="line">|     10 | postgres |  4513628886796981822 |               0 |                0 |                   0 |                   0 |</span><br><span class="line">+--------+----------+----------------------+-----------------+------------------+---------------------+---------------------+</span><br><span class="line">(15 rows)</span><br></pre></td></tr></table></figure></div>
+<p>这里提示四个关键列值需要注意：</p>
+<ul>
+<li>shared_blks_hit 显示从缓存返回的共享内存块的总数</li>
+<li>shared_blks_read 显示非缓存返回的共享块的总数</li>
+<li>shared_blks_dirtied 显示被查询执行“脏”块的共享内存块的数量(例如，查询修改了一个块中的至少一个元组，并且该块必须写入驱动器)</li>
+<li>shared_blks_written 显示在查询执行期间同时写入驱动器的共享内存块的数量</li>
+</ul>
+<p>其他信息可参考：<a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/402059" >PostgreSQL 性能监控工具之 pg_stat_monitor 插件 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<h2 id="system-stats">system_stats</h2>
+<p>system_stats 是一个 PostgreSQL 扩展插件， 由 EDB 公司开发维护，它提供了访问系统级统计信息的函数，可以用于监控。<br>
+支持Linux、macOS和Windows操作系统。注意，并非所有值都与所有操作系统相关。在这种情况下，受影响的值将返回NULL。</p>
+<p>该插件提供了两个函数可供观测内存。</p>
+<p>示例如下，可与 free 对比查看。</p>
+<ol>
+<li>pg_sys_memory_info</li>
+</ol>
+<p>该接口允许用户获取内存使用信息。 所有的值都以字节为单位。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">(postgres@[<span class="keyword">local</span>]) [postgres] <span class="number">22</span>:<span class="number">38</span>:<span class="number">01</span># <span class="keyword">select</span> pg_sys_memory_info();</span><br><span class="line"><span class="operator">+</span><span class="operator">-</span>[ RECORD <span class="number">1</span> ]<span class="comment">-------+--------------------------------------------------------------------------------+</span></span><br><span class="line"><span class="operator">|</span> pg_sys_memory_info <span class="operator">|</span> (<span class="number">3953745920</span>,<span class="number">3791622144</span>,<span class="number">162123776</span>,<span class="number">2147479552</span>,<span class="number">532480</span>,<span class="number">2146947072</span>,<span class="number">2944073728</span>,,,,,) <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">--------------------+--------------------------------------------------------------------------------+</span></span><br><span class="line"></span><br><span class="line">(postgres@[<span class="keyword">local</span>]) [postgres] <span class="number">22</span>:<span class="number">37</span>:<span class="number">45</span># \<span class="operator">!</span> <span class="keyword">free</span> <span class="operator">-</span>kb</span><br><span class="line">              total        used        <span class="keyword">free</span>      shared  buff<span class="operator">/</span>cache   available</span><br><span class="line">Mem:     <span class="number">3953745920</span>   <span class="number">620945408</span>   <span class="number">161964032</span>   <span class="number">308969472</span>  <span class="number">3170836480</span>  <span class="number">2727837696</span></span><br><span class="line">Swap:    <span class="number">2147479552</span>      <span class="number">532480</span>  <span class="number">2146947072</span></span><br></pre></td></tr></table></figure></div>
+<ol start="2">
+<li>pg_sys_cpu_memory_by_process</li>
+</ol>
+<p>该接口允许用户获取每个进程 ID 的 CPU 和内存信息。</p>
+<p>示例如下，该方法列举的进程过多，这里只截取了 postgres 进程信息。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">(postgres@[<span class="keyword">local</span>]) [postgres] <span class="number">22</span>:<span class="number">41</span>:<span class="number">54</span># <span class="keyword">select</span> pg_sys_cpu_memory_by_process();</span><br><span class="line"><span class="operator">+</span><span class="comment">--------------------------------------------------+</span></span><br><span class="line"><span class="operator">|</span>           pg_sys_cpu_memory_by_process           <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">--------------------------------------------------+</span></span><br><span class="line"><span class="operator">|</span> (<span class="number">1</span>,&quot;(systemd)&quot;,<span class="number">160219</span>,<span class="number">0</span>,<span class="number">0.12</span>,<span class="number">4579328</span>)            <span class="operator">|</span></span><br><span class="line">...</span><br><span class="line"><span class="operator">|</span> (<span class="number">120123</span>,&quot;(postgres)&quot;,<span class="number">1930</span>,<span class="number">0</span>,<span class="number">7.22</span>,<span class="number">285437952</span>)      <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> (<span class="number">120124</span>,&quot;(postgres)&quot;,<span class="number">1930</span>,<span class="number">0</span>,<span class="number">0.09</span>,<span class="number">3727360</span>)        <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> (<span class="number">120125</span>,&quot;(postgres)&quot;,<span class="number">1930</span>,<span class="number">0</span>,<span class="number">0.07</span>,<span class="number">2650112</span>)        <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> (<span class="number">120127</span>,&quot;(postgres)&quot;,<span class="number">1930</span>,<span class="number">0</span>,<span class="number">0.14</span>,<span class="number">5365760</span>)        <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> (<span class="number">120128</span>,&quot;(postgres)&quot;,<span class="number">1930</span>,<span class="number">0</span>,<span class="number">0.06</span>,<span class="number">2355200</span>)        <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> (<span class="number">120129</span>,&quot;(postgres)&quot;,<span class="number">1930</span>,<span class="number">0</span>,<span class="number">0.05</span>,<span class="number">2101248</span>)        <span class="operator">|</span></span><br></pre></td></tr></table></figure></div>
+<h2 id="pg-stat-kcache">pg_stat_kcache</h2>
+<p>该插件是由 PoWA 团队开发的，主要编写语言为 C 语言。</p>
+<p>PoWA 是一个开源项目，是一个PostgreSQL工作负载分析器，它收集性能统计数据，并提供实时图表和图形来帮助监视和优化PostgreSQL服务器。</p>
+<p>该插件可用于收集文件系统层实际读写的统计信息，依赖，并需要先安装 pg_stat_statements 扩展。<br>
+该模块需要一些共享内存来保存它的计数器，这个模块必须在PostgreSQL启动时加载。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">shared_preload_libraries = &#x27;pg_stat_statements,pg_stat_kcache&#x27;</span><br></pre></td></tr></table></figure></div>
+<p>可通过下面方法调用该函数：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> pg_stat_kcache(); </span><br></pre></td></tr></table></figure></div>
+<h2 id="Debug-Info">Debug Info</h2>
+<p>编译 PostgreSQL 源码时，可以加入两个 debug 参数，<code>--enable-debug --enable-dtrace</code>，以开启部分 debug 信息。</p>
+<p>psql 进入到服务器后，可以看到有如下几个 debug 参数，</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">(postgres@[local]) [postgres] 19:12:30# \dconfig+ *debug*</span><br><span class="line">                         List of configuration parameters</span><br><span class="line">+-----------------------+-------+---------+-------------------+-------------------+</span><br><span class="line">|       Parameter       | Value |  Type   |      Context      | Access privileges | mark by Yan.</span><br><span class="line">+-----------------------+-------+---------+-------------------+-------------------+</span><br><span class="line">| debug_assertions      | off   | bool    | internal          |                   | --enable-cassert</span><br><span class="line">| debug_discard_caches  | 0     | integer | superuser         |                   | +V14, prod: 0</span><br><span class="line">| debug_pretty_print    | on    | bool    | user              |                   |</span><br><span class="line">| debug_print_parse     | off   | bool    | user              |                   |</span><br><span class="line">| debug_print_plan      | off   | bool    | user              |                   |</span><br><span class="line">| debug_print_rewritten | off   | bool    | user              |                   |</span><br><span class="line">| jit_debugging_support | off   | bool    | superuser-backend |                   | +V11, LLVM</span><br><span class="line">+-----------------------+-------+---------+-------------------+-------------------+</span><br><span class="line">(7 rows)</span><br></pre></td></tr></table></figure></div>
+<p>PG v14 引入了新参数 <code>debug_discard_caches</code>, PG v15 没有变化。</p>
+<h3 id="MemoryContextStats">MemoryContextStats</h3>
+<p>下面说说 gdb 调试，</p>
+<p>在之前版本的文档中，可以看到如下两个命令，来打印内存上下文情况。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">gdb --batch-silent -ex &#x27;call MemoryContextStats(TopMemoryContext,100)&#x27; -p 107398</span><br><span class="line">gdb --batch-silent -ex &#x27;call MemoryContextStatsDetail(TopMemoryContext,100)&#x27; -p 105941</span><br></pre></td></tr></table></figure></div>
+<p>但从 PostgreSQL v14 开始，<code>MemoryContextStatsDetail</code> 增加了第三个参数，是否打印到 stderr。</p>
+<div class="highlight-container" data-rel="C"><figure class="iseeu highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * You should not do memory allocations within a critical section, because</span></span><br><span class="line"><span class="comment">@@ -499,28 +505,52 @@ void</span></span><br><span class="line"><span class="comment">MemoryContextStats(MemoryContext context)</span></span><br><span class="line"><span class="comment">&#123;</span></span><br><span class="line"><span class="comment">	/* A hard-wired limit on the number of children is usually good enough */</span></span><br><span class="line">	MemoryContextStatsDetail(context, <span class="number">100</span>, <span class="literal">true</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * MemoryContextStatsDetail</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * Entry point for use if you want to vary the number of child contexts shown.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * If print_to_stderr is true, print statistics about the memory contexts</span></span><br><span class="line"><span class="comment"> * with fprintf(stderr), otherwise use ereport().</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="type">void</span></span><br><span class="line"><span class="title function_">MemoryContextStatsDetail</span><span class="params">(MemoryContext context, <span class="type">int</span> max_children,</span></span><br><span class="line"><span class="params">						 <span class="type">bool</span> print_to_stderr)</span></span><br></pre></td></tr></table></figure></div>
+<p>所以，如果继续用上面的命令，就会遇到如下报错。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@centos7 ~]# gdb --batch-silent -ex &#x27;call MemoryContextStatsDetail(TopMemoryContext, 100)&#x27; -p 118791</span><br><span class="line">Too few arguments in function call.</span><br></pre></td></tr></table></figure></div>
+<p>来看下 print_to_stderr 两个值的差别：</p>
+<ul>
+<li>true</li>
+</ul>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">[root@centos7 ~]# gdb --batch-silent -ex &#x27;call MemoryContextStatsDetail(TopMemoryContext, 100, 1)&#x27; -p 118791</span><br><span class="line"></span><br><span class="line">[postgres@centos7 log]$ TopMemoryContext: 8192 total in 1 blocks; 6920 free (0 chunks); 1272 used</span><br><span class="line">  LOCALLOCK hash: 8192 total in 1 blocks; 552 free (0 chunks); 7640 used</span><br><span class="line">  Timezones: 104120 total in 2 blocks; 2616 free (0 chunks); 101504 used</span><br><span class="line">  Postmaster: 8192 total in 1 blocks; 7368 free (7 chunks); 824 used</span><br><span class="line">    ident parser context: 1024 total in 1 blocks; 760 free (0 chunks); 264 used</span><br><span class="line">    hba parser context: 17408 total in 5 blocks; 8120 free (6 chunks); 9288 used</span><br><span class="line">  ErrorContext: 8192 total in 1 blocks; 7928 free (5 chunks); 264 used</span><br><span class="line">Grand total: 155320 bytes in 12 blocks; 34264 free (18 chunks); 121056 used</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>false</li>
+</ul>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">[root@centos7 ~]# gdb --batch-silent -ex &#x27;call MemoryContextStatsDetail(TopMemoryContext, 100, 0)&#x27; -p 118791</span><br><span class="line"></span><br><span class="line">[postgres@centos7 log]$ 2023-03-05 21:23:46.362 CST [118791] LOG:  level: 0; TopMemoryContext: 8192 total in 1 blocks; 6920 free (0 chunks); 1272 used</span><br><span class="line">2023-03-05 21:23:46.362 CST [118791] LOG:  level: 1; LOCALLOCK hash: 8192 total in 1 blocks; 552 free (0 chunks); 7640 used</span><br><span class="line">2023-03-05 21:23:46.362 CST [118791] LOG:  level: 1; Timezones: 104120 total in 2 blocks; 2616 free (0 chunks); 101504 used</span><br><span class="line">2023-03-05 21:23:46.362 CST [118791] LOG:  level: 1; Postmaster: 8192 total in 1 blocks; 7368 free (7 chunks); 824 used</span><br><span class="line">2023-03-05 21:23:46.362 CST [118791] LOG:  level: 2; ident parser context: 1024 total in 1 blocks; 760 free (0 chunks); 264 used</span><br><span class="line">2023-03-05 21:23:46.362 CST [118791] LOG:  level: 2; hba parser context: 17408 total in 5 blocks; 8120 free (6 chunks); 9288 used</span><br><span class="line">2023-03-05 21:23:46.362 CST [118791] LOG:  level: 1; ErrorContext: 8192 total in 1 blocks; 7928 free (5 chunks); 264 used</span><br><span class="line">2023-03-05 21:23:46.362 CST [118791] LOG:  Grand total: 155320 bytes in 12 blocks; 34264 free (18 chunks); 121056 used</span><br><span class="line"></span><br><span class="line">[postgres@centos7 log]$ </span><br></pre></td></tr></table></figure></div>
+<p>需要补充道，PostgreSQL 14 还增加了方法：<code>pg_log_backend_memory_contexts()</code>，来指示服务器用指定的 PID 记录后台的内存上下文。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> pg_log_backend_memory_contexts(<span class="number">2294080</span>);</span><br></pre></td></tr></table></figure></div>
+<h2 id="End">End</h2>
+<p>PostgreSQL 作为学院派数据库的典型代表，其功能特性还是值得深挖研究的，追根溯源，很多国产数据库里都有 PostgreSQL 的影子，学好 PostgreSQL 也为“换梯子”到国产数据库做了技术积累与铺垫。<br>
+PostgreSQL 的扩展模块开放了一个很规范的接口模型，可以便利的使用其他厂商开源的插件，也为开发者自定义开发插件提供了便利。<br>
+作为查看内存信息的入门篇，本文只是从三个角度记录了大概模样，具体技术细节还有待进一步深挖研习。</p>
+<hr>
+<p><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/617259" >https://www.modb.pro/db/617259 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a><br>
+<a class="link"   target="_blank" rel="noopener" href="https://pgfans.cn/a/2254" >https://pgfans.cn/a/2254 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+
+        </div>
+
+        
+            <div class="post-copyright-info">
+                <div class="article-copyright-info-container">
+    <ul>
+    <!-- 2023-10-03, edit by shawnyan. -->
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Title:</strong> 【PG15】如何查看 PostgreSQL 进程占用内存情况</li>
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Author:</strong>
+            
+                严少安
+            
+        </li>
+        <li><strong>Created at:</strong> 2023-03-06 15:03:23</li>
+        
+            <li><strong>Updated at:</strong> 2023-03-06 15:03:23</li>
+        
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Link:</strong> https://shawnyan.cn/2023/postgresql/pg-15-progress-memory/</li>
+        <li style="word-wrap: break-word; white-space: normal;">
+            <strong>
+                License:
+            </strong>
+            
+            This work is licensed under <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>.
+            
+
+        </li>
+    </ul>
+</div>
+
+            </div>
+        
+
+        
+            <ul class="post-tags-box">
+                
+                    <li class="tag-item">
+                        <a href="/tags/postgresql/">#postgresql</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/postgresql-15/">#postgresql 15</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/extension/">#extension</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/smem/">#smem</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/memory/">#memory</a>&nbsp;
+                    </li>
+                
+            </ul>
+        
+
+        
+  <div class="recommended-article">
+   <div class="recommended-desktop">
+    <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+    </div>
+    <div class="recommended-article-group"><a class="recommended-article-item" href="/2024/postgresql/pg-env-vars/" title="PG Style! 盘点几个常用的 Postgres 环境变量" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="PG Style! 盘点几个常用的 Postgres 环境变量" class="!max-w-none">
+  <span class="title">PG Style! 盘点几个常用的 Postgres 环境变量</span>
+</a><a class="recommended-article-item" href="/2023/postgresql/pg-15-check-txid-with-python/" title="【PG15】Python 脚本定时查询当前 txid" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG15】Python 脚本定时查询当前 txid" class="!max-w-none">
+  <span class="title">【PG15】Python 脚本定时查询当前 txid</span>
+</a><a class="recommended-article-item" href="/2023/postgresql/pg-16-run-on-centos-7/" title="【PG16】后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG16】后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行" class="!max-w-none">
+  <span class="title">【PG16】后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行</span>
+</a></div>
+   </div>
+   <div class="recommended-mobile">
+   <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+   </div>
+   <div class="recommended-article-group"><a class="recommended-article-item" href="/2024/postgresql/pg-env-vars/" title="PG Style! 盘点几个常用的 Postgres 环境变量" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="PG Style! 盘点几个常用的 Postgres 环境变量" class="!max-w-none">
+  <span class="title">PG Style! 盘点几个常用的 Postgres 环境变量</span>
+</a><a class="recommended-article-item" href="/2023/postgresql/pg-15-check-txid-with-python/" title="【PG15】Python 脚本定时查询当前 txid" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG15】Python 脚本定时查询当前 txid" class="!max-w-none">
+  <span class="title">【PG15】Python 脚本定时查询当前 txid</span>
+</a></div>
+   </div>
+  </div>
+
+        
+            <div class="article-nav">
+                
+                    <div class="article-prev">
+                        <a class="prev"
+                        rel="prev"
+                        href="/2023/postgresql/pg-15-jsonlog/"
+                        >
+                            <span class="left arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </span>
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">【PG15】PostgreSQL 15 新日志格式 jsonlog</span>
+                                <span class="post-nav-item">Prev posts</span>
+                            </span>
+                        </a>
+                    </div>
+                
+                
+                    <div class="article-next">
+                        <a class="next"
+                        rel="next"
+                        href="/2023/postgresql/pg-15-check-txid-with-python/"
+                        >
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">【PG15】Python 脚本定时查询当前 txid</span>
+                                <span class="post-nav-item">Next posts</span>
+                            </span>
+                            <span class="right arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </a>
+                    </div>
+                
+            </div>
+        
+
+
+        
+            <div class="comment-container">
+                <div class="comments-container pjax">
+    <div id="comment-anchor"></div>
+    <div class="comment-area-title">
+        <i class="fa-solid fa-comments"></i>&nbsp;Comments
+    </div>
+    
+
+        
+            
+    <div id="gitalk-container"></div>
+    <script data-swup-reload-script
+            src="//cdn.staticfile.org/gitalk/1.8.0/gitalk.min.js"></script>
+    <script data-swup-reload-script>
+
+        function loadGitalk() {
+            let __gitalk__pathname = decodeURI(location.pathname);
+            const __gitalk__pathnameLength = __gitalk__pathname.length;
+            const __gitalk__pathnameMaxLength = 50;
+            if (__gitalk__pathnameLength > __gitalk__pathnameMaxLength) {
+                __gitalk__pathname = __gitalk__pathname.substring(0, __gitalk__pathnameMaxLength - 3) + '...';
+            }
+
+            try {
+                Gitalk && new Gitalk({
+                    clientID: '32d049bf3701e6791070',
+                    clientSecret: '36c295ad3dad4c739b530ef113d0a979d8c35c5d',
+                    repo: 'gitalk',
+                    owner: 'shawn0915',
+                    admin: ['shawn0915'],
+                    id: __gitalk__pathname,
+                    language: 'en'
+                }).render('gitalk-container');
+
+            } catch (e) {
+                window.Gitalk = null;
+            }
+        }
+
+        if ('true') {
+            const loadGitalkTimeout = setTimeout(() => {
+                loadGitalk();
+                clearTimeout(loadGitalkTimeout);
+            }, 1000);
+        } else {
+            window.addEventListener('DOMContentLoaded', loadGitalk);
+        }
+    </script>
+
+
+
+        
+    
+</div>
+
+            </div>
+        
+    </div>
+
+    
+        <div class="toc-content-container">
+            <div class="post-toc-wrap">
+    <div class="post-toc">
+        <div class="toc-title">On this page</div>
+<!--         <div class="page-title">【PG15】如何查看 PostgreSQL 进程占用内存情况</div> -->
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#BG"><span class="nav-text">BG</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#smem"><span class="nav-text">smem</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#htop"><span class="nav-text">htop</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#shared-memory-size-shared-memory-size-in-huge-pages"><span class="nav-text">shared_memory_size &amp; shared_memory_size_in_huge_pages</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#shared-memory-size"><span class="nav-text">shared_memory_size</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#shared-memory-size-in-huge-pages"><span class="nav-text">shared_memory_size_in_huge_pages</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#pg-stat-monitor"><span class="nav-text">pg_stat_monitor</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#system-stats"><span class="nav-text">system_stats</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#pg-stat-kcache"><span class="nav-text">pg_stat_kcache</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Debug-Info"><span class="nav-text">Debug Info</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#MemoryContextStats"><span class="nav-text">MemoryContextStats</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#End"><span class="nav-text">End</span></a></li></ol>
+
+    </div>
+</div>
+
+        </div>
+    
+</div>
+
+
+
+                
+
+            </div>
+
+            
+
+        </div>
+
+        <div class="main-content-footer">
+            <footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2017</span>
+              -
+            
+            2024&nbsp;&nbsp;<i class="fa-solid fa-heart fa-beat" style="--fa-animation-duration: 0.5s; color: #f54545"></i>&nbsp;&nbsp;<a href="/">Shawn Yan</a>
+        </div>
+        
+            <script data-swup-reload-script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">VISITOR COUNT</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">TOTAL PAGE VIEWS</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">POWERED BY <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a></span>
+            <span class="text-sm lg:block">THEME&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.4.4</a></span>
+        </div>
+        
+        
+            <div>
+                Blog up for <span class="odometer" id="runtime_days" ></span> days <span class="odometer" id="runtime_hours"></span> hrs <span class="odometer" id="runtime_minutes"></span> Min <span class="odometer" id="runtime_seconds"></span> Sec
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+
+    </div>
+</footer>
+
+        </div>
+    </div>
+
+    
+        <div class="post-tools">
+            <div class="post-tools-container">
+    <ul class="article-tools-list">
+        <!-- TOC aside toggle -->
+        
+            <li class="right-bottom-tools page-aside-toggle">
+                <i class="fa-regular fa-outdent"></i>
+            </li>
+        
+
+        <!-- go comment -->
+        
+            <li class="go-comment">
+                <i class="fa-regular fa-comments"></i>
+            </li>
+        
+    </ul>
+</div>
+
+        </div>
+    
+
+    <div class="right-side-tools-container">
+        <div class="side-tools-container">
+    <ul class="hidden-tools-list">
+        <li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-plus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-minus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-expand-width flex justify-center items-center">
+            <i class="fa-regular fa-expand"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+            <i class="fa-regular fa-moon"></i>
+        </li>
+
+        <!-- rss -->
+        
+            <li class="right-bottom-tools rss flex justify-center items-center">
+                <a class="flex justify-center items-center"
+                   href="/atom.xml"
+                   target="_blank"
+                >
+                <i class="fa-regular fa-rss"></i>
+                </a>
+            </li>
+        
+
+        
+
+        <li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+            <i class="fa-regular fa-arrow-down"></i>
+        </li>
+    </ul>
+
+    <ul class="visible-tools-list">
+        <li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+            <i class="fa-regular fa-cog fa-spin"></i>
+        </li>
+        
+            <li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+                <i class="arrow-up fas fa-arrow-up"></i>
+                <span class="percent"></span>
+            </li>
+        
+        
+    </ul>
+</div>
+
+    </div>
+
+    <div class="image-viewer-container">
+    <img src="">
+</div>
+
+
+    
+        <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+          <span class="search-input-field-pre">
+            <i class="fa-solid fa-keyboard"></i>
+          </span>
+            <div class="search-input-container">
+                <input autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       placeholder="Search..."
+                       spellcheck="false"
+                       type="search"
+                       class="search-input"
+                >
+            </div>
+            <span class="popup-btn-close">
+                <i class="fa-solid fa-times"></i>
+            </span>
+        </div>
+        <div id="search-result">
+            <div id="no-result">
+                <i class="fa-solid fa-spinner fa-spin-pulse fa-5x fa-fw"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+
+</main>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Swup.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupSlideTheme.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScriptsPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupProgressPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScrollPlugin.min.js"></script>
+<script>
+    const swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+        ],
+        containers: ["#swup"],
+    });
+
+    swup.hooks.on("page:view", () => {
+        Global.refresh();
+    });
+
+    // if (document.readyState === "complete") {
+    //
+    // } else {
+    //     document.addEventListener("DOMContentLoaded", () => init());
+    // }
+</script>
+
+
+
+
+
+<script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/utils.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/main.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/navbarShrink.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/scrollTopBottom.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/lightDarkSwitch.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/categoryList.js"></script>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/localSearch.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/codeBlock.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/lazyload.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/runtime.js"></script>
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/odometer.min.js"></script>
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/assets/odometer-theme-minimal.css">
+
+
+
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Typed.min.js"></script>
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/typed.js"></script>
+
+
+
+
+
+
+<div class="post-scripts" data-swup-reload-script>
+    
+        <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/anime.min.js"></script>
+        <script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/tocToggle.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/toc.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/tabs.js"></script>
+    
+</div>
+
+
+</body>
+</html>

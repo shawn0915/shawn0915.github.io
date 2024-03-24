@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="shawnyan,dba,oracle,mysql,tidb,mariadb,postgresql,gbase,proxysql">
+    
+    <meta name="author" content="Shawn Yan">
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+        
+        
+        
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://shawnyan.cn/2022/oceanbase/ob-v3.1.2-compile-observer/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+        <meta name="description" content="上篇文章 提到，如何使用OBD来搭建单机集群环境。 本文将基于此，继续演示如何编译最新版（OB CE v3.1.2）源码。 Oceanbase已将源码分别发布于GitHub与Gitee，地址如下：  https:&#x2F;&#x2F;github.com&#x2F;oceanbase&#x2F;oceanbase.git  https:&#x2F;&#x2F;gitee.com&#x2F;oceanbase&#x2F;oceanbase.git    Step 1: 下载源">
+<meta property="og:type" content="article">
+<meta property="og:title" content="【OBCP蓝宝书】 基于 CentOS 7.9 编译 OceanBase 社区版 v3.1.2 的 observer 源码">
+<meta property="og:url" content="https://shawnyan.cn/2022/oceanbase/ob-v3.1.2-compile-observer/index.html">
+<meta property="og:site_name" content="少安事务所">
+<meta property="og:description" content="上篇文章 提到，如何使用OBD来搭建单机集群环境。 本文将基于此，继续演示如何编译最新版（OB CE v3.1.2）源码。 Oceanbase已将源码分别发布于GitHub与Gitee，地址如下：  https:&#x2F;&#x2F;github.com&#x2F;oceanbase&#x2F;oceanbase.git  https:&#x2F;&#x2F;gitee.com&#x2F;oceanbase&#x2F;oceanbase.git    Step 1: 下载源">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20220302-8506d038-1418-425e-bf94-fe56f067d545.png">
+<meta property="article:published_time" content="2022-03-01T15:03:40.000Z">
+<meta property="article:modified_time" content="2022-03-01T15:03:40.000Z">
+<meta property="article:author" content="Shawn Yan">
+<meta property="article:tag" content="oceanbase">
+<meta property="article:tag" content="obcp">
+<meta property="article:tag" content="observer">
+<meta property="article:tag" content="oceanbase 社区版">
+<meta property="article:tag" content="ob v3">
+<meta property="article:tag" content="compile">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20220302-8506d038-1418-425e-bf94-fe56f067d545.png">
+    
+    
+        <!-- Google tag (gtag.js) -->
+        <script src="https://www.googletagmanager.com/gtag/js?id=G-ZH71L5F7X2"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-ZH71L5F7X2');
+        </script>
+    
+    <!-- baidu tongji -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?2fa794d82f74c0bb3617ba62ee962b46";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/img/favicon.ico" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon.ico">
+    <meta name="theme-color" content="#767FF6">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <!--- Page Info-->
+    
+    <title>
+        
+            【OBCP蓝宝书】 基于 CentOS 7.9 编译 OceanBase 社区版 v3.1.2 的 observer 源码 -
+        
+        少安事务所
+    </title>
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+<!--- use 2.5.0
+    
+        
+<link rel="stylesheet" href="/assets/build/styles.css">
+
+    
+-->
+    <link rel="stylesheet" href="//cdn.staticfile.org/hexo-theme-redefine/2.5.0/assets/build/styles.min.css">
+
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/fonts.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Satoshi/satoshi.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Chillax/chillax.css">
+    <!--- Font Part-->
+    
+    
+    
+    
+
+    <!--- Inject Part-->
+    
+    <script id="hexo-configurations">
+    let Global = window.Global || {};
+    Global.hexo_config = {"hostname":"shawnyan.cn","root":"/","language":"en","path":"search.xml"};
+    Global.theme_config = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":true,"list":[]},"code_block":{"copy":true,"style":"mac","font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":4,"number":false,"expand":true,"init_open":true},"copyright":true,"lazyload":true,"recommendation":{"enable":true,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#767FF6","secondary":null},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"open_graph":true,"google_analytics":{"enable":true,"id":"G-ZH71L5F7X2"},"root_color_mode":"dark"},"home_banner":{"enable":true,"style":"fixed","image":{"light":"https://asktug.com/uploads/default/original/4X/4/b/d/4bd94f804719672dd7e3cb29150ea6f777eb0aec.jpeg","dark":"/img/wallpaper/dark.webp"},"title":"Shawn Yan's Tech Blog.","subtitle":{"text":["A blog about MySQL, Oracle, TiDB, PostgreSQL and other databases."],"hitokoto":{"enable":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":500,"backing_delay":1500,"loop":true,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"links":{"github":"https://github.com/shawn0915","instagram":null,"zhihu":null,"twitter":null,"email":"admin@shawnyan.cn"},"qrs":{"weixin":null}}},"plugins":{"feed":{"enable":true},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":"回忆的沙漏 (10周年版)","artist":"回忆的沙漏 (10周年版)","url":"https://music.163.com/song/media/outer/url?id=1329122067.mp3","cover":"https://p1.music.126.net/oJorrgJ3IotZUAbZkBMuFw==/109951167771736533.jpg?param=68y68"}]},"mermaid":{"enable":false,"version":"9.3.0"}},"version":"2.4.4","navbar":{"auto_hide":false,"color":{"left":"#f78736","right":"#367df7","transparency":35},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Blog":{"path":"/archives","icon":"fa-regular fa-archive"},"Categories":{"path":"/categories","icon":"fa-regular fa-stream"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Links":{"icon":"fa-regular fa-link","submenus":{"My-params":"/my-params","Friends":"/links","Q":"/q"}}},"search":{"enable":true,"preload":true}},"page_templates":{"friends_column":3,"tags_style":"cloud"},"home":{"sidebar":{"enable":true,"position":"left","first_item":"info","announcement":null,"links":null},"article_date_format":"YYYY-MM-DD","categories":{"enable":true,"limit":10},"tags":{"enable":true,"limit":10}},"footerStart":"2017/11/27 00:00:00"};
+    Global.language_ago = {"second":"%s seconds ago","minute":"%s minutes ago","hour":"%s hours ago","day":"%s days ago","week":"%s weeks ago","month":"%s months ago","year":"%s years ago"};
+    Global.data_config = {"masonry":false};
+  </script>
+
+    <!--- Fontawesome Part-->
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/fontawesome.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/brands.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/solid.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/regular.min.css">
+    
+    
+    
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+
+
+<body>
+<div class="progress-bar-container">
+    
+
+    
+        <span class="pjax-progress-bar"></span>
+        <span class="swup-progress-icon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+    
+</div>
+
+
+<main class="page-container" id="swup">
+
+    
+
+    <div class="main-content-container">
+
+
+        <div class="main-content-header">
+            <header class="navbar-container">
+    
+    <div class="navbar-content">
+        <div class="left">
+            
+                <a class="logo-image" href="https://shawnyan.cn/">
+                    <img src="/img/favicon.ico">
+                </a>
+            
+            <a class="logo-title" href="https://shawnyan.cn/">
+                
+                少安事务所
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-house"></i>
+                                        
+                                        HOME
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/archives"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-archive"></i>
+                                        
+                                        BLOG
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/categories"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-stream"></i>
+                                        
+                                        CATEGORIES
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/tags"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-tags"></i>
+                                        
+                                        TAGS
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/about"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-user"></i>
+                                        
+                                        ABOUT
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="has-dropdown" 
+                                    href="#" onClick="return false;">
+                                    
+                                        
+                                            <i class="fa-regular fa-link"></i>
+                                        
+                                        LINKS&nbsp;<i class="fa-solid fa-chevron-down"></i>
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                                    <ul class="sub-menu">
+                                    
+                                        <li>
+                                        <a href="/my-params">MY-PARAMS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/links">FRIENDS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/q">Q
+                                        </a>
+                                        </li>
+                                    
+                                    </ul>
+                                
+                            </li>
+                    
+                    
+                        <li class="navbar-item search search-popup-trigger">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </li>
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                    <div class="icon-item search search-popup-trigger"><i class="fa-solid fa-magnifying-glass"></i></div>
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="navbar-drawer w-full absolute top-0 left-0 bg-background-color">
+        <ul class="drawer-navbar-list flex flex-col justify-start items-center">
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/"  >
+                             
+                                
+                                    <i class="fa-regular fa-house"></i>
+                                
+                                HOME
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/archives"  >
+                             
+                                
+                                    <i class="fa-regular fa-archive"></i>
+                                
+                                BLOG
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/categories"  >
+                             
+                                
+                                    <i class="fa-regular fa-stream"></i>
+                                
+                                CATEGORIES
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/tags"  >
+                             
+                                
+                                    <i class="fa-regular fa-tags"></i>
+                                
+                                TAGS
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/about"  >
+                             
+                                
+                                    <i class="fa-regular fa-user"></i>
+                                
+                                ABOUT
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group has-dropdown" 
+                        href="#" onClick="return false;">
+                            
+                                
+                                    <i class="fa-regular fa-link"></i>
+                                
+                                LINKS&nbsp;<i class="group-hover:rotate-180 transition-transform fa-solid fa-chevron-down"></i>
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                              
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/my-params">MY-PARAMS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/links">FRIENDS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/q">Q</a>
+                            </li>
+                        
+                    
+            
+
+        </ul>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+        </div>
+
+        <div class="main-content-body">
+
+            
+
+            <div class="main-content">
+
+                
+                    <div class="post-page-container">
+    <div class="article-content-container">
+
+        <div class="article-title">
+            
+                
+                
+                <!-- 2023-10-03, edit by shawnyan. -->
+                <img src="/img/oceanbase/oceanbase-banner.png" alt="【OBCP蓝宝书】 基于 CentOS 7.9 编译 OceanBase 社区版 v3.1.2 的 observer 源码" class="max-w-none" referrerpolicy="no-referrer"/>
+                
+                <h1 class="article-title-cover">【OBCP蓝宝书】 基于 CentOS 7.9 编译 OceanBase 社区版 v3.1.2 的 observer 源码</h1>
+            
+            </div>
+
+
+
+        
+            <div class="article-header">
+                <div class="avatar">
+                    
+                        <img src="/img/avatar.jpg">
+                    
+                </div>
+                <div class="info">
+                    <div class="author">
+                        
+                            <span class="name">严少安</span>
+                        
+                        
+                            
+                                <span class="author-label">Lv.6</span>
+                            
+                        
+                    </div>
+                    <div class="meta-info">
+                        <div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2022-03-01 23:03:40</span>
+        <span class="mobile">2022-03-01 23:03:40</span>
+        <span class="hover-info">Created</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2022-03-01 23:03:40</span>
+            <span class="mobile">2022-03-01 23:03:40</span>
+            <span class="hover-info">Updated</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/oceanbase/">OceanBase</a>&nbsp;
+                        </li>
+                    
+                    
+                
+                    
+                        
+                            <li>></li>
+                        
+                        <li>
+                            <a href="/categories/oceanbase/ob-v3/">OB v3</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/oceanbase/">oceanbase</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/obcp/">obcp</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/observer/">observer</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/oceanbase-%E7%A4%BE%E5%8C%BA%E7%89%88/">oceanbase 社区版</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/ob-v3/">ob v3</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/compile/">compile</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+        <span class="article-wordcount article-meta-item">
+            <i class="fa-regular fa-typewriter"></i>&nbsp;<span>1.9k Words</span>
+        </span>
+    
+    
+        <span class="article-min2read article-meta-item">
+            <i class="fa-regular fa-clock"></i>&nbsp;<span>9 Mins</span>
+        </span>
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+                    </div>
+                </div>
+            </div>
+        
+
+        
+
+
+        <div class="article-content markdown-body">
+            <p><a href="https://shawnyan.cn/2022/oceanbase/ob-v3.1.2-install-single-node/">上篇文章</a> 提到，如何使用OBD来搭建单机集群环境。<br>
+本文将基于此，继续演示如何编译最新版（OB CE v3.1.2）源码。</p>
+<p>Oceanbase已将源码分别发布于GitHub与Gitee，地址如下：</p>
+<ul>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/oceanbase/oceanbase.git" >https://github.com/oceanbase/oceanbase.git <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://gitee.com/oceanbase/oceanbase.git" >https://gitee.com/oceanbase/oceanbase.git <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+</ul>
+<img  alt="ob-build-word-art.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20220302-8506d038-1418-425e-bf94-fe56f067d545.png"
+                      referrerpolicy="no-referrer"
+                >
+<h2 id="Step-1-下载源码，安装依赖">Step 1: 下载源码，安装依赖</h2>
+<p>安装编译源码需要的依赖：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo yum install -y gcc wget python-devel openssl-devel xz-devel mysql-devel</span><br></pre></td></tr></table></figure></div>
+<p>为加速下载，这里使用gitee的代码库，并且只下载一层版本的代码。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">下载源码</span></span><br><span class="line">git clone https://gitee.com/oceanbase/oceanbase.git -b v3.1.2_CE --depth 1</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">查看提交日志</span></span><br><span class="line">cd oceanbase/</span><br><span class="line">git log</span><br></pre></td></tr></table></figure></div>
+<p>代码提交日志如下：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">commit d4ace121deae5b81d8f0b40afbc4c02705b7fc1d (grafted, HEAD, tag: v3.1.2_CE)</span><br><span class="line">Author: godyangfight &lt;godyangfight@gmail.com&gt;</span><br><span class="line">Date:   Thu Dec 30 10:21:45 2021 +0800</span><br><span class="line"></span><br><span class="line">    Fix restore_follower_replica ERROR table type not expecte</span><br></pre></td></tr></table></figure></div>
+<h2 id="Step-2-执行构建">Step 2: 执行构建</h2>
+<h3 id="在正式开始构建之前，需要先下载开发工具：">在正式开始构建之前，需要先下载开发工具：</h3>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">cd oceanbase/deps/3rd</span><br><span class="line">sh dep_create.sh</span><br></pre></td></tr></table></figure></div>
+<p>日志如下：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">$ sh dep_create.sh</span><br><span class="line">check dependencies profile for el7.x86_64... FOUND</span><br><span class="line">check repository address in profile... http://mirrors.aliyun.com/oceanbase/development-kit/el/7/x86_64/</span><br><span class="line">download dependencies...</span><br><span class="line">download package &lt;devdeps-gtest-1.8.0-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">unpack package &lt;devdeps-gtest-1.8.0-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">download package &lt;devdeps-isa-l-static-2.22.0-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">unpack package &lt;devdeps-isa-l-static-2.22.0-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">download package &lt;devdeps-libcurl-static-7.29.0-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">unpack package &lt;devdeps-libcurl-static-7.29.0-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">download package &lt;devdeps-libunwind-static-1.5.0-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">unpack package &lt;devdeps-libunwind-static-1.5.0-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">download package &lt;devdeps-mariadb-connector-c-3.1.12-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">unpack package &lt;devdeps-mariadb-connector-c-3.1.12-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">download package &lt;devdeps-openssl-static-1.0.1e-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">unpack package &lt;devdeps-openssl-static-1.0.1e-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">download package &lt;devdeps-libaio-0.3.112-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">unpack package &lt;devdeps-libaio-0.3.112-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">download package &lt;obdevtools-binutils-2.30-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">unpack package &lt;obdevtools-binutils-2.30-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">download package &lt;obdevtools-bison-2.4.1-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">unpack package &lt;obdevtools-bison-2.4.1-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">download package &lt;obdevtools-ccache-3.7.12-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">unpack package &lt;obdevtools-ccache-3.7.12-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">download package &lt;obdevtools-cmake-3.20.2-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">unpack package &lt;obdevtools-cmake-3.20.2-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">download package &lt;obdevtools-flex-2.5.35-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">unpack package &lt;obdevtools-flex-2.5.35-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">download package &lt;obdevtools-gcc-5.2.0-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">unpack package &lt;obdevtools-gcc-5.2.0-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">download package &lt;obdevtools-llvm-11.0.1-3.el7.x86_64.rpm&gt;... SUCCESS</span><br><span class="line">unpack package &lt;obdevtools-llvm-11.0.1-3.el7.x86_64.rpm&gt;... SUCCESS</span><br></pre></td></tr></table></figure></div>
+<h3 id="开始构建release版本：">开始构建release版本：</h3>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">进入源码目录</span></span><br><span class="line">cd oceanbase</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">开始预构建</span></span><br><span class="line">./build.sh release</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">进入生成的构建目录</span></span><br><span class="line">cd build_release/</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">进行构建</span></span><br><span class="line">make -j8 observer</span><br></pre></td></tr></table></figure></div>
+<p>主要日志摘录如下：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">[  9%] Built target lz4_171</span><br><span class="line">[ 22%] Built target lz4_objs</span><br><span class="line">[ 27%] Built target server_pch</span><br><span class="line">[ 27%] Built target lib_pch</span><br><span class="line">[ 27%] Built target easy</span><br><span class="line">[ 27%] Built target malloc_hook</span><br><span class="line">[ 31%] Built target zstd_objs</span><br><span class="line">[ 31%] Built target ob_main</span><br><span class="line">[ 31%] Built target ob_election</span><br><span class="line">[ 31%] Built target ob_archive</span><br><span class="line">[ 40%] Built target ob_sql_server_parser_objects</span><br><span class="line">[ 40%] Built target ob_version</span><br><span class="line">[ 40%] Built target oblib_rpc</span><br><span class="line">[ 50%] Built target ob_clog</span><br><span class="line">[ 50%] Built target oblib_compress</span><br><span class="line">[ 68%] Built target oblib_lib</span><br><span class="line">[ 68%] Built target oblib_common</span><br><span class="line">[ 77%] Built target oblib</span><br><span class="line">[ 77%] Built target ob_rootserver</span><br><span class="line">[ 95%] Built target ob_server</span><br><span class="line">[100%] Built target ob_storage</span><br><span class="line">[100%] Built target ob_share</span><br><span class="line">[100%] Built target ob_sql</span><br><span class="line">[100%] Built target oceanbase_static</span><br><span class="line">[100%] Built target observer</span><br></pre></td></tr></table></figure></div>
+<p>查看构建生成的文件：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">stat src/observer/observer</span><br></pre></td></tr></table></figure></div>
+<p>日志如下：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">  File: &#x27;src/observer/observer&#x27;</span><br><span class="line">  Size: 952322576     Blocks: 1860008    IO Block: 4096   regular file</span><br><span class="line">Device: fd02h/64770d    Inode: 136988392   Links: 1</span><br><span class="line">Access: (0755/-rwxr-xr-x)  Uid: ( 2022/admin)   Gid: ( 2022/   admin)</span><br><span class="line">Access: 2022-03-01 15:07:25.922847355 +0900</span><br><span class="line">Modify: 2022-03-01 15:07:28.898122953 +0900</span><br><span class="line">Change: 2022-03-01 15:07:28.939126766 +0900</span><br><span class="line">Birth: -</span><br></pre></td></tr></table></figure></div>
+<h2 id="Step-3-启动OB">Step 3: 启动OB</h2>
+<p>将obd路径下的observer改名，并将新编译好的二进制文件复制过来：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">cd /data/ob/ob_local_data/bin</span><br><span class="line">mv observer observer-org</span><br><span class="line">cp /data/ob/code/oceanbase/build_release/src/observer/observer .</span><br></pre></td></tr></table></figure></div>
+<p>然后通过obd启动observer：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">obd cluster start cluster-name</span><br></pre></td></tr></table></figure></div>
+<p>启动日志如下：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">Get local repositories and plugins ok</span><br><span class="line">Open ssh connection ok</span><br><span class="line">Load cluster param plugin ok</span><br><span class="line">Check before start observer ok</span><br><span class="line">[WARN] (192.168.0.36) The recommended number of open files is 655350 (Current value: 20000)</span><br><span class="line"></span><br><span class="line">Start observer ok</span><br><span class="line">observer program health check ok</span><br><span class="line">Connect to observer ok</span><br><span class="line">Wait for observer init ok</span><br><span class="line">+------------------------------------------------+</span><br><span class="line">|                     observer                   |</span><br><span class="line">+--------------+---------+------+-------+--------+</span><br><span class="line">| ip           | version | port | zone  | status |</span><br><span class="line">+--------------+---------+------+-------+--------+</span><br><span class="line">| 192.168.0.36 | 3.1.2   | 2881 | zone1 | active |</span><br><span class="line">+--------------+---------+------+-------+--------+</span><br><span class="line"></span><br><span class="line">cluster-name running</span><br></pre></td></tr></table></figure></div>
+<h2 id="Step-4-连接OB">Step 4: 连接OB</h2>
+<p>使用mysql client连接OB，并查看版本信息：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">mysql -uroot -h127.1 -P2881</span><br><span class="line">Welcome to the MariaDB monitor.  Commands end with ; or \g.</span><br><span class="line">Your MySQL connection id is 3221487666</span><br><span class="line">Server version: 5.7.25 OceanBase 3.1.2 (r1-d4ace121deae5b81d8f0b40afbc4c02705b7fc1d) (Built Mar  1 2022 14:55:20)</span><br><span class="line"></span><br><span class="line">Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.</span><br><span class="line"></span><br><span class="line">Type &#x27;help;&#x27; or &#x27;\h&#x27; for help. Type &#x27;\c&#x27; to clear the current input statement.</span><br><span class="line"></span><br><span class="line">(root@127.1) [(none)] 15:43:29&gt; select version();</span><br><span class="line">+--------------------+</span><br><span class="line">| version()          |</span><br><span class="line">+--------------------+</span><br><span class="line">| 3.1.2-OceanBase CE |</span><br><span class="line">+--------------------+</span><br><span class="line">1 row in set (0.002 sec)</span><br></pre></td></tr></table></figure></div>
+<blockquote>
+<p>注：<br>
+Server version: 5.7.25 – OB兼容 MySQL 5.7.25 的语法<br>
+d4ace121deae5b81d8f0b40afbc4c02705b7fc1d – 代码版本，与编译的源码版本一致<br>
+Mar  1 2022 14:55:20 – observer编译时文件生成时间<br>
+3.1.2-OceanBase CE – OB版本号</p>
+</blockquote>
+<h2 id="编译过程中遇到的问题">编译过程中遇到的问题</h2>
+<p>上述过程都是整理过的，简单实用的步骤，而最初接触ob时，编译过程中遇到了若干问题，在此分享二点。</p>
+<h3 id="Case-1：资源不足导致报错">Case 1：资源不足导致报错</h3>
+<p>虚拟机资源配置过小（4c6g），导致编译失败。<br>
+之前在龙蜥操作系统<code>'Anolis OS 8.2 (x86_64)'</code>进行编译，耗时过久（几个小时），最后日志报错：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[ 54%] Building CXX object src/observer/CMakeFiles/ob_server.dir/Unity/unity_ob_server_table/0_cxx.cxx.o</span><br><span class="line">make[2]: *** [src/rootserver/CMakeFiles/ob_rootserver.dir/build.make:126: src/rootserver/CMakeFiles/ob_rootserver.dir/Unity/unity_ob_rootserver_common/0_cxx.cxx.o] 已杀死</span><br><span class="line">make[1]: *** [CMakeFiles/Makefile2:10563：src/rootserver/CMakeFiles/ob_rootserver.dir/all] 错误 2</span><br><span class="line">make[1]: *** 正在等待未完成的任务....</span><br><span class="line">[ 58%] Built target ob_storage</span><br><span class="line">make: *** [Makefile:166：all] 错误 2</span><br></pre></td></tr></table></figure></div>
+<h3 id="Case-2-代码bug导致报错">Case 2: 代码bug导致报错</h3>
+<p>之前在参与新年活动时，编译源码过程中遇到了如下报错，编译失败：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">[ 58%] Building CXX object src/share/CMakeFiles/ob_share.dir/Unity/unity_ob_share_object/0_cxx.cxx.o</span><br><span class="line">In file included from /home/shawnyan/oceanbase/build_release/src/share/CMakeFiles/ob_share.dir/Unity/unity_ob_share_object/0_cxx.cxx:3:</span><br><span class="line">/home/shawnyan/oceanbase/src/share/object/ob_obj_cast.cpp:1606:14: error: use of undeclared identifier &#x27;isnan&#x27;</span><br><span class="line">  &#125; else if (isnan(value)) &#123;</span><br><span class="line">             ^</span><br><span class="line">/home/shawnyan/oceanbase/src/share/object/ob_obj_cast.cpp:1609:14: error: use of undeclared identifier &#x27;isinf&#x27;</span><br><span class="line">  &#125; else if (isinf(value)) &#123;</span><br><span class="line">             ^</span><br><span class="line">/home/shawnyan/oceanbase/src/share/object/ob_obj_cast.cpp:1911:14: error: use of undeclared identifier &#x27;isnan&#x27;</span><br><span class="line">  &#125; else if (isnan(value) &amp;&amp; lib::is_oracle_mode()) &#123;</span><br><span class="line">             ^</span><br><span class="line">/home/shawnyan/oceanbase/src/share/object/ob_obj_cast.cpp:1914:14: error: use of undeclared identifier &#x27;isinf&#x27;</span><br><span class="line">  &#125; else if (isinf(value) &amp;&amp; lib::is_oracle_mode()) &#123;</span><br><span class="line">             ^</span><br><span class="line">4 errors generated.</span><br><span class="line">make[2]: *** [src/share/CMakeFiles/ob_share.dir/build.make:78：src/share/CMakeFiles/ob_share.dir/Unity/unity_ob_share_object/0_cxx.cxx.o] 错误 1</span><br><span class="line">make[1]: *** [CMakeFiles/Makefile2:10407：src/share/CMakeFiles/ob_share.dir/all] 错误 2</span><br><span class="line">make[1]: *** 正在等待未完成的任务....</span><br><span class="line">[ 58%] Building CXX object src/sql/parser/CMakeFiles/ob_sql_proxy_parser_objects.dir/__/__/__/deps/oblib/src/lib/hash_func/murmur_hash.cpp.o</span><br><span class="line">[ 58%] Building CXX object deps/oblib/src/lib/CMakeFiles/oblib_lib.dir/Unity/unity_oblib_lib_common/1_cxx.cxx.o</span><br><span class="line">[ 62%] Building CXX object deps/oblib/src/lib/CMakeFiles/oblib_lib.dir/Unity/unity_oblib_lib_common/4_cxx.cxx.o</span><br><span class="line">[ 62%] Building CXX object deps/oblib/src/lib/CMakeFiles/oblib_lib.dir/Unity/unity_oblib_lib_coro/0_cxx.cxx.o</span><br><span class="line">[ 62%] Building CXX object deps/oblib/src/lib/CMakeFiles/oblib_lib.dir/Unity/unity_oblib_lib_common/0_cxx.cxx.o</span><br><span class="line">[ 62%] Building CXX object deps/oblib/src/lib/CMakeFiles/oblib_lib.dir/Unity/unity_oblib_lib_common/5_cxx.cxx.o</span><br><span class="line">[ 62%] Built target oblib_lib</span><br><span class="line">[ 62%] Built target ob_sql_server_parser_objects</span><br><span class="line">[ 62%] Built target ob_sql_proxy_parser_objects</span><br><span class="line">make: *** [Makefile:166：all] 错误 2</span><br><span class="line">[shawnyan@anolis oceanbase]$</span><br></pre></td></tr></table></figure></div>
+<p>后在github上发现了一样的issue，<a class="link"   target="_blank" rel="noopener" href="https://github.com/oceanbase/oceanbase/pull/685" >https://github.com/oceanbase/oceanbase/pull/685 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a><br>
+该问题已解决，并已合并进最新版本。</p>
+<p>以上，就是observer源码的基本编译方法，后续可以在此基础之上编译debug版本，并进行源码调试，或是打patch。</p>
+<h2 id="相关资料">相关资料</h2>
+<ul>
+<li><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/327631" >OceanBase 技术征文大赛第二期正式开启！快来释放你的原力！ <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li><a href="https://shawnyan.cn/2021/oceanbase-obcp-v2-exam/">OceanBase OBCP 考试经验小结</a></li>
+<li><a href="https://shawnyan.cn/2022/oceanbase/ob-v3.1.2-install-single-node/">【OBCP蓝宝书】 基于 OceanBase 社区版 v3.1.2 搭建单机测试环境的三种方法</a></li>
+<li><a href="https://shawnyan.cn/2022/oceanbase/ob-v3.1.2-perf-testing-with-databench-t/">OB测试 | 使用 Databench-T 对 OceanBase 社区版 v3.1.2 进行性能测试</a></li>
+<li><a href="https://shawnyan.cn/2022/oceanbase/ob-v3.1.2-sql-explain/">【OBCP蓝宝书】 OceanBase 社区版 v3.1.2 如何查看执行计划</a></li>
+</ul>
+<p><strong>Voila, Enjoy OB!</strong></p>
+<p>ShawnYan<br>
+2022-03-02</p>
+<hr>
+<p><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/336396" >https://www.modb.pro/db/336396 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+
+        </div>
+
+        
+            <div class="post-copyright-info">
+                <div class="article-copyright-info-container">
+    <ul>
+    <!-- 2023-10-03, edit by shawnyan. -->
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Title:</strong> 【OBCP蓝宝书】 基于 CentOS 7.9 编译 OceanBase 社区版 v3.1.2 的 observer 源码</li>
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Author:</strong>
+            
+                严少安
+            
+        </li>
+        <li><strong>Created at:</strong> 2022-03-01 23:03:40</li>
+        
+            <li><strong>Updated at:</strong> 2022-03-01 23:03:40</li>
+        
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Link:</strong> https://shawnyan.cn/2022/oceanbase/ob-v3.1.2-compile-observer/</li>
+        <li style="word-wrap: break-word; white-space: normal;">
+            <strong>
+                License:
+            </strong>
+            
+            This work is licensed under <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>.
+            
+
+        </li>
+    </ul>
+</div>
+
+            </div>
+        
+
+        
+            <ul class="post-tags-box">
+                
+                    <li class="tag-item">
+                        <a href="/tags/oceanbase/">#oceanbase</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/obcp/">#obcp</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/observer/">#observer</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/oceanbase-%E7%A4%BE%E5%8C%BA%E7%89%88/">#oceanbase 社区版</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/ob-v3/">#ob v3</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/compile/">#compile</a>&nbsp;
+                    </li>
+                
+            </ul>
+        
+
+        
+  <div class="recommended-article">
+   <div class="recommended-desktop">
+    <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+    </div>
+    <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/mysql/mysql-8.2.0-compile-customization/" title="【MySQL 8.x】定制化 MySQL 8.2.0 编译选项（文末彩蛋）" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240307-279ad8cc-b226-4c9a-9a00-cef7bba3ca97.jpg" alt="【MySQL 8.x】定制化 MySQL 8.2.0 编译选项（文末彩蛋）" class="!max-w-none">
+  <span class="title">【MySQL 8.x】定制化 MySQL 8.2.0 编译选项（文末彩蛋）</span>
+</a><a class="recommended-article-item" href="/2022/oceanbase/ob-v3.1.2-install-single-node/" title="【OBCP蓝宝书】 基于 OceanBase 社区版 v3.1.2 搭建单机测试环境的三种方法" rel="bookmark">
+  <img src="/img/oceanbase/oceanbase-banner.png" alt="【OBCP蓝宝书】 基于 OceanBase 社区版 v3.1.2 搭建单机测试环境的三种方法" class="!max-w-none">
+  <span class="title">【OBCP蓝宝书】 基于 OceanBase 社区版 v3.1.2 搭建单机测试环境的三种方法</span>
+</a><a class="recommended-article-item" href="/2023/stonedb/stonedb-compile-on-rocky-9/" title="三天三夜的三更半夜! StoneDB on Rocky 9" rel="bookmark">
+  <img src="/img/head/dophin.jpeg" alt="三天三夜的三更半夜! StoneDB on Rocky 9" class="!max-w-none">
+  <span class="title">三天三夜的三更半夜! StoneDB on Rocky 9</span>
+</a></div>
+   </div>
+   <div class="recommended-mobile">
+   <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+   </div>
+   <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/mysql/mysql-8.2.0-compile-customization/" title="【MySQL 8.x】定制化 MySQL 8.2.0 编译选项（文末彩蛋）" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240307-279ad8cc-b226-4c9a-9a00-cef7bba3ca97.jpg" alt="【MySQL 8.x】定制化 MySQL 8.2.0 编译选项（文末彩蛋）" class="!max-w-none">
+  <span class="title">【MySQL 8.x】定制化 MySQL 8.2.0 编译选项（文末彩蛋）</span>
+</a><a class="recommended-article-item" href="/2022/oceanbase/ob-v3.1.2-install-single-node/" title="【OBCP蓝宝书】 基于 OceanBase 社区版 v3.1.2 搭建单机测试环境的三种方法" rel="bookmark">
+  <img src="/img/oceanbase/oceanbase-banner.png" alt="【OBCP蓝宝书】 基于 OceanBase 社区版 v3.1.2 搭建单机测试环境的三种方法" class="!max-w-none">
+  <span class="title">【OBCP蓝宝书】 基于 OceanBase 社区版 v3.1.2 搭建单机测试环境的三种方法</span>
+</a></div>
+   </div>
+  </div>
+
+        
+            <div class="article-nav">
+                
+                    <div class="article-prev">
+                        <a class="prev"
+                        rel="prev"
+                        href="/2022/oceanbase/ob-v3.1.2-perf-testing-with-databench-t/"
+                        >
+                            <span class="left arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </span>
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">OB测试 | 使用 Databench-T 对 OceanBase 社区版 v3.1.2 进行性能测试</span>
+                                <span class="post-nav-item">Prev posts</span>
+                            </span>
+                        </a>
+                    </div>
+                
+                
+                    <div class="article-next">
+                        <a class="next"
+                        rel="next"
+                        href="/2022/oceanbase/ob-v3.1.2-install-single-node/"
+                        >
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">【OBCP蓝宝书】 基于 OceanBase 社区版 v3.1.2 搭建单机测试环境的三种方法</span>
+                                <span class="post-nav-item">Next posts</span>
+                            </span>
+                            <span class="right arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </a>
+                    </div>
+                
+            </div>
+        
+
+
+        
+            <div class="comment-container">
+                <div class="comments-container pjax">
+    <div id="comment-anchor"></div>
+    <div class="comment-area-title">
+        <i class="fa-solid fa-comments"></i>&nbsp;Comments
+    </div>
+    
+
+        
+            
+    <div id="gitalk-container"></div>
+    <script data-swup-reload-script
+            src="//cdn.staticfile.org/gitalk/1.8.0/gitalk.min.js"></script>
+    <script data-swup-reload-script>
+
+        function loadGitalk() {
+            let __gitalk__pathname = decodeURI(location.pathname);
+            const __gitalk__pathnameLength = __gitalk__pathname.length;
+            const __gitalk__pathnameMaxLength = 50;
+            if (__gitalk__pathnameLength > __gitalk__pathnameMaxLength) {
+                __gitalk__pathname = __gitalk__pathname.substring(0, __gitalk__pathnameMaxLength - 3) + '...';
+            }
+
+            try {
+                Gitalk && new Gitalk({
+                    clientID: '32d049bf3701e6791070',
+                    clientSecret: '36c295ad3dad4c739b530ef113d0a979d8c35c5d',
+                    repo: 'gitalk',
+                    owner: 'shawn0915',
+                    admin: ['shawn0915'],
+                    id: __gitalk__pathname,
+                    language: 'en'
+                }).render('gitalk-container');
+
+            } catch (e) {
+                window.Gitalk = null;
+            }
+        }
+
+        if ('true') {
+            const loadGitalkTimeout = setTimeout(() => {
+                loadGitalk();
+                clearTimeout(loadGitalkTimeout);
+            }, 1000);
+        } else {
+            window.addEventListener('DOMContentLoaded', loadGitalk);
+        }
+    </script>
+
+
+
+        
+    
+</div>
+
+            </div>
+        
+    </div>
+
+    
+        <div class="toc-content-container">
+            <div class="post-toc-wrap">
+    <div class="post-toc">
+        <div class="toc-title">On this page</div>
+<!--         <div class="page-title">【OBCP蓝宝书】 基于 CentOS 7.9 编译 OceanBase 社区版 v3.1.2 的 observer 源码</div> -->
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Step-1-%E4%B8%8B%E8%BD%BD%E6%BA%90%E7%A0%81%EF%BC%8C%E5%AE%89%E8%A3%85%E4%BE%9D%E8%B5%96"><span class="nav-text">Step 1: 下载源码，安装依赖</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Step-2-%E6%89%A7%E8%A1%8C%E6%9E%84%E5%BB%BA"><span class="nav-text">Step 2: 执行构建</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9C%A8%E6%AD%A3%E5%BC%8F%E5%BC%80%E5%A7%8B%E6%9E%84%E5%BB%BA%E4%B9%8B%E5%89%8D%EF%BC%8C%E9%9C%80%E8%A6%81%E5%85%88%E4%B8%8B%E8%BD%BD%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7%EF%BC%9A"><span class="nav-text">在正式开始构建之前，需要先下载开发工具：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%BC%80%E5%A7%8B%E6%9E%84%E5%BB%BArelease%E7%89%88%E6%9C%AC%EF%BC%9A"><span class="nav-text">开始构建release版本：</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Step-3-%E5%90%AF%E5%8A%A8OB"><span class="nav-text">Step 3: 启动OB</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Step-4-%E8%BF%9E%E6%8E%A5OB"><span class="nav-text">Step 4: 连接OB</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BC%96%E8%AF%91%E8%BF%87%E7%A8%8B%E4%B8%AD%E9%81%87%E5%88%B0%E7%9A%84%E9%97%AE%E9%A2%98"><span class="nav-text">编译过程中遇到的问题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Case-1%EF%BC%9A%E8%B5%84%E6%BA%90%E4%B8%8D%E8%B6%B3%E5%AF%BC%E8%87%B4%E6%8A%A5%E9%94%99"><span class="nav-text">Case 1：资源不足导致报错</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Case-2-%E4%BB%A3%E7%A0%81bug%E5%AF%BC%E8%87%B4%E6%8A%A5%E9%94%99"><span class="nav-text">Case 2: 代码bug导致报错</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%9B%B8%E5%85%B3%E8%B5%84%E6%96%99"><span class="nav-text">相关资料</span></a></li></ol>
+
+    </div>
+</div>
+
+        </div>
+    
+</div>
+
+
+
+                
+
+            </div>
+
+            
+
+        </div>
+
+        <div class="main-content-footer">
+            <footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2017</span>
+              -
+            
+            2024&nbsp;&nbsp;<i class="fa-solid fa-heart fa-beat" style="--fa-animation-duration: 0.5s; color: #f54545"></i>&nbsp;&nbsp;<a href="/">Shawn Yan</a>
+        </div>
+        
+            <script data-swup-reload-script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">VISITOR COUNT</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">TOTAL PAGE VIEWS</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">POWERED BY <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a></span>
+            <span class="text-sm lg:block">THEME&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.4.4</a></span>
+        </div>
+        
+        
+            <div>
+                Blog up for <span class="odometer" id="runtime_days" ></span> days <span class="odometer" id="runtime_hours"></span> hrs <span class="odometer" id="runtime_minutes"></span> Min <span class="odometer" id="runtime_seconds"></span> Sec
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+
+    </div>
+</footer>
+
+        </div>
+    </div>
+
+    
+        <div class="post-tools">
+            <div class="post-tools-container">
+    <ul class="article-tools-list">
+        <!-- TOC aside toggle -->
+        
+            <li class="right-bottom-tools page-aside-toggle">
+                <i class="fa-regular fa-outdent"></i>
+            </li>
+        
+
+        <!-- go comment -->
+        
+            <li class="go-comment">
+                <i class="fa-regular fa-comments"></i>
+            </li>
+        
+    </ul>
+</div>
+
+        </div>
+    
+
+    <div class="right-side-tools-container">
+        <div class="side-tools-container">
+    <ul class="hidden-tools-list">
+        <li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-plus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-minus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-expand-width flex justify-center items-center">
+            <i class="fa-regular fa-expand"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+            <i class="fa-regular fa-moon"></i>
+        </li>
+
+        <!-- rss -->
+        
+            <li class="right-bottom-tools rss flex justify-center items-center">
+                <a class="flex justify-center items-center"
+                   href="/atom.xml"
+                   target="_blank"
+                >
+                <i class="fa-regular fa-rss"></i>
+                </a>
+            </li>
+        
+
+        
+
+        <li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+            <i class="fa-regular fa-arrow-down"></i>
+        </li>
+    </ul>
+
+    <ul class="visible-tools-list">
+        <li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+            <i class="fa-regular fa-cog fa-spin"></i>
+        </li>
+        
+            <li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+                <i class="arrow-up fas fa-arrow-up"></i>
+                <span class="percent"></span>
+            </li>
+        
+        
+    </ul>
+</div>
+
+    </div>
+
+    <div class="image-viewer-container">
+    <img src="">
+</div>
+
+
+    
+        <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+          <span class="search-input-field-pre">
+            <i class="fa-solid fa-keyboard"></i>
+          </span>
+            <div class="search-input-container">
+                <input autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       placeholder="Search..."
+                       spellcheck="false"
+                       type="search"
+                       class="search-input"
+                >
+            </div>
+            <span class="popup-btn-close">
+                <i class="fa-solid fa-times"></i>
+            </span>
+        </div>
+        <div id="search-result">
+            <div id="no-result">
+                <i class="fa-solid fa-spinner fa-spin-pulse fa-5x fa-fw"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+
+</main>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Swup.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupSlideTheme.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScriptsPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupProgressPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScrollPlugin.min.js"></script>
+<script>
+    const swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+        ],
+        containers: ["#swup"],
+    });
+
+    swup.hooks.on("page:view", () => {
+        Global.refresh();
+    });
+
+    // if (document.readyState === "complete") {
+    //
+    // } else {
+    //     document.addEventListener("DOMContentLoaded", () => init());
+    // }
+</script>
+
+
+
+
+
+<script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/utils.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/main.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/navbarShrink.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/scrollTopBottom.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/lightDarkSwitch.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/categoryList.js"></script>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/localSearch.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/codeBlock.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/lazyload.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/runtime.js"></script>
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/odometer.min.js"></script>
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/assets/odometer-theme-minimal.css">
+
+
+
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Typed.min.js"></script>
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/typed.js"></script>
+
+
+
+
+
+
+<div class="post-scripts" data-swup-reload-script>
+    
+        <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/anime.min.js"></script>
+        <script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/tocToggle.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/toc.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/tabs.js"></script>
+    
+</div>
+
+
+</body>
+</html>

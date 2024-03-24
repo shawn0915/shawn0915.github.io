@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="shawnyan,dba,oracle,mysql,tidb,mariadb,postgresql,gbase,proxysql">
+    
+    <meta name="author" content="Shawn Yan">
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+        
+        
+        
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://shawnyan.cn/2023/postgresql/pg-15-check-txid-with-python/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+        <meta name="description" content="BG 前几日，群友在讨论 DBA 学习那种编程语言较好，当时老师解惑道：  这个视实际情况而定， go, python, java, c(c++), js(nodejs), RUST, 最好能熟练使用其中的一到两种，然后其它的能看懂逻辑。  一时起兴翻了翻最新的开发语言排行榜，Go目前排在11位，Python依旧稳居第一。  对于 DBA 来说，语言也是工具，来实现一些日常所需的功能，或者测试一些">
+<meta property="og:type" content="article">
+<meta property="og:title" content="【PG15】Python 脚本定时查询当前 txid">
+<meta property="og:url" content="https://shawnyan.cn/2023/postgresql/pg-15-check-txid-with-python/index.html">
+<meta property="og:site_name" content="少安事务所">
+<meta property="og:description" content="BG 前几日，群友在讨论 DBA 学习那种编程语言较好，当时老师解惑道：  这个视实际情况而定， go, python, java, c(c++), js(nodejs), RUST, 最好能熟练使用其中的一到两种，然后其它的能看懂逻辑。  一时起兴翻了翻最新的开发语言排行榜，Go目前排在11位，Python依旧稳居第一。  对于 DBA 来说，语言也是工具，来实现一些日常所需的功能，或者测试一些">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230303-abfb9967-7191-4a42-9371-5430bb17b1d4.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230303-03818a03-7543-477b-bcc8-31eb73aeae64.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230303-1c4a7133-d83e-430b-be2f-39b42a74e7dd.jpg">
+<meta property="article:published_time" content="2023-03-03T15:03:47.000Z">
+<meta property="article:modified_time" content="2023-03-03T15:03:47.000Z">
+<meta property="article:author" content="Shawn Yan">
+<meta property="article:tag" content="python">
+<meta property="article:tag" content="postgresql">
+<meta property="article:tag" content="postgresql 15">
+<meta property="article:tag" content="systemd">
+<meta property="article:tag" content="psycopg">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230303-abfb9967-7191-4a42-9371-5430bb17b1d4.png">
+    
+    
+        <!-- Google tag (gtag.js) -->
+        <script src="https://www.googletagmanager.com/gtag/js?id=G-ZH71L5F7X2"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-ZH71L5F7X2');
+        </script>
+    
+    <!-- baidu tongji -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?2fa794d82f74c0bb3617ba62ee962b46";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/img/favicon.ico" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon.ico">
+    <meta name="theme-color" content="#767FF6">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <!--- Page Info-->
+    
+    <title>
+        
+            【PG15】Python 脚本定时查询当前 txid -
+        
+        少安事务所
+    </title>
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+<!--- use 2.5.0
+    
+        
+<link rel="stylesheet" href="/assets/build/styles.css">
+
+    
+-->
+    <link rel="stylesheet" href="//cdn.staticfile.org/hexo-theme-redefine/2.5.0/assets/build/styles.min.css">
+
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/fonts.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Satoshi/satoshi.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Chillax/chillax.css">
+    <!--- Font Part-->
+    
+    
+    
+    
+
+    <!--- Inject Part-->
+    
+    <script id="hexo-configurations">
+    let Global = window.Global || {};
+    Global.hexo_config = {"hostname":"shawnyan.cn","root":"/","language":"en","path":"search.xml"};
+    Global.theme_config = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":true,"list":[]},"code_block":{"copy":true,"style":"mac","font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":4,"number":false,"expand":true,"init_open":true},"copyright":true,"lazyload":true,"recommendation":{"enable":true,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#767FF6","secondary":null},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"open_graph":true,"google_analytics":{"enable":true,"id":"G-ZH71L5F7X2"},"root_color_mode":"dark"},"home_banner":{"enable":true,"style":"fixed","image":{"light":"https://asktug.com/uploads/default/original/4X/4/b/d/4bd94f804719672dd7e3cb29150ea6f777eb0aec.jpeg","dark":"/img/wallpaper/dark.webp"},"title":"Shawn Yan's Tech Blog.","subtitle":{"text":["A blog about MySQL, Oracle, TiDB, PostgreSQL and other databases."],"hitokoto":{"enable":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":500,"backing_delay":1500,"loop":true,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"links":{"github":"https://github.com/shawn0915","instagram":null,"zhihu":null,"twitter":null,"email":"admin@shawnyan.cn"},"qrs":{"weixin":null}}},"plugins":{"feed":{"enable":true},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":"回忆的沙漏 (10周年版)","artist":"回忆的沙漏 (10周年版)","url":"https://music.163.com/song/media/outer/url?id=1329122067.mp3","cover":"https://p1.music.126.net/oJorrgJ3IotZUAbZkBMuFw==/109951167771736533.jpg?param=68y68"}]},"mermaid":{"enable":false,"version":"9.3.0"}},"version":"2.4.4","navbar":{"auto_hide":false,"color":{"left":"#f78736","right":"#367df7","transparency":35},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Blog":{"path":"/archives","icon":"fa-regular fa-archive"},"Categories":{"path":"/categories","icon":"fa-regular fa-stream"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Links":{"icon":"fa-regular fa-link","submenus":{"My-params":"/my-params","Friends":"/links","Q":"/q"}}},"search":{"enable":true,"preload":true}},"page_templates":{"friends_column":3,"tags_style":"cloud"},"home":{"sidebar":{"enable":true,"position":"left","first_item":"info","announcement":null,"links":null},"article_date_format":"YYYY-MM-DD","categories":{"enable":true,"limit":10},"tags":{"enable":true,"limit":10}},"footerStart":"2017/11/27 00:00:00"};
+    Global.language_ago = {"second":"%s seconds ago","minute":"%s minutes ago","hour":"%s hours ago","day":"%s days ago","week":"%s weeks ago","month":"%s months ago","year":"%s years ago"};
+    Global.data_config = {"masonry":false};
+  </script>
+
+    <!--- Fontawesome Part-->
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/fontawesome.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/brands.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/solid.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/regular.min.css">
+    
+    
+    
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+
+
+<body>
+<div class="progress-bar-container">
+    
+
+    
+        <span class="pjax-progress-bar"></span>
+        <span class="swup-progress-icon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+    
+</div>
+
+
+<main class="page-container" id="swup">
+
+    
+
+    <div class="main-content-container">
+
+
+        <div class="main-content-header">
+            <header class="navbar-container">
+    
+    <div class="navbar-content">
+        <div class="left">
+            
+                <a class="logo-image" href="https://shawnyan.cn/">
+                    <img src="/img/favicon.ico">
+                </a>
+            
+            <a class="logo-title" href="https://shawnyan.cn/">
+                
+                少安事务所
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-house"></i>
+                                        
+                                        HOME
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/archives"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-archive"></i>
+                                        
+                                        BLOG
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/categories"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-stream"></i>
+                                        
+                                        CATEGORIES
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/tags"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-tags"></i>
+                                        
+                                        TAGS
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/about"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-user"></i>
+                                        
+                                        ABOUT
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="has-dropdown" 
+                                    href="#" onClick="return false;">
+                                    
+                                        
+                                            <i class="fa-regular fa-link"></i>
+                                        
+                                        LINKS&nbsp;<i class="fa-solid fa-chevron-down"></i>
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                                    <ul class="sub-menu">
+                                    
+                                        <li>
+                                        <a href="/my-params">MY-PARAMS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/links">FRIENDS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/q">Q
+                                        </a>
+                                        </li>
+                                    
+                                    </ul>
+                                
+                            </li>
+                    
+                    
+                        <li class="navbar-item search search-popup-trigger">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </li>
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                    <div class="icon-item search search-popup-trigger"><i class="fa-solid fa-magnifying-glass"></i></div>
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="navbar-drawer w-full absolute top-0 left-0 bg-background-color">
+        <ul class="drawer-navbar-list flex flex-col justify-start items-center">
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/"  >
+                             
+                                
+                                    <i class="fa-regular fa-house"></i>
+                                
+                                HOME
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/archives"  >
+                             
+                                
+                                    <i class="fa-regular fa-archive"></i>
+                                
+                                BLOG
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/categories"  >
+                             
+                                
+                                    <i class="fa-regular fa-stream"></i>
+                                
+                                CATEGORIES
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/tags"  >
+                             
+                                
+                                    <i class="fa-regular fa-tags"></i>
+                                
+                                TAGS
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/about"  >
+                             
+                                
+                                    <i class="fa-regular fa-user"></i>
+                                
+                                ABOUT
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group has-dropdown" 
+                        href="#" onClick="return false;">
+                            
+                                
+                                    <i class="fa-regular fa-link"></i>
+                                
+                                LINKS&nbsp;<i class="group-hover:rotate-180 transition-transform fa-solid fa-chevron-down"></i>
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                              
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/my-params">MY-PARAMS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/links">FRIENDS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/q">Q</a>
+                            </li>
+                        
+                    
+            
+
+        </ul>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+        </div>
+
+        <div class="main-content-body">
+
+            
+
+            <div class="main-content">
+
+                
+                    <div class="post-page-container">
+    <div class="article-content-container">
+
+        <div class="article-title">
+            
+                
+                
+                <!-- 2023-10-03, edit by shawnyan. -->
+                <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG15】Python 脚本定时查询当前 txid" class="max-w-none" referrerpolicy="no-referrer"/>
+                
+                <h1 class="article-title-cover">【PG15】Python 脚本定时查询当前 txid</h1>
+            
+            </div>
+
+
+
+        
+            <div class="article-header">
+                <div class="avatar">
+                    
+                        <img src="/img/avatar.jpg">
+                    
+                </div>
+                <div class="info">
+                    <div class="author">
+                        
+                            <span class="name">严少安</span>
+                        
+                        
+                            
+                                <span class="author-label">Lv.6</span>
+                            
+                        
+                    </div>
+                    <div class="meta-info">
+                        <div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2023-03-03 23:03:47</span>
+        <span class="mobile">2023-03-03 23:03:47</span>
+        <span class="hover-info">Created</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2023-03-03 23:03:47</span>
+            <span class="mobile">2023-03-03 23:03:47</span>
+            <span class="hover-info">Updated</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/postgresql/">PostgreSQL</a>&nbsp;
+                        </li>
+                    
+                    
+                
+                    
+                        
+                            <li>></li>
+                        
+                        <li>
+                            <a href="/categories/postgresql/postgresql-15/">PostgreSQL 15</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/python/">python</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/postgresql/">postgresql</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/postgresql-15/">postgresql 15</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/systemd/">systemd</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/psycopg/">psycopg</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+        <span class="article-wordcount article-meta-item">
+            <i class="fa-regular fa-typewriter"></i>&nbsp;<span>1.9k Words</span>
+        </span>
+    
+    
+        <span class="article-min2read article-meta-item">
+            <i class="fa-regular fa-clock"></i>&nbsp;<span>9 Mins</span>
+        </span>
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+                    </div>
+                </div>
+            </div>
+        
+
+        
+
+
+        <div class="article-content markdown-body">
+            <h2 id="BG">BG</h2>
+<p>前几日，群友在讨论 DBA 学习那种编程语言较好，当时老师解惑道：</p>
+<blockquote>
+<p>这个视实际情况而定，<br>
+go, python, java, c(c++), js(nodejs), RUST, 最好能熟练使用其中的一到两种，然后其它的能看懂逻辑。</p>
+</blockquote>
+<p>一时起兴翻了翻最新的开发语言排行榜，Go目前排在11位，Python依旧稳居第一。</p>
+<img  alt="p1.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230303-abfb9967-7191-4a42-9371-5430bb17b1d4.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>对于 DBA 来说，语言也是工具，来实现一些日常所需的功能，或者测试一些没接触过的特性，再或者实现一些好玩的事情。</p>
+<p>本文的核心是 <strong>“用python写了一个小脚本，定时执行某个job， 要求你定义一个服务文件”。</strong></p>
+<h2 id="PG-15-源码编译，如何用-systemd-管理-postgresql-服务">PG 15 源码编译，如何用 systemd 管理 postgresql 服务</h2>
+<blockquote>
+<p>本文以 CentOS 7 + PostgreSQL 15 为例</p>
+</blockquote>
+<p>在生产环境，一般都会用 systemd 来管理服务，而非直接使用 pg_ctl 来进行数据库启停操作。<br>
+源码编译时，需要传递参数 <code>--with-systemd</code> 源码会对此进行一些优化处理，比如服务启动超时时间。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./configure --prefix=/opt/pgsql-152 --with-extra-version=&quot;-Yan&quot; --with-systemd</span><br></pre></td></tr></table></figure></div>
+<p>但使用此参数需要先安装依赖 <code>systemd-devel</code>，否则会报错：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">configure: error: header file &lt;systemd/sd-daemon.h&gt; is required for systemd support</span><br></pre></td></tr></table></figure></div>
+<p>具体编译过程快进。。。 》》》。。。</p>
+<p>经过漫长的等待，可以看到编译后的源码已经安装到路径 <code>/opt/pgsql-152</code> 下。</p>
+<p>初始化之后，我们可以安装 service 文件，如将准备好的 <code>postgresql-15.service</code></p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><figcaption><span>file (systemd)</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">[Unit]</span><br><span class="line">Description=PostgreSQL 15 database server</span><br><span class="line"></span><br><span class="line">[Service]</span><br><span class="line">Type=notify</span><br><span class="line">User=postgres</span><br><span class="line">ExecStart=/usr/pgsql-15/bin/postmaster -D /data/pgdata-152/data</span><br><span class="line">ExecReload=/bin/kill -HUP $MAINPID</span><br><span class="line">KillMode=mixed</span><br><span class="line">KillSignal=SIGINT</span><br><span class="line">TimeoutSec=0</span><br><span class="line"></span><br><span class="line">[Install]</span><br><span class="line">WantedBy=multi-user.target</span><br></pre></td></tr></table></figure></div>
+<p>放到路径 <code>/etc/systemd/system/postgresql-15.service</code> 下，然后启动它。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line">[postgres@centos7 pgsql-15]$ systemctl status postgresql-15</span><br><span class="line">● postgresql-15.service - PostgreSQL 15 database server</span><br><span class="line">   Loaded: loaded (/etc/systemd/system/postgresql-15.service; disabled; vendor preset: disabled)</span><br><span class="line">   Active: inactive (dead)</span><br><span class="line">[postgres@centos7 pgsql-15]$ sudo systemctl start postgresql-15</span><br><span class="line">[postgres@centos7 pgsql-15]$ systemctl status postgresql-15</span><br><span class="line">● postgresql-15.service - PostgreSQL 15 database server</span><br><span class="line">   Loaded: loaded (/etc/systemd/system/postgresql-15.service; disabled; vendor preset: disabled)</span><br><span class="line">   Active: active (running) since Fri 2023-03-03 22:45:22 CST; 2s ago</span><br><span class="line"> Main PID: 78550 (postmaster)</span><br><span class="line">    Tasks: 6</span><br><span class="line">   CGroup: /system.slice/postgresql-15.service</span><br><span class="line">           ├─78550 /usr/pgsql-15/bin/postmaster -D /data/pgdata-152/data</span><br><span class="line">           ├─78553 postgres: checkpointer </span><br><span class="line">           ├─78554 postgres: background writer </span><br><span class="line">           ├─78556 postgres: walwriter </span><br><span class="line">           ├─78557 postgres: autovacuum launcher </span><br><span class="line">           └─78558 postgres: logical replication launcher </span><br><span class="line">[postgres@centos7 pgsql-15]$ </span><br><span class="line">[postgres@centos7 pgsql-15]$ psql</span><br><span class="line"></span><br><span class="line">Welcome to PostgreSQL !</span><br><span class="line">Your PostgreSQL connection id is 78575</span><br><span class="line">Server version:15.2</span><br><span class="line">---------------</span><br><span class="line">Border style is 2.</span><br><span class="line">Timing is on.</span><br><span class="line">Null display is &quot;[null]&quot;.</span><br><span class="line">psql (15.2-Yan)</span><br><span class="line">Type &quot;help&quot; for help.</span><br><span class="line"></span><br><span class="line">(postgres@[local]) [postgres] 22:46:21# \l</span><br><span class="line">                                                  List of databases</span><br><span class="line">+-----------+----------+----------+-------------+-------------+------------+-----------------+-----------------------+</span><br><span class="line">|   Name    |  Owner   | Encoding |   Collate   |    Ctype    | ICU Locale | Locale Provider |   Access privileges   |</span><br><span class="line">+-----------+----------+----------+-------------+-------------+------------+-----------------+-----------------------+</span><br><span class="line">| postgres  | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 |            | libc            |                       |</span><br><span class="line">| template0 | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 |            | libc            | =c/postgres          +|</span><br><span class="line">|           |          |          |             |             |            |                 | postgres=CTc/postgres |</span><br><span class="line">| template1 | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 |            | libc            | =c/postgres          +|</span><br><span class="line">|           |          |          |             |             |            |                 | postgres=CTc/postgres |</span><br><span class="line">+-----------+----------+----------+-------------+-------------+------------+-----------------+-----------------------+</span><br><span class="line">(3 rows)</span><br></pre></td></tr></table></figure></div>
+<h2 id="使用-Python-连接-PostgreSQL，并查看当前-txid">使用 Python 连接 PostgreSQL，并查看当前 txid</h2>
+<p>这里使用 <strong>psycopg</strong> 连接 PostgreSQL 数据库，</p>
+<p>Psycopg 是用 Python 实现的最常用、最可靠、功能最丰富的 PostgreSQL适配器。<br>
+Psycopg 需要 Python 版本 3.7 到 3.11。支持 PostgreSQL 10 到 15。操作系统支持 Linux, macOS, Windows。</p>
+<img  alt="p2.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230303-03818a03-7543-477b-bcc8-31eb73aeae64.png"
+                      referrerpolicy="no-referrer"
+                >
+<h3 id="适配-PostgreSQL-15">适配 PostgreSQL 15</h3>
+<p>从 psycopg 的 Release Notes <sup class="footnote-ref"><a href="#fn1" id="fnref1">[1]</a></sup> 可以看到，是从 3.1.4 这个版本开始适配 PostgreSQL 15</p>
+<p>不过，本文只是最基础的使用场景，所以之前的版本也是可以用的，如我本地版本就是 psycopg (3.0.18)</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">[root@centos7 ~]# pip3 list --format=columns</span><br><span class="line">Package             Version</span><br><span class="line">------------------- -------</span><br><span class="line">backports.zoneinfo  0.2.1  </span><br><span class="line">importlib-resources 5.4.0  </span><br><span class="line">pip                 9.0.3  </span><br><span class="line">psycopg             3.0.18 </span><br><span class="line">setuptools          39.2.0 </span><br><span class="line">typing-extensions   4.1.1  </span><br><span class="line">zipp                3.6.0  </span><br><span class="line">[root@centos7 ~]# </span><br></pre></td></tr></table></figure></div>
+<h3 id="Demo">Demo</h3>
+<p>基础用法很简单，安装好 Psycopg 后，配置连接信息，然后就可以写 SQL 进行数据交互了。<br>
+比如，连接到本地 PostgreSQL，端口为 5555，dbname 为 mydb，就可以这样写配置信息：</p>
+<div class="highlight-container" data-rel="Python"><figure class="iseeu highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Connect to an existing database</span></span><br><span class="line"><span class="keyword">with</span> psycopg.connect(<span class="string">&quot;dbname=mydb user=postgres port=5555&quot;</span>) <span class="keyword">as</span> conn:</span><br></pre></td></tr></table></figure></div>
+<p>接下来就很简单了，实现题目要求，查看当前时间和 txid，并输出到 <code>/tmp/pg_txid.log</code>。</p>
+<p>txid 是 PostgreSQL 的常规知识，用 SQL 语句查询即可。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> now(), txid_current();</span><br></pre></td></tr></table></figure></div>
+<p>实际演示效果如下，</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">[postgres@centos7 ~]$ python3 demo.py </span><br><span class="line">[postgres@centos7 ~]$ cat /tmp/pg_txid.log </span><br><span class="line">2023-03-03 23:03:06,736</span><br><span class="line">[postgres@centos7 ~]$ python3 demo.py </span><br><span class="line">[postgres@centos7 ~]$ cat /tmp/pg_txid.log </span><br><span class="line">2023-03-03 23:03:06,736</span><br><span class="line">2023-03-03 23:04:19,737</span><br><span class="line">[postgres@centos7 ~]$ python3 demo.py </span><br><span class="line">[postgres@centos7 ~]$ cat /tmp/pg_txid.log </span><br><span class="line">2023-03-03 23:03:06,736</span><br><span class="line">2023-03-03 23:04:19,737</span><br><span class="line">2023-03-03 23:04:23,738</span><br><span class="line">[postgres@centos7 ~]$ </span><br></pre></td></tr></table></figure></div>
+<h2 id="systemd-定时功能，定时调用-py-文件">systemd 定时功能，定时调用 py 文件</h2>
+<p>systemd 有定时功能，但很少用，大多数情况仍然习惯使用 crontab 进行定时任务管理。</p>
+<p>可以通过命令 <code>systemctl list-timers</code> 查看当前系统有哪些定时命令。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">[postgres@centos7 ~]$ systemctl list-timers </span><br><span class="line">NEXT                         LEFT       LAST                         PASSED       UNIT                         ACTIVATES</span><br><span class="line">Sat 2023-03-04 00:00:00 CST  52min left Fri 2023-03-03 18:14:13 CST  4h 53min ago unbound-anchor.timer         unbound-an</span><br><span class="line">Sat 2023-03-04 19:35:51 CST  20h left   Fri 2023-03-03 19:33:06 CST  3h 34min ago systemd-tmpfiles-clean.timer systemd-tm</span><br><span class="line"></span><br><span class="line">2 timers listed.</span><br><span class="line">Pass --all to see loaded but inactive timers, too.</span><br><span class="line">[postgres@centos7 ~]$ </span><br><span class="line">[postgres@centos7 ~]$ systemctl list-timers --all</span><br><span class="line">NEXT                         LEFT       LAST                         PASSED       UNIT                         ACTIVATES</span><br><span class="line">Sat 2023-03-04 00:00:00 CST  52min left Fri 2023-03-03 18:14:13 CST  4h 53min ago unbound-anchor.timer         unbound-an</span><br><span class="line">Sat 2023-03-04 19:35:51 CST  20h left   Fri 2023-03-03 19:33:06 CST  3h 34min ago systemd-tmpfiles-clean.timer systemd-tm</span><br><span class="line">n/a                          n/a        n/a                          n/a          systemd-readahead-done.timer systemd-re</span><br><span class="line"></span><br><span class="line">3 timers listed.</span><br><span class="line">[postgres@centos7 ~]$ </span><br></pre></td></tr></table></figure></div>
+<p>关于 timer 的更多信息，可以直接查阅 man 文档。<br>
+对于每个计时器文件，必须存在一个匹配的单元文件，描述当计时器失效时要激活的单元。<br>
+缺省情况下，与定时器同名(后缀不同)的服务被激活。<br>
+例如:定时器文件foo。定时器激活一个匹配的服务 foo.service。</p>
+<p>任务继续，<strong>创建一个定时任务，每 5s 查询一次当前 txid。</strong></p>
+<p>思路有了，服务文件需要稍加测试一下，便可以呈现出最终效果。</p>
+<ul>
+<li>服务文件</li>
+</ul>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><figcaption><span>file (systemd)</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">[Unit]</span><br><span class="line">Description=Collect PG connections service</span><br><span class="line"></span><br><span class="line">[Service]</span><br><span class="line">Type=simple</span><br><span class="line">ExecStart=/bin/python3 /home/postgres/demo.py</span><br><span class="line"></span><br><span class="line">[Install]</span><br><span class="line">WantedBy=multi-user.target</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>定时器</li>
+</ul>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><figcaption><span>file (systemd)</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">[Unit]</span><br><span class="line">Description=Collect PG connections timer</span><br><span class="line"></span><br><span class="line">[Timer]</span><br><span class="line">Unit=pgcol.service</span><br><span class="line">OnCalendar=*-*-* *:*:00/5</span><br><span class="line">Persistent=true</span><br><span class="line"></span><br><span class="line">[Install]</span><br><span class="line">WantedBy=timers.target</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>安装并启用定时器</li>
+</ul>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">[postgres@centos7 ~]$ sudo vi /etc/systemd/system/pgcol.service</span><br><span class="line">[postgres@centos7 ~]$ systemctl daemon-reload</span><br><span class="line">==== AUTHENTICATING FOR org.freedesktop.systemd1.reload-daemon ===</span><br><span class="line">Authentication is required to reload the systemd state.</span><br><span class="line">Authenticating as: shawnyan</span><br><span class="line">Password: </span><br><span class="line">==== AUTHENTICATION COMPLETE ===</span><br><span class="line">[postgres@centos7 ~]$ systemctl status pgcol.service</span><br><span class="line">● pgcol.service - Collect PG connections service</span><br><span class="line">   Loaded: loaded (/usr/lib/systemd/system/pgcol.service; disabled; vendor preset: disabled)</span><br><span class="line">   Active: inactive (dead)</span><br><span class="line">[postgres@centos7 ~]$ sudo vi /etc/systemd/system/pgcol.timer</span><br><span class="line">[postgres@centos7 ~]$ sudo systemctl enable --now pgcol.timer</span><br><span class="line">[postgres@centos7 ~]$ systemctl status pgcol.timer</span><br><span class="line">● pgcol.timer - Collect PG connections timer</span><br><span class="line">   Loaded: loaded (/etc/systemd/system/pgcol.timer; enabled; vendor preset: disabled)</span><br><span class="line">   Active: active (waiting) since Fri 2023-03-03 23:21:49 CST; 9s ago</span><br><span class="line">[postgres@centos7 ~]$ </span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>查看日志输出</li>
+</ul>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">[postgres@centos7 ~]$ tailf /tmp/pg_txid.log </span><br><span class="line">2023-03-03 23:46:46,765</span><br><span class="line">2023-03-03 23:47:46,766</span><br><span class="line">2023-03-03 23:48:46,767</span><br><span class="line">2023-03-03 23:49:46,768</span><br><span class="line">2023-03-03 23:50:01,769</span><br><span class="line">2023-03-03 23:50:46,770</span><br><span class="line">2023-03-03 23:51:46,771</span><br><span class="line">2023-03-03 23:52:46,772</span><br><span class="line">2023-03-03 23:53:01,773</span><br><span class="line">2023-03-03 23:53:46,775</span><br><span class="line">^C</span><br><span class="line">[postgres@centos7 ~]$ </span><br><span class="line">[postgres@centos7 ~]$ sudo journalctl -f </span><br><span class="line">-- Logs begin at Sun 2023-02-26 22:03:41 CST. --</span><br><span class="line">Mar 03 23:50:45 centos7.shawnyan.com systemd[1]: Started Collect PG connections service.</span><br><span class="line">Mar 03 23:51:45 centos7.shawnyan.com systemd[1]: Started Collect PG connections service.</span><br><span class="line">Mar 03 23:52:45 centos7.shawnyan.com systemd[1]: Started Collect PG connections service.</span><br><span class="line">Mar 03 23:53:01 centos7.shawnyan.com systemd[1]: Started Collect PG connections service.</span><br><span class="line">Mar 03 23:53:25 centos7.shawnyan.com systemd[1]: Started Collect PG connections service.</span><br><span class="line">Mar 03 23:53:45 centos7.shawnyan.com systemd[1]: Started Collect PG connections service.</span><br></pre></td></tr></table></figure></div>
+<h2 id="End">End</h2>
+<p>简要总结，本文结合了 CentOS 7 新特性 systemd 的定时器功能，PostgreSQL 基础知识如何查看当前 txid，以及 Python 开发的基础知识，并调用了 Python 开发的 PostgreSQL 适配器 psycopg，以简单实现一个小功能点。</p>
+<p>每日进步一点点，积跬步以致千里。</p>
+<img  alt="4907662e501fb5ef.jpg" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230303-1c4a7133-d83e-430b-be2f-39b42a74e7dd.jpg"
+                      referrerpolicy="no-referrer"
+                >
+<hr>
+<p><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/617169" >https://www.modb.pro/db/617169 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a><br>
+<a class="link"   target="_blank" rel="noopener" href="https://pgfans.cn/a/2242" >https://pgfans.cn/a/2242 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<hr class="footnotes-sep">
+<section class="footnotes">
+<ol class="footnotes-list">
+<li id="fn1" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://www.psycopg.org/psycopg3/docs/news.html#psycopg-3-1-4" >https://www.psycopg.org/psycopg3/docs/news.html#psycopg-3-1-4 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<p>Include error classes defined in PostgreSQL 15.<br>
+Add support for Python 3.11 (ticket #305).<br>
+Build binary packages with libpq from PostgreSQL 15.0. <a href="#fnref1" class="footnote-backref">↩︎</a></p>
+</li>
+</ol>
+</section>
+
+        </div>
+
+        
+            <div class="post-copyright-info">
+                <div class="article-copyright-info-container">
+    <ul>
+    <!-- 2023-10-03, edit by shawnyan. -->
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Title:</strong> 【PG15】Python 脚本定时查询当前 txid</li>
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Author:</strong>
+            
+                严少安
+            
+        </li>
+        <li><strong>Created at:</strong> 2023-03-03 23:03:47</li>
+        
+            <li><strong>Updated at:</strong> 2023-03-03 23:03:47</li>
+        
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Link:</strong> https://shawnyan.cn/2023/postgresql/pg-15-check-txid-with-python/</li>
+        <li style="word-wrap: break-word; white-space: normal;">
+            <strong>
+                License:
+            </strong>
+            
+            This work is licensed under <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>.
+            
+
+        </li>
+    </ul>
+</div>
+
+            </div>
+        
+
+        
+            <ul class="post-tags-box">
+                
+                    <li class="tag-item">
+                        <a href="/tags/python/">#python</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/postgresql/">#postgresql</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/postgresql-15/">#postgresql 15</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/systemd/">#systemd</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/psycopg/">#psycopg</a>&nbsp;
+                    </li>
+                
+            </ul>
+        
+
+        
+  <div class="recommended-article">
+   <div class="recommended-desktop">
+    <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+    </div>
+    <div class="recommended-article-group"><a class="recommended-article-item" href="/2024/postgresql/pg-env-vars/" title="PG Style! 盘点几个常用的 Postgres 环境变量" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="PG Style! 盘点几个常用的 Postgres 环境变量" class="!max-w-none">
+  <span class="title">PG Style! 盘点几个常用的 Postgres 环境变量</span>
+</a><a class="recommended-article-item" href="/2023/postgresql/pg-15-progress-memory/" title="【PG15】如何查看 PostgreSQL 进程占用内存情况" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG15】如何查看 PostgreSQL 进程占用内存情况" class="!max-w-none">
+  <span class="title">【PG15】如何查看 PostgreSQL 进程占用内存情况</span>
+</a><a class="recommended-article-item" href="/2023/postgresql/pg-16-run-on-centos-7/" title="【PG16】后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG16】后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行" class="!max-w-none">
+  <span class="title">【PG16】后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行</span>
+</a></div>
+   </div>
+   <div class="recommended-mobile">
+   <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+   </div>
+   <div class="recommended-article-group"><a class="recommended-article-item" href="/2024/postgresql/pg-env-vars/" title="PG Style! 盘点几个常用的 Postgres 环境变量" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="PG Style! 盘点几个常用的 Postgres 环境变量" class="!max-w-none">
+  <span class="title">PG Style! 盘点几个常用的 Postgres 环境变量</span>
+</a><a class="recommended-article-item" href="/2023/postgresql/pg-15-progress-memory/" title="【PG15】如何查看 PostgreSQL 进程占用内存情况" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG15】如何查看 PostgreSQL 进程占用内存情况" class="!max-w-none">
+  <span class="title">【PG15】如何查看 PostgreSQL 进程占用内存情况</span>
+</a></div>
+   </div>
+  </div>
+
+        
+            <div class="article-nav">
+                
+                    <div class="article-prev">
+                        <a class="prev"
+                        rel="prev"
+                        href="/2023/postgresql/pg-15-progress-memory/"
+                        >
+                            <span class="left arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </span>
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">【PG15】如何查看 PostgreSQL 进程占用内存情况</span>
+                                <span class="post-nav-item">Prev posts</span>
+                            </span>
+                        </a>
+                    </div>
+                
+                
+                    <div class="article-next">
+                        <a class="next"
+                        rel="next"
+                        href="/2023/postgresql/pg-15-psqlrc/"
+                        >
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">【PG15】有趣的 psqlrc 你真的学废了麽</span>
+                                <span class="post-nav-item">Next posts</span>
+                            </span>
+                            <span class="right arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </a>
+                    </div>
+                
+            </div>
+        
+
+
+        
+            <div class="comment-container">
+                <div class="comments-container pjax">
+    <div id="comment-anchor"></div>
+    <div class="comment-area-title">
+        <i class="fa-solid fa-comments"></i>&nbsp;Comments
+    </div>
+    
+
+        
+            
+    <div id="gitalk-container"></div>
+    <script data-swup-reload-script
+            src="//cdn.staticfile.org/gitalk/1.8.0/gitalk.min.js"></script>
+    <script data-swup-reload-script>
+
+        function loadGitalk() {
+            let __gitalk__pathname = decodeURI(location.pathname);
+            const __gitalk__pathnameLength = __gitalk__pathname.length;
+            const __gitalk__pathnameMaxLength = 50;
+            if (__gitalk__pathnameLength > __gitalk__pathnameMaxLength) {
+                __gitalk__pathname = __gitalk__pathname.substring(0, __gitalk__pathnameMaxLength - 3) + '...';
+            }
+
+            try {
+                Gitalk && new Gitalk({
+                    clientID: '32d049bf3701e6791070',
+                    clientSecret: '36c295ad3dad4c739b530ef113d0a979d8c35c5d',
+                    repo: 'gitalk',
+                    owner: 'shawn0915',
+                    admin: ['shawn0915'],
+                    id: __gitalk__pathname,
+                    language: 'en'
+                }).render('gitalk-container');
+
+            } catch (e) {
+                window.Gitalk = null;
+            }
+        }
+
+        if ('true') {
+            const loadGitalkTimeout = setTimeout(() => {
+                loadGitalk();
+                clearTimeout(loadGitalkTimeout);
+            }, 1000);
+        } else {
+            window.addEventListener('DOMContentLoaded', loadGitalk);
+        }
+    </script>
+
+
+
+        
+    
+</div>
+
+            </div>
+        
+    </div>
+
+    
+        <div class="toc-content-container">
+            <div class="post-toc-wrap">
+    <div class="post-toc">
+        <div class="toc-title">On this page</div>
+<!--         <div class="page-title">【PG15】Python 脚本定时查询当前 txid</div> -->
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#BG"><span class="nav-text">BG</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#PG-15-%E6%BA%90%E7%A0%81%E7%BC%96%E8%AF%91%EF%BC%8C%E5%A6%82%E4%BD%95%E7%94%A8-systemd-%E7%AE%A1%E7%90%86-postgresql-%E6%9C%8D%E5%8A%A1"><span class="nav-text">PG 15 源码编译，如何用 systemd 管理 postgresql 服务</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8-Python-%E8%BF%9E%E6%8E%A5-PostgreSQL%EF%BC%8C%E5%B9%B6%E6%9F%A5%E7%9C%8B%E5%BD%93%E5%89%8D-txid"><span class="nav-text">使用 Python 连接 PostgreSQL，并查看当前 txid</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%80%82%E9%85%8D-PostgreSQL-15"><span class="nav-text">适配 PostgreSQL 15</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Demo"><span class="nav-text">Demo</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#systemd-%E5%AE%9A%E6%97%B6%E5%8A%9F%E8%83%BD%EF%BC%8C%E5%AE%9A%E6%97%B6%E8%B0%83%E7%94%A8-py-%E6%96%87%E4%BB%B6"><span class="nav-text">systemd 定时功能，定时调用 py 文件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#End"><span class="nav-text">End</span></a></li></ol>
+
+    </div>
+</div>
+
+        </div>
+    
+</div>
+
+
+
+                
+
+            </div>
+
+            
+
+        </div>
+
+        <div class="main-content-footer">
+            <footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2017</span>
+              -
+            
+            2024&nbsp;&nbsp;<i class="fa-solid fa-heart fa-beat" style="--fa-animation-duration: 0.5s; color: #f54545"></i>&nbsp;&nbsp;<a href="/">Shawn Yan</a>
+        </div>
+        
+            <script data-swup-reload-script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">VISITOR COUNT</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">TOTAL PAGE VIEWS</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">POWERED BY <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a></span>
+            <span class="text-sm lg:block">THEME&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.4.4</a></span>
+        </div>
+        
+        
+            <div>
+                Blog up for <span class="odometer" id="runtime_days" ></span> days <span class="odometer" id="runtime_hours"></span> hrs <span class="odometer" id="runtime_minutes"></span> Min <span class="odometer" id="runtime_seconds"></span> Sec
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+
+    </div>
+</footer>
+
+        </div>
+    </div>
+
+    
+        <div class="post-tools">
+            <div class="post-tools-container">
+    <ul class="article-tools-list">
+        <!-- TOC aside toggle -->
+        
+            <li class="right-bottom-tools page-aside-toggle">
+                <i class="fa-regular fa-outdent"></i>
+            </li>
+        
+
+        <!-- go comment -->
+        
+            <li class="go-comment">
+                <i class="fa-regular fa-comments"></i>
+            </li>
+        
+    </ul>
+</div>
+
+        </div>
+    
+
+    <div class="right-side-tools-container">
+        <div class="side-tools-container">
+    <ul class="hidden-tools-list">
+        <li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-plus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-minus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-expand-width flex justify-center items-center">
+            <i class="fa-regular fa-expand"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+            <i class="fa-regular fa-moon"></i>
+        </li>
+
+        <!-- rss -->
+        
+            <li class="right-bottom-tools rss flex justify-center items-center">
+                <a class="flex justify-center items-center"
+                   href="/atom.xml"
+                   target="_blank"
+                >
+                <i class="fa-regular fa-rss"></i>
+                </a>
+            </li>
+        
+
+        
+
+        <li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+            <i class="fa-regular fa-arrow-down"></i>
+        </li>
+    </ul>
+
+    <ul class="visible-tools-list">
+        <li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+            <i class="fa-regular fa-cog fa-spin"></i>
+        </li>
+        
+            <li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+                <i class="arrow-up fas fa-arrow-up"></i>
+                <span class="percent"></span>
+            </li>
+        
+        
+    </ul>
+</div>
+
+    </div>
+
+    <div class="image-viewer-container">
+    <img src="">
+</div>
+
+
+    
+        <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+          <span class="search-input-field-pre">
+            <i class="fa-solid fa-keyboard"></i>
+          </span>
+            <div class="search-input-container">
+                <input autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       placeholder="Search..."
+                       spellcheck="false"
+                       type="search"
+                       class="search-input"
+                >
+            </div>
+            <span class="popup-btn-close">
+                <i class="fa-solid fa-times"></i>
+            </span>
+        </div>
+        <div id="search-result">
+            <div id="no-result">
+                <i class="fa-solid fa-spinner fa-spin-pulse fa-5x fa-fw"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+
+</main>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Swup.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupSlideTheme.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScriptsPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupProgressPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScrollPlugin.min.js"></script>
+<script>
+    const swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+        ],
+        containers: ["#swup"],
+    });
+
+    swup.hooks.on("page:view", () => {
+        Global.refresh();
+    });
+
+    // if (document.readyState === "complete") {
+    //
+    // } else {
+    //     document.addEventListener("DOMContentLoaded", () => init());
+    // }
+</script>
+
+
+
+
+
+<script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/utils.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/main.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/navbarShrink.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/scrollTopBottom.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/lightDarkSwitch.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/categoryList.js"></script>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/localSearch.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/codeBlock.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/lazyload.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/runtime.js"></script>
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/odometer.min.js"></script>
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/assets/odometer-theme-minimal.css">
+
+
+
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Typed.min.js"></script>
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/typed.js"></script>
+
+
+
+
+
+
+<div class="post-scripts" data-swup-reload-script>
+    
+        <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/anime.min.js"></script>
+        <script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/tocToggle.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/toc.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/tabs.js"></script>
+    
+</div>
+
+
+</body>
+</html>

@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="shawnyan,dba,oracle,mysql,tidb,mariadb,postgresql,gbase,proxysql">
+    
+    <meta name="author" content="Shawn Yan">
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+        
+        
+        
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://shawnyan.cn/2023/postgresql/pg-15-install-on-rocky-9/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+        <meta name="description" content="本文将基于 Rocky Linux 9.3 演示如何安装 PostgreSQL 15。 共介绍五种安装方法：  通过 dnf install 安装 PostgreSQL 数据库 通过 dnf module install 安装 PostgreSQL 数据库 通过 podman 拉取 PostgreSQL 镜像，并启动 PostgreSQL 数据库 编译 PostgreSQL 源码，并安装、启动数据">
+<meta property="og:type" content="article">
+<meta property="og:title" content="【PG15】在 Rocky 9 上安装 PostgreSQL 15 的五种方法（总有一个你没用过🤪）">
+<meta property="og:url" content="https://shawnyan.cn/2023/postgresql/pg-15-install-on-rocky-9/index.html">
+<meta property="og:site_name" content="少安事务所">
+<meta property="og:description" content="本文将基于 Rocky Linux 9.3 演示如何安装 PostgreSQL 15。 共介绍五种安装方法：  通过 dnf install 安装 PostgreSQL 数据库 通过 dnf module install 安装 PostgreSQL 数据库 通过 podman 拉取 PostgreSQL 镜像，并启动 PostgreSQL 数据库 编译 PostgreSQL 源码，并安装、启动数据">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2023-11-22T03:02:45.000Z">
+<meta property="article:modified_time" content="2023-11-22T03:02:45.000Z">
+<meta property="article:author" content="Shawn Yan">
+<meta property="article:tag" content="postgresql">
+<meta property="article:tag" content="postgresql 15">
+<meta property="article:tag" content="rocky">
+<meta name="twitter:card" content="summary">
+    
+    
+        <!-- Google tag (gtag.js) -->
+        <script src="https://www.googletagmanager.com/gtag/js?id=G-ZH71L5F7X2"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-ZH71L5F7X2');
+        </script>
+    
+    <!-- baidu tongji -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?2fa794d82f74c0bb3617ba62ee962b46";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/img/favicon.ico" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon.ico">
+    <meta name="theme-color" content="#767FF6">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <!--- Page Info-->
+    
+    <title>
+        
+            【PG15】在 Rocky 9 上安装 PostgreSQL 15 的五种方法（总有一个你没用过🤪） -
+        
+        少安事务所
+    </title>
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+<!--- use 2.5.0
+    
+        
+<link rel="stylesheet" href="/assets/build/styles.css">
+
+    
+-->
+    <link rel="stylesheet" href="//cdn.staticfile.org/hexo-theme-redefine/2.5.0/assets/build/styles.min.css">
+
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/fonts.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Satoshi/satoshi.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Chillax/chillax.css">
+    <!--- Font Part-->
+    
+    
+    
+    
+
+    <!--- Inject Part-->
+    
+    <script id="hexo-configurations">
+    let Global = window.Global || {};
+    Global.hexo_config = {"hostname":"shawnyan.cn","root":"/","language":"en","path":"search.xml"};
+    Global.theme_config = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":true,"list":[]},"code_block":{"copy":true,"style":"mac","font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":4,"number":false,"expand":true,"init_open":true},"copyright":true,"lazyload":true,"recommendation":{"enable":true,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#767FF6","secondary":null},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"open_graph":true,"google_analytics":{"enable":true,"id":"G-ZH71L5F7X2"},"root_color_mode":"dark"},"home_banner":{"enable":true,"style":"fixed","image":{"light":"https://asktug.com/uploads/default/original/4X/4/b/d/4bd94f804719672dd7e3cb29150ea6f777eb0aec.jpeg","dark":"/img/wallpaper/dark.webp"},"title":"Shawn Yan's Tech Blog.","subtitle":{"text":["A blog about MySQL, Oracle, TiDB, PostgreSQL and other databases."],"hitokoto":{"enable":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":500,"backing_delay":1500,"loop":true,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"links":{"github":"https://github.com/shawn0915","instagram":null,"zhihu":null,"twitter":null,"email":"admin@shawnyan.cn"},"qrs":{"weixin":null}}},"plugins":{"feed":{"enable":true},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":"回忆的沙漏 (10周年版)","artist":"回忆的沙漏 (10周年版)","url":"https://music.163.com/song/media/outer/url?id=1329122067.mp3","cover":"https://p1.music.126.net/oJorrgJ3IotZUAbZkBMuFw==/109951167771736533.jpg?param=68y68"}]},"mermaid":{"enable":false,"version":"9.3.0"}},"version":"2.4.4","navbar":{"auto_hide":false,"color":{"left":"#f78736","right":"#367df7","transparency":35},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Blog":{"path":"/archives","icon":"fa-regular fa-archive"},"Categories":{"path":"/categories","icon":"fa-regular fa-stream"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Links":{"icon":"fa-regular fa-link","submenus":{"My-params":"/my-params","Friends":"/links","Q":"/q"}}},"search":{"enable":true,"preload":true}},"page_templates":{"friends_column":3,"tags_style":"cloud"},"home":{"sidebar":{"enable":true,"position":"left","first_item":"info","announcement":null,"links":null},"article_date_format":"YYYY-MM-DD","categories":{"enable":true,"limit":10},"tags":{"enable":true,"limit":10}},"footerStart":"2017/11/27 00:00:00"};
+    Global.language_ago = {"second":"%s seconds ago","minute":"%s minutes ago","hour":"%s hours ago","day":"%s days ago","week":"%s weeks ago","month":"%s months ago","year":"%s years ago"};
+    Global.data_config = {"masonry":false};
+  </script>
+
+    <!--- Fontawesome Part-->
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/fontawesome.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/brands.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/solid.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/regular.min.css">
+    
+    
+    
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+
+
+<body>
+<div class="progress-bar-container">
+    
+
+    
+        <span class="pjax-progress-bar"></span>
+        <span class="swup-progress-icon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+    
+</div>
+
+
+<main class="page-container" id="swup">
+
+    
+
+    <div class="main-content-container">
+
+
+        <div class="main-content-header">
+            <header class="navbar-container">
+    
+    <div class="navbar-content">
+        <div class="left">
+            
+                <a class="logo-image" href="https://shawnyan.cn/">
+                    <img src="/img/favicon.ico">
+                </a>
+            
+            <a class="logo-title" href="https://shawnyan.cn/">
+                
+                少安事务所
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-house"></i>
+                                        
+                                        HOME
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/archives"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-archive"></i>
+                                        
+                                        BLOG
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/categories"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-stream"></i>
+                                        
+                                        CATEGORIES
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/tags"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-tags"></i>
+                                        
+                                        TAGS
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/about"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-user"></i>
+                                        
+                                        ABOUT
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="has-dropdown" 
+                                    href="#" onClick="return false;">
+                                    
+                                        
+                                            <i class="fa-regular fa-link"></i>
+                                        
+                                        LINKS&nbsp;<i class="fa-solid fa-chevron-down"></i>
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                                    <ul class="sub-menu">
+                                    
+                                        <li>
+                                        <a href="/my-params">MY-PARAMS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/links">FRIENDS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/q">Q
+                                        </a>
+                                        </li>
+                                    
+                                    </ul>
+                                
+                            </li>
+                    
+                    
+                        <li class="navbar-item search search-popup-trigger">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </li>
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                    <div class="icon-item search search-popup-trigger"><i class="fa-solid fa-magnifying-glass"></i></div>
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="navbar-drawer w-full absolute top-0 left-0 bg-background-color">
+        <ul class="drawer-navbar-list flex flex-col justify-start items-center">
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/"  >
+                             
+                                
+                                    <i class="fa-regular fa-house"></i>
+                                
+                                HOME
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/archives"  >
+                             
+                                
+                                    <i class="fa-regular fa-archive"></i>
+                                
+                                BLOG
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/categories"  >
+                             
+                                
+                                    <i class="fa-regular fa-stream"></i>
+                                
+                                CATEGORIES
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/tags"  >
+                             
+                                
+                                    <i class="fa-regular fa-tags"></i>
+                                
+                                TAGS
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/about"  >
+                             
+                                
+                                    <i class="fa-regular fa-user"></i>
+                                
+                                ABOUT
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group has-dropdown" 
+                        href="#" onClick="return false;">
+                            
+                                
+                                    <i class="fa-regular fa-link"></i>
+                                
+                                LINKS&nbsp;<i class="group-hover:rotate-180 transition-transform fa-solid fa-chevron-down"></i>
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                              
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/my-params">MY-PARAMS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/links">FRIENDS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/q">Q</a>
+                            </li>
+                        
+                    
+            
+
+        </ul>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+        </div>
+
+        <div class="main-content-body">
+
+            
+
+            <div class="main-content">
+
+                
+                    <div class="post-page-container">
+    <div class="article-content-container">
+
+        <div class="article-title">
+            
+                
+                
+                <!-- 2023-10-03, edit by shawnyan. -->
+                <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG15】在 Rocky 9 上安装 PostgreSQL 15 的五种方法（总有一个你没用过🤪）" class="max-w-none" referrerpolicy="no-referrer"/>
+                
+                <h1 class="article-title-cover">【PG15】在 Rocky 9 上安装 PostgreSQL 15 的五种方法（总有一个你没用过🤪）</h1>
+            
+            </div>
+
+
+
+        
+            <div class="article-header">
+                <div class="avatar">
+                    
+                        <img src="/img/avatar.jpg">
+                    
+                </div>
+                <div class="info">
+                    <div class="author">
+                        
+                            <span class="name">严少安</span>
+                        
+                        
+                            
+                                <span class="author-label">Lv.6</span>
+                            
+                        
+                    </div>
+                    <div class="meta-info">
+                        <div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2023-11-22 11:02:45</span>
+        <span class="mobile">2023-11-22 11:02:45</span>
+        <span class="hover-info">Created</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2023-11-22 11:02:45</span>
+            <span class="mobile">2023-11-22 11:02:45</span>
+            <span class="hover-info">Updated</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/postgresql/">PostgreSQL</a>&nbsp;
+                        </li>
+                    
+                    
+                
+                    
+                        
+                            <li>></li>
+                        
+                        <li>
+                            <a href="/categories/postgresql/postgresql-15/">PostgreSQL 15</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/postgresql/">postgresql</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/postgresql-15/">postgresql 15</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/rocky/">rocky</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+        <span class="article-wordcount article-meta-item">
+            <i class="fa-regular fa-typewriter"></i>&nbsp;<span>3.2k Words</span>
+        </span>
+    
+    
+        <span class="article-min2read article-meta-item">
+            <i class="fa-regular fa-clock"></i>&nbsp;<span>17 Mins</span>
+        </span>
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+                    </div>
+                </div>
+            </div>
+        
+
+        
+
+
+        <div class="article-content markdown-body">
+            <p>本文将基于 Rocky Linux 9.3 演示如何安装 PostgreSQL 15。</p>
+<p>共介绍五种安装方法：</p>
+<ol>
+<li>通过 <code>dnf install</code> 安装 PostgreSQL 数据库</li>
+<li>通过 <code>dnf module install</code> 安装 PostgreSQL 数据库</li>
+<li>通过 <code>podman</code> 拉取 PostgreSQL 镜像，并启动 PostgreSQL 数据库</li>
+<li>编译 PostgreSQL 源码，并安装、启动数据库</li>
+<li>使用 <code>postgresql</code> 系统角色配置安装 PostgreSQL 数据库</li>
+</ol>
+<h2 id="环境信息">环境信息</h2>
+<p>本文使用的操作系统为 Rocky Linux 9.3</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[postgres@rocky9 ~]$ cat /etc/redhat-release</span><br><span class="line">Rocky Linux release 9.3 (Blue Onyx)</span><br></pre></td></tr></table></figure></div>
+<p>关于该系统的更多信息，请参阅：</p>
+<ul>
+<li><a href="https://shawnyan.cn/2023/linux/rocky-9.3-upgrade-from-9.2/">【Rocky9】Rocky Linux 9.2 升级 9.3，及新特性实践</a></li>
+</ul>
+<!--
+- [【Rocky9】Rocky Linux 9.2 升级 9.3，及新特性实践](https://www.modb.pro/db/1726849694440185856)
+-->
+<h2 id="一、通过-dnf-install-安装-PostgreSQL-数据库">一、通过 <code>dnf install</code> 安装 PostgreSQL 数据库</h2>
+<p>依照惯例，对于新系统先装一遍数据库，保持原有的习惯，使用 <code>dnf install</code> 或者 <code>yum install</code> 进行安装。</p>
+<p>在 Rocky 9 中，默认情况下，会在 appstream 仓库里寻找安装包，我们看到这里选择了 PostgreSQL Server 13。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ sudo dnf install postgresql-server</span><br><span class="line">Last metadata expiration check: 1:38:01 ago on Wed 22 Nov 2023 07:33:15 AM UTC.</span><br><span class="line">Dependencies resolved.</span><br><span class="line">=========================================================================================================================</span><br><span class="line"> Package                               Architecture         Version                        Repository               Size</span><br><span class="line">=========================================================================================================================</span><br><span class="line">Installing:</span><br><span class="line"> postgresql-server                     x86_64               13.11-1.el9_2                  appstream               5.7 M</span><br><span class="line">Installing dependencies:</span><br><span class="line"> postgresql                            x86_64               13.11-1.el9_2                  appstream               1.5 M</span><br><span class="line"> postgresql-private-libs               x86_64               13.11-1.el9_2                  appstream               134 k</span><br><span class="line"></span><br><span class="line">Transaction Summary</span><br><span class="line">=========================================================================================================================</span><br><span class="line">Install  3 Packages</span><br><span class="line"></span><br><span class="line">Total size: 7.3 M</span><br><span class="line">Installed size: 29 M</span><br></pre></td></tr></table></figure></div>
+<p>我们可以自定义 yum 源，这里通过添加 PGDG 的 yum 源，来获取最新的安装包。</p>
+<div class="highlight-container" data-rel="Yaml"><figure class="iseeu highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[<span class="string">pgdg15</span>]</span><br><span class="line"><span class="string">name=PostgreSQL</span> <span class="number">15</span> <span class="string">for</span> <span class="string">RHEL</span> <span class="string">/</span> <span class="string">Rocky</span> <span class="string">$releasever</span> <span class="bullet">-</span> <span class="string">$basearch</span></span><br><span class="line"><span class="string">baseurl=https://download.postgresql.org/pub/repos/yum/15/redhat/rhel-$releasever-$basearch</span></span><br><span class="line"><span class="string">enabled=1</span></span><br><span class="line"><span class="string">gpgcheck=0</span></span><br></pre></td></tr></table></figure></div>
+<p>示例，安装 PG 15.5：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 yum.repos.d]$ sudo dnf install postgresql15-server</span><br><span class="line">Last metadata expiration check: 0:00:32 ago on Wed 22 Nov 2023 09:15:27 AM UTC.</span><br><span class="line">Dependencies resolved.</span><br><span class="line">=========================================================================================================================</span><br><span class="line"> Package                            Architecture          Version                            Repository             Size</span><br><span class="line">=========================================================================================================================</span><br><span class="line">Installing:</span><br><span class="line"> postgresql15-server                x86_64                15.5-1PGDG.rhel9                   pgdg15                6.1 M</span><br><span class="line">Installing dependencies:</span><br><span class="line"> lz4                                x86_64                1.9.3-5.el9                        baseos                 58 k</span><br><span class="line"> postgresql15                       x86_64                15.5-1PGDG.rhel9                   pgdg15                1.5 M</span><br><span class="line"> postgresql15-libs                  x86_64                15.5-1PGDG.rhel9                   pgdg15                297 k</span><br><span class="line"></span><br><span class="line">Transaction Summary</span><br><span class="line">=========================================================================================================================</span><br><span class="line">Install  4 Packages</span><br><span class="line"></span><br><span class="line">Total download size: 7.9 M</span><br><span class="line">Installed size: 35 M</span><br></pre></td></tr></table></figure></div>
+<p>这里补充一点， 2023-11-09, PGDG 发布了 PG15 系列的最新版本 PostgreSQL 15.5，修复了 3 个安全漏洞和 55 个 bug，详情可参考 <a class="link"   target="_blank" rel="noopener" href="https://www.postgresql.org/docs/release/15.5/" >Release Notes <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<h2 id="二、通过-dnf-module-install-安装-PostgreSQL-数据库">二、通过 <code>dnf module install</code> 安装 PostgreSQL 数据库</h2>
+<p>从 yum 升级到 dnf 后，引入了新的模块化概念，我们可以通过配置 module 来覆盖 appstream 以获取软件包更新。</p>
+<p>直接通过 <code>dnf module install</code> 安装 PG 15：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ sudo dnf module install postgresql:15/server</span><br><span class="line">Last metadata expiration check: 2:01:54 ago on Wed 22 Nov 2023 07:33:15 AM UTC.</span><br><span class="line">Dependencies resolved.</span><br><span class="line">=========================================================================================================================</span><br><span class="line"> Package                          Architecture    Version                                       Repository          Size</span><br><span class="line">=========================================================================================================================</span><br><span class="line">Installing group/module packages:</span><br><span class="line"> postgresql-server                x86_64          15.3-1.module+el9.2.0+14925+a515b28a          appstream          6.1 M</span><br><span class="line">Installing dependencies:</span><br><span class="line"> postgresql                       x86_64          15.3-1.module+el9.2.0+14925+a515b28a          appstream          1.6 M</span><br><span class="line"> postgresql-private-libs          x86_64          15.3-1.module+el9.2.0+14925+a515b28a          appstream          137 k</span><br><span class="line">Installing module profiles:</span><br><span class="line"> postgresql/server</span><br><span class="line">Enabling module streams:</span><br><span class="line"> postgresql                                       15</span><br><span class="line"></span><br><span class="line">Transaction Summary</span><br><span class="line">=========================================================================================================================</span><br><span class="line">Install  3 Packages</span><br><span class="line"></span><br><span class="line">Total size: 7.8 M</span><br><span class="line">Installed size: 32 M</span><br><span class="line">...</span><br><span class="line">Installed:</span><br><span class="line">  postgresql-15.3-1.module+el9.2.0+14925+a515b28a.x86_64</span><br><span class="line">  postgresql-private-libs-15.3-1.module+el9.2.0+14925+a515b28a.x86_64</span><br><span class="line">  postgresql-server-15.3-1.module+el9.2.0+14925+a515b28a.x86_64</span><br><span class="line"></span><br><span class="line">Complete!</span><br></pre></td></tr></table></figure></div>
+<p>或者，启用 postgresql 模块，然后直接用 <code>dnf install</code> 进行安装。</p>
+<ul>
+<li>查看 module</li>
+</ul>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ dnf module list</span><br><span class="line">Rocky Linux 9 - AppStream                                                                2.7 MB/s | 7.4 MB     00:02</span><br><span class="line">Rocky Linux 9 - BaseOS                                                                   2.1 MB/s | 2.2 MB     00:01</span><br><span class="line">Rocky Linux 9 - Extras                                                                    22 kB/s |  13 kB     00:00</span><br><span class="line">Rocky Linux 9 - AppStream</span><br><span class="line">Name          Stream    Profiles                                 Summary</span><br><span class="line">maven         3.8       common [d]                               Java project management and project comprehension tool</span><br><span class="line">nginx         1.22      common [d]                               nginx webserver</span><br><span class="line">nodejs        18        common [d], development, minimal, s2i    Javascript runtime</span><br><span class="line">nodejs        20        common [d], development, minimal, s2i    Javascript runtime</span><br><span class="line">php           8.1       common [d], devel, minimal               PHP scripting language</span><br><span class="line">postgresql    15 [x]    client, server [d]                       PostgreSQL server and client module</span><br><span class="line">redis         7         common [d]                               Redis persistent key-value database</span><br><span class="line">ruby          3.1       common [d]                               An interpreter of object-oriented scripting language</span><br><span class="line"></span><br><span class="line">Hint: [d]efault, [e]nabled, [x]disabled, [i]nstalled</span><br><span class="line">[shawnyan@rocky9 ~]$</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>启用 module</li>
+</ul>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ sudo dnf module enable postgresql</span><br><span class="line">Last metadata expiration check: 1:59:13 ago on Wed 22 Nov 2023 07:33:15 AM UTC.</span><br><span class="line">Dependencies resolved.</span><br><span class="line">=========================================================================================================================</span><br><span class="line"> Package                     Architecture               Version                        Repository                   Size</span><br><span class="line">=========================================================================================================================</span><br><span class="line">Enabling module streams:</span><br><span class="line"> postgresql                                             15</span><br><span class="line"></span><br><span class="line">Transaction Summary</span><br><span class="line">=========================================================================================================================</span><br><span class="line"></span><br><span class="line">Is this ok [y/N]: y</span><br><span class="line">Complete!</span><br><span class="line">[shawnyan@rocky9 ~]$</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>调用 module 安装 PG 15</li>
+</ul>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ sudo dnf install postgresql-server</span><br><span class="line">Last metadata expiration check: 2:06:30 ago on Wed 22 Nov 2023 07:33:15 AM UTC.</span><br><span class="line">Dependencies resolved.</span><br><span class="line">=========================================================================================================================</span><br><span class="line"> Package                          Architecture    Version                                       Repository          Size</span><br><span class="line">=========================================================================================================================</span><br><span class="line">Installing:</span><br><span class="line"> postgresql-server                x86_64          15.3-1.module+el9.2.0+14925+a515b28a          appstream          6.1 M</span><br><span class="line">Installing dependencies:</span><br><span class="line"> postgresql                       x86_64          15.3-1.module+el9.2.0+14925+a515b28a          appstream          1.6 M</span><br><span class="line"> postgresql-private-libs          x86_64          15.3-1.module+el9.2.0+14925+a515b28a          appstream          137 k</span><br><span class="line"></span><br><span class="line">Transaction Summary</span><br><span class="line">=========================================================================================================================</span><br><span class="line">Install  3 Packages</span><br><span class="line"></span><br><span class="line">Total download size: 7.8 M</span><br><span class="line">Installed size: 32 M</span><br><span class="line">...</span><br></pre></td></tr></table></figure></div>
+<p>到此，我们讲解了两种使用 dnf 进行安装 PG 数据库的办法，在实际使用过程中，我们可能还会在内网搭建一套自行维护的仓库，这需要更多的步骤，但主要操作流程和上面大同小异。</p>
+<h2 id="三、通过-podman-拉取-PostgreSQL-镜像，并启动-PostgreSQL-数据库">三、通过 <code>podman</code> 拉取 PostgreSQL 镜像，并启动 PostgreSQL 数据库</h2>
+<p>从 RHEL 9 开始，引入了 Podman，并将其作为默认值。 Podman 更加小巧、安全，而且不需要守护进程。</p>
+<p>为了保留习惯，向下兼容，我们除了安装 <code>podman</code> 之外，还将安装 <code>podman-docker</code>。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ sudo dnf install podman podman-docker</span><br><span class="line">Last metadata expiration check: 2:12:02 ago on Wed 22 Nov 2023 07:33:15 AM UTC.</span><br><span class="line">Dependencies resolved.</span><br><span class="line">=========================================================================================================================</span><br><span class="line"> Package                            Architecture           Version                       Repository                 Size</span><br><span class="line">=========================================================================================================================</span><br><span class="line">Installing:</span><br><span class="line"> podman                             x86_64                 2:4.6.1-5.el9                 appstream                  15 M</span><br><span class="line"> podman-docker                      noarch                 2:4.6.1-5.el9                 appstream                  66 k</span><br><span class="line">Installing dependencies:</span><br><span class="line"> conmon                             x86_64                 2:2.1.8-1.el9                 appstream                  51 k</span><br><span class="line"> shadow-utils-subid                 x86_64                 2:4.9-8.el9                   baseos                     86 k</span><br><span class="line"></span><br><span class="line">Transaction Summary</span><br><span class="line">=========================================================================================================================</span><br><span class="line">Install  4 Packages</span><br><span class="line"></span><br><span class="line">Total download size: 15 M</span><br><span class="line">Installed size: 51 M</span><br><span class="line">...</span><br><span class="line">Installed:</span><br><span class="line">  conmon-2:2.1.8-1.el9.x86_64                 podman-2:4.6.1-5.el9.x86_64       podman-docker-2:4.6.1-5.el9.noarch</span><br><span class="line">  shadow-utils-subid-2:4.9-8.el9.x86_64</span><br><span class="line"></span><br><span class="line">Complete!</span><br></pre></td></tr></table></figure></div>
+<p>拉取镜像步骤和之前 docker 相似，只是需要注意 podman 已经替代了 docker。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ podman pull postgres:15</span><br><span class="line">✔ docker.io/library/postgres:15</span><br><span class="line">Trying to pull docker.io/library/postgres:15...</span><br><span class="line">Getting image source signatures</span><br><span class="line">Copying blob 0887062b031b done</span><br><span class="line">Copying blob 7424befe58d6 done</span><br><span class="line">Copying blob 136c0aa94f90 done</span><br><span class="line">Copying blob 99d820fe3716 done</span><br><span class="line">Copying blob 834a7fce6be7 done</span><br><span class="line">Copying blob 1f7ce2fa46ab done</span><br><span class="line">Copying blob 343a6a92954a done</span><br><span class="line">Copying blob 54fbafc0c84c done</span><br><span class="line">Copying blob 0780e4ae473b done</span><br><span class="line">Copying blob 0e0518459d99 done</span><br><span class="line">Copying blob eddd58e4f8a1 done</span><br><span class="line">Copying blob 97c5119aca7d done</span><br><span class="line">Copying blob a97ae632ca42 done</span><br><span class="line">Copying config 8cde386e2e done</span><br><span class="line">Writing manifest to image destination</span><br><span class="line">8cde386e2e85cce0eb684d0b27ddf6a8abbecd05d5af43bbbdf7be12c47c44e8</span><br><span class="line">[shawnyan@rocky9 ~]$ podman images</span><br><span class="line">REPOSITORY                  TAG         IMAGE ID      CREATED      SIZE</span><br><span class="line">docker.io/library/postgres  15          8cde386e2e85  12 days ago  427 MB</span><br></pre></td></tr></table></figure></div>
+<p>拉起 PG 容器。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ podman run --name pg15 -e POSTGRES_PASSWORD=12356 -d postgres:15</span><br><span class="line">fe960ddeb6512856ff9983c1ffa26b74006b2dc59ccef59fb9a068baf1d31bd6</span><br><span class="line">[shawnyan@rocky9 ~]$ podman ps</span><br><span class="line">CONTAINER ID  IMAGE                          COMMAND     CREATED        STATUS        PORTS       NAMES</span><br><span class="line">fe960ddeb651  docker.io/library/postgres:15  postgres    3 seconds ago  Up 3 seconds              pg15</span><br><span class="line">[shawnyan@rocky9 ~]$</span><br></pre></td></tr></table></figure></div>
+<p>连接 PostgreSQL 服务器，并查看版本。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ podman exec -it pg15 psql -U postgres</span><br><span class="line">psql (15.5 (Debian 15.5-1.pgdg120+1))</span><br><span class="line">Type &quot;help&quot; for help.</span><br><span class="line"></span><br><span class="line">postgres=# select version();</span><br><span class="line">                                                       version</span><br><span class="line">---------------------------------------------------------------------------------------------------------------------</span><br><span class="line"> PostgreSQL 15.5 (Debian 15.5-1.pgdg120+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14) 12.2.0, 64-bit</span><br><span class="line">(1 row)</span><br></pre></td></tr></table></figure></div>
+<h2 id="四、编译-PostgreSQL-源码，并安装、启动数据库">四、编译 PostgreSQL 源码，并安装、启动数据库</h2>
+<p>在之前的文章中， <a href="https://shawnyan.cn/2023/postgresql/pg-15-compile-with-dockerfile/">【PG15】 自定义 Dockerfile 构建 PostgreSQL 15 编译版 Docker 镜像</a> ，介绍过如何编译 PG 15，具体过程不再赘述，这里强调一下不同。</p>
+<ol>
+<li>前文是在 docker 中，基于 CentOS 7 构建，文本是直接在 Rocky Linux 9.3 上编译构建。</li>
+<li>前文使用的是 PostgreSQL 15.2 源码，本文使用的是最新的 15.5 源码。</li>
+</ol>
+<p>主要编译步骤如下：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">wget https://mirrors.neusoft.edu.cn/postgresql/source/v15.5/postgresql-15.5.tar.gz</span><br><span class="line">tar xzf postgresql-15.5.tar.gz</span><br><span class="line">cd postgresql-15.5</span><br><span class="line">./configure --prefix=/opt/postgresql --with-extra-version=&quot;-ShawnYan&quot;</span><br><span class="line">make world</span><br><span class="line">make install-world</span><br></pre></td></tr></table></figure></div>
+<p>输出：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">configure: using compiler=gcc (GCC) 11.4.1 20230605 (Red Hat 11.4.1-2)</span><br><span class="line">configure: using CFLAGS=-Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2</span><br><span class="line">configure: using CPPFLAGS= -D_GNU_SOURCE</span><br><span class="line">configure: using LDFLAGS=  -Wl,--as-needed</span><br><span class="line">configure: creating ./config.status</span><br><span class="line">config.status: creating GNUmakefile</span><br><span class="line">config.status: creating src/Makefile.global</span><br><span class="line">config.status: creating src/include/pg_config.h</span><br><span class="line">config.status: creating src/include/pg_config_ext.h</span><br><span class="line">config.status: creating src/interfaces/ecpg/include/ecpg_config.h</span><br><span class="line">config.status: linking src/backend/port/tas/dummy.s to src/backend/port/tas.s</span><br><span class="line">config.status: linking src/backend/port/posix_sema.c to src/backend/port/pg_sema.c</span><br><span class="line">config.status: linking src/backend/port/sysv_shmem.c to src/backend/port/pg_shmem.c</span><br><span class="line">config.status: linking src/include/port/linux.h to src/include/pg_config_os.h</span><br><span class="line">config.status: linking src/makefiles/Makefile.linux to src/Makefile.port</span><br><span class="line">...</span><br><span class="line">...</span><br><span class="line">/usr/bin/mkdir -p &#x27;/opt/postgresql/bin&#x27;</span><br><span class="line">/usr/bin/install -c  vacuumlo &#x27;/opt/postgresql/bin&#x27;</span><br><span class="line">make[2]: Leaving directory &#x27;/home/shawnyan/postgresql-15.5/contrib/vacuumlo&#x27;</span><br><span class="line">make[1]: Leaving directory &#x27;/home/shawnyan/postgresql-15.5/contrib&#x27;</span><br><span class="line">[shawnyan@rocky9 postgresql-15.5]$</span><br></pre></td></tr></table></figure></div>
+<!--
+mkdir -p /data/pgsql/15/data
+chown -R postgres:postgres /data/pgsql
+
+export PGDATA=/data/pgsql/15/data
+export PGHOME=/opt/postgresql
+export PATH=$PGHOME/bin:$PATH
+
+initdb
+-->
+<p>安装完成后，初始化数据库，并启动数据库：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[postgres@rocky9 ~]$ pg_ctl -D /data/pgsql/15/data -l logfile start</span><br><span class="line">waiting for server to start.... done</span><br><span class="line">server started</span><br></pre></td></tr></table></figure></div>
+<p>连接数据库，查看版本：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">[postgres@rocky9 ~]$ psql</span><br><span class="line">psql (15.5-ShawnYan)</span><br><span class="line">Type &quot;help&quot; for help.</span><br><span class="line"></span><br><span class="line">postgres=# select version();</span><br><span class="line">                                                      version</span><br><span class="line">-------------------------------------------------------------------------------------------------------------------</span><br><span class="line"> PostgreSQL 15.5-ShawnYan on x86_64-pc-linux-gnu, compiled by gcc (GCC) 11.4.1 20230605 (Red Hat 11.4.1-2), 64-bit</span><br><span class="line">(1 row)</span><br><span class="line"></span><br><span class="line">postgres=#</span><br></pre></td></tr></table></figure></div>
+<h2 id="五、使用-postgresql-系统角色配置安装-PostgreSQL-数据库">五、使用 <code>postgresql</code> 系统角色配置安装 PostgreSQL 数据库</h2>
+<p>从红帽8开始，引入了 <code>postgresql</code> 系统角色概念，便于使用 Ansible 批量部署。</p>
+<p>确切地说，是从 RHEL 7 增加了新包 <code>rhel-system-roles</code> <sup class="footnote-ref"><a href="#fn1" id="fnref1">[1]</a></sup>，但 postgresql 系统角色是从 RHEL 8 才加入。</p>
+<p>使用该系统角色可以非常便利的对 PostgreSQL 进行安装、配置、部署。在 RHEL 9 上，支持调用该系统角色来维护 PG 13 和 15。</p>
+<p>在 Rocky 9.3 中，需要先安装 <code>ansible</code> 和 <code>rhel-system-roles</code>。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ sudo dnf install ansible rhel-system-roles</span><br><span class="line">Last metadata expiration check: 0:10:38 ago on Wed 22 Nov 2023 10:49:04 AM UTC.</span><br><span class="line">Dependencies resolved.</span><br><span class="line">=========================================================================================================================</span><br><span class="line"> Package                            Architecture         Version                         Repository                 Size</span><br><span class="line">=========================================================================================================================</span><br><span class="line">Installing:</span><br><span class="line"> ansible                            noarch               1:7.7.0-1.el9                   epel-aliyun                34 M</span><br><span class="line"> rhel-system-roles                  noarch               1.22.0-2.el9                    appstream                 1.6 M</span><br><span class="line">Installing dependencies:</span><br><span class="line"> ansible-core                       x86_64               1:2.14.9-1.el9                  appstream                 2.2 M</span><br><span class="line"> python3-cffi                       x86_64               1.14.5-5.el9                    baseos                    241 k</span><br><span class="line"> python3-cryptography               x86_64               36.0.1-4.el9                    baseos                    1.2 M</span><br><span class="line"> python3-ply                        noarch               3.11-14.el9.0.1                 baseos                    103 k</span><br><span class="line"> python3-pycparser                  noarch               2.20-6.el9                      baseos                    124 k</span><br><span class="line"> python3-resolvelib                 noarch               0.5.4-5.el9                     appstream                  29 k</span><br><span class="line"> sshpass                            x86_64               1.09-4.el9                      appstream                  27 k</span><br><span class="line"></span><br><span class="line">Transaction Summary</span><br><span class="line">=========================================================================================================================</span><br><span class="line">Install  9 Packages</span><br><span class="line"></span><br><span class="line">Total download size: 40 M</span><br><span class="line">Installed size: 393 M</span><br><span class="line">...</span><br><span class="line">Installed:</span><br><span class="line">  ansible-1:7.7.0-1.el9.noarch              ansible-core-1:2.14.9-1.el9.x86_64     python3-cffi-1.14.5-5.el9.x86_64</span><br><span class="line">  python3-cryptography-36.0.1-4.el9.x86_64  python3-ply-3.11-14.el9.0.1.noarch     python3-pycparser-2.20-6.el9.noarch</span><br><span class="line">  python3-resolvelib-0.5.4-5.el9.noarch     rhel-system-roles-1.22.0-2.el9.noarch  sshpass-1.09-4.el9.x86_64</span><br><span class="line"></span><br><span class="line">Complete!</span><br></pre></td></tr></table></figure></div>
+<p>然后，准备 playbook:</p>
+<div class="highlight-container" data-rel="Yml"><figure class="iseeu highlight yml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">name:</span> <span class="string">Run</span> <span class="string">role</span> <span class="string">with</span> <span class="string">minimal</span> <span class="string">parameters</span></span><br><span class="line">  <span class="attr">hosts:</span> <span class="string">localhost</span></span><br><span class="line">  <span class="attr">vars:</span></span><br><span class="line">    <span class="attr">postgresql_version:</span> <span class="string">&quot;15&quot;</span></span><br><span class="line">  <span class="attr">roles:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">rhel-system-roles.postgresql</span></span><br></pre></td></tr></table></figure></div>
+<p>下一步，执行 playbook:</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br></pre></td><td class="code"><pre><span class="line">[root@rocky9 shawnyan]# ansible-playbook pb.yml</span><br><span class="line">[WARNING]: provided hosts list is empty, only localhost is available. Note that the implicit localhost does not match &#x27;all&#x27;</span><br><span class="line"></span><br><span class="line">PLAY [Run role with minimal parameters] ********************************************************************************************************</span><br><span class="line"></span><br><span class="line">TASK [Gathering Facts] *************************************************************************************************************************</span><br><span class="line">ok: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Set platform/version specific variables] ******************************************************************</span><br><span class="line">included: /usr/share/ansible/roles/rhel-system-roles.postgresql/tasks/set_vars.yml for localhost</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Ensure ansible_facts used by role] ************************************************************************</span><br><span class="line">ok: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Set platform/version specific variables] ******************************************************************</span><br><span class="line">skipping: [localhost] =&gt; (item=RedHat.yml)</span><br><span class="line">skipping: [localhost] =&gt; (item=Rocky.yml)</span><br><span class="line">skipping: [localhost] =&gt; (item=Rocky_9.yml)</span><br><span class="line">skipping: [localhost] =&gt; (item=Rocky_9.3.yml)</span><br><span class="line">skipping: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Check postgresql.conf] ************************************************************************************</span><br><span class="line">ok: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Check TLS crt file] ***************************************************************************************</span><br><span class="line">ok: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Check TLS private key file] *******************************************************************************</span><br><span class="line">ok: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Gather the package facts] *********************************************************************************</span><br><span class="line">ok: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Check if requested version is supported in the system (RHEL8)] ********************************************</span><br><span class="line">skipping: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Check if requested version is supported in system (RHEL9)] ************************************************</span><br><span class="line">skipping: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Check requested and installed version of Postgresql] ******************************************************</span><br><span class="line">skipping: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Ensure required packages are installed] *******************************************************************</span><br><span class="line">ok: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Init DB] **************************************************************************************************</span><br><span class="line">changed: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Start Postgresql server] **********************************************************************************</span><br><span class="line">changed: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Enable and start existing instance of postgresql server] **************************************************</span><br><span class="line">ok: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Set password for super user] ******************************************************************************</span><br><span class="line">skipping: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Enable logging in by password] ****************************************************************************</span><br><span class="line">skipping: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Run provided SQL script] **********************************************************************************</span><br><span class="line">skipping: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Manage certificates] **************************************************************************************</span><br><span class="line">included: /usr/share/ansible/roles/rhel-system-roles.postgresql/tasks/certificate.yml for localhost</span><br><span class="line"></span><br><span class="line">TASK [Generate certificates] *******************************************************************************************************************</span><br><span class="line">skipping: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Install certificate from the default path] ****************************************************************</span><br><span class="line">skipping: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Install certificate from the default path] ****************************************************************</span><br><span class="line">skipping: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Install certificate from custom path] *********************************************************************</span><br><span class="line">skipping: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Install certificate from custom path] *********************************************************************</span><br><span class="line">skipping: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Install certificate file] *********************************************************************************</span><br><span class="line">skipping: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Install postgresql server private key] ********************************************************************</span><br><span class="line">skipping: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Configure pg_hba.conf] ************************************************************************************</span><br><span class="line">skipping: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Create postgresql directory in /etc] **********************************************************************</span><br><span class="line">ok: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Link generated conf file with server one] *****************************************************************</span><br><span class="line">changed: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Generate postgresql system-roles-internal.conf] ***********************************************************</span><br><span class="line">ok: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Generate postgresql system-roles.conf] ********************************************************************</span><br><span class="line">skipping: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [rhel-system-roles.postgresql : Link generated conf file with server one] *****************************************************************</span><br><span class="line">skipping: [localhost]</span><br><span class="line"></span><br><span class="line">RUNNING HANDLER [rhel-system-roles.postgresql : Restart postgresql] ****************************************************************************</span><br><span class="line">changed: [localhost]</span><br><span class="line"></span><br><span class="line">PLAY RECAP *************************************************************************************************************************************</span><br><span class="line">localhost                  : ok=16   changed=4    unreachable=0    failed=0    skipped=17   rescued=0    ignored=0</span><br></pre></td></tr></table></figure></div>
+<p>此时，查看 postgres 服务可以看到服务已经处于运行状态。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">[root@rocky9 shawnyan]# systemctl status postgresql</span><br><span class="line">● postgresql.service - PostgreSQL database server</span><br><span class="line">     Loaded: loaded (/usr/lib/systemd/system/postgresql.service; enabled; preset: disabled)</span><br><span class="line">     Active: active (running) since Tue 2023-11-21 23:49:57 UTC; 13s ago</span><br><span class="line">    Process: 20928 ExecStartPre=/usr/libexec/postgresql-check-db-dir postgresql (code=exited, status=0/SUCCESS)</span><br><span class="line">   Main PID: 20930 (postmaster)</span><br><span class="line">      Tasks: 7 (limit: 22756)</span><br><span class="line">     Memory: 44.0M</span><br><span class="line">        CPU: 96ms</span><br><span class="line">     CGroup: /system.slice/postgresql.service</span><br><span class="line">             ├─20930 /usr/bin/postmaster -D /var/lib/pgsql/data</span><br><span class="line">             ├─20931 &quot;postgres: logger &quot;</span><br><span class="line">             ├─20932 &quot;postgres: checkpointer &quot;</span><br><span class="line">             ├─20933 &quot;postgres: background writer &quot;</span><br><span class="line">             ├─20935 &quot;postgres: walwriter &quot;</span><br><span class="line">             ├─20936 &quot;postgres: autovacuum launcher &quot;</span><br><span class="line">             └─20937 &quot;postgres: logical replication launcher &quot;</span><br><span class="line"></span><br><span class="line">Nov 21 23:49:57 rocky9.shawnyan.cn systemd[1]: Starting PostgreSQL database server...</span><br><span class="line">Nov 21 23:49:57 rocky9.shawnyan.cn postmaster[20930]: 2023-11-21 23:49:57.564 UTC [20930] LOG:  redirecting log output to logging collector process</span><br><span class="line">Nov 21 23:49:57 rocky9.shawnyan.cn postmaster[20930]: 2023-11-21 23:49:57.564 UTC [20930] HINT:  Future log output will appear in directory &quot;log&quot;.</span><br><span class="line">Nov 21 23:49:57 rocky9.shawnyan.cn systemd[1]: Started PostgreSQL database server.</span><br></pre></td></tr></table></figure></div>
+<p>连接数据库，查看版本：</p>
+<!--
+[root@rocky9 shawnyan]# rpm -qa|grep postgres
+postgresql-private-libs-15.3-1.module+el9.2.0+14925+a515b28a.x86_64
+postgresql-15.3-1.module+el9.2.0+14925+a515b28a.x86_64
+postgresql-server-15.3-1.module+el9.2.0+14925+a515b28a.x86_64
+[root@rocky9 shawnyan]# su - postgres
+-->
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">[postgres@rocky9 ~]$ psql</span><br><span class="line">psql (15.3)</span><br><span class="line">Type &quot;help&quot; for help.</span><br><span class="line"></span><br><span class="line">postgres=# \l</span><br><span class="line">                                                 List of databases</span><br><span class="line">   Name    |  Owner   | Encoding |   Collate   |    Ctype    | ICU Locale | Locale Provider |   Access privileges</span><br><span class="line">-----------+----------+----------+-------------+-------------+------------+-----------------+-----------------------</span><br><span class="line"> postgres  | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 |            | libc            |</span><br><span class="line"> template0 | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 |            | libc            | =c/postgres          +</span><br><span class="line">           |          |          |             |             |            |                 | postgres=CTc/postgres</span><br><span class="line"> template1 | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 |            | libc            | =c/postgres          +</span><br><span class="line">           |          |          |             |             |            |                 | postgres=CTc/postgres</span><br><span class="line">(3 rows)</span><br><span class="line"></span><br><span class="line">postgres=# select version();</span><br><span class="line">                                                   version</span><br><span class="line">--------------------------------------------------------------------------------------------------------------</span><br><span class="line"> PostgreSQL 15.3 on x86_64-redhat-linux-gnu, compiled by gcc (GCC) 11.3.1 20221121 (Red Hat 11.3.1-4), 64-bit</span><br><span class="line">(1 row)</span><br><span class="line"></span><br><span class="line">postgres=# \q</span><br><span class="line">[postgres@rocky9 ~]$</span><br></pre></td></tr></table></figure></div>
+<h2 id="总结">总结</h2>
+<p>到此，我们已经介绍了五种 PostgreSQL 数据库的安装方式，对于不同环境、不同需求，可以选择不同的方式，希望读者开卷有益。</p>
+<hr>
+<p><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/1727158807037026304" >https://www.modb.pro/db/1727158807037026304 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<hr class="footnotes-sep">
+<section class="footnotes">
+<ol class="footnotes-list">
+<li id="fn1" class="footnote-item"><p><a class="link"   target="_blank" rel="noopener" href="https://access.redhat.com/errata/RHEA-2017:2369" >https://access.redhat.com/errata/RHEA-2017:2369 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> <a href="#fnref1" class="footnote-backref">↩︎</a></p>
+</li>
+</ol>
+</section>
+
+        </div>
+
+        
+            <div class="post-copyright-info">
+                <div class="article-copyright-info-container">
+    <ul>
+    <!-- 2023-10-03, edit by shawnyan. -->
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Title:</strong> 【PG15】在 Rocky 9 上安装 PostgreSQL 15 的五种方法（总有一个你没用过🤪）</li>
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Author:</strong>
+            
+                严少安
+            
+        </li>
+        <li><strong>Created at:</strong> 2023-11-22 11:02:45</li>
+        
+            <li><strong>Updated at:</strong> 2023-11-22 11:02:45</li>
+        
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Link:</strong> https://shawnyan.cn/2023/postgresql/pg-15-install-on-rocky-9/</li>
+        <li style="word-wrap: break-word; white-space: normal;">
+            <strong>
+                License:
+            </strong>
+            
+            This work is licensed under <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>.
+            
+
+        </li>
+    </ul>
+</div>
+
+            </div>
+        
+
+        
+            <ul class="post-tags-box">
+                
+                    <li class="tag-item">
+                        <a href="/tags/postgresql/">#postgresql</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/postgresql-15/">#postgresql 15</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/rocky/">#rocky</a>&nbsp;
+                    </li>
+                
+            </ul>
+        
+
+        
+  <div class="recommended-article">
+   <div class="recommended-desktop">
+    <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+    </div>
+    <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/linux/rocky-9.3-upgrade-from-9.2/" title="【Rocky 9】Rocky Linux 9.2 升级 9.3，及新特性实践" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231121-0b401079-e902-4483-b6b5-49c37d784bb0.png" alt="【Rocky 9】Rocky Linux 9.2 升级 9.3，及新特性实践" class="!max-w-none">
+  <span class="title">【Rocky 9】Rocky Linux 9.2 升级 9.3，及新特性实践</span>
+</a><a class="recommended-article-item" href="/2023/linux/centos-7.9-upgrade-to-rocky-9.2/" title="【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231024-387674d4-6bf9-4517-bb04-e0c9212ceae4.png" alt="【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2" class="!max-w-none">
+  <span class="title">【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2</span>
+</a><a class="recommended-article-item" href="/2023/postgresql/pg-16-run-on-centos-7/" title="【PG16】后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG16】后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行" class="!max-w-none">
+  <span class="title">【PG16】后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行</span>
+</a></div>
+   </div>
+   <div class="recommended-mobile">
+   <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+   </div>
+   <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/linux/rocky-9.3-upgrade-from-9.2/" title="【Rocky 9】Rocky Linux 9.2 升级 9.3，及新特性实践" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231121-0b401079-e902-4483-b6b5-49c37d784bb0.png" alt="【Rocky 9】Rocky Linux 9.2 升级 9.3，及新特性实践" class="!max-w-none">
+  <span class="title">【Rocky 9】Rocky Linux 9.2 升级 9.3，及新特性实践</span>
+</a><a class="recommended-article-item" href="/2023/linux/centos-7.9-upgrade-to-rocky-9.2/" title="【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231024-387674d4-6bf9-4517-bb04-e0c9212ceae4.png" alt="【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2" class="!max-w-none">
+  <span class="title">【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2</span>
+</a></div>
+   </div>
+  </div>
+
+        
+            <div class="article-nav">
+                
+                    <div class="article-prev">
+                        <a class="prev"
+                        rel="prev"
+                        href="/2023/yashan/yashandb-dockerfile/"
+                        >
+                            <span class="left arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </span>
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">「YashanDB个人版体验」定制 Dockerfile 构建 YashanDB 个人版镜像，并基于此搭建主备高可用</span>
+                                <span class="post-nav-item">Prev posts</span>
+                            </span>
+                        </a>
+                    </div>
+                
+                
+                    <div class="article-next">
+                        <a class="next"
+                        rel="next"
+                        href="/2023/mysql/mariadb-v10.6.16-upgrade/"
+                        >
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">再遇“含笑半步颠”，升级 MariaDB 10.6.16 的三个理由</span>
+                                <span class="post-nav-item">Next posts</span>
+                            </span>
+                            <span class="right arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </a>
+                    </div>
+                
+            </div>
+        
+
+
+        
+            <div class="comment-container">
+                <div class="comments-container pjax">
+    <div id="comment-anchor"></div>
+    <div class="comment-area-title">
+        <i class="fa-solid fa-comments"></i>&nbsp;Comments
+    </div>
+    
+
+        
+            
+    <div id="gitalk-container"></div>
+    <script data-swup-reload-script
+            src="//cdn.staticfile.org/gitalk/1.8.0/gitalk.min.js"></script>
+    <script data-swup-reload-script>
+
+        function loadGitalk() {
+            let __gitalk__pathname = decodeURI(location.pathname);
+            const __gitalk__pathnameLength = __gitalk__pathname.length;
+            const __gitalk__pathnameMaxLength = 50;
+            if (__gitalk__pathnameLength > __gitalk__pathnameMaxLength) {
+                __gitalk__pathname = __gitalk__pathname.substring(0, __gitalk__pathnameMaxLength - 3) + '...';
+            }
+
+            try {
+                Gitalk && new Gitalk({
+                    clientID: '32d049bf3701e6791070',
+                    clientSecret: '36c295ad3dad4c739b530ef113d0a979d8c35c5d',
+                    repo: 'gitalk',
+                    owner: 'shawn0915',
+                    admin: ['shawn0915'],
+                    id: __gitalk__pathname,
+                    language: 'en'
+                }).render('gitalk-container');
+
+            } catch (e) {
+                window.Gitalk = null;
+            }
+        }
+
+        if ('true') {
+            const loadGitalkTimeout = setTimeout(() => {
+                loadGitalk();
+                clearTimeout(loadGitalkTimeout);
+            }, 1000);
+        } else {
+            window.addEventListener('DOMContentLoaded', loadGitalk);
+        }
+    </script>
+
+
+
+        
+    
+</div>
+
+            </div>
+        
+    </div>
+
+    
+        <div class="toc-content-container">
+            <div class="post-toc-wrap">
+    <div class="post-toc">
+        <div class="toc-title">On this page</div>
+<!--         <div class="page-title">【PG15】在 Rocky 9 上安装 PostgreSQL 15 的五种方法（总有一个你没用过🤪）</div> -->
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%8E%AF%E5%A2%83%E4%BF%A1%E6%81%AF"><span class="nav-text">环境信息</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E9%80%9A%E8%BF%87-dnf-install-%E5%AE%89%E8%A3%85-PostgreSQL-%E6%95%B0%E6%8D%AE%E5%BA%93"><span class="nav-text">一、通过 dnf install 安装 PostgreSQL 数据库</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E9%80%9A%E8%BF%87-dnf-module-install-%E5%AE%89%E8%A3%85-PostgreSQL-%E6%95%B0%E6%8D%AE%E5%BA%93"><span class="nav-text">二、通过 dnf module install 安装 PostgreSQL 数据库</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E9%80%9A%E8%BF%87-podman-%E6%8B%89%E5%8F%96-PostgreSQL-%E9%95%9C%E5%83%8F%EF%BC%8C%E5%B9%B6%E5%90%AF%E5%8A%A8-PostgreSQL-%E6%95%B0%E6%8D%AE%E5%BA%93"><span class="nav-text">三、通过 podman 拉取 PostgreSQL 镜像，并启动 PostgreSQL 数据库</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E7%BC%96%E8%AF%91-PostgreSQL-%E6%BA%90%E7%A0%81%EF%BC%8C%E5%B9%B6%E5%AE%89%E8%A3%85%E3%80%81%E5%90%AF%E5%8A%A8%E6%95%B0%E6%8D%AE%E5%BA%93"><span class="nav-text">四、编译 PostgreSQL 源码，并安装、启动数据库</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E4%BD%BF%E7%94%A8-postgresql-%E7%B3%BB%E7%BB%9F%E8%A7%92%E8%89%B2%E9%85%8D%E7%BD%AE%E5%AE%89%E8%A3%85-PostgreSQL-%E6%95%B0%E6%8D%AE%E5%BA%93"><span class="nav-text">五、使用 postgresql 系统角色配置安装 PostgreSQL 数据库</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-text">总结</span></a></li></ol>
+
+    </div>
+</div>
+
+        </div>
+    
+</div>
+
+
+
+                
+
+            </div>
+
+            
+
+        </div>
+
+        <div class="main-content-footer">
+            <footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2017</span>
+              -
+            
+            2024&nbsp;&nbsp;<i class="fa-solid fa-heart fa-beat" style="--fa-animation-duration: 0.5s; color: #f54545"></i>&nbsp;&nbsp;<a href="/">Shawn Yan</a>
+        </div>
+        
+            <script data-swup-reload-script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">VISITOR COUNT</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">TOTAL PAGE VIEWS</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">POWERED BY <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a></span>
+            <span class="text-sm lg:block">THEME&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.4.4</a></span>
+        </div>
+        
+        
+            <div>
+                Blog up for <span class="odometer" id="runtime_days" ></span> days <span class="odometer" id="runtime_hours"></span> hrs <span class="odometer" id="runtime_minutes"></span> Min <span class="odometer" id="runtime_seconds"></span> Sec
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+
+    </div>
+</footer>
+
+        </div>
+    </div>
+
+    
+        <div class="post-tools">
+            <div class="post-tools-container">
+    <ul class="article-tools-list">
+        <!-- TOC aside toggle -->
+        
+            <li class="right-bottom-tools page-aside-toggle">
+                <i class="fa-regular fa-outdent"></i>
+            </li>
+        
+
+        <!-- go comment -->
+        
+            <li class="go-comment">
+                <i class="fa-regular fa-comments"></i>
+            </li>
+        
+    </ul>
+</div>
+
+        </div>
+    
+
+    <div class="right-side-tools-container">
+        <div class="side-tools-container">
+    <ul class="hidden-tools-list">
+        <li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-plus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-minus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-expand-width flex justify-center items-center">
+            <i class="fa-regular fa-expand"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+            <i class="fa-regular fa-moon"></i>
+        </li>
+
+        <!-- rss -->
+        
+            <li class="right-bottom-tools rss flex justify-center items-center">
+                <a class="flex justify-center items-center"
+                   href="/atom.xml"
+                   target="_blank"
+                >
+                <i class="fa-regular fa-rss"></i>
+                </a>
+            </li>
+        
+
+        
+
+        <li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+            <i class="fa-regular fa-arrow-down"></i>
+        </li>
+    </ul>
+
+    <ul class="visible-tools-list">
+        <li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+            <i class="fa-regular fa-cog fa-spin"></i>
+        </li>
+        
+            <li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+                <i class="arrow-up fas fa-arrow-up"></i>
+                <span class="percent"></span>
+            </li>
+        
+        
+    </ul>
+</div>
+
+    </div>
+
+    <div class="image-viewer-container">
+    <img src="">
+</div>
+
+
+    
+        <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+          <span class="search-input-field-pre">
+            <i class="fa-solid fa-keyboard"></i>
+          </span>
+            <div class="search-input-container">
+                <input autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       placeholder="Search..."
+                       spellcheck="false"
+                       type="search"
+                       class="search-input"
+                >
+            </div>
+            <span class="popup-btn-close">
+                <i class="fa-solid fa-times"></i>
+            </span>
+        </div>
+        <div id="search-result">
+            <div id="no-result">
+                <i class="fa-solid fa-spinner fa-spin-pulse fa-5x fa-fw"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+
+</main>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Swup.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupSlideTheme.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScriptsPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupProgressPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScrollPlugin.min.js"></script>
+<script>
+    const swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+        ],
+        containers: ["#swup"],
+    });
+
+    swup.hooks.on("page:view", () => {
+        Global.refresh();
+    });
+
+    // if (document.readyState === "complete") {
+    //
+    // } else {
+    //     document.addEventListener("DOMContentLoaded", () => init());
+    // }
+</script>
+
+
+
+
+
+<script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/utils.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/main.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/navbarShrink.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/scrollTopBottom.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/lightDarkSwitch.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/categoryList.js"></script>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/localSearch.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/codeBlock.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/lazyload.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/runtime.js"></script>
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/odometer.min.js"></script>
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/assets/odometer-theme-minimal.css">
+
+
+
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Typed.min.js"></script>
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/typed.js"></script>
+
+
+
+
+
+
+<div class="post-scripts" data-swup-reload-script>
+    
+        <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/anime.min.js"></script>
+        <script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/tocToggle.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/toc.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/tabs.js"></script>
+    
+</div>
+
+
+</body>
+</html>

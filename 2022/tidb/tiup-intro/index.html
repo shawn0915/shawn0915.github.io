@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="shawnyan,dba,oracle,mysql,tidb,mariadb,postgresql,gbase,proxysql">
+    
+    <meta name="author" content="Shawn Yan">
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+        
+        
+        
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://shawnyan.cn/2022/tidb/tiup-intro/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+        <meta name="description" content="对于企业级和云数据库，除了性能、可用性和功能等常规维度外，一个重要维度就是可管理性，可管理性维度会很深地影响用户实际使用数据库的隐性成本。在 TiDB 的 最新版本  中，TiDB 引入了数据放置框架（Placement Rules In SQL），增加了企业级集群管理组件 TiDB Enterprise Manager，开放了智能诊断服务 PingCAP Clinic 的预览，大幅度加强了作为企">
+<meta property="og:type" content="article">
+<meta property="og:title" content="TiUP: TiDBAer 必备利器">
+<meta property="og:url" content="https://shawnyan.cn/2022/tidb/tiup-intro/index.html">
+<meta property="og:site_name" content="少安事务所">
+<meta property="og:description" content="对于企业级和云数据库，除了性能、可用性和功能等常规维度外，一个重要维度就是可管理性，可管理性维度会很深地影响用户实际使用数据库的隐性成本。在 TiDB 的 最新版本  中，TiDB 引入了数据放置框架（Placement Rules In SQL），增加了企业级集群管理组件 TiDB Enterprise Manager，开放了智能诊断服务 PingCAP Clinic 的预览，大幅度加强了作为企">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/1-1648194422640.jpg">
+<meta property="og:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/2-1648194432637.jpg">
+<meta property="og:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/3-1648194530413.jpg">
+<meta property="og:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/4-1648194507775.jpg">
+<meta property="article:published_time" content="2022-03-27T10:03:10.000Z">
+<meta property="article:modified_time" content="2022-03-27T10:03:10.000Z">
+<meta property="article:author" content="Shawn Yan">
+<meta property="article:tag" content="tidb">
+<meta property="article:tag" content="pingcap">
+<meta property="article:tag" content="tiup">
+<meta property="article:tag" content="golang">
+<meta property="article:tag" content="ansible">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/1-1648194422640.jpg">
+    
+    
+        <!-- Google tag (gtag.js) -->
+        <script src="https://www.googletagmanager.com/gtag/js?id=G-ZH71L5F7X2"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-ZH71L5F7X2');
+        </script>
+    
+    <!-- baidu tongji -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?2fa794d82f74c0bb3617ba62ee962b46";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/img/favicon.ico" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon.ico">
+    <meta name="theme-color" content="#767FF6">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <!--- Page Info-->
+    
+    <title>
+        
+            TiUP: TiDBAer 必备利器 -
+        
+        少安事务所
+    </title>
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+<!--- use 2.5.0
+    
+        
+<link rel="stylesheet" href="/assets/build/styles.css">
+
+    
+-->
+    <link rel="stylesheet" href="//cdn.staticfile.org/hexo-theme-redefine/2.5.0/assets/build/styles.min.css">
+
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/fonts.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Satoshi/satoshi.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Chillax/chillax.css">
+    <!--- Font Part-->
+    
+    
+    
+    
+
+    <!--- Inject Part-->
+    
+    <script id="hexo-configurations">
+    let Global = window.Global || {};
+    Global.hexo_config = {"hostname":"shawnyan.cn","root":"/","language":"en","path":"search.xml"};
+    Global.theme_config = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":true,"list":[]},"code_block":{"copy":true,"style":"mac","font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":4,"number":false,"expand":true,"init_open":true},"copyright":true,"lazyload":true,"recommendation":{"enable":true,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#767FF6","secondary":null},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"open_graph":true,"google_analytics":{"enable":true,"id":"G-ZH71L5F7X2"},"root_color_mode":"dark"},"home_banner":{"enable":true,"style":"fixed","image":{"light":"https://asktug.com/uploads/default/original/4X/4/b/d/4bd94f804719672dd7e3cb29150ea6f777eb0aec.jpeg","dark":"/img/wallpaper/dark.webp"},"title":"Shawn Yan's Tech Blog.","subtitle":{"text":["A blog about MySQL, Oracle, TiDB, PostgreSQL and other databases."],"hitokoto":{"enable":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":500,"backing_delay":1500,"loop":true,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"links":{"github":"https://github.com/shawn0915","instagram":null,"zhihu":null,"twitter":null,"email":"admin@shawnyan.cn"},"qrs":{"weixin":null}}},"plugins":{"feed":{"enable":true},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":"回忆的沙漏 (10周年版)","artist":"回忆的沙漏 (10周年版)","url":"https://music.163.com/song/media/outer/url?id=1329122067.mp3","cover":"https://p1.music.126.net/oJorrgJ3IotZUAbZkBMuFw==/109951167771736533.jpg?param=68y68"}]},"mermaid":{"enable":false,"version":"9.3.0"}},"version":"2.4.4","navbar":{"auto_hide":false,"color":{"left":"#f78736","right":"#367df7","transparency":35},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Blog":{"path":"/archives","icon":"fa-regular fa-archive"},"Categories":{"path":"/categories","icon":"fa-regular fa-stream"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Links":{"icon":"fa-regular fa-link","submenus":{"My-params":"/my-params","Friends":"/links","Q":"/q"}}},"search":{"enable":true,"preload":true}},"page_templates":{"friends_column":3,"tags_style":"cloud"},"home":{"sidebar":{"enable":true,"position":"left","first_item":"info","announcement":null,"links":null},"article_date_format":"YYYY-MM-DD","categories":{"enable":true,"limit":10},"tags":{"enable":true,"limit":10}},"footerStart":"2017/11/27 00:00:00"};
+    Global.language_ago = {"second":"%s seconds ago","minute":"%s minutes ago","hour":"%s hours ago","day":"%s days ago","week":"%s weeks ago","month":"%s months ago","year":"%s years ago"};
+    Global.data_config = {"masonry":false};
+  </script>
+
+    <!--- Fontawesome Part-->
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/fontawesome.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/brands.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/solid.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/regular.min.css">
+    
+    
+    
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+
+
+<body>
+<div class="progress-bar-container">
+    
+
+    
+        <span class="pjax-progress-bar"></span>
+        <span class="swup-progress-icon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+    
+</div>
+
+
+<main class="page-container" id="swup">
+
+    
+
+    <div class="main-content-container">
+
+
+        <div class="main-content-header">
+            <header class="navbar-container">
+    
+    <div class="navbar-content">
+        <div class="left">
+            
+                <a class="logo-image" href="https://shawnyan.cn/">
+                    <img src="/img/favicon.ico">
+                </a>
+            
+            <a class="logo-title" href="https://shawnyan.cn/">
+                
+                少安事务所
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-house"></i>
+                                        
+                                        HOME
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/archives"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-archive"></i>
+                                        
+                                        BLOG
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/categories"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-stream"></i>
+                                        
+                                        CATEGORIES
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/tags"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-tags"></i>
+                                        
+                                        TAGS
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/about"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-user"></i>
+                                        
+                                        ABOUT
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="has-dropdown" 
+                                    href="#" onClick="return false;">
+                                    
+                                        
+                                            <i class="fa-regular fa-link"></i>
+                                        
+                                        LINKS&nbsp;<i class="fa-solid fa-chevron-down"></i>
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                                    <ul class="sub-menu">
+                                    
+                                        <li>
+                                        <a href="/my-params">MY-PARAMS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/links">FRIENDS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/q">Q
+                                        </a>
+                                        </li>
+                                    
+                                    </ul>
+                                
+                            </li>
+                    
+                    
+                        <li class="navbar-item search search-popup-trigger">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </li>
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                    <div class="icon-item search search-popup-trigger"><i class="fa-solid fa-magnifying-glass"></i></div>
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="navbar-drawer w-full absolute top-0 left-0 bg-background-color">
+        <ul class="drawer-navbar-list flex flex-col justify-start items-center">
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/"  >
+                             
+                                
+                                    <i class="fa-regular fa-house"></i>
+                                
+                                HOME
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/archives"  >
+                             
+                                
+                                    <i class="fa-regular fa-archive"></i>
+                                
+                                BLOG
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/categories"  >
+                             
+                                
+                                    <i class="fa-regular fa-stream"></i>
+                                
+                                CATEGORIES
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/tags"  >
+                             
+                                
+                                    <i class="fa-regular fa-tags"></i>
+                                
+                                TAGS
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/about"  >
+                             
+                                
+                                    <i class="fa-regular fa-user"></i>
+                                
+                                ABOUT
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group has-dropdown" 
+                        href="#" onClick="return false;">
+                            
+                                
+                                    <i class="fa-regular fa-link"></i>
+                                
+                                LINKS&nbsp;<i class="group-hover:rotate-180 transition-transform fa-solid fa-chevron-down"></i>
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                              
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/my-params">MY-PARAMS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/links">FRIENDS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/q">Q</a>
+                            </li>
+                        
+                    
+            
+
+        </ul>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+        </div>
+
+        <div class="main-content-body">
+
+            
+
+            <div class="main-content">
+
+                
+                    <div class="post-page-container">
+    <div class="article-content-container">
+
+        <div class="article-title">
+            
+                
+                
+                <!-- 2023-10-03, edit by shawnyan. -->
+                <img src="/img/tidb/tiup.png" alt="TiUP: TiDBAer 必备利器" class="max-w-none" referrerpolicy="no-referrer"/>
+                
+                <h1 class="article-title-cover">TiUP: TiDBAer 必备利器</h1>
+            
+            </div>
+
+
+
+        
+            <div class="article-header">
+                <div class="avatar">
+                    
+                        <img src="/img/avatar.jpg">
+                    
+                </div>
+                <div class="info">
+                    <div class="author">
+                        
+                            <span class="name">严少安</span>
+                        
+                        
+                            
+                                <span class="author-label">Lv.6</span>
+                            
+                        
+                    </div>
+                    <div class="meta-info">
+                        <div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2022-03-27 18:03:10</span>
+        <span class="mobile">2022-03-27 18:03:10</span>
+        <span class="hover-info">Created</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2022-03-27 18:03:10</span>
+            <span class="mobile">2022-03-27 18:03:10</span>
+            <span class="hover-info">Updated</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/tidb/">TiDB</a>&nbsp;
+                        </li>
+                    
+                    
+                
+                    
+                        
+                            <li>></li>
+                        
+                        <li>
+                            <a href="/categories/tidb/tidb-5-x/">TiDB 5.x</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/tidb/">tidb</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/pingcap/">pingcap</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/tiup/">tiup</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/golang/">golang</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/ansible/">ansible</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+        <span class="article-wordcount article-meta-item">
+            <i class="fa-regular fa-typewriter"></i>&nbsp;<span>2.5k Words</span>
+        </span>
+    
+    
+        <span class="article-min2read article-meta-item">
+            <i class="fa-regular fa-clock"></i>&nbsp;<span>10 Mins</span>
+        </span>
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+                    </div>
+                </div>
+            </div>
+        
+
+        
+
+
+        <div class="article-content markdown-body">
+            <p>对于企业级和云数据库，除了性能、可用性和功能等常规维度外，一个重要维度就是可管理性，可管理性维度会很深地影响用户实际使用数据库的隐性成本。在 TiDB 的 <a class="link"   target="_blank" rel="noopener" href="https://pingcap.com/zh/blog/tidb-6.0-release" >最新版本 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 中，TiDB 引入了数据放置框架（Placement Rules In SQL），增加了企业级集群管理组件 TiDB Enterprise Manager，开放了智能诊断服务 PingCAP Clinic 的预览，大幅度加强了作为企业级产品的可管理性，与此同时也加入了诸多云原生数据库所需的基础设施。</p>
+<p>温故而知新，本文主要介绍构成 TiDB 可管理性的重要组件之一：TiUP，一款从 TiDB 4.0 版本开始投入使用的 TiDB 部署工具。 TiUP 对于 TiDBer 来说是日常必备工具，如果您刚接触 TiDB，请先参阅这篇文章： <a class="link"   target="_blank" rel="noopener" href="https://pingcap.com/zh/blog/tiup-introduction" >《从马车到电动车，TiDB 部署工具变形记》 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 。</p>
+<h2 id="环境说明">环境说明</h2>
+<p>本文所涉及到的环境、组件版本信息如下：</p>
+<blockquote>
+<p>TiDB v5.4.0</p>
+<p>TiUP v1.9.3 (2022-03-24 Release)</p>
+<p>CentOS 7.9</p>
+</blockquote>
+<h2 id="TiUP简介">TiUP简介</h2>
+<p>在各种系统软件和应用软件的安装管理中，包管理器均有着广泛的应用，包管理工具的出现大大简化了软件的安装和升级维护工作。例如，几乎所有使用 RPM 的 Linux 都会使用 Yum 来进行包管理，而 Anaconda 则可以非常方便地管理 python 的环境和相关软件包。</p>
+<p>从 TiDB 4.0 版本开始，TiUP 作为新的工具，承担着包管理器的角色，管理着 TiDB 生态下众多的组件，如 TiDB、PD、TiKV 等。用户想要运行 TiDB 生态中任何组件时，只需要执行 TiUP 一行命令即可，相比以前，极大地降低了管理难度。</p>
+<img  alt="1.jpg" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/1-1648194422640.jpg"
+                      referrerpolicy="no-referrer"
+                >
+<p>图1 - <a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tiup/graphs/contributors" >tiup源码contributors <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<img  alt="2.jpg" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/2-1648194432637.jpg"
+                      referrerpolicy="no-referrer"
+                >
+<p>图2 - tiup 源码行数统计(2022-03-24)</p>
+<p>TiUP 已发布两年有余，版本迭代若干次，代码总量翻倍，由上图可以看出代码更新已放缓，TiDBer 可放心地在生产环境使用。</p>
+<h2 id="再论TiUP组件">再论TiUP组件</h2>
+<p>作为Ti利器，TiUP 可是日常工作必备。下面再来讨论下TiUP的经典组件和常用命令。先将 tiup 重要命令列举如下，然后再着重讨论。</p>
+<ul>
+<li>
+<p>tiup</p>
+<ul>
+<li>main/cmd/root
+<ul>
+<li>
+<p>tiup env</p>
+</li>
+<li>
+<p><strong>tiup status</strong></p>
+</li>
+<li>
+<p>tiup mirror</p>
+</li>
+<li>
+<p>tiup list --all --verbose</p>
+</li>
+<li>
+<p>tiup install hello</p>
+</li>
+<li>
+<p>tiup update</p>
+</li>
+<li>
+<p><strong>tiup playground</strong></p>
+</li>
+<li>
+<p>tiup client</p>
+</li>
+<li>
+<p><strong>tiup cluster</strong></p>
+</li>
+<li>
+<p><strong>tiup bench</strong> <strong>ch</strong>(CH-benCHmark)/<strong>TPCC</strong>(TPC-C)/<strong>TPCH</strong>(TPC-H)/<strong>YCSB</strong>(Yahoo! Cloud Serving Benchmark)</p>
+</li>
+<li>
+<p>tiup dm</p>
+</li>
+<li>
+<p>tiup clean</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="tiup-mirror">tiup mirror</h3>
+<p>不是每个公司都会把数据库部在公有云上的，即便是在公有云，为了便于版本统一管理，大都会选择自建一个仓库，是为生产库基准版本管理。而对于金融业务更不用多说，那么，如何在内网快速、简洁、有效地搭建和维护仓库，下面做个简单的示例。</p>
+<p>首先需要在能连接外网的机器安装tiup，并克隆官方tiup仓库：</p>
+<ul>
+<li>下载tiup文件，并添加环境变量</li>
+</ul>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">mkdir -pv ~/.tiup/bin</span><br><span class="line">wget https://tiup-mirrors.pingcap.com/tiup-linux-amd64.tar.gz</span><br><span class="line">tar zxf tiup-linux-amd64.tar.gz -C ~/.tiup/bin/</span><br><span class="line">echo &#x27;export PATH=~/.tiup/bin:$PATH&#x27; &gt;&gt; ~/.bash_profile</span><br><span class="line">source ~/.bash_profile</span><br><span class="line">tiup -v</span><br></pre></td></tr></table></figure></div>
+<p>输出的tiup版本信息：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">1.9.3 tiup</span><br><span class="line">Go Version: go1.17.7</span><br><span class="line">Git Ref: v1.9.3</span><br><span class="line">GitHash: f523cd5e051d0001e25d5a8b2c0d5d3ff058a5d5</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>克隆官方库</li>
+</ul>
+<p>先将仓库镜像指向官方库：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">tiup mirror set https://tiup-mirrors.pingcap.com</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">屏幕输出日志&gt; Successfully <span class="built_in">set</span> mirror to https://tiup-mirrors.pingcap.com</span></span><br></pre></td></tr></table></figure></div>
+<p>只克隆适合当前操作系统的最新版本，这里只需指定 <code>TiDB v5.4.0</code> 版本，其他组件会自动识别最新版本，并下载。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tiup mirror clone ~/.tiup/package -a amd64 -o linux v5.4.0</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>将package文件夹打包复制到内网机器：</li>
+</ul>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">current server</span></span><br><span class="line">tar zcf package.tgz package/</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">new server</span></span><br><span class="line">cd ~/.tiup</span><br><span class="line">tar zxvf package.tgz</span><br><span class="line">./package/local_install.sh</span><br><span class="line">source ~/.bash_profile</span><br><span class="line">tiup list</span><br></pre></td></tr></table></figure></div>
+<p>此时，新的本地仓已建好，创建一个<code>hello</code>组件进行测试：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash"><span class="built_in">test</span> mirror</span></span><br><span class="line">CMP_TMP_DIR=`mktemp -d -p ~/.tiup`</span><br><span class="line">cat &gt; $CMP_TMP_DIR/hello.sh &lt;&lt; EOF</span><br><span class="line"><span class="meta prompt_">#</span><span class="language-bash">! /bin/sh</span></span><br><span class="line">echo -e &quot;\033[0;36m&lt;&lt;&lt; Hello, TiDB! &gt;&gt;&gt;\033[0m&quot;</span><br><span class="line">EOF</span><br><span class="line">chmod 755 $CMP_TMP_DIR/hello.sh</span><br><span class="line">tar -C $CMP_TMP_DIR -czf $CMP_TMP_DIR/hello.tar.gz hello.sh</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>将<code>hello</code>组件发布到本地仓：</li>
+</ul>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">tiup mirror genkey</span><br><span class="line">tiup mirror grant admin</span><br><span class="line">tiup mirror publish hello v0.0.1 $CMP_TMP_DIR/hello.tar.gz hello.sh --desc &#x27;Hello, TiDB&#x27;</span><br></pre></td></tr></table></figure></div>
+<p>查看已发布的组件，并运行组件：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">tiup list hello</span><br><span class="line">tiup hello</span><br></pre></td></tr></table></figure></div>
+<img  alt="3.jpg" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/3-1648194530413.jpg"
+                      referrerpolicy="no-referrer"
+                >
+<p>图3-hello组件运行输出</p>
+<p>此时的本地仓以可以管理自发布组件，但仍无法对外提供服务，下面用<code>tiup server</code>一键搭建私有库：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">运行tiup server</span></span><br><span class="line">tiup server ~/.tiup/package --addr 0.0.0.0:8000 --upstream=&quot;&quot;</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">修改镜像指向</span></span><br><span class="line">tiup mirror set &#x27;http://127.0.0.1:8000&#x27;</span><br></pre></td></tr></table></figure></div>
+<p>注：由于版本差异，当前版本已不建议使用环境变量<code>TIUP_MIRRORS</code>，而是建议使用命令<code>tiup mirror set &lt;mirror-addr&gt;</code>。</p>
+<h3 id="tiup-playground">tiup playground</h3>
+<p>对于分布式数据库来说，如何在本地快速搭建原型，以进行基本功能验证、测试，这是作为DBA的基本能力。于是，<code>tiup playground</code>应运而生，一键搭建最小可用集群，并可以指定初始TiDB每个组件启动的个数，以及扩缩容。</p>
+<p>例如，启动一个标签为<code>mydb1</code>的集群，包含一个TiDB实例，一个TiKV实例，一个PD实例，一个TiFlash实例，不启动监控组件：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">$ tiup playground v5.4.0 --host 127.0.0.1 --tag mydb1 --db 1 --kv 1 --pd 1 --tiflash 1 --without-monitor</span><br><span class="line">127.0.0.1:4000 ... Done</span><br><span class="line">127.0.0.1:3930 ... Done</span><br><span class="line">CLUSTER START SUCCESSFULLY, Enjoy it ^-^</span><br><span class="line">To connect TiDB: mysql --comments --host 127.0.0.1 --port 4000 -u root -p (no password)</span><br><span class="line">To view the dashboard: http://127.0.0.1:2379/dashboard</span><br><span class="line">PD client endpoints: [127.0.0.1:2379]</span><br></pre></td></tr></table></figure></div>
+<p>查看各组件进程id:</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">$ tiup playground display</span><br><span class="line">Pid   Role     Uptime</span><br><span class="line">---   ----     ------</span><br><span class="line">4321  pd       10m39.092616075s</span><br><span class="line">4322  tikv     10m39.087748551s</span><br><span class="line">4353  tidb     10m37.765844216s</span><br><span class="line">4527  tiflash  9m50.16054123s</span><br></pre></td></tr></table></figure></div>
+<p>连接tidb server，并查询版本：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ mysql -uroot -h127.1 -P4000 -e &#x27;select version()\G&#x27;</span><br><span class="line">*************************** 1. row ***************************</span><br><span class="line">version(): 5.7.25-TiDB-v5.4.0</span><br></pre></td></tr></table></figure></div>
+<p>再例如，启动一个标签为<code>mydb2</code>的集群，只启动TiKV实例，和3个PD实例：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">$ tiup playground v5.4.0 --host 127.0.0.1 --tag mydb2 --mode tikv-slim --pd 3 --without-monitor</span><br><span class="line">Playground Bootstrapping...</span><br><span class="line">Start pd instance:v5.4.0</span><br><span class="line">Start pd instance:v5.4.0</span><br><span class="line">Start pd instance:v5.4.0</span><br><span class="line">Start tikv instance:v5.4.0</span><br><span class="line">PD client endpoints: [127.0.0.1:2379 127.0.0.1:2382 127.0.0.1:2384]</span><br></pre></td></tr></table></figure></div>
+<p>通过PD API查看当前PD有几个成员，以及TiKV实例信息：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">$ curl -s http://127.0.0.1:2379/pd/api/v1/members | jq .members[].name</span><br><span class="line">&quot;pd-1&quot;</span><br><span class="line">&quot;pd-0&quot;</span><br><span class="line">&quot;pd-2&quot;</span><br><span class="line"></span><br><span class="line">$ curl -s http://127.0.0.1:2379/pd/api/v1/stores | jq .stores[].store</span><br><span class="line">&#123;</span><br><span class="line">  &quot;id&quot;: 1,</span><br><span class="line">  &quot;address&quot;: &quot;127.0.0.1:20160&quot;,</span><br><span class="line">  &quot;version&quot;: &quot;5.4.0&quot;,</span><br><span class="line">  &quot;status_address&quot;: &quot;127.0.0.1:20180&quot;,</span><br><span class="line">  &quot;git_hash&quot;: &quot;b5262299604df88711d9ed4b84d43e9c507749a2&quot;,</span><br><span class="line">  &quot;start_timestamp&quot;: 1648110516,</span><br><span class="line">  &quot;deploy_path&quot;: &quot;/data/tiup/components/tikv/v5.4.0&quot;,</span><br><span class="line">  &quot;last_heartbeat&quot;: 1648112496884914000,</span><br><span class="line">  &quot;state_name&quot;: &quot;Up&quot;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></div>
+<h3 id="Misc">Misc</h3>
+<p>性能测试也是必要环节，所以看到tiup已经集成了tpcc,tpch,ycsh,ch四种测试工具集。可通过下面命令进行一键测试。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tiup bench ch/tpcc/tpch/ycsb</span><br></pre></td></tr></table></figure></div>
+<p>一键清理数据的命令如下：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tiup clean --all</span><br></pre></td></tr></table></figure></div>
+<p>这里需要强调的是，在生产环境需要慎重执行下面的指令，除非你知道你在做什么：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">tiup cluster clean mydb3 --all</span><br><span class="line">tiup cluster destroy mydb3</span><br><span class="line">tiup cluster prune mydb3</span><br></pre></td></tr></table></figure></div>
+<img  alt="4.jpg" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/4-1648194507775.jpg"
+                      referrerpolicy="no-referrer"
+                >
+<p>图4-查看所有可用组件</p>
+<p>其他组件另行讨论，或请先参阅官方文档。</p>
+<h2 id="TiUP-v1-9-3-Release">TiUP v1.9.3 Release</h2>
+<p>2022-03-24，TiUP发布了v1.9.3版本，从变更日志中我们可以清晰地了解到，本次更新修复了5个bug，做了2点改进。</p>
+<blockquote>
+<p>修复：</p>
+</blockquote>
+<ul>
+<li>修复了主机名存在<code>-</code>时，<code>tiup-cluster</code>的<code>exec</code>子命令无法使用的错误。 (<a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tiup/pull/1794" >#1794 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>, <a class="link"   target="_blank" rel="noopener" href="https://github.com/nexustar" >@nexustar <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>)</li>
+<li>修复了使用<code>tiup-cluster</code>命令时，TiFlash实例的端口（服务端口、代理端口、代理状态端口）冲突检测问题。 (<a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tiup/pull/1805" >#1805 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>, <a class="link"   target="_blank" rel="noopener" href="https://github.com/AstroProfundis" >@AstroProfundis <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>)</li>
+<li>修复了下一代监控(<code>ng-monitor</code>)在Prometheus不可用的问题。 (<a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tiup/pull/1806" >#1806 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>, <a class="link"   target="_blank" rel="noopener" href="https://github.com/nexustar" >@nexustar <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>)</li>
+<li>修复了在主机只部署Prometheus的情况下，node_exporter度量指标无法收集的问题。（与上个问题一同修复。） (<a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tiup/pull/1806" >#1806 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>, <a class="link"   target="_blank" rel="noopener" href="https://github.com/nexustar" >@nexustar <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>)</li>
+<li>修复了<code>tiup-playground</code>在指定<code>--host 0.0.0.0</code>时，无法工作的问题。 (<a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tiup/pull/1811" >#1811 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>, <a class="link"   target="_blank" rel="noopener" href="https://github.com/nexustar" >@nexustar <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>)</li>
+</ul>
+<blockquote>
+<p>改进：</p>
+</blockquote>
+<ul>
+<li>支持<code>tiup-cluster</code>和<code>tiup-dm</code>命令清理审计日志。(<a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tiup/pull/1780" >#1780 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>, <a class="link"   target="_blank" rel="noopener" href="https://github.com/srstack" >@srstack <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>)</li>
+</ul>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">tiup cluster audit cleanup</span><br><span class="line">tiup dm audit cleanup</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>在Grafana配置模板中增加匿名登陆示例。（这里需要确保DM组件版本在v1.9.0之上 =&gt; <code>tiup dm -v</code>） (<a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tiup/pull/1785" >#1785 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a><a class="link"   target="_blank" rel="noopener" href="https://github.com/sunzhaoyang" >@sunzhaoyang <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>)</li>
+</ul>
+<h2 id="引申思考">引申思考</h2>
+<p>云数据库时代，或者说分布式数据库时代下，DBA角色该如何进行自我调整？我们是否还需要一个只会某种数据库运维的DBA，比如只会db2、oracle、mysql、postgresql等传统关系型数据库，或者进阶的将，是否需要懂业务，有开发功底的业务型DBA。其实，现在这些都没有过时，且不应该被抛弃，而应该作为基础功，变成DBA知识结构的底层模块，DBA需要以此为基，向更高阶段进化，犹如诸位前辈经历那般，写得了数据库源码，懂得前端客户真正所需，才能开发、调校出适合业务场景的高效能数据库，以及一套好上手、易管理的数据库生态工具。</p>
+<p>毋庸置疑，tiup就是符合这种特质的工具。一键搭建私有库，一键运行最小集群，一键管理整个TiDB集群，并可对TiDB集群进行一键扩、缩容。不过，看似简单的背后也是有功能取舍的，比如，<code>tiup mirror</code>只能是在命令行进行操作，而没有类似Nexus这种可在浏览器进行发布、删除包的界面工具。又如，tiup最常用的场景还是运行在普通机器上，对于k8s环境有<code>TiDB Operator</code>工具，但是对于批量操作ECS的功能或案例，还是很少的。总之，希望tiup在保持实用的前提下，功能更强劲。</p>
+<h2 id="参考链接">参考链接</h2>
+<ul>
+<li><a class="link"   target="_blank" rel="noopener" href="https://tiup.io/" >tiup.io <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/check-before-deployment#%E6%89%8B%E5%8A%A8%E9%85%8D%E7%BD%AE-ssh-%E4%BA%92%E4%BF%A1%E5%8F%8A-sudo-%E5%85%8D%E5%AF%86%E7%A0%81" >手动配置-ssh-互信及-sudo-免密码 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/production-deployment-using-tiup" >使用 TiUP 部署 TiDB 集群 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://tidb.io/blog/694da37a" >TiUP cluster 用到的三个账户 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+</ul>
+<hr>
+<p><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/383528" >https://www.modb.pro/db/383528 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a><br>
+<a class="link"   target="_blank" rel="noopener" href="https://tidb.net/blog/a0d37d88?shareId=9ff4a1f7" >https://tidb.net/blog/a0d37d88?shareId=9ff4a1f7 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a><br>
+<a class="link"   target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/k742U5qbdBL_EJ51GcHgBg" >https://mp.weixin.qq.com/s/k742U5qbdBL_EJ51GcHgBg <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+
+        </div>
+
+        
+            <div class="post-copyright-info">
+                <div class="article-copyright-info-container">
+    <ul>
+    <!-- 2023-10-03, edit by shawnyan. -->
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Title:</strong> TiUP: TiDBAer 必备利器</li>
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Author:</strong>
+            
+                严少安
+            
+        </li>
+        <li><strong>Created at:</strong> 2022-03-27 18:03:10</li>
+        
+            <li><strong>Updated at:</strong> 2022-03-27 18:03:10</li>
+        
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Link:</strong> https://shawnyan.cn/2022/tidb/tiup-intro/</li>
+        <li style="word-wrap: break-word; white-space: normal;">
+            <strong>
+                License:
+            </strong>
+            
+            This work is licensed under <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>.
+            
+
+        </li>
+    </ul>
+</div>
+
+            </div>
+        
+
+        
+            <ul class="post-tags-box">
+                
+                    <li class="tag-item">
+                        <a href="/tags/tidb/">#tidb</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/pingcap/">#pingcap</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/tiup/">#tiup</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/golang/">#golang</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/ansible/">#ansible</a>&nbsp;
+                    </li>
+                
+            </ul>
+        
+
+        
+  <div class="recommended-article">
+   <div class="recommended-desktop">
+    <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+    </div>
+    <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/tidb/tidb-7.x-compile-tiup/" title="TiDB 7.x 源码编译之 TiUP 篇，及新特性解析" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png" alt="TiDB 7.x 源码编译之 TiUP 篇，及新特性解析" class="!max-w-none">
+  <span class="title">TiDB 7.x 源码编译之 TiUP 篇，及新特性解析</span>
+</a><a class="recommended-article-item" href="/2023/tidb/tidb-aliyun-trial/" title="TiDB x Aliyun 免费试用，竟还有这般福利？" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-aliyun-trial-banner-1696311280028.jpg" alt="TiDB x Aliyun 免费试用，竟还有这般福利？" class="!max-w-none">
+  <span class="title">TiDB x Aliyun 免费试用，竟还有这般福利？</span>
+</a><a class="recommended-article-item" href="/2022/tidb/tidb-6.0-offline-package/" title="TiDB 6.x 新特性解读 | 离线包变更" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/IMG_2005-1652257515326.jpg" alt="TiDB 6.x 新特性解读 | 离线包变更" class="!max-w-none">
+  <span class="title">TiDB 6.x 新特性解读 | 离线包变更</span>
+</a></div>
+   </div>
+   <div class="recommended-mobile">
+   <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+   </div>
+   <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/tidb/tidb-7.x-compile-tiup/" title="TiDB 7.x 源码编译之 TiUP 篇，及新特性解析" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png" alt="TiDB 7.x 源码编译之 TiUP 篇，及新特性解析" class="!max-w-none">
+  <span class="title">TiDB 7.x 源码编译之 TiUP 篇，及新特性解析</span>
+</a><a class="recommended-article-item" href="/2023/tidb/tidb-aliyun-trial/" title="TiDB x Aliyun 免费试用，竟还有这般福利？" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-aliyun-trial-banner-1696311280028.jpg" alt="TiDB x Aliyun 免费试用，竟还有这般福利？" class="!max-w-none">
+  <span class="title">TiDB x Aliyun 免费试用，竟还有这般福利？</span>
+</a></div>
+   </div>
+  </div>
+
+        
+            <div class="article-nav">
+                
+                    <div class="article-prev">
+                        <a class="prev"
+                        rel="prev"
+                        href="/2022/modb/fanyi-centos-7-install-iptables/"
+                        >
+                            <span class="left arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </span>
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">[译] 如何在 CentOS 7上安装 Iptables</span>
+                                <span class="post-nav-item">Prev posts</span>
+                            </span>
+                        </a>
+                    </div>
+                
+                
+                    <div class="article-next">
+                        <a class="next"
+                        rel="next"
+                        href="/2022/mariadb/fanyi-mariadb-10-9-preview-releases-now-available/"
+                        >
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">[译] MariaDB 10.9 预览版发布</span>
+                                <span class="post-nav-item">Next posts</span>
+                            </span>
+                            <span class="right arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </a>
+                    </div>
+                
+            </div>
+        
+
+
+        
+            <div class="comment-container">
+                <div class="comments-container pjax">
+    <div id="comment-anchor"></div>
+    <div class="comment-area-title">
+        <i class="fa-solid fa-comments"></i>&nbsp;Comments
+    </div>
+    
+
+        
+            
+    <div id="gitalk-container"></div>
+    <script data-swup-reload-script
+            src="//cdn.staticfile.org/gitalk/1.8.0/gitalk.min.js"></script>
+    <script data-swup-reload-script>
+
+        function loadGitalk() {
+            let __gitalk__pathname = decodeURI(location.pathname);
+            const __gitalk__pathnameLength = __gitalk__pathname.length;
+            const __gitalk__pathnameMaxLength = 50;
+            if (__gitalk__pathnameLength > __gitalk__pathnameMaxLength) {
+                __gitalk__pathname = __gitalk__pathname.substring(0, __gitalk__pathnameMaxLength - 3) + '...';
+            }
+
+            try {
+                Gitalk && new Gitalk({
+                    clientID: '32d049bf3701e6791070',
+                    clientSecret: '36c295ad3dad4c739b530ef113d0a979d8c35c5d',
+                    repo: 'gitalk',
+                    owner: 'shawn0915',
+                    admin: ['shawn0915'],
+                    id: __gitalk__pathname,
+                    language: 'en'
+                }).render('gitalk-container');
+
+            } catch (e) {
+                window.Gitalk = null;
+            }
+        }
+
+        if ('true') {
+            const loadGitalkTimeout = setTimeout(() => {
+                loadGitalk();
+                clearTimeout(loadGitalkTimeout);
+            }, 1000);
+        } else {
+            window.addEventListener('DOMContentLoaded', loadGitalk);
+        }
+    </script>
+
+
+
+        
+    
+</div>
+
+            </div>
+        
+    </div>
+
+    
+        <div class="toc-content-container">
+            <div class="post-toc-wrap">
+    <div class="post-toc">
+        <div class="toc-title">On this page</div>
+<!--         <div class="page-title">TiUP: TiDBAer 必备利器</div> -->
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%8E%AF%E5%A2%83%E8%AF%B4%E6%98%8E"><span class="nav-text">环境说明</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#TiUP%E7%AE%80%E4%BB%8B"><span class="nav-text">TiUP简介</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%86%8D%E8%AE%BATiUP%E7%BB%84%E4%BB%B6"><span class="nav-text">再论TiUP组件</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#tiup-mirror"><span class="nav-text">tiup mirror</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#tiup-playground"><span class="nav-text">tiup playground</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Misc"><span class="nav-text">Misc</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#TiUP-v1-9-3-Release"><span class="nav-text">TiUP v1.9.3 Release</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%BC%95%E7%94%B3%E6%80%9D%E8%80%83"><span class="nav-text">引申思考</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="nav-text">参考链接</span></a></li></ol>
+
+    </div>
+</div>
+
+        </div>
+    
+</div>
+
+
+
+                
+
+            </div>
+
+            
+
+        </div>
+
+        <div class="main-content-footer">
+            <footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2017</span>
+              -
+            
+            2024&nbsp;&nbsp;<i class="fa-solid fa-heart fa-beat" style="--fa-animation-duration: 0.5s; color: #f54545"></i>&nbsp;&nbsp;<a href="/">Shawn Yan</a>
+        </div>
+        
+            <script data-swup-reload-script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">VISITOR COUNT</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">TOTAL PAGE VIEWS</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">POWERED BY <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a></span>
+            <span class="text-sm lg:block">THEME&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.4.4</a></span>
+        </div>
+        
+        
+            <div>
+                Blog up for <span class="odometer" id="runtime_days" ></span> days <span class="odometer" id="runtime_hours"></span> hrs <span class="odometer" id="runtime_minutes"></span> Min <span class="odometer" id="runtime_seconds"></span> Sec
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+
+    </div>
+</footer>
+
+        </div>
+    </div>
+
+    
+        <div class="post-tools">
+            <div class="post-tools-container">
+    <ul class="article-tools-list">
+        <!-- TOC aside toggle -->
+        
+            <li class="right-bottom-tools page-aside-toggle">
+                <i class="fa-regular fa-outdent"></i>
+            </li>
+        
+
+        <!-- go comment -->
+        
+            <li class="go-comment">
+                <i class="fa-regular fa-comments"></i>
+            </li>
+        
+    </ul>
+</div>
+
+        </div>
+    
+
+    <div class="right-side-tools-container">
+        <div class="side-tools-container">
+    <ul class="hidden-tools-list">
+        <li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-plus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-minus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-expand-width flex justify-center items-center">
+            <i class="fa-regular fa-expand"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+            <i class="fa-regular fa-moon"></i>
+        </li>
+
+        <!-- rss -->
+        
+            <li class="right-bottom-tools rss flex justify-center items-center">
+                <a class="flex justify-center items-center"
+                   href="/atom.xml"
+                   target="_blank"
+                >
+                <i class="fa-regular fa-rss"></i>
+                </a>
+            </li>
+        
+
+        
+
+        <li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+            <i class="fa-regular fa-arrow-down"></i>
+        </li>
+    </ul>
+
+    <ul class="visible-tools-list">
+        <li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+            <i class="fa-regular fa-cog fa-spin"></i>
+        </li>
+        
+            <li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+                <i class="arrow-up fas fa-arrow-up"></i>
+                <span class="percent"></span>
+            </li>
+        
+        
+    </ul>
+</div>
+
+    </div>
+
+    <div class="image-viewer-container">
+    <img src="">
+</div>
+
+
+    
+        <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+          <span class="search-input-field-pre">
+            <i class="fa-solid fa-keyboard"></i>
+          </span>
+            <div class="search-input-container">
+                <input autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       placeholder="Search..."
+                       spellcheck="false"
+                       type="search"
+                       class="search-input"
+                >
+            </div>
+            <span class="popup-btn-close">
+                <i class="fa-solid fa-times"></i>
+            </span>
+        </div>
+        <div id="search-result">
+            <div id="no-result">
+                <i class="fa-solid fa-spinner fa-spin-pulse fa-5x fa-fw"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+
+</main>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Swup.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupSlideTheme.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScriptsPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupProgressPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScrollPlugin.min.js"></script>
+<script>
+    const swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+        ],
+        containers: ["#swup"],
+    });
+
+    swup.hooks.on("page:view", () => {
+        Global.refresh();
+    });
+
+    // if (document.readyState === "complete") {
+    //
+    // } else {
+    //     document.addEventListener("DOMContentLoaded", () => init());
+    // }
+</script>
+
+
+
+
+
+<script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/utils.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/main.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/navbarShrink.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/scrollTopBottom.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/lightDarkSwitch.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/categoryList.js"></script>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/localSearch.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/codeBlock.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/lazyload.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/runtime.js"></script>
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/odometer.min.js"></script>
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/assets/odometer-theme-minimal.css">
+
+
+
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Typed.min.js"></script>
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/typed.js"></script>
+
+
+
+
+
+
+<div class="post-scripts" data-swup-reload-script>
+    
+        <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/anime.min.js"></script>
+        <script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/tocToggle.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/toc.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/tabs.js"></script>
+    
+</div>
+
+
+</body>
+</html>

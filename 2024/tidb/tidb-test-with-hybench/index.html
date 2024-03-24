@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="shawnyan,dba,oracle,mysql,tidb,mariadb,postgresql,gbase,proxysql">
+    
+    <meta name="author" content="Shawn Yan">
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+        
+        
+        
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://shawnyan.cn/2024/tidb/tidb-test-with-hybench/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+        <meta name="description" content="图片选自: https:&#x2F;&#x2F;asktug.com&#x2F;t&#x2F;topic&#x2F;1020117   本文将介绍如何使用 HyBench 对 TiDB 进行测试，并简述 HyBench 适配 TiDB 的注意事项。 Hybench 是一款由中国软件评测中心、清华大学联合牵头，多家公司共同研发的 HTAP 数据库基准测试工具。 TiDB 是一款兼容 MySQL 的数据库，Hybench 已在 Gitee 开源，">
+<meta property="og:type" content="article">
+<meta property="og:title" content="使用 HyBench 测试 TiDB">
+<meta property="og:url" content="https://shawnyan.cn/2024/tidb/tidb-test-with-hybench/index.html">
+<meta property="og:site_name" content="少安事务所">
+<meta property="og:description" content="图片选自: https:&#x2F;&#x2F;asktug.com&#x2F;t&#x2F;topic&#x2F;1020117   本文将介绍如何使用 HyBench 对 TiDB 进行测试，并简述 HyBench 适配 TiDB 的注意事项。 Hybench 是一款由中国软件评测中心、清华大学联合牵头，多家公司共同研发的 HTAP 数据库基准测试工具。 TiDB 是一款兼容 MySQL 的数据库，Hybench 已在 Gitee 开源，">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20240108-dfb9b292-6804-4902-a0b4-55ffede33402.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20240117-319d8aaa-67ab-4f1a-b7ec-ae2327f1397c.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20240117-868d7816-3444-4eaf-b22c-d292b8e6e451.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg">
+<meta property="article:published_time" content="2024-01-01T02:26:16.000Z">
+<meta property="article:modified_time" content="2024-01-01T02:26:16.000Z">
+<meta property="article:author" content="Shawn Yan">
+<meta property="article:tag" content="tidb">
+<meta property="article:tag" content="tidb 7.x">
+<meta property="article:tag" content="tidb docs">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20240108-dfb9b292-6804-4902-a0b4-55ffede33402.png">
+    
+    
+        <!-- Google tag (gtag.js) -->
+        <script src="https://www.googletagmanager.com/gtag/js?id=G-ZH71L5F7X2"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-ZH71L5F7X2');
+        </script>
+    
+    <!-- baidu tongji -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?2fa794d82f74c0bb3617ba62ee962b46";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/img/favicon.ico" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon.ico">
+    <meta name="theme-color" content="#767FF6">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <!--- Page Info-->
+    
+    <title>
+        
+            使用 HyBench 测试 TiDB -
+        
+        少安事务所
+    </title>
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+<!--- use 2.5.0
+    
+        
+<link rel="stylesheet" href="/assets/build/styles.css">
+
+    
+-->
+    <link rel="stylesheet" href="//cdn.staticfile.org/hexo-theme-redefine/2.5.0/assets/build/styles.min.css">
+
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/fonts.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Satoshi/satoshi.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Chillax/chillax.css">
+    <!--- Font Part-->
+    
+    
+    
+    
+
+    <!--- Inject Part-->
+    
+    <script id="hexo-configurations">
+    let Global = window.Global || {};
+    Global.hexo_config = {"hostname":"shawnyan.cn","root":"/","language":"en","path":"search.xml"};
+    Global.theme_config = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":true,"list":[]},"code_block":{"copy":true,"style":"mac","font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":4,"number":false,"expand":true,"init_open":true},"copyright":true,"lazyload":true,"recommendation":{"enable":true,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#767FF6","secondary":null},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"open_graph":true,"google_analytics":{"enable":true,"id":"G-ZH71L5F7X2"},"root_color_mode":"dark"},"home_banner":{"enable":true,"style":"fixed","image":{"light":"https://asktug.com/uploads/default/original/4X/4/b/d/4bd94f804719672dd7e3cb29150ea6f777eb0aec.jpeg","dark":"/img/wallpaper/dark.webp"},"title":"Shawn Yan's Tech Blog.","subtitle":{"text":["A blog about MySQL, Oracle, TiDB, PostgreSQL and other databases."],"hitokoto":{"enable":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":500,"backing_delay":1500,"loop":true,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"links":{"github":"https://github.com/shawn0915","instagram":null,"zhihu":null,"twitter":null,"email":"admin@shawnyan.cn"},"qrs":{"weixin":null}}},"plugins":{"feed":{"enable":true},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":"回忆的沙漏 (10周年版)","artist":"回忆的沙漏 (10周年版)","url":"https://music.163.com/song/media/outer/url?id=1329122067.mp3","cover":"https://p1.music.126.net/oJorrgJ3IotZUAbZkBMuFw==/109951167771736533.jpg?param=68y68"}]},"mermaid":{"enable":false,"version":"9.3.0"}},"version":"2.4.4","navbar":{"auto_hide":false,"color":{"left":"#f78736","right":"#367df7","transparency":35},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Blog":{"path":"/archives","icon":"fa-regular fa-archive"},"Categories":{"path":"/categories","icon":"fa-regular fa-stream"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Links":{"icon":"fa-regular fa-link","submenus":{"My-params":"/my-params","Friends":"/links","Q":"/q"}}},"search":{"enable":true,"preload":true}},"page_templates":{"friends_column":3,"tags_style":"cloud"},"home":{"sidebar":{"enable":true,"position":"left","first_item":"info","announcement":null,"links":null},"article_date_format":"YYYY-MM-DD","categories":{"enable":true,"limit":10},"tags":{"enable":true,"limit":10}},"footerStart":"2017/11/27 00:00:00"};
+    Global.language_ago = {"second":"%s seconds ago","minute":"%s minutes ago","hour":"%s hours ago","day":"%s days ago","week":"%s weeks ago","month":"%s months ago","year":"%s years ago"};
+    Global.data_config = {"masonry":false};
+  </script>
+
+    <!--- Fontawesome Part-->
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/fontawesome.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/brands.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/solid.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/regular.min.css">
+    
+    
+    
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+
+
+<body>
+<div class="progress-bar-container">
+    
+
+    
+        <span class="pjax-progress-bar"></span>
+        <span class="swup-progress-icon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+    
+</div>
+
+
+<main class="page-container" id="swup">
+
+    
+
+    <div class="main-content-container">
+
+
+        <div class="main-content-header">
+            <header class="navbar-container">
+    
+    <div class="navbar-content">
+        <div class="left">
+            
+                <a class="logo-image" href="https://shawnyan.cn/">
+                    <img src="/img/favicon.ico">
+                </a>
+            
+            <a class="logo-title" href="https://shawnyan.cn/">
+                
+                少安事务所
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-house"></i>
+                                        
+                                        HOME
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/archives"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-archive"></i>
+                                        
+                                        BLOG
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/categories"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-stream"></i>
+                                        
+                                        CATEGORIES
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/tags"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-tags"></i>
+                                        
+                                        TAGS
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/about"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-user"></i>
+                                        
+                                        ABOUT
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="has-dropdown" 
+                                    href="#" onClick="return false;">
+                                    
+                                        
+                                            <i class="fa-regular fa-link"></i>
+                                        
+                                        LINKS&nbsp;<i class="fa-solid fa-chevron-down"></i>
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                                    <ul class="sub-menu">
+                                    
+                                        <li>
+                                        <a href="/my-params">MY-PARAMS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/links">FRIENDS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/q">Q
+                                        </a>
+                                        </li>
+                                    
+                                    </ul>
+                                
+                            </li>
+                    
+                    
+                        <li class="navbar-item search search-popup-trigger">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </li>
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                    <div class="icon-item search search-popup-trigger"><i class="fa-solid fa-magnifying-glass"></i></div>
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="navbar-drawer w-full absolute top-0 left-0 bg-background-color">
+        <ul class="drawer-navbar-list flex flex-col justify-start items-center">
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/"  >
+                             
+                                
+                                    <i class="fa-regular fa-house"></i>
+                                
+                                HOME
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/archives"  >
+                             
+                                
+                                    <i class="fa-regular fa-archive"></i>
+                                
+                                BLOG
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/categories"  >
+                             
+                                
+                                    <i class="fa-regular fa-stream"></i>
+                                
+                                CATEGORIES
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/tags"  >
+                             
+                                
+                                    <i class="fa-regular fa-tags"></i>
+                                
+                                TAGS
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/about"  >
+                             
+                                
+                                    <i class="fa-regular fa-user"></i>
+                                
+                                ABOUT
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group has-dropdown" 
+                        href="#" onClick="return false;">
+                            
+                                
+                                    <i class="fa-regular fa-link"></i>
+                                
+                                LINKS&nbsp;<i class="group-hover:rotate-180 transition-transform fa-solid fa-chevron-down"></i>
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                              
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/my-params">MY-PARAMS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/links">FRIENDS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/q">Q</a>
+                            </li>
+                        
+                    
+            
+
+        </ul>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+        </div>
+
+        <div class="main-content-body">
+
+            
+
+            <div class="main-content">
+
+                
+                    <div class="post-page-container">
+    <div class="article-content-container">
+
+        <div class="article-title">
+            
+                
+                
+                <!-- 2023-10-03, edit by shawnyan. -->
+                <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231207-ea124805-d3bc-43ee-8115-79b85b203df6.jpeg" alt="使用 HyBench 测试 TiDB" class="max-w-none" referrerpolicy="no-referrer"/>
+                
+                <h1 class="article-title-cover">使用 HyBench 测试 TiDB</h1>
+            
+            </div>
+
+
+
+        
+            <div class="article-header">
+                <div class="avatar">
+                    
+                        <img src="/img/avatar.jpg">
+                    
+                </div>
+                <div class="info">
+                    <div class="author">
+                        
+                            <span class="name">ShawnYan</span>
+                        
+                        
+                            
+                                <span class="author-label">Lv.6</span>
+                            
+                        
+                    </div>
+                    <div class="meta-info">
+                        <div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2024-01-01 10:26:16</span>
+        <span class="mobile">2024-01-01 10:26:16</span>
+        <span class="hover-info">Created</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2024-01-01 10:26:16</span>
+            <span class="mobile">2024-01-01 10:26:16</span>
+            <span class="hover-info">Updated</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/tidb/">TiDB</a>&nbsp;
+                        </li>
+                    
+                    
+                
+                    
+                        
+                            <li>></li>
+                        
+                        <li>
+                            <a href="/categories/tidb/tidb-docs/">TiDB Docs</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/tidb/">tidb</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/tidb-7-x/">tidb 7.x</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/tidb-docs/">tidb docs</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+        <span class="article-wordcount article-meta-item">
+            <i class="fa-regular fa-typewriter"></i>&nbsp;<span>2.5k Words</span>
+        </span>
+    
+    
+        <span class="article-min2read article-meta-item">
+            <i class="fa-regular fa-clock"></i>&nbsp;<span>14 Mins</span>
+        </span>
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+                    </div>
+                </div>
+            </div>
+        
+
+        
+
+
+        <div class="article-content markdown-body">
+            <img  alt="img01.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20240108-dfb9b292-6804-4902-a0b4-55ffede33402.png"
+                      referrerpolicy="no-referrer"
+                >
+<blockquote>
+<p>图片选自: <a class="link"   target="_blank" rel="noopener" href="https://asktug.com/t/topic/1020117" >https://asktug.com/t/topic/1020117 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+</blockquote>
+<p>本文将介绍如何使用 HyBench 对 TiDB 进行测试，并简述 HyBench 适配 TiDB 的注意事项。</p>
+<p>Hybench 是一款由中国软件评测中心、清华大学联合牵头，多家公司共同研发的 HTAP 数据库基准测试工具。</p>
+<p>TiDB 是一款兼容 MySQL 的数据库，Hybench 已在 Gitee 开源，支持 MySQL 数据库，通过修改 HyBench 源码以适配 TiDB。</p>
+<h2 id="前置需求">前置需求</h2>
+<ol>
+<li>为方便演示，这里直接启动一个 TiDB 本地测试集群。</li>
+</ol>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">[root@rocky9 ~]# tiup playground display</span><br><span class="line">tiup is checking updates for component playground ...</span><br><span class="line">Starting component `playground`: /root/.tiup/components/playground/v1.14.1/tiup-playground display</span><br><span class="line">Pid   Role     Uptime</span><br><span class="line">---   ----     ------</span><br><span class="line">7146  pd       4h4m9.520051218s</span><br><span class="line">7164  tikv     4h3m23.583874294s</span><br><span class="line">7320  tidb     4h3m10.59454483s</span><br><span class="line">7332  tiflash  4h1m54.080597745s</span><br></pre></td></tr></table></figure></div>
+<ol start="2">
+<li>准备 JDK 17，并配置环境变量。</li>
+</ol>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">[root@rocky9 ~]# java -version</span><br><span class="line">openjdk version &quot;17.0.9&quot; 2023-10-17 LTS</span><br><span class="line">OpenJDK Runtime Environment (Red_Hat-17.0.9.0.9-1) (build 17.0.9+9-LTS)</span><br><span class="line">OpenJDK 64-Bit Server VM (Red_Hat-17.0.9.0.9-1) (build 17.0.9+9-LTS, mixed mode, sharing)</span><br><span class="line">[root@rocky9 ~]# env | grep -i java</span><br><span class="line">JAVA_HOME=/usr/lib/jvm/java-17-openjdk-17.0.9.0.9-2.el9.x86_64</span><br><span class="line">PATH=/root/.tiup/bin:/usr/lib/jvm/java-17-openjdk-17.0.9.0.9-2.el9.x86_64/bin:...</span><br></pre></td></tr></table></figure></div>
+<ol start="3">
+<li>安装 Maven。</li>
+</ol>
+<p>直接使用 <code>dnf</code> 安装即可，版本信息如下。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[root@rocky9 ~]# mvn --version</span><br><span class="line">Apache Maven 3.6.3 (Red Hat 3.6.3-15)</span><br><span class="line">Maven home: /usr/share/maven</span><br><span class="line">Java version: 17.0.9, vendor: Red Hat, Inc., runtime: /usr/lib/jvm/java-17-openjdk-17.0.9.0.9-2.el9.x86_64</span><br><span class="line">Default locale: en_US, platform encoding: UTF-8</span><br><span class="line">OS name: &quot;linux&quot;, version: &quot;5.14.0-362.13.1.el9_3.x86_64&quot;, arch: &quot;amd64&quot;, family: &quot;unix&quot;</span><br></pre></td></tr></table></figure></div>
+<img  alt="02.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20240117-319d8aaa-67ab-4f1a-b7ec-ae2327f1397c.png"
+                      referrerpolicy="no-referrer"
+                >
+<!--
+dnf install java-17-openjdk java-17-openjdk-devel
+dnf install maven
+
+vi ~/.bashrc
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-17.0.9.0.9-2.el9.x86_64
+export PATH=$JAVA_HOME/bin:$PATH
+-->
+<h2 id="运行测试">运行测试</h2>
+<h3 id="1-修改数据库连接信息">1. 修改数据库连接信息</h3>
+<p>依据实际需求修改配置文件 <code>conf/db.prop</code> 中的 HOST, IP, USERNAME, PASSWORD 等信息。</p>
+<h3 id="2-生成测试数据">2. 生成测试数据</h3>
+<p>运行生成数据的命令：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./hybench -t gendata -c conf/db.prop</span><br></pre></td></tr></table></figure></div>
+<p>输出结果：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line">[root@rocky9 hybench]# ./hybench -t gendata -c conf/db.prop</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  HyBench:324 - Hi~Bench, HyBench</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:57 - ===============configuration==================</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:59 - xapclient = 1</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:59 - at2_percent = 25</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:59 - at1_percent = 35</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:59 - apclient = 1</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:59 - xpRunMins = 1</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:59 - at4_percent = 15</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:59 - apround = 1</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:59 - url = jdbc:mysql://192.168.8.92:4000/hybench?useUnicode=true&amp;characterEncoding=utf-8</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:59 - tpRunMins = 1</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:59 - at3_percent = 15</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:59 - password = </span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:59 - tpclient = 1</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:59 - fresh_interval = 20</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:59 - sf = 1x</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:59 - classname = com.mysql.cj.jdbc.Driver</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:59 - xtpclient = 1</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:59 - apRunMins = 1</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:59 - at5_percent = 7</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:59 - db = tidb</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:59 - username = root</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:59 - at6_percent = 3</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:61 - ===============configuration==================</span><br><span class="line">2024-01-16 23:07:30 [main] INFO  ConfigLoader:62 - </span><br><span class="line">This is a data generator of HyBench, Version 0.1</span><br><span class="line">----------------</span><br><span class="line">----------------</span><br><span class="line">----------------</span><br><span class="line">Data is generating...</span><br><span class="line">----------------</span><br><span class="line">----------------</span><br><span class="line">----------------</span><br><span class="line">WARNING: dir:/root/hybench/Data_1x not exists! will created.</span><br><span class="line">Data generate not skipped!</span><br><span class="line">Data is ready under the Data folder!</span><br><span class="line">----------------</span><br><span class="line">----------------</span><br><span class="line">----------------</span><br><span class="line">Data generation took 11831 ms</span><br><span class="line">No autoloader, do nothing!</span><br></pre></td></tr></table></figure></div>
+<p>查看生成的数据文件：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">[root@rocky9 Data_1x]# ll -h</span><br><span class="line">total 11M</span><br><span class="line">-rw-r--r-- 1 root root 1.4M Jan 16 23:07 checkingAccount.csv</span><br><span class="line">-rw-r--r-- 1 root root 315K Jan 16 23:07 checking.csv</span><br><span class="line">-rw-r--r-- 1 root root 305K Jan 16 23:07 company.csv</span><br><span class="line">-rw-r--r-- 1 root root 3.6M Jan 16 23:07 customer.csv</span><br><span class="line">-rw-r--r-- 1 root root 320K Jan 16 23:07 loanApps.csv</span><br><span class="line">-rw-r--r-- 1 root root 411K Jan 16 23:07 loanTrans.csv</span><br><span class="line">-rw-r--r-- 1 root root 1.4M Jan 16 23:07 savingAccount.csv</span><br><span class="line">-rw-r--r-- 1 root root 3.2M Jan 16 23:07 transfer.csv</span><br><span class="line">[root@rocky9 Data_1x]# </span><br></pre></td></tr></table></figure></div>
+<img  alt="03.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20240117-868d7816-3444-4eaf-b22c-d292b8e6e451.png"
+                      referrerpolicy="no-referrer"
+                >
+<h3 id="3-初始化表结构">3. 初始化表结构</h3>
+<p>运行生成表结构的命令：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./hybench -t sql -f conf/tidb/ddl_tidb.sql -c conf/db.prop</span><br></pre></td></tr></table></figure></div>
+<p>输出结果：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">[root@rocky9 hybench]# ./hybench -t sql -f conf/tidb/ddl_tidb.sql -c conf/db.prop</span><br><span class="line">2024-01-16 23:11:10 [main] INFO  HyBench:324 - Hi~Bench, HyBench</span><br><span class="line">...</span><br><span class="line">2024-01-16 23:11:10 [main] INFO  ConfigLoader:61 - ===============configuration==================</span><br><span class="line">2024-01-16 23:11:10 [main] INFO  ConfigLoader:62 - </span><br><span class="line">2024-01-16 23:11:11 [main] INFO  ExecSQL:58 - execute query:CREATE TABLE IF NOT EXISTS  customer (</span><br><span class="line">...</span><br></pre></td></tr></table></figure></div>
+<h3 id="4-初始化表索引">4. 初始化表索引</h3>
+<p>运行生成表索引的命令：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./hybench -t sql -f conf/tidb/create_index_tidb.sql -c conf/db.prop</span><br></pre></td></tr></table></figure></div>
+<p>输出结果：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">[root@rocky9 hybench]# ./hybench -t sql -f conf/tidb/create_index_tidb.sql -c conf/db.prop</span><br><span class="line">2024-01-16 23:11:56 [main] INFO  HyBench:324 - Hi~Bench, HyBench</span><br><span class="line">...</span><br><span class="line">2024-01-16 23:11:56 [main] INFO  ConfigLoader:61 - ===============configuration==================</span><br><span class="line">2024-01-16 23:11:56 [main] INFO  ConfigLoader:62 - </span><br><span class="line">2024-01-16 23:11:58 [main] INFO  ExecSQL:58 - execute query:create index idx_loanapps_1 on loanapps ( applicantid );</span><br><span class="line">...</span><br></pre></td></tr></table></figure></div>
+<h3 id="5-导入测试数据">5. 导入测试数据</h3>
+<p>运行导入数据的命令：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./hybench -t sql -f conf/tidb/load_data_tidb.sql -c conf/db.prop</span><br></pre></td></tr></table></figure></div>
+<p>输出结果：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">[root@rocky9 hybench]# ./hybench -t sql -f conf/tidb/load_data_tidb.sql -c conf/db.prop</span><br><span class="line">2024-01-16 23:30:20 [main] INFO  HyBench:324 - Hi~Bench, HyBench</span><br><span class="line">...</span><br><span class="line">2024-01-16 23:30:20 [main] INFO  ConfigLoader:61 - ===============configuration==================</span><br><span class="line">2024-01-16 23:30:20 [main] INFO  ConfigLoader:62 - </span><br><span class="line">2024-01-16 23:30:22 [main] INFO  ExecSQL:58 - execute query:LOAD DATA LOCAL INFILE &#x27;Data_1x/customer.csv&#x27; INTO TABLE customer FIELDS TERMINATED BY &#x27;,&#x27;;</span><br><span class="line">...</span><br></pre></td></tr></table></figure></div>
+<h3 id="6-连接数据库，查看库表信息">6. 连接数据库，查看库表信息</h3>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">mysql <span class="comment">--comments --host 192.168.8.92 --port 4000 -u root</span></span><br><span class="line">use hybench</span><br><span class="line"><span class="keyword">show</span> tables;</span><br></pre></td></tr></table></figure></div>
+<p>共导入 8 张表。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="operator">+</span><span class="comment">-------------------+</span></span><br><span class="line"><span class="operator">|</span> Tables_in_hybench <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-------------------+</span></span><br><span class="line"><span class="operator">|</span> checking          <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> checkingAccount   <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> company           <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> customer          <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> loanapps          <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> loantrans         <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> savingAccount     <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> transfer          <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-------------------+</span></span><br><span class="line"><span class="number">8</span> <span class="keyword">rows</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.01</span> sec)</span><br></pre></td></tr></table></figure></div>
+<h3 id="7-运行-TP-负载测试">7. 运行 TP 负载测试</h3>
+<p>运行负载测试：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./hybench -t runtp -c conf/db.prop -f conf/tidb/stmt_tidb.toml</span><br></pre></td></tr></table></figure></div>
+<p>输出结果：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br></pre></td><td class="code"><pre><span class="line">[root@rocky9 hybench]# ./hybench -t runtp -c conf/db.prop -f conf/tidb/stmt_tidb.toml</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  HyBench:324 - Hi~Bench, HyBench</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:57 - ===============configuration==================</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:59 - xapclient = 1</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:59 - at2_percent = 25</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:59 - at1_percent = 35</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:59 - apclient = 1</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:59 - xpRunMins = 1</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:59 - at4_percent = 15</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:59 - apround = 1</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:59 - url = jdbc:mysql://192.168.8.92:4000/hybench?useUnicode=true&amp;characterEncoding=utf-8&amp;allowLoadLocalInfile=true</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:59 - tpRunMins = 1</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:59 - at3_percent = 15</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:59 - password = </span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:59 - tpclient = 1</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:59 - fresh_interval = 20</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:59 - sf = 1x</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:59 - classname = com.mysql.cj.jdbc.Driver</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:59 - xtpclient = 1</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:59 - apRunMins = 1</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:59 - at5_percent = 7</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:59 - db = tidb</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:59 - username = root</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:59 - at6_percent = 3</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:61 - ===============configuration==================</span><br><span class="line">2024-01-16 23:38:57 [main] INFO  ConfigLoader:62 - </span><br><span class="line">2024-01-16 23:38:58 [main] INFO  HyBench:61 - Begin TP Workload</span><br><span class="line">2024-01-16 23:38:58 [pool-3-thread-1] INFO  Client:263 - Begin to run :TPClient, Test Duration is 1 mins</span><br><span class="line">2024-01-16 23:39:04 [Thread-0] INFO  Client:297 - Transaction 3 : max rt : 38.0 | min rt :23.0 | avg rt : 28.33 | 95% rt : 38.00 | 99% rt : 38.00</span><br><span class="line">...</span><br><span class="line">2024-01-16 23:39:04 [Thread-0] INFO  Client:307 - Current 1/10 time TP TPS is 6.50</span><br><span class="line">...</span><br><span class="line">2024-01-16 23:39:58 [Thread-0] INFO  Client:307 - Current 10/10 time TP TPS is 10.88</span><br><span class="line">2024-01-16 23:39:58 [pool-3-thread-1] INFO  Client:397 - Finished to execute TPClient</span><br><span class="line">2024-01-16 23:39:58 [main] INFO  HyBench:105 - TP Workload is done.</span><br><span class="line">2024-01-16 23:39:58 [main] INFO  HyBench:407 - Congs~ Test is done! Bye!</span><br><span class="line">====================Test Summary========================</span><br><span class="line">Test starts at 2024-01-16 23:38:58</span><br><span class="line">Test ends at 2024-01-16 23:39:58</span><br><span class="line">AP Concurrency is 0</span><br><span class="line">TP Concurrency is 1</span><br><span class="line">Total amount of TP Transaction is 654</span><br><span class="line">TPS is 10.9</span><br><span class="line">Query/Transaction response time(ms) histogram : </span><br><span class="line">------------TP-------------------</span><br><span class="line">TP Transaction  1 : max rt :      30.00 | min rt :      15.00 | avg rt :      21.28 | 95% rt :      30.00 | 99% rt :      30.00 </span><br><span class="line">TP Transaction  2 : max rt :      59.00 | min rt :      16.00 | avg rt :      27.83 | 95% rt :      59.00 | 99% rt :      59.00 </span><br><span class="line">TP Transaction  3 : max rt :      43.00 | min rt :      17.00 | avg rt :      24.08 | 95% rt :      41.25 | 99% rt :      43.00 </span><br><span class="line">TP Transaction  4 : max rt :      47.00 | min rt :      14.00 | avg rt :      24.52 | 95% rt :      41.40 | 99% rt :      47.00 </span><br><span class="line">TP Transaction  5 : max rt :      76.00 | min rt :      23.00 | avg rt :      37.18 | 95% rt :      72.55 | 99% rt :      76.00 </span><br><span class="line">TP Transaction  6 : max rt :      55.00 | min rt :      18.00 | avg rt :      29.35 | 95% rt :      54.30 | 99% rt :      55.00 </span><br><span class="line">TP Transaction  7 : max rt :      99.00 | min rt :      17.00 | avg rt :      32.33 | 95% rt :      99.00 | 99% rt :      99.00 </span><br><span class="line">TP Transaction  8 : max rt :      47.00 | min rt :      14.00 | avg rt :      25.90 | 95% rt :      46.20 | 99% rt :      47.00 </span><br><span class="line">TP Transaction  9 : max rt :     107.00 | min rt :      50.00 | avg rt :      70.00 | 95% rt :      99.75 | 99% rt :     107.00 </span><br><span class="line">TP Transaction 10 : max rt :     683.00 | min rt :     214.00 | avg rt :     393.02 | 95% rt :     617.40 | 99% rt :     683.00 </span><br><span class="line">TP Transaction 11 : max rt :     108.00 | min rt :      45.00 | avg rt :      66.57 | 95% rt :      93.00 | 99% rt :     108.00 </span><br><span class="line">TP Transaction 12 : max rt :     111.00 | min rt :      41.00 | avg rt :      64.20 | 95% rt :      98.20 | 99% rt :     111.00 </span><br><span class="line">TP Transaction 13 : max rt :     267.00 | min rt :      70.00 | avg rt :     122.98 | 95% rt :     219.45 | 99% rt :     267.00 </span><br><span class="line">TP Transaction 14 : max rt :     256.00 | min rt :      70.00 | avg rt :     116.97 | 95% rt :     236.20 | 99% rt :     256.00 </span><br><span class="line">TP Transaction 15 : max rt :     101.00 | min rt :      46.00 | avg rt :      67.52 | 95% rt :      99.40 | 99% rt :     101.00 </span><br><span class="line">TP Transaction 16 : max rt :     209.00 | min rt :      65.00 | avg rt :     102.05 | 95% rt :     205.90 | 99% rt :     209.00 </span><br><span class="line">TP Transaction 17 : max rt :     150.00 | min rt :      48.00 | avg rt :      71.58 | 95% rt :     116.50 | 99% rt :     150.00 </span><br><span class="line">TP Transaction 18 : max rt :     124.00 | min rt :      46.00 | avg rt :      69.42 | 95% rt :     103.00 | 99% rt :     124.00 </span><br><span class="line">====================Thank you!========================</span><br></pre></td></tr></table></figure></div>
+<h3 id="8-清理测试表数据">8. 清理测试表数据</h3>
+<p>运行清理脚本：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./hybench -t sql -f conf/dropTables.sql -c conf/db.prop</span><br></pre></td></tr></table></figure></div>
+<p>输出结果：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">[root@rocky9 hybench]# ./hybench -t sql -f conf/dropTables.sql -c conf/db.prop</span><br><span class="line">2024-01-16 23:43:07 [main] INFO  HyBench:324 - Hi~Bench, HyBench</span><br><span class="line">...</span><br><span class="line">2024-01-16 23:43:07 [main] INFO  ConfigLoader:61 - ===============configuration==================</span><br><span class="line">2024-01-16 23:43:07 [main] INFO  ConfigLoader:62 - </span><br><span class="line">2024-01-16 23:43:09 [main] INFO  ExecSQL:58 - execute query:drop table if exists customer;</span><br><span class="line">...</span><br></pre></td></tr></table></figure></div>
+<h2 id="注意事项">注意事项</h2>
+<ol>
+<li>
+<p>HyBench 需要使用 JDK 17，这在 README 中有一处提及，全文搜索一下比较容易找到。</p>
+<blockquote>
+<p>封装了java执行命令(需要配置jdk17)</p>
+</blockquote>
+</li>
+<li>
+<p>目前，开源版本只支持1X、10x数据，后续在商业版本中会增加100x,1000x及更大规模的数据。</p>
+<p>对应文件 <code>src/main/resource/parameters.toml</code> 中可以看到 <code>[1x]</code> 和 <code>[10x]</code>。</p>
+</li>
+<li>
+<p>导入数据使用的 SQL 命令为 <code>LOAD DATA LOCAL INFILE</code>，是 <code>db.prop</code> 配置文件中，JDBC 连接串需要增加参数 <code>allowLoadLocalInfile=true</code>。</p>
+</li>
+<li>
+<p>自 v7.4.0 起，TiDB 已经兼容 MySQL 8.0 的主要功能，推荐使用最新版本的 MySQL Connector/J 来连接 TiDB，因此源码工程依赖升级为 <code>mysql-connector-j:8.2.0</code>。</p>
+</li>
+</ol>
+<h2 id="总结">总结</h2>
+<p>本文基于开源数据库压测软件 HyBench 对 TiDB 进行适配，并做简单测试。</p>
+<p>项目地址：<a class="link"   target="_blank" rel="noopener" href="https://gitee.com/shawnyan/hybench/" >shawnyan/hybench <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<p>如果没有特殊需求，优先推荐使用 TiUP bench 组件对 TiDB 进行压测。</p>
+<img  alt="logo.jpg" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg"
+                      referrerpolicy="no-referrer"
+                >
+
+        </div>
+
+        
+            <div class="post-copyright-info">
+                <div class="article-copyright-info-container">
+    <ul>
+    <!-- 2023-10-03, edit by shawnyan. -->
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Title:</strong> 使用 HyBench 测试 TiDB</li>
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Author:</strong>
+            
+                ShawnYan
+            
+        </li>
+        <li><strong>Created at:</strong> 2024-01-01 10:26:16</li>
+        
+            <li><strong>Updated at:</strong> 2024-01-01 10:26:16</li>
+        
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Link:</strong> https://shawnyan.cn/2024/tidb/tidb-test-with-hybench/</li>
+        <li style="word-wrap: break-word; white-space: normal;">
+            <strong>
+                License:
+            </strong>
+            
+            This work is licensed under <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>.
+            
+
+        </li>
+    </ul>
+</div>
+
+            </div>
+        
+
+        
+            <ul class="post-tags-box">
+                
+                    <li class="tag-item">
+                        <a href="/tags/tidb/">#tidb</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/tidb-7-x/">#tidb 7.x</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/tidb-docs/">#tidb docs</a>&nbsp;
+                    </li>
+                
+            </ul>
+        
+
+        
+  <div class="recommended-article">
+   <div class="recommended-desktop">
+    <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+    </div>
+    <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/yashan/yashandb-benchmarksql/" title="「YashanDB个人版体验」YashanDB 23.1 与 BenchmarkSQL 6 兼容性适配" rel="bookmark">
+  <img src="/img/head/lucas.speyer_the_texture_inside_a_database_rig_orange_colors.png" alt="「YashanDB个人版体验」YashanDB 23.1 与 BenchmarkSQL 6 兼容性适配" class="!max-w-none">
+  <span class="title">「YashanDB个人版体验」YashanDB 23.1 与 BenchmarkSQL 6 兼容性适配</span>
+</a><a class="recommended-article-item" href="/2022/oceanbase/ob-v3.1.2-sql-explain/" title="【OBCP蓝宝书】 OceanBase 社区版 v3.1.2 如何查看执行计划" rel="bookmark">
+  <img src="/img/oceanbase/oceanbase-banner.png" alt="【OBCP蓝宝书】 OceanBase 社区版 v3.1.2 如何查看执行计划" class="!max-w-none">
+  <span class="title">【OBCP蓝宝书】 OceanBase 社区版 v3.1.2 如何查看执行计划</span>
+</a><a class="recommended-article-item" href="/2023/mysql/proxysql-v2.5.2-new-feature/" title="ProxySQL v2.5.2 版本升级及新特性速览" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240302-cc9e56b7-9308-480c-9d7a-570eaf5f136e.png" alt="ProxySQL v2.5.2 版本升级及新特性速览" class="!max-w-none">
+  <span class="title">ProxySQL v2.5.2 版本升级及新特性速览</span>
+</a></div>
+   </div>
+   <div class="recommended-mobile">
+   <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+   </div>
+   <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/yashan/yashandb-benchmarksql/" title="「YashanDB个人版体验」YashanDB 23.1 与 BenchmarkSQL 6 兼容性适配" rel="bookmark">
+  <img src="/img/head/lucas.speyer_the_texture_inside_a_database_rig_orange_colors.png" alt="「YashanDB个人版体验」YashanDB 23.1 与 BenchmarkSQL 6 兼容性适配" class="!max-w-none">
+  <span class="title">「YashanDB个人版体验」YashanDB 23.1 与 BenchmarkSQL 6 兼容性适配</span>
+</a><a class="recommended-article-item" href="/2022/oceanbase/ob-v3.1.2-sql-explain/" title="【OBCP蓝宝书】 OceanBase 社区版 v3.1.2 如何查看执行计划" rel="bookmark">
+  <img src="/img/oceanbase/oceanbase-banner.png" alt="【OBCP蓝宝书】 OceanBase 社区版 v3.1.2 如何查看执行计划" class="!max-w-none">
+  <span class="title">【OBCP蓝宝书】 OceanBase 社区版 v3.1.2 如何查看执行计划</span>
+</a></div>
+   </div>
+  </div>
+
+        
+            <div class="article-nav">
+                
+                    <div class="article-prev">
+                        <a class="prev"
+                        rel="prev"
+                        href="/2024/tidb/tidb-docs-1st-pr/"
+                        >
+                            <span class="left arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </span>
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">如何为 TiDB 文档提交第一个 PR</span>
+                                <span class="post-nav-item">Prev posts</span>
+                            </span>
+                        </a>
+                    </div>
+                
+                
+                    <div class="article-next">
+                        <a class="next"
+                        rel="next"
+                        href="/2023/other/my-db-cert-2023/"
+                        >
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">【2023年终盘点】那些今年考下的国产数据库认证</span>
+                                <span class="post-nav-item">Next posts</span>
+                            </span>
+                            <span class="right arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </a>
+                    </div>
+                
+            </div>
+        
+
+
+        
+            <div class="comment-container">
+                <div class="comments-container pjax">
+    <div id="comment-anchor"></div>
+    <div class="comment-area-title">
+        <i class="fa-solid fa-comments"></i>&nbsp;Comments
+    </div>
+    
+
+        
+            
+    <div id="gitalk-container"></div>
+    <script data-swup-reload-script
+            src="//cdn.staticfile.org/gitalk/1.8.0/gitalk.min.js"></script>
+    <script data-swup-reload-script>
+
+        function loadGitalk() {
+            let __gitalk__pathname = decodeURI(location.pathname);
+            const __gitalk__pathnameLength = __gitalk__pathname.length;
+            const __gitalk__pathnameMaxLength = 50;
+            if (__gitalk__pathnameLength > __gitalk__pathnameMaxLength) {
+                __gitalk__pathname = __gitalk__pathname.substring(0, __gitalk__pathnameMaxLength - 3) + '...';
+            }
+
+            try {
+                Gitalk && new Gitalk({
+                    clientID: '32d049bf3701e6791070',
+                    clientSecret: '36c295ad3dad4c739b530ef113d0a979d8c35c5d',
+                    repo: 'gitalk',
+                    owner: 'shawn0915',
+                    admin: ['shawn0915'],
+                    id: __gitalk__pathname,
+                    language: 'en'
+                }).render('gitalk-container');
+
+            } catch (e) {
+                window.Gitalk = null;
+            }
+        }
+
+        if ('true') {
+            const loadGitalkTimeout = setTimeout(() => {
+                loadGitalk();
+                clearTimeout(loadGitalkTimeout);
+            }, 1000);
+        } else {
+            window.addEventListener('DOMContentLoaded', loadGitalk);
+        }
+    </script>
+
+
+
+        
+    
+</div>
+
+            </div>
+        
+    </div>
+
+    
+        <div class="toc-content-container">
+            <div class="post-toc-wrap">
+    <div class="post-toc">
+        <div class="toc-title">On this page</div>
+<!--         <div class="page-title">使用 HyBench 测试 TiDB</div> -->
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E7%BD%AE%E9%9C%80%E6%B1%82"><span class="nav-text">前置需求</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%BF%90%E8%A1%8C%E6%B5%8B%E8%AF%95"><span class="nav-text">运行测试</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E4%BF%AE%E6%94%B9%E6%95%B0%E6%8D%AE%E5%BA%93%E8%BF%9E%E6%8E%A5%E4%BF%A1%E6%81%AF"><span class="nav-text">1. 修改数据库连接信息</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E7%94%9F%E6%88%90%E6%B5%8B%E8%AF%95%E6%95%B0%E6%8D%AE"><span class="nav-text">2. 生成测试数据</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-%E5%88%9D%E5%A7%8B%E5%8C%96%E8%A1%A8%E7%BB%93%E6%9E%84"><span class="nav-text">3. 初始化表结构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-%E5%88%9D%E5%A7%8B%E5%8C%96%E8%A1%A8%E7%B4%A2%E5%BC%95"><span class="nav-text">4. 初始化表索引</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-%E5%AF%BC%E5%85%A5%E6%B5%8B%E8%AF%95%E6%95%B0%E6%8D%AE"><span class="nav-text">5. 导入测试数据</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-%E8%BF%9E%E6%8E%A5%E6%95%B0%E6%8D%AE%E5%BA%93%EF%BC%8C%E6%9F%A5%E7%9C%8B%E5%BA%93%E8%A1%A8%E4%BF%A1%E6%81%AF"><span class="nav-text">6. 连接数据库，查看库表信息</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-%E8%BF%90%E8%A1%8C-TP-%E8%B4%9F%E8%BD%BD%E6%B5%8B%E8%AF%95"><span class="nav-text">7. 运行 TP 负载测试</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-%E6%B8%85%E7%90%86%E6%B5%8B%E8%AF%95%E8%A1%A8%E6%95%B0%E6%8D%AE"><span class="nav-text">8. 清理测试表数据</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9"><span class="nav-text">注意事项</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-text">总结</span></a></li></ol>
+
+    </div>
+</div>
+
+        </div>
+    
+</div>
+
+
+
+                
+
+            </div>
+
+            
+
+        </div>
+
+        <div class="main-content-footer">
+            <footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2017</span>
+              -
+            
+            2024&nbsp;&nbsp;<i class="fa-solid fa-heart fa-beat" style="--fa-animation-duration: 0.5s; color: #f54545"></i>&nbsp;&nbsp;<a href="/">Shawn Yan</a>
+        </div>
+        
+            <script data-swup-reload-script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">VISITOR COUNT</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">TOTAL PAGE VIEWS</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">POWERED BY <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a></span>
+            <span class="text-sm lg:block">THEME&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.4.4</a></span>
+        </div>
+        
+        
+            <div>
+                Blog up for <span class="odometer" id="runtime_days" ></span> days <span class="odometer" id="runtime_hours"></span> hrs <span class="odometer" id="runtime_minutes"></span> Min <span class="odometer" id="runtime_seconds"></span> Sec
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+
+    </div>
+</footer>
+
+        </div>
+    </div>
+
+    
+        <div class="post-tools">
+            <div class="post-tools-container">
+    <ul class="article-tools-list">
+        <!-- TOC aside toggle -->
+        
+            <li class="right-bottom-tools page-aside-toggle">
+                <i class="fa-regular fa-outdent"></i>
+            </li>
+        
+
+        <!-- go comment -->
+        
+            <li class="go-comment">
+                <i class="fa-regular fa-comments"></i>
+            </li>
+        
+    </ul>
+</div>
+
+        </div>
+    
+
+    <div class="right-side-tools-container">
+        <div class="side-tools-container">
+    <ul class="hidden-tools-list">
+        <li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-plus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-minus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-expand-width flex justify-center items-center">
+            <i class="fa-regular fa-expand"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+            <i class="fa-regular fa-moon"></i>
+        </li>
+
+        <!-- rss -->
+        
+            <li class="right-bottom-tools rss flex justify-center items-center">
+                <a class="flex justify-center items-center"
+                   href="/atom.xml"
+                   target="_blank"
+                >
+                <i class="fa-regular fa-rss"></i>
+                </a>
+            </li>
+        
+
+        
+
+        <li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+            <i class="fa-regular fa-arrow-down"></i>
+        </li>
+    </ul>
+
+    <ul class="visible-tools-list">
+        <li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+            <i class="fa-regular fa-cog fa-spin"></i>
+        </li>
+        
+            <li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+                <i class="arrow-up fas fa-arrow-up"></i>
+                <span class="percent"></span>
+            </li>
+        
+        
+    </ul>
+</div>
+
+    </div>
+
+    <div class="image-viewer-container">
+    <img src="">
+</div>
+
+
+    
+        <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+          <span class="search-input-field-pre">
+            <i class="fa-solid fa-keyboard"></i>
+          </span>
+            <div class="search-input-container">
+                <input autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       placeholder="Search..."
+                       spellcheck="false"
+                       type="search"
+                       class="search-input"
+                >
+            </div>
+            <span class="popup-btn-close">
+                <i class="fa-solid fa-times"></i>
+            </span>
+        </div>
+        <div id="search-result">
+            <div id="no-result">
+                <i class="fa-solid fa-spinner fa-spin-pulse fa-5x fa-fw"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+
+</main>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Swup.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupSlideTheme.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScriptsPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupProgressPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScrollPlugin.min.js"></script>
+<script>
+    const swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+        ],
+        containers: ["#swup"],
+    });
+
+    swup.hooks.on("page:view", () => {
+        Global.refresh();
+    });
+
+    // if (document.readyState === "complete") {
+    //
+    // } else {
+    //     document.addEventListener("DOMContentLoaded", () => init());
+    // }
+</script>
+
+
+
+
+
+<script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/utils.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/main.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/navbarShrink.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/scrollTopBottom.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/lightDarkSwitch.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/categoryList.js"></script>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/localSearch.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/codeBlock.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/lazyload.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/runtime.js"></script>
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/odometer.min.js"></script>
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/assets/odometer-theme-minimal.css">
+
+
+
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Typed.min.js"></script>
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/typed.js"></script>
+
+
+
+
+
+
+<div class="post-scripts" data-swup-reload-script>
+    
+        <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/anime.min.js"></script>
+        <script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/tocToggle.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/toc.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/tabs.js"></script>
+    
+</div>
+
+
+</body>
+</html>

@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="shawnyan,dba,oracle,mysql,tidb,mariadb,postgresql,gbase,proxysql">
+    
+    <meta name="author" content="Shawn Yan">
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+        
+        
+        
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://shawnyan.cn/2023/postgresql/pg-15-compile-with-dockerfile/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+        <meta name="description" content="BG 前几日 Sean 老师发布了一篇文章 – PostgreSQL安装(一): 再简单点儿，用Docker? , 介绍如何快速安装启动 PostgreSQL 数据库。 本文再稍微延伸一点，介绍一下如何自定义 Dockerfile，加入自己想要预制的参数，构建一个自定义的 Docker Image.  Dockerfile 介绍 Dockerfile 是用于定义 Docker 镜像的一种格式。它是">
+<meta property="og:type" content="article">
+<meta property="og:title" content="【PG15】【番外篇】自定义 Dockerfile 构建 PostgreSQL 15 编译版 Docker 镜像">
+<meta property="og:url" content="https://shawnyan.cn/2023/postgresql/pg-15-compile-with-dockerfile/index.html">
+<meta property="og:site_name" content="少安事务所">
+<meta property="og:description" content="BG 前几日 Sean 老师发布了一篇文章 – PostgreSQL安装(一): 再简单点儿，用Docker? , 介绍如何快速安装启动 PostgreSQL 数据库。 本文再稍微延伸一点，介绍一下如何自定义 Dockerfile，加入自己想要预制的参数，构建一个自定义的 Docker Image.  Dockerfile 介绍 Dockerfile 是用于定义 Docker 镜像的一种格式。它是">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230319-fa074eeb-e451-4c8a-8754-98118017d2cf.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230319-f302ad75-ab6d-4476-ad8f-68706aca7f85.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230319-5e3db9c9-1411-4b95-91d6-44c3e7ff3bc3.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230319-9f1f886b-06ba-48e6-a69a-d4ccda94e102.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230319-499fdabd-e0df-4593-b333-194c7010ad0f.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230319-b8fe6443-a3b3-4c05-a301-dd96f840e025.png">
+<meta property="article:published_time" content="2023-03-19T05:03:03.000Z">
+<meta property="article:modified_time" content="2023-03-19T05:03:03.000Z">
+<meta property="article:author" content="Shawn Yan">
+<meta property="article:tag" content="docker">
+<meta property="article:tag" content="dockerfile">
+<meta property="article:tag" content="postgresql">
+<meta property="article:tag" content="compile">
+<meta property="article:tag" content="postgresql 15">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230319-fa074eeb-e451-4c8a-8754-98118017d2cf.png">
+    
+    
+        <!-- Google tag (gtag.js) -->
+        <script src="https://www.googletagmanager.com/gtag/js?id=G-ZH71L5F7X2"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-ZH71L5F7X2');
+        </script>
+    
+    <!-- baidu tongji -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?2fa794d82f74c0bb3617ba62ee962b46";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/img/favicon.ico" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon.ico">
+    <meta name="theme-color" content="#767FF6">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <!--- Page Info-->
+    
+    <title>
+        
+            【PG15】【番外篇】自定义 Dockerfile 构建 PostgreSQL 15 编译版 Docker 镜像 -
+        
+        少安事务所
+    </title>
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+<!--- use 2.5.0
+    
+        
+<link rel="stylesheet" href="/assets/build/styles.css">
+
+    
+-->
+    <link rel="stylesheet" href="//cdn.staticfile.org/hexo-theme-redefine/2.5.0/assets/build/styles.min.css">
+
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/fonts.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Satoshi/satoshi.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Chillax/chillax.css">
+    <!--- Font Part-->
+    
+    
+    
+    
+
+    <!--- Inject Part-->
+    
+    <script id="hexo-configurations">
+    let Global = window.Global || {};
+    Global.hexo_config = {"hostname":"shawnyan.cn","root":"/","language":"en","path":"search.xml"};
+    Global.theme_config = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":true,"list":[]},"code_block":{"copy":true,"style":"mac","font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":4,"number":false,"expand":true,"init_open":true},"copyright":true,"lazyload":true,"recommendation":{"enable":true,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#767FF6","secondary":null},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"open_graph":true,"google_analytics":{"enable":true,"id":"G-ZH71L5F7X2"},"root_color_mode":"dark"},"home_banner":{"enable":true,"style":"fixed","image":{"light":"https://asktug.com/uploads/default/original/4X/4/b/d/4bd94f804719672dd7e3cb29150ea6f777eb0aec.jpeg","dark":"/img/wallpaper/dark.webp"},"title":"Shawn Yan's Tech Blog.","subtitle":{"text":["A blog about MySQL, Oracle, TiDB, PostgreSQL and other databases."],"hitokoto":{"enable":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":500,"backing_delay":1500,"loop":true,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"links":{"github":"https://github.com/shawn0915","instagram":null,"zhihu":null,"twitter":null,"email":"admin@shawnyan.cn"},"qrs":{"weixin":null}}},"plugins":{"feed":{"enable":true},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":"回忆的沙漏 (10周年版)","artist":"回忆的沙漏 (10周年版)","url":"https://music.163.com/song/media/outer/url?id=1329122067.mp3","cover":"https://p1.music.126.net/oJorrgJ3IotZUAbZkBMuFw==/109951167771736533.jpg?param=68y68"}]},"mermaid":{"enable":false,"version":"9.3.0"}},"version":"2.4.4","navbar":{"auto_hide":false,"color":{"left":"#f78736","right":"#367df7","transparency":35},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Blog":{"path":"/archives","icon":"fa-regular fa-archive"},"Categories":{"path":"/categories","icon":"fa-regular fa-stream"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Links":{"icon":"fa-regular fa-link","submenus":{"My-params":"/my-params","Friends":"/links","Q":"/q"}}},"search":{"enable":true,"preload":true}},"page_templates":{"friends_column":3,"tags_style":"cloud"},"home":{"sidebar":{"enable":true,"position":"left","first_item":"info","announcement":null,"links":null},"article_date_format":"YYYY-MM-DD","categories":{"enable":true,"limit":10},"tags":{"enable":true,"limit":10}},"footerStart":"2017/11/27 00:00:00"};
+    Global.language_ago = {"second":"%s seconds ago","minute":"%s minutes ago","hour":"%s hours ago","day":"%s days ago","week":"%s weeks ago","month":"%s months ago","year":"%s years ago"};
+    Global.data_config = {"masonry":false};
+  </script>
+
+    <!--- Fontawesome Part-->
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/fontawesome.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/brands.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/solid.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/regular.min.css">
+    
+    
+    
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+
+
+<body>
+<div class="progress-bar-container">
+    
+
+    
+        <span class="pjax-progress-bar"></span>
+        <span class="swup-progress-icon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+    
+</div>
+
+
+<main class="page-container" id="swup">
+
+    
+
+    <div class="main-content-container">
+
+
+        <div class="main-content-header">
+            <header class="navbar-container">
+    
+    <div class="navbar-content">
+        <div class="left">
+            
+                <a class="logo-image" href="https://shawnyan.cn/">
+                    <img src="/img/favicon.ico">
+                </a>
+            
+            <a class="logo-title" href="https://shawnyan.cn/">
+                
+                少安事务所
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-house"></i>
+                                        
+                                        HOME
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/archives"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-archive"></i>
+                                        
+                                        BLOG
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/categories"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-stream"></i>
+                                        
+                                        CATEGORIES
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/tags"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-tags"></i>
+                                        
+                                        TAGS
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/about"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-user"></i>
+                                        
+                                        ABOUT
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="has-dropdown" 
+                                    href="#" onClick="return false;">
+                                    
+                                        
+                                            <i class="fa-regular fa-link"></i>
+                                        
+                                        LINKS&nbsp;<i class="fa-solid fa-chevron-down"></i>
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                                    <ul class="sub-menu">
+                                    
+                                        <li>
+                                        <a href="/my-params">MY-PARAMS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/links">FRIENDS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/q">Q
+                                        </a>
+                                        </li>
+                                    
+                                    </ul>
+                                
+                            </li>
+                    
+                    
+                        <li class="navbar-item search search-popup-trigger">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </li>
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                    <div class="icon-item search search-popup-trigger"><i class="fa-solid fa-magnifying-glass"></i></div>
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="navbar-drawer w-full absolute top-0 left-0 bg-background-color">
+        <ul class="drawer-navbar-list flex flex-col justify-start items-center">
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/"  >
+                             
+                                
+                                    <i class="fa-regular fa-house"></i>
+                                
+                                HOME
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/archives"  >
+                             
+                                
+                                    <i class="fa-regular fa-archive"></i>
+                                
+                                BLOG
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/categories"  >
+                             
+                                
+                                    <i class="fa-regular fa-stream"></i>
+                                
+                                CATEGORIES
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/tags"  >
+                             
+                                
+                                    <i class="fa-regular fa-tags"></i>
+                                
+                                TAGS
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/about"  >
+                             
+                                
+                                    <i class="fa-regular fa-user"></i>
+                                
+                                ABOUT
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group has-dropdown" 
+                        href="#" onClick="return false;">
+                            
+                                
+                                    <i class="fa-regular fa-link"></i>
+                                
+                                LINKS&nbsp;<i class="group-hover:rotate-180 transition-transform fa-solid fa-chevron-down"></i>
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                              
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/my-params">MY-PARAMS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/links">FRIENDS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/q">Q</a>
+                            </li>
+                        
+                    
+            
+
+        </ul>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+        </div>
+
+        <div class="main-content-body">
+
+            
+
+            <div class="main-content">
+
+                
+                    <div class="post-page-container">
+    <div class="article-content-container">
+
+        <div class="article-title">
+            
+                
+                
+                <!-- 2023-10-03, edit by shawnyan. -->
+                <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG15】【番外篇】自定义 Dockerfile 构建 PostgreSQL 15 编译版 Docker 镜像" class="max-w-none" referrerpolicy="no-referrer"/>
+                
+                <h1 class="article-title-cover">【PG15】【番外篇】自定义 Dockerfile 构建 PostgreSQL 15 编译版 Docker 镜像</h1>
+            
+            </div>
+
+
+
+        
+            <div class="article-header">
+                <div class="avatar">
+                    
+                        <img src="/img/avatar.jpg">
+                    
+                </div>
+                <div class="info">
+                    <div class="author">
+                        
+                            <span class="name">严少安</span>
+                        
+                        
+                            
+                                <span class="author-label">Lv.6</span>
+                            
+                        
+                    </div>
+                    <div class="meta-info">
+                        <div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2023-03-19 13:03:03</span>
+        <span class="mobile">2023-03-19 13:03:03</span>
+        <span class="hover-info">Created</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2023-03-19 13:03:03</span>
+            <span class="mobile">2023-03-19 13:03:03</span>
+            <span class="hover-info">Updated</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/postgresql/">PostgreSQL</a>&nbsp;
+                        </li>
+                    
+                    
+                
+                    
+                        
+                            <li>></li>
+                        
+                        <li>
+                            <a href="/categories/postgresql/postgresql-15/">PostgreSQL 15</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/docker/">docker</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/dockerfile/">dockerfile</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/postgresql/">postgresql</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/compile/">compile</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/postgresql-15/">postgresql 15</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+        <span class="article-wordcount article-meta-item">
+            <i class="fa-regular fa-typewriter"></i>&nbsp;<span>1.9k Words</span>
+        </span>
+    
+    
+        <span class="article-min2read article-meta-item">
+            <i class="fa-regular fa-clock"></i>&nbsp;<span>8 Mins</span>
+        </span>
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+                    </div>
+                </div>
+            </div>
+        
+
+        
+
+
+        <div class="article-content markdown-body">
+            <h2 id="BG">BG</h2>
+<p>前几日 Sean 老师发布了一篇文章 – <a class="link"   target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzAxODk3Nzg5Nw==&amp;mid=2247483999&amp;idx=1&amp;sn=c2f017361d5d34f389d525a77e865906" >PostgreSQL安装(一): 再简单点儿，用Docker? <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>, 介绍如何快速安装启动 PostgreSQL 数据库。</p>
+<p>本文再稍微延伸一点，介绍一下如何自定义 Dockerfile，加入自己想要预制的参数，构建一个自定义的 Docker Image.</p>
+<img  alt="docker-plus-postgres.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230319-fa074eeb-e451-4c8a-8754-98118017d2cf.png"
+                      referrerpolicy="no-referrer"
+                >
+<h2 id="Dockerfile-介绍">Dockerfile 介绍</h2>
+<p>Dockerfile 是用于定义 Docker 镜像的一种格式。它是一个包含了一系列指令的文本文件，每个指令对应一个镜像层的操作，用于指定如何构建 Docker 镜像。</p>
+<p>以下是一个基本的 Dockerfile 示例：</p>
+<div class="highlight-container" data-rel="Yaml"><figure class="iseeu highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 使用一个基础镜像</span></span><br><span class="line"><span class="string">FROM</span> <span class="string">ubuntu:latest</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 更新软件包列表</span></span><br><span class="line"><span class="string">RUN</span> <span class="string">apt-get</span> <span class="string">-y</span> <span class="string">update</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 安装软件包</span></span><br><span class="line"><span class="string">RUN</span> <span class="string">apt-get</span> <span class="string">install</span> <span class="string">-y</span> <span class="string">nginx</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 复制文件到容器中</span></span><br><span class="line"><span class="string">COPY</span> <span class="string">index.html</span> <span class="string">/usr/share/nginx/html/</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 设置环境变量</span></span><br><span class="line"><span class="string">ENV</span> <span class="string">MY_VAR=my_value</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 暴露端口</span></span><br><span class="line"><span class="string">EXPOSE</span> <span class="number">80</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 运行命令</span></span><br><span class="line"><span class="string">CMD</span> [<span class="string">&quot;nginx&quot;</span>, <span class="string">&quot;-g&quot;</span>, <span class="string">&quot;daemon off;&quot;</span>]</span><br></pre></td></tr></table></figure></div>
+<p>这个示例 Dockerfile 做了以下几件事：</p>
+<ul>
+<li>使用最新版的 Ubuntu 作为基础镜像。</li>
+<li>更新软件包列表，并安装 Nginx。</li>
+<li>将一个名为 index.html 的文件复制到容器的 /usr/share/nginx/html/ 目录中。</li>
+<li>设置了一个名为 MY_VAR 的环境变量，其值为 my_value。</li>
+<li>暴露了容器的 80 端口。</li>
+<li>在容器启动时，运行 Nginx 并以守护进程模式运行。</li>
+</ul>
+<p>使用 Dockerfile，可以通过在 Dockerfile 所在目录执行 <code>docker build</code> 命令来构建 Docker 镜像，例如：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker build -t my_ngx:latest .</span><br></pre></td></tr></table></figure></div>
+<p>构建结果如下：</p>
+<img  alt="p1.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230319-f302ad75-ab6d-4476-ad8f-68706aca7f85.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>从另一个角度讲，如果有一个 Docker Image, 想剖析一下这个镜像如何生成，这样可能做到么？</p>
+<p>类似于反编译，这是有难度的，但也可以查看到蛛丝马迹，</p>
+<p>比如使用 <code>docker history &lt;image&gt;</code> 命令，查看 Image 的历史。</p>
+<img  alt="p2.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230319-5e3db9c9-1411-4b95-91d6-44c3e7ff3bc3.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>或者其他第三方工具，比如 <a class="link"   target="_blank" rel="noopener" href="https://github.com/CenturyLinkLabs/dockerfile-from-image" >dockerfile-from-image <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<h2 id="自定义-PostgreSQL-15-的-Dockerfile">自定义 PostgreSQL 15 的 Dockerfile</h2>
+<p>上面介绍过了 Dockerfile 的基本结构，下面就来准备 PostgreSQL 的镜像，基本步骤如下：</p>
+<h3 id="1-基于-CentOS-7-的最新版构建镜像">1. 基于 CentOS 7 的最新版构建镜像</h3>
+<p>上面案例中的 <code>FROM ubuntu:latest</code> 改为 <code>FROM centos:7</code> 即可。<br>
+这里可以加上镜像的描述，比如维护者：</p>
+<div class="highlight-container" data-rel="Yaml"><figure class="iseeu highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">maintainer=&quot;Shawn</span> <span class="string">Yan&quot;</span></span><br></pre></td></tr></table></figure></div>
+<p>还可以加入其他系统环境变量，比如将语言设定为英文 utf8,</p>
+<div class="highlight-container" data-rel="Yaml"><figure class="iseeu highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">ENV</span> <span class="string">LANG=en_US.UTF-8</span></span><br></pre></td></tr></table></figure></div>
+<h3 id="2-替换自带-yum-源，并安装依赖">2. 替换自带 yum 源，并安装依赖</h3>
+<p>As you know, CentOS 自带的官方 yum 源连接速度十分、非常、很不理想，所以这里将原有的 repo 文件替换成我常用的 repo。</p>
+<p>然后，安装必要的依赖。<br>
+由于本文介绍的是构建编译版的 PostgreSQL，所以还需要安装编译工具，以及一些开发包。<br>
+这里其实就会出现一个副作用，构建出来的镜像 size 肯定要比直接安装二进制包要大。</p>
+<div class="highlight-container" data-rel="Yaml"><figure class="iseeu highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Update yum source</span></span><br><span class="line"><span class="string">RUN</span> <span class="string">rm</span> <span class="string">-rf</span> <span class="string">/etc/yum.repos.d/*.repo</span></span><br><span class="line"><span class="string">ADD</span> <span class="string">my.repo</span> <span class="string">/etc/yum.repos.d/my.repo</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Install deps</span></span><br><span class="line"><span class="string">RUN</span> <span class="string">yum</span> <span class="string">-y</span> <span class="string">update</span> <span class="string">\</span></span><br><span class="line">    <span class="string">&amp;&amp;</span> <span class="string">yum</span> <span class="string">-y</span> <span class="string">install</span> <span class="string">wget</span> <span class="string">gcc</span> <span class="string">make</span> <span class="string">...</span></span><br></pre></td></tr></table></figure></div>
+<p>RUN 命令上面介绍过了，ADD 是将本地文件添加到镜像中的指定位置，这里是将常用的 yum 源写入到 my.repo 再添加到镜像中。</p>
+<h3 id="3-下载-PG-15-源码，并编译">3. 下载 PG 15 源码，并编译</h3>
+<p>说到编译 PostgreSQL 源码，这里介绍一个参数，<code>--with-extra-version=STRING</code> ， 该参数将STRING附加到PostgreSQL版本号。例如，您可以使用它来标记从未发布的Git快照构建的二进制文件，或者包含带有额外版本字符串的自定义补丁，例如Git描述标识符或分发包发布号。</p>
+<p>在 Dockerfile 中，使用 <code>RUN</code> 命令来执行动作，使用 <code>&amp;&amp;</code> 接续动作，使用 <code>\</code> 进行换行。</p>
+<p>如此，下载源码，编译，安装一气呵成。</p>
+<div class="highlight-container" data-rel="Yaml"><figure class="iseeu highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">RUN</span> <span class="string">wget</span> <span class="string">https://mirrors.neusoft.edu.cn/postgresql/source/v$PG_VERSION/postgresql-$PG_VERSION.tar.gz</span> <span class="string">\</span></span><br><span class="line">    <span class="string">&amp;&amp;</span> <span class="string">echo</span> <span class="string">&quot;$PG_SHA256 postgresql-$PG_VERSION.tar.gz&quot;</span> <span class="string">|</span> <span class="string">sha256sum</span> <span class="string">-c</span> <span class="bullet">-</span> <span class="string">\</span></span><br><span class="line">    <span class="string">&amp;&amp;</span> <span class="string">tar</span> <span class="string">xzf</span> <span class="string">postgresql-$PG_VERSION.tar.gz</span> <span class="string">\</span></span><br><span class="line">    <span class="string">&amp;&amp;</span> <span class="string">cd</span> <span class="string">postgresql-$PG_VERSION</span> <span class="string">\</span></span><br><span class="line">    <span class="string">&amp;&amp;</span> <span class="string">./configure</span> <span class="string">--prefix=/opt/postgresql</span> <span class="string">--with-extra-version=&quot;-ShawnYan&quot;</span> <span class="string">\</span></span><br><span class="line">    <span class="string">&amp;&amp;</span> <span class="string">make</span> <span class="string">-j</span> <span class="string">$(nproc)</span> <span class="string">world</span> <span class="string">\</span></span><br><span class="line">    <span class="string">&amp;&amp;</span> <span class="string">make</span> <span class="string">install-world</span> <span class="string">\</span></span><br></pre></td></tr></table></figure></div>
+<h3 id="4-创建-postgres-用户，并指定环境变量">4. 创建 postgres 用户，并指定环境变量</h3>
+<p>在许多 Linux 系统中，PostgreSQL 用户的 UID 默认为 26。这是因为在过去的一些 Linux 系统中，UID 26 被保留给系统用户 postgres，该用户是PostgreSQL 数据库的默认所有者。这意味着如果你使用了默认的 PostgreSQL 安装程序，那么系统会自动为 postgres 用户分配 UID 26。<br>
+按照惯例，这里也将 postgres 用户的 UID 设定为 26。并将常用的环境变量预设好，如 PGDATA, PGHOME</p>
+<div class="highlight-container" data-rel="Yaml"><figure class="iseeu highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">RUN</span> <span class="string">useradd</span> <span class="string">-u</span> <span class="number">26</span> <span class="string">postgres</span> <span class="string">\</span></span><br><span class="line">    <span class="string">&amp;&amp;</span> <span class="string">echo</span> <span class="string">&quot;export PGDATA=/var/lib/pgsql/15/data&quot;</span> <span class="string">&gt;&gt;</span> <span class="string">/home/postgres/.bash_profile</span> <span class="string">\</span></span><br><span class="line">    <span class="string">&amp;&amp;</span> <span class="string">echo</span> <span class="string">&quot;export PGHOME=/opt/postgresql&quot;</span> <span class="string">&gt;&gt;</span> <span class="string">/home/postgres/.bash_profile</span> <span class="string">\</span></span><br><span class="line">    <span class="string">&amp;&amp;</span> <span class="string">echo</span> <span class="string">&quot;export PATH=\$PGHOME/bin:\$PATH&quot;</span> <span class="string">&gt;&gt;</span> <span class="string">/home/postgres/.bash_profile</span> <span class="string">\</span></span><br></pre></td></tr></table></figure></div>
+<h3 id="5-创建-PGDATA-目录，并初始化-PG-实例">5. 创建 PGDATA 目录，并初始化 PG 实例</h3>
+<p>创建 PGDATA 路径，并将权限赋予 postgres 用户。然后在 postgres 用户下初始化实例，初始化时指定数据目录。</p>
+<div class="highlight-container" data-rel="Yaml"><figure class="iseeu highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># PGDATA</span></span><br><span class="line"><span class="string">RUN</span> <span class="string">mkdir</span> <span class="string">-p</span> <span class="string">/var/lib/pgsql/15/data</span> <span class="string">&amp;&amp;</span> <span class="string">chown</span> <span class="string">-R</span> <span class="string">postgres:postgres</span> <span class="string">/var/lib/pgsql</span></span><br><span class="line"><span class="string">ENV</span> <span class="string">PGDATA=/var/lib/pgsql/15/data</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Init</span></span><br><span class="line"><span class="string">ENV</span> <span class="string">PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/postgresql/bin</span></span><br><span class="line"><span class="string">RUN</span> <span class="string">su</span> <span class="string">-l</span> <span class="string">postgres</span> <span class="string">-c</span> <span class="string">&quot;initdb --pgdata=&#x27;$PGDATA&#x27;&quot;</span> <span class="number">2</span><span class="string">&gt;&amp;1</span> <span class="string">&lt;</span> <span class="string">/dev/null</span></span><br></pre></td></tr></table></figure></div>
+<p>这样，当运行 docker image 时，镜像里的 PostgreSQL 就已经初始化完成，可以直接使用，而不需要进入容器再次调整。</p>
+<h3 id="6-暴露-5432-端口，准备启动-PostgreSQL-服务">6. 暴露 5432 端口，准备启动 PostgreSQL 服务</h3>
+<p>PG 默认使用 5432 端口，如果是实验环境则无需更改。更进一步，这个端口是启动后容器的端口，可通过 &lt;容器IP:5432 &gt; 直接访问容器里的 PG，而非宿主机上的端口，如需绑定到宿主机上的 5432 端口，则需要在启动容器上，传参 <code>-p 5432:5432</code>。还有一点好处是，可以同时运行若干容器，端口均为 5432，且不会冲突。</p>
+<div class="highlight-container" data-rel="Yaml"><figure class="iseeu highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Port</span></span><br><span class="line"><span class="string">EXPOSE</span> <span class="number">5432</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Start PostgreSQL</span></span><br><span class="line"><span class="string">CMD</span> [<span class="string">&quot;postgres&quot;</span>, <span class="string">&quot;-D&quot;</span>, <span class="string">&quot;/var/lib/pgsql/15/data&quot;</span>]</span><br></pre></td></tr></table></figure></div>
+<p>到此，自定义的 PostgreSQL 15 编译版 Dockerfile 已定制完成。</p>
+<h2 id="构建-PostgreSQL-15-镜像">构建 PostgreSQL 15 镜像</h2>
+<p>Dockerfile 是核心，构建步骤很简单，只需要应用刚才的 dockfile 即可，剩下的交给 Docker。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker build -f Dockerfile -t my-postgresql:15.2 .</span><br></pre></td></tr></table></figure></div>
+<p>build 时传参 <code>-t</code> 可以将生成的镜像打上标签和版本号。</p>
+<img  alt="p3.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230319-9f1f886b-06ba-48e6-a69a-d4ccda94e102.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>镜像构建完成后，可使用 <code>docker images</code> 查看镜像。</p>
+<p>拉取 PostgreSQL 官方镜像，对比可以发现自定义的镜像文件比官方镜像大 200MB 多。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@centos7 docker]# docker images</span><br><span class="line">REPOSITORY      TAG       IMAGE ID       CREATED        SIZE</span><br><span class="line">my-postgresql   15.2      7028a1396388   14 hours ago   633MB</span><br><span class="line">postgres        latest    3b6645d2c145   2 weeks ago    379MB</span><br></pre></td></tr></table></figure></div>
+<h2 id="运行-PostgreSQL-容器">运行 PostgreSQL 容器</h2>
+<p>可以指定镜像直接启动容器：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[root@centos7 docker]# docker run -d my-postgresql:15.2</span><br><span class="line">a0ed010c3f0252614f2840dd7485190be6f708066e8822bb10b219e5342474e5</span><br><span class="line">[root@centos7 docker]# docker ps</span><br><span class="line">CONTAINER ID   IMAGE                COMMAND                  CREATED         STATUS         PORTS      NAMES</span><br><span class="line">a0ed010c3f02   my-postgresql:15.2   &quot;postgres -D /var/li…&quot;   4 seconds ago   Up 3 seconds   5432/tcp   intelligent_perlman</span><br></pre></td></tr></table></figure></div>
+<p>也可以指定名称启动容器，但要注意 name 需要放到镜像名前：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">[root@centos7 docker]# docker run --name pg15 -d my-postgresql:15.2</span><br><span class="line">35d5cdcf4e375d6e1be3bd07730c4774fc58cb3f9586d1c44a4cb81fddcb38d9</span><br><span class="line">[root@centos7 docker]# docker run --name s1 -d my-postgresql:15.2</span><br><span class="line">05ffd0e594d35fc05175e92a1f6919f16fcaa48be6237271e4273ce2097c97a7</span><br><span class="line">[root@centos7 docker]# docker run --name s2 -d my-postgresql:15.2</span><br><span class="line">7ca429feae556ec16bc197f9bac6e0590d28b7b50479f5d1ef88c853689d7858</span><br><span class="line">[root@centos7 docker]# docker ps</span><br><span class="line">CONTAINER ID   IMAGE                COMMAND                  CREATED          STATUS          PORTS      NAMES</span><br><span class="line">7ca429feae55   my-postgresql:15.2   &quot;postgres -D /var/li…&quot;   3 seconds ago    Up 2 seconds    5432/tcp   s2</span><br><span class="line">05ffd0e594d3   my-postgresql:15.2   &quot;postgres -D /var/li…&quot;   18 seconds ago   Up 16 seconds   5432/tcp   s1</span><br><span class="line">35d5cdcf4e37   my-postgresql:15.2   &quot;postgres -D /var/li…&quot;   28 seconds ago   Up 27 seconds   5432/tcp   pg15</span><br></pre></td></tr></table></figure></div>
+<p>可直接连接容器里的 postgresql：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker exec -it pg15 psql</span><br></pre></td></tr></table></figure></div>
+<img  alt="p4.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230319-499fdabd-e0df-4593-b333-194c7010ad0f.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>也可使用本地 psql 客户端连接容器，但需先确认容器的 IP，或者在启动容器前传参绑定端口：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">psql -h 172.17.0.3</span><br></pre></td></tr></table></figure></div>
+<img  alt="p5.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230319-b8fe6443-a3b3-4c05-a301-dd96f840e025.png"
+                      referrerpolicy="no-referrer"
+                >
+<h2 id="后续">后续</h2>
+<p>定制容器可以做的事情还很多，比如：</p>
+<ol>
+<li>内置数据库、用户，开箱即用</li>
+<li>最短时间、最小资源启动主从复制，或配置高可用架构</li>
+<li>可反复创建、销毁容器，作为实验环境不断练习</li>
+</ol>
+<hr>
+<p><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/619355" >https://www.modb.pro/db/619355 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a><br>
+<a class="link"   target="_blank" rel="noopener" href="https://pgfans.cn/a/2508" >https://pgfans.cn/a/2508 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+
+        </div>
+
+        
+            <div class="post-copyright-info">
+                <div class="article-copyright-info-container">
+    <ul>
+    <!-- 2023-10-03, edit by shawnyan. -->
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Title:</strong> 【PG15】【番外篇】自定义 Dockerfile 构建 PostgreSQL 15 编译版 Docker 镜像</li>
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Author:</strong>
+            
+                严少安
+            
+        </li>
+        <li><strong>Created at:</strong> 2023-03-19 13:03:03</li>
+        
+            <li><strong>Updated at:</strong> 2023-03-19 13:03:03</li>
+        
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Link:</strong> https://shawnyan.cn/2023/postgresql/pg-15-compile-with-dockerfile/</li>
+        <li style="word-wrap: break-word; white-space: normal;">
+            <strong>
+                License:
+            </strong>
+            
+            This work is licensed under <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>.
+            
+
+        </li>
+    </ul>
+</div>
+
+            </div>
+        
+
+        
+            <ul class="post-tags-box">
+                
+                    <li class="tag-item">
+                        <a href="/tags/docker/">#docker</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/dockerfile/">#dockerfile</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/postgresql/">#postgresql</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/compile/">#compile</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/postgresql-15/">#postgresql 15</a>&nbsp;
+                    </li>
+                
+            </ul>
+        
+
+        
+  <div class="recommended-article">
+   <div class="recommended-desktop">
+    <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+    </div>
+    <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/postgresql/pg-16-run-on-centos-7/" title="【PG16】后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG16】后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行" class="!max-w-none">
+  <span class="title">【PG16】后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行</span>
+</a><a class="recommended-article-item" href="/2018/docker/docker-usage/" title="Docker常用命令" rel="bookmark">
+  <img src="/img/docker/docker-banner.jpg" alt="Docker常用命令" class="!max-w-none">
+  <span class="title">Docker常用命令</span>
+</a><a class="recommended-article-item" href="/2024/postgresql/pg-env-vars/" title="PG Style! 盘点几个常用的 Postgres 环境变量" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="PG Style! 盘点几个常用的 Postgres 环境变量" class="!max-w-none">
+  <span class="title">PG Style! 盘点几个常用的 Postgres 环境变量</span>
+</a></div>
+   </div>
+   <div class="recommended-mobile">
+   <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+   </div>
+   <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/postgresql/pg-16-run-on-centos-7/" title="【PG16】后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG16】后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行" class="!max-w-none">
+  <span class="title">【PG16】后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行</span>
+</a><a class="recommended-article-item" href="/2018/docker/docker-usage/" title="Docker常用命令" rel="bookmark">
+  <img src="/img/docker/docker-banner.jpg" alt="Docker常用命令" class="!max-w-none">
+  <span class="title">Docker常用命令</span>
+</a></div>
+   </div>
+  </div>
+
+        
+            <div class="article-nav">
+                
+                    <div class="article-prev">
+                        <a class="prev"
+                        rel="prev"
+                        href="/2023/gbase/gbase-8c-cmd-problem/"
+                        >
+                            <span class="left arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </span>
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">GBase 8c 分布式数据库 常用命令 &amp; 常见问题 集锦</span>
+                                <span class="post-nav-item">Prev posts</span>
+                            </span>
+                        </a>
+                    </div>
+                
+                
+                    <div class="article-next">
+                        <a class="next"
+                        rel="next"
+                        href="/2023/postgresql/pg-15-pg-basebackup-new-feature/"
+                        >
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">【PG15】pg_basebackup 在 PostgreSQL 15 中的新特性</span>
+                                <span class="post-nav-item">Next posts</span>
+                            </span>
+                            <span class="right arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </a>
+                    </div>
+                
+            </div>
+        
+
+
+        
+            <div class="comment-container">
+                <div class="comments-container pjax">
+    <div id="comment-anchor"></div>
+    <div class="comment-area-title">
+        <i class="fa-solid fa-comments"></i>&nbsp;Comments
+    </div>
+    
+
+        
+            
+    <div id="gitalk-container"></div>
+    <script data-swup-reload-script
+            src="//cdn.staticfile.org/gitalk/1.8.0/gitalk.min.js"></script>
+    <script data-swup-reload-script>
+
+        function loadGitalk() {
+            let __gitalk__pathname = decodeURI(location.pathname);
+            const __gitalk__pathnameLength = __gitalk__pathname.length;
+            const __gitalk__pathnameMaxLength = 50;
+            if (__gitalk__pathnameLength > __gitalk__pathnameMaxLength) {
+                __gitalk__pathname = __gitalk__pathname.substring(0, __gitalk__pathnameMaxLength - 3) + '...';
+            }
+
+            try {
+                Gitalk && new Gitalk({
+                    clientID: '32d049bf3701e6791070',
+                    clientSecret: '36c295ad3dad4c739b530ef113d0a979d8c35c5d',
+                    repo: 'gitalk',
+                    owner: 'shawn0915',
+                    admin: ['shawn0915'],
+                    id: __gitalk__pathname,
+                    language: 'en'
+                }).render('gitalk-container');
+
+            } catch (e) {
+                window.Gitalk = null;
+            }
+        }
+
+        if ('true') {
+            const loadGitalkTimeout = setTimeout(() => {
+                loadGitalk();
+                clearTimeout(loadGitalkTimeout);
+            }, 1000);
+        } else {
+            window.addEventListener('DOMContentLoaded', loadGitalk);
+        }
+    </script>
+
+
+
+        
+    
+</div>
+
+            </div>
+        
+    </div>
+
+    
+        <div class="toc-content-container">
+            <div class="post-toc-wrap">
+    <div class="post-toc">
+        <div class="toc-title">On this page</div>
+<!--         <div class="page-title">【PG15】【番外篇】自定义 Dockerfile 构建 PostgreSQL 15 编译版 Docker 镜像</div> -->
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#BG"><span class="nav-text">BG</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Dockerfile-%E4%BB%8B%E7%BB%8D"><span class="nav-text">Dockerfile 介绍</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89-PostgreSQL-15-%E7%9A%84-Dockerfile"><span class="nav-text">自定义 PostgreSQL 15 的 Dockerfile</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E5%9F%BA%E4%BA%8E-CentOS-7-%E7%9A%84%E6%9C%80%E6%96%B0%E7%89%88%E6%9E%84%E5%BB%BA%E9%95%9C%E5%83%8F"><span class="nav-text">1. 基于 CentOS 7 的最新版构建镜像</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E6%9B%BF%E6%8D%A2%E8%87%AA%E5%B8%A6-yum-%E6%BA%90%EF%BC%8C%E5%B9%B6%E5%AE%89%E8%A3%85%E4%BE%9D%E8%B5%96"><span class="nav-text">2. 替换自带 yum 源，并安装依赖</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-%E4%B8%8B%E8%BD%BD-PG-15-%E6%BA%90%E7%A0%81%EF%BC%8C%E5%B9%B6%E7%BC%96%E8%AF%91"><span class="nav-text">3. 下载 PG 15 源码，并编译</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-%E5%88%9B%E5%BB%BA-postgres-%E7%94%A8%E6%88%B7%EF%BC%8C%E5%B9%B6%E6%8C%87%E5%AE%9A%E7%8E%AF%E5%A2%83%E5%8F%98%E9%87%8F"><span class="nav-text">4. 创建 postgres 用户，并指定环境变量</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-%E5%88%9B%E5%BB%BA-PGDATA-%E7%9B%AE%E5%BD%95%EF%BC%8C%E5%B9%B6%E5%88%9D%E5%A7%8B%E5%8C%96-PG-%E5%AE%9E%E4%BE%8B"><span class="nav-text">5. 创建 PGDATA 目录，并初始化 PG 实例</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-%E6%9A%B4%E9%9C%B2-5432-%E7%AB%AF%E5%8F%A3%EF%BC%8C%E5%87%86%E5%A4%87%E5%90%AF%E5%8A%A8-PostgreSQL-%E6%9C%8D%E5%8A%A1"><span class="nav-text">6. 暴露 5432 端口，准备启动 PostgreSQL 服务</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%9E%84%E5%BB%BA-PostgreSQL-15-%E9%95%9C%E5%83%8F"><span class="nav-text">构建 PostgreSQL 15 镜像</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%BF%90%E8%A1%8C-PostgreSQL-%E5%AE%B9%E5%99%A8"><span class="nav-text">运行 PostgreSQL 容器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%90%8E%E7%BB%AD"><span class="nav-text">后续</span></a></li></ol>
+
+    </div>
+</div>
+
+        </div>
+    
+</div>
+
+
+
+                
+
+            </div>
+
+            
+
+        </div>
+
+        <div class="main-content-footer">
+            <footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2017</span>
+              -
+            
+            2024&nbsp;&nbsp;<i class="fa-solid fa-heart fa-beat" style="--fa-animation-duration: 0.5s; color: #f54545"></i>&nbsp;&nbsp;<a href="/">Shawn Yan</a>
+        </div>
+        
+            <script data-swup-reload-script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">VISITOR COUNT</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">TOTAL PAGE VIEWS</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">POWERED BY <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a></span>
+            <span class="text-sm lg:block">THEME&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.4.4</a></span>
+        </div>
+        
+        
+            <div>
+                Blog up for <span class="odometer" id="runtime_days" ></span> days <span class="odometer" id="runtime_hours"></span> hrs <span class="odometer" id="runtime_minutes"></span> Min <span class="odometer" id="runtime_seconds"></span> Sec
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+
+    </div>
+</footer>
+
+        </div>
+    </div>
+
+    
+        <div class="post-tools">
+            <div class="post-tools-container">
+    <ul class="article-tools-list">
+        <!-- TOC aside toggle -->
+        
+            <li class="right-bottom-tools page-aside-toggle">
+                <i class="fa-regular fa-outdent"></i>
+            </li>
+        
+
+        <!-- go comment -->
+        
+            <li class="go-comment">
+                <i class="fa-regular fa-comments"></i>
+            </li>
+        
+    </ul>
+</div>
+
+        </div>
+    
+
+    <div class="right-side-tools-container">
+        <div class="side-tools-container">
+    <ul class="hidden-tools-list">
+        <li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-plus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-minus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-expand-width flex justify-center items-center">
+            <i class="fa-regular fa-expand"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+            <i class="fa-regular fa-moon"></i>
+        </li>
+
+        <!-- rss -->
+        
+            <li class="right-bottom-tools rss flex justify-center items-center">
+                <a class="flex justify-center items-center"
+                   href="/atom.xml"
+                   target="_blank"
+                >
+                <i class="fa-regular fa-rss"></i>
+                </a>
+            </li>
+        
+
+        
+
+        <li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+            <i class="fa-regular fa-arrow-down"></i>
+        </li>
+    </ul>
+
+    <ul class="visible-tools-list">
+        <li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+            <i class="fa-regular fa-cog fa-spin"></i>
+        </li>
+        
+            <li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+                <i class="arrow-up fas fa-arrow-up"></i>
+                <span class="percent"></span>
+            </li>
+        
+        
+    </ul>
+</div>
+
+    </div>
+
+    <div class="image-viewer-container">
+    <img src="">
+</div>
+
+
+    
+        <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+          <span class="search-input-field-pre">
+            <i class="fa-solid fa-keyboard"></i>
+          </span>
+            <div class="search-input-container">
+                <input autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       placeholder="Search..."
+                       spellcheck="false"
+                       type="search"
+                       class="search-input"
+                >
+            </div>
+            <span class="popup-btn-close">
+                <i class="fa-solid fa-times"></i>
+            </span>
+        </div>
+        <div id="search-result">
+            <div id="no-result">
+                <i class="fa-solid fa-spinner fa-spin-pulse fa-5x fa-fw"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+
+</main>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Swup.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupSlideTheme.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScriptsPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupProgressPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScrollPlugin.min.js"></script>
+<script>
+    const swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+        ],
+        containers: ["#swup"],
+    });
+
+    swup.hooks.on("page:view", () => {
+        Global.refresh();
+    });
+
+    // if (document.readyState === "complete") {
+    //
+    // } else {
+    //     document.addEventListener("DOMContentLoaded", () => init());
+    // }
+</script>
+
+
+
+
+
+<script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/utils.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/main.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/navbarShrink.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/scrollTopBottom.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/lightDarkSwitch.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/categoryList.js"></script>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/localSearch.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/codeBlock.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/lazyload.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/runtime.js"></script>
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/odometer.min.js"></script>
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/assets/odometer-theme-minimal.css">
+
+
+
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Typed.min.js"></script>
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/typed.js"></script>
+
+
+
+
+
+
+<div class="post-scripts" data-swup-reload-script>
+    
+        <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/anime.min.js"></script>
+        <script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/tocToggle.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/toc.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/tabs.js"></script>
+    
+</div>
+
+
+</body>
+</html>

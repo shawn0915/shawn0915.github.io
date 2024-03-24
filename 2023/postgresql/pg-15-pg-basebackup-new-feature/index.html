@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="shawnyan,dba,oracle,mysql,tidb,mariadb,postgresql,gbase,proxysql">
+    
+    <meta name="author" content="Shawn Yan">
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+        
+        
+        
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://shawnyan.cn/2023/postgresql/pg-15-pg-basebackup-new-feature/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+        <meta name="description" content="pg_basebackup 介绍 pg_basebackup 是一个 PostgreSQL 内置工具，用于创建 PostgreSQL 主服务器的二进制备份，包括主服务器上的所有数据和 WAL 日志。它可以在从服务器上执行，以创建一个完整的 PostgreSQL 数据库副本，也可以在主服务器上执行，以创建一个文件系统级别的备份。 pg_basebackup 常用参数 常用参数阐述： -D, --p">
+<meta property="og:type" content="article">
+<meta property="og:title" content="【PG15】pg_basebackup 在 PostgreSQL 15 中的新特性">
+<meta property="og:url" content="https://shawnyan.cn/2023/postgresql/pg-15-pg-basebackup-new-feature/index.html">
+<meta property="og:site_name" content="少安事务所">
+<meta property="og:description" content="pg_basebackup 介绍 pg_basebackup 是一个 PostgreSQL 内置工具，用于创建 PostgreSQL 主服务器的二进制备份，包括主服务器上的所有数据和 WAL 日志。它可以在从服务器上执行，以创建一个完整的 PostgreSQL 数据库副本，也可以在主服务器上执行，以创建一个文件系统级别的备份。 pg_basebackup 常用参数 常用参数阐述： -D, --p">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230315-98a165c9-1afe-4190-a12b-e0fe3530c863.jpg">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230315-ce1064d2-a373-48ed-9840-aee0f94d15d7.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230315-ca332cde-3842-4888-bd1a-289a6619d4f4.png">
+<meta property="article:published_time" content="2023-03-15T15:03:19.000Z">
+<meta property="article:modified_time" content="2023-03-15T15:03:19.000Z">
+<meta property="article:author" content="Shawn Yan">
+<meta property="article:tag" content="postgresql">
+<meta property="article:tag" content="postgresql 15">
+<meta property="article:tag" content="pg_basebackup">
+<meta property="article:tag" content="pg 新特性">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20230315-98a165c9-1afe-4190-a12b-e0fe3530c863.jpg">
+    
+    
+        <!-- Google tag (gtag.js) -->
+        <script src="https://www.googletagmanager.com/gtag/js?id=G-ZH71L5F7X2"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-ZH71L5F7X2');
+        </script>
+    
+    <!-- baidu tongji -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?2fa794d82f74c0bb3617ba62ee962b46";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/img/favicon.ico" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon.ico">
+    <meta name="theme-color" content="#767FF6">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <!--- Page Info-->
+    
+    <title>
+        
+            【PG15】pg_basebackup 在 PostgreSQL 15 中的新特性 -
+        
+        少安事务所
+    </title>
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+<!--- use 2.5.0
+    
+        
+<link rel="stylesheet" href="/assets/build/styles.css">
+
+    
+-->
+    <link rel="stylesheet" href="//cdn.staticfile.org/hexo-theme-redefine/2.5.0/assets/build/styles.min.css">
+
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/fonts.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Satoshi/satoshi.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Chillax/chillax.css">
+    <!--- Font Part-->
+    
+    
+    
+    
+
+    <!--- Inject Part-->
+    
+    <script id="hexo-configurations">
+    let Global = window.Global || {};
+    Global.hexo_config = {"hostname":"shawnyan.cn","root":"/","language":"en","path":"search.xml"};
+    Global.theme_config = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":true,"list":[]},"code_block":{"copy":true,"style":"mac","font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":4,"number":false,"expand":true,"init_open":true},"copyright":true,"lazyload":true,"recommendation":{"enable":true,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#767FF6","secondary":null},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"open_graph":true,"google_analytics":{"enable":true,"id":"G-ZH71L5F7X2"},"root_color_mode":"dark"},"home_banner":{"enable":true,"style":"fixed","image":{"light":"https://asktug.com/uploads/default/original/4X/4/b/d/4bd94f804719672dd7e3cb29150ea6f777eb0aec.jpeg","dark":"/img/wallpaper/dark.webp"},"title":"Shawn Yan's Tech Blog.","subtitle":{"text":["A blog about MySQL, Oracle, TiDB, PostgreSQL and other databases."],"hitokoto":{"enable":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":500,"backing_delay":1500,"loop":true,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"links":{"github":"https://github.com/shawn0915","instagram":null,"zhihu":null,"twitter":null,"email":"admin@shawnyan.cn"},"qrs":{"weixin":null}}},"plugins":{"feed":{"enable":true},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":"回忆的沙漏 (10周年版)","artist":"回忆的沙漏 (10周年版)","url":"https://music.163.com/song/media/outer/url?id=1329122067.mp3","cover":"https://p1.music.126.net/oJorrgJ3IotZUAbZkBMuFw==/109951167771736533.jpg?param=68y68"}]},"mermaid":{"enable":false,"version":"9.3.0"}},"version":"2.4.4","navbar":{"auto_hide":false,"color":{"left":"#f78736","right":"#367df7","transparency":35},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Blog":{"path":"/archives","icon":"fa-regular fa-archive"},"Categories":{"path":"/categories","icon":"fa-regular fa-stream"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Links":{"icon":"fa-regular fa-link","submenus":{"My-params":"/my-params","Friends":"/links","Q":"/q"}}},"search":{"enable":true,"preload":true}},"page_templates":{"friends_column":3,"tags_style":"cloud"},"home":{"sidebar":{"enable":true,"position":"left","first_item":"info","announcement":null,"links":null},"article_date_format":"YYYY-MM-DD","categories":{"enable":true,"limit":10},"tags":{"enable":true,"limit":10}},"footerStart":"2017/11/27 00:00:00"};
+    Global.language_ago = {"second":"%s seconds ago","minute":"%s minutes ago","hour":"%s hours ago","day":"%s days ago","week":"%s weeks ago","month":"%s months ago","year":"%s years ago"};
+    Global.data_config = {"masonry":false};
+  </script>
+
+    <!--- Fontawesome Part-->
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/fontawesome.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/brands.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/solid.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/regular.min.css">
+    
+    
+    
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+
+
+<body>
+<div class="progress-bar-container">
+    
+
+    
+        <span class="pjax-progress-bar"></span>
+        <span class="swup-progress-icon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+    
+</div>
+
+
+<main class="page-container" id="swup">
+
+    
+
+    <div class="main-content-container">
+
+
+        <div class="main-content-header">
+            <header class="navbar-container">
+    
+    <div class="navbar-content">
+        <div class="left">
+            
+                <a class="logo-image" href="https://shawnyan.cn/">
+                    <img src="/img/favicon.ico">
+                </a>
+            
+            <a class="logo-title" href="https://shawnyan.cn/">
+                
+                少安事务所
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-house"></i>
+                                        
+                                        HOME
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/archives"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-archive"></i>
+                                        
+                                        BLOG
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/categories"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-stream"></i>
+                                        
+                                        CATEGORIES
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/tags"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-tags"></i>
+                                        
+                                        TAGS
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/about"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-user"></i>
+                                        
+                                        ABOUT
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="has-dropdown" 
+                                    href="#" onClick="return false;">
+                                    
+                                        
+                                            <i class="fa-regular fa-link"></i>
+                                        
+                                        LINKS&nbsp;<i class="fa-solid fa-chevron-down"></i>
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                                    <ul class="sub-menu">
+                                    
+                                        <li>
+                                        <a href="/my-params">MY-PARAMS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/links">FRIENDS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/q">Q
+                                        </a>
+                                        </li>
+                                    
+                                    </ul>
+                                
+                            </li>
+                    
+                    
+                        <li class="navbar-item search search-popup-trigger">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </li>
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                    <div class="icon-item search search-popup-trigger"><i class="fa-solid fa-magnifying-glass"></i></div>
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="navbar-drawer w-full absolute top-0 left-0 bg-background-color">
+        <ul class="drawer-navbar-list flex flex-col justify-start items-center">
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/"  >
+                             
+                                
+                                    <i class="fa-regular fa-house"></i>
+                                
+                                HOME
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/archives"  >
+                             
+                                
+                                    <i class="fa-regular fa-archive"></i>
+                                
+                                BLOG
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/categories"  >
+                             
+                                
+                                    <i class="fa-regular fa-stream"></i>
+                                
+                                CATEGORIES
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/tags"  >
+                             
+                                
+                                    <i class="fa-regular fa-tags"></i>
+                                
+                                TAGS
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/about"  >
+                             
+                                
+                                    <i class="fa-regular fa-user"></i>
+                                
+                                ABOUT
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group has-dropdown" 
+                        href="#" onClick="return false;">
+                            
+                                
+                                    <i class="fa-regular fa-link"></i>
+                                
+                                LINKS&nbsp;<i class="group-hover:rotate-180 transition-transform fa-solid fa-chevron-down"></i>
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                              
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/my-params">MY-PARAMS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/links">FRIENDS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/q">Q</a>
+                            </li>
+                        
+                    
+            
+
+        </ul>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+        </div>
+
+        <div class="main-content-body">
+
+            
+
+            <div class="main-content">
+
+                
+                    <div class="post-page-container">
+    <div class="article-content-container">
+
+        <div class="article-title">
+            
+                
+                
+                <!-- 2023-10-03, edit by shawnyan. -->
+                <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG15】pg_basebackup 在 PostgreSQL 15 中的新特性" class="max-w-none" referrerpolicy="no-referrer"/>
+                
+                <h1 class="article-title-cover">【PG15】pg_basebackup 在 PostgreSQL 15 中的新特性</h1>
+            
+            </div>
+
+
+
+        
+            <div class="article-header">
+                <div class="avatar">
+                    
+                        <img src="/img/avatar.jpg">
+                    
+                </div>
+                <div class="info">
+                    <div class="author">
+                        
+                            <span class="name">严少安</span>
+                        
+                        
+                            
+                                <span class="author-label">Lv.6</span>
+                            
+                        
+                    </div>
+                    <div class="meta-info">
+                        <div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2023-03-15 23:03:19</span>
+        <span class="mobile">2023-03-15 23:03:19</span>
+        <span class="hover-info">Created</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2023-03-15 23:03:19</span>
+            <span class="mobile">2023-03-15 23:03:19</span>
+            <span class="hover-info">Updated</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/postgresql/">PostgreSQL</a>&nbsp;
+                        </li>
+                    
+                    
+                
+                    
+                        
+                            <li>></li>
+                        
+                        <li>
+                            <a href="/categories/postgresql/postgresql-15/">PostgreSQL 15</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/postgresql/">postgresql</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/postgresql-15/">postgresql 15</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/pg-basebackup/">pg_basebackup</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/pg-%E6%96%B0%E7%89%B9%E6%80%A7/">pg 新特性</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+        <span class="article-wordcount article-meta-item">
+            <i class="fa-regular fa-typewriter"></i>&nbsp;<span>2.9k Words</span>
+        </span>
+    
+    
+        <span class="article-min2read article-meta-item">
+            <i class="fa-regular fa-clock"></i>&nbsp;<span>13 Mins</span>
+        </span>
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+                    </div>
+                </div>
+            </div>
+        
+
+        
+
+
+        <div class="article-content markdown-body">
+            <img  alt="output.jpg" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230315-98a165c9-1afe-4190-a12b-e0fe3530c863.jpg"
+                      referrerpolicy="no-referrer"
+                >
+<h2 id="pg-basebackup-介绍">pg_basebackup 介绍</h2>
+<p>pg_basebackup 是一个 PostgreSQL 内置工具，用于创建 PostgreSQL 主服务器的二进制备份，包括主服务器上的所有数据和 WAL 日志。它可以在从服务器上执行，以创建一个完整的 PostgreSQL 数据库副本，也可以在主服务器上执行，以创建一个文件系统级别的备份。</p>
+<h2 id="pg-basebackup-常用参数">pg_basebackup 常用参数</h2>
+<p>常用参数阐述：</p>
+<p>-D, --pgdata=DIRECTORY 存放备份文件目录<br>
+-F, --format=p|t       输出格式(plain(默认)，tar)</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">如果选t格式，则将数据目录打成tar包</span></span><br><span class="line">-rw------- 1 postgres postgres 1.0K Mar 15 17:36 16494.tar</span><br><span class="line">-rw------- 1 postgres postgres 226K Mar 15 17:36 backup_manifest</span><br><span class="line">-rw------- 1 postgres postgres 184M Mar 15 17:36 base.tar</span><br><span class="line">-rw------- 1 postgres postgres  17M Mar 15 17:36 pg_wal.tar</span><br></pre></td></tr></table></figure></div>
+<p>-r, --max-rate=RATE    传输数据目录的最大传输速率(单位为kB/s，或以“k”或“M”为后缀)</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">#</span><span class="language-bash">可用于跨机器备份，限制备份速度，以控制备份对网络带宽的影响；或控制备份时导出落盘的速度，以防止出现IO打满的情况</span></span><br><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">pg_basebackup -D /opt/pgsql-152/backup -Fp -Xs -l <span class="string">&#x27;backup_plain&#x27;</span> -P -v -r 10M</span></span><br><span class="line">pg_basebackup: initiating base backup, waiting for checkpoint to complete</span><br><span class="line">pg_basebackup: checkpoint completed</span><br><span class="line">pg_basebackup: write-ahead log start point: 0/27000028 on timeline 1</span><br><span class="line">pg_basebackup: starting background WAL receiver</span><br><span class="line">pg_basebackup: created temporary replication slot &quot;pg_basebackup_3768708&quot;</span><br><span class="line">10820/187431 kB (5%), 1/2 tablespaces (/opt/pgsql-152/backup/base/4/2608  )</span><br><span class="line">21323/187431 kB (11%), 1/2 tablespaces (/opt/pgsql-152/backup/base/5/2675  )</span><br><span class="line">42885/187431 kB (22%), 1/2 tablespaces (/opt/pgsql-152/backup/base/5/16509 )</span><br><span class="line">187445/187445 kB (100%), 2/2 tablespaces</span><br><span class="line">...</span><br></pre></td></tr></table></figure></div>
+<p>-P, --progress         显示进度信息<br>
+-v, --verbose          输出详细消息<br>
+-R, --write-recovery-conf 为复制写配置</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">会在备份目录自动创建名为 standby.signal 的空文件，并自动在文件 postgresql.auto.conf 中加入 primary_conninfo 信息</span></span><br><span class="line">-rw------- 1 postgres postgres    567 Mar 15 17:55 postgresql.auto.conf</span><br><span class="line">-rw------- 1 postgres postgres      0 Mar 15 17:55 standby.signal</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">grep primary_conninfo postgresql.auto.conf</span></span><br><span class="line">primary_conninfo = &#x27;user=postgres passfile=&#x27;&#x27;/home/postgres/.pgpass&#x27;&#x27; channel_binding=disable port=5432 sslmode=disable sslcompression=0 sslsni=1 ssl_min_protocol_version=TLSv1.2 gssencmode=disable krbsrvname=postgres target_session_attrs=any&#x27;</span><br></pre></td></tr></table></figure></div>
+<p><strong>额外的，关于 <code>primary_conninfo</code> 参数，补充说明其包含字段的解释：</strong></p>
+<ul>
+<li>passfile</li>
+</ul>
+<p>密码文件，用于存放用户登陆信息，格式为 <code>hostname:port:database:username:password</code>， 在 Unix 系统，该文件权限需为 <code>0600</code>，否则会被忽略。</p>
+<p>如果文件权限大于 <code>0600</code>，当连接数据库时，会触发 WARN 警告。且该文件存储的是明文密码，从安全角度来讲，并不建议使用。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash"><span class="built_in">cat</span> .pgpass</span></span><br><span class="line">*:5432:*:sbtest:sbtest</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">psql -Usbtest -h192.168.8.11</span></span><br><span class="line">WARNING: password file &quot;/home/postgres/.pgpass&quot; has group or world access; permissions should be u=rw (0600) or less</span><br><span class="line">Password for user sbtest:</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>channel_binding</li>
+</ul>
+<p>可以让客户端指定通道绑定作为 SCRAM 的组成部分， 并且，使用一个含密码保护的 TLS 证书的客户端现在可以通过 sslpassword 参数来指定密码。PostgreSQL现在也支持 DER 算法编码的证书。这是 PostgreSQL 13 引入的参数。</p>
+<ul>
+<li>gssencmode</li>
+</ul>
+<p>此选项决定是否与服务器协商安全的 GSS TCP/IP 连接，或者以何种优先级进行协商。 有三种模式: disable/prefer (default)/require</p>
+<ul>
+<li>target_session_attrs</li>
+</ul>
+<p>从 <strong>PostgreSQL 10</strong> 开始可以支持在 libpq 中连接多个实例的设置，在 PG 10 中，支持两个选项：</p>
+<ul>
+<li>any (default) 可连任意数据库实例</li>
+<li>read-write 默认情况下会话只接受读写事务 （主机不支持 hot standby 模式， default_transaction_read_only = off）</li>
+</ul>
+<p>但是从 <strong>PostgreSQL 14</strong> 开始，支持 6 个选项（新增4个选项）：</p>
+<ul>
+<li>read-only 默认情况下会话不能接受读写事务</li>
+<li>primary 服务器不能处于 hot standby 模式</li>
+<li>standby 服务器必须处于 hot standby 模式</li>
+<li>prefer-standby 首先尝试寻找备机，但如果列出的主机都不是备机，就在 any 模式下再次尝试</li>
+</ul>
+<p>使用方式：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">host=host1 target_session_attrs=any</span><br><span class="line">postgresql://host1:port2,host2:port2/?target_session_attrs=read-write</span><br></pre></td></tr></table></figure></div>
+<p>更多讨论：<br>
+<a class="link"   target="_blank" rel="noopener" href="https://www.postgresql.org/message-id/CAF3+xM+8-ztOkaV9gHiJ3wfgENTq97QcjXQt+rbFQ6F7oNzt9A@mail.gmail.com" >https://www.postgresql.org/message-id/CAF3+xM+8-ztOkaV9gHiJ3wfgENTq97QcjXQt+rbFQ6F7oNzt9A@mail.gmail.com <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<blockquote>
+<p>Recently I put a proposal to support ‘prefer-read’ parameter in<br>
+target_session_attrs in libpq. Now I updated the patch with adding content<br>
+in the sgml and regression test case.</p>
+</blockquote>
+<h2 id="pg-basebackup-在-PostgreSQL-15-中的更新">pg_basebackup 在 PostgreSQL 15 中的更新</h2>
+<h3 id="LZ4-zstd">LZ4 &amp; zstd</h3>
+<ul>
+<li>
+<p><a class="link"   target="_blank" rel="noopener" href="https://www.postgresql.org/docs/release/15.0/" >[15.0] <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> More options for compression, including support for Zstandard (zstd) compression. This includes support for performing compression on the server side during <a class="link"   target="_blank" rel="noopener" href="https://www.postgresql.org/docs/15/app-pgbasebackup.html" >pg_basebackup <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>.</p>
+</li>
+<li>
+<p>Add support for LZ4 and Zstandard compression of server-side base backups (Jeevan Ladhe, Robert Haas)</p>
+</li>
+<li>
+<p>Allow pg_basebackup to do server-side gzip, LZ4, and Zstandard compression and client-side LZ4 and Zstandard compression of base backup files (Dipesh Pandit, Jeevan Ladhe)</p>
+<p>Client-side gzip compression was already supported.</p>
+<p><a class="link"   target="_blank" rel="noopener" href="https://git.postgresql.org/gitweb/?p=postgresql.git;a=commitdiff;h=0ad8032910d5eb8efd32867c45b6a25c85e60f50" >https://git.postgresql.org/gitweb/?p=postgresql.git;a=commitdiff;h=0ad8032910d5eb8efd32867c45b6a25c85e60f50 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+</li>
+<li>
+<p>Allow pg_basebackup to compress on the server side and decompress on the client side before storage (Dipesh Pandit)</p>
+<p>This is accomplished by specifying compression on the server side and plain output format.</p>
+</li>
+<li>
+<p>Allow pg_basebackup’s <code>--compress</code> option to control the compression location (server or client), compression method, and compression options (Michael Paquier, Robert Haas)</p>
+</li>
+</ul>
+<p><strong>批注：</strong></p>
+<ol>
+<li>增加了两种压缩模式，支持 LZ4 和 zstd 压缩模式，编译时需要添加参数 <code>--with-lz4 --with-zstd</code> 以支持该特性。</li>
+<li>支持 server 端压缩（gzip/LZ4/zstd），或者 client 端进行压缩（gzip/LZ4/zstd）。</li>
+<li>强化 <code>-Z, --compress</code> 参数，支持多种详细描述，比如 <code>-Z server-zstd:2</code>，在服务器端使用 zstd 算法压缩。</li>
+</ol>
+<h3 id="target">target</h3>
+<ul>
+<li>Add new pg_basebackup option <code>--target</code> to control the base backup location (Robert Haas)</li>
+</ul>
+<p>The new options are server to write the backup locally and blackhole to discard the backup (for testing).</p>
+<pre><code>Instructs the server where to place the base backup. The default target is client, which specifies that the backup should be sent to the machine where pg_basebackup is running. If the target is instead set to server:/some/path, the backup will be stored on the machine where the server is running in the /some/path directory. Storing a backup on the server requires superuser privileges or having privileges of the pg_write_server_files role. If the target is set to blackhole, the contents are discarded and not stored anywhere. This should only be used for testing purposes, as you will not end up with an actual backup.
+
+Since WAL streaming is implemented by pg_basebackup rather than by the server, this option cannot be used together with -Xstream. Since that is the default, when this option is specified, you must also specify either -Xfetch or -Xnone.
+</code></pre>
+<p><strong>批注：</strong></p>
+<ol>
+<li>在服务器上存储备份需要超级用户权限或具有pg_write_server_files角色的权限。 如果目标设置为黑洞，则内容将被丢弃，不存储在任何地方。 这应该只用于测试目的，因为您最终不会得到实际的备份。</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ pg_basebackup --target=blackhole --wal-method=none</span><br><span class="line">NOTICE:  all required WAL segments have been archived</span><br></pre></td></tr></table></figure></div>
+<p>运行此命令后，并不会得到实际的备份集。</p>
+<ol start="2">
+<li>如果将目标设定为 <code>server:/some/path</code>，其效果与 <code>-D backup -Ft</code> 类似。</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ pg_basebackup --target=server:/opt/pgsql-152/backup --wal-method=none</span><br><span class="line"></span><br><span class="line">$ pg_basebackup -D /opt/pgsql-152/backup -Ft --wal-method=none</span><br></pre></td></tr></table></figure></div>
+<ol start="3">
+<li>推测：或可支持备份至 S3 路径。</li>
+</ol>
+<h3 id="LZ4">LZ4</h3>
+<p>LZ4 是一种无损数据压缩算法，由Yann Collet于2011年开发。它可以实现非常快速的压缩和解压缩速度，同时提供比LZO、Snappy和Zlib等其他压缩算法更高的压缩比。</p>
+<p>LZ4 算法的压缩和解压缩过程基于哈希表和字典序列的概念。它将输入数据分割成若干个片段，每个片段分别使用一个字典来进行压缩。在压缩过程中，LZ4 算法会将输入数据分成长度相等的子块，并利用这些子块之间的重叠来实现更高的压缩比。在解压缩过程中，LZ4 算法使用相同的字典来逆向生成原始数据。</p>
+<p>LZ4 算法的特点是快速、简单和高效。在多核CPU上可以并行化，同时支持多种压缩级别和压缩块大小的设置。LZ4算法常被用于高速数据传输和实时数据处理领域，例如网络传输、分布式存储、日志处理、大数据分析等场景。在 PostgreSQL 数据库中，LZ4算法也是一种常用的数据压缩方式，可以用于减少数据库的存储空间和提高数据传输速度。</p>
+<p><strong>在 PostgreSQL 15 中，如果采用编译安装，需要添加选项 <code>--with-lz4</code>。</strong></p>
+<p>LZ4 源码仓库：<a class="link"   target="_blank" rel="noopener" href="https://github.com/lz4/lz4" >https://github.com/lz4/lz4 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<h3 id="zstd">zstd</h3>
+<p>Zstandard，或简称zstd，是一种快速无损压缩算法，针对实时压缩场景在zlib级别和更好的压缩比。 它有一个非常快的熵阶段，由Huff0和FSE库提供。</p>
+<p>Zstandard的格式是稳定的，并记录在RFC8878中。 多个独立的实现已经可用。 这个存储库代表了参考实现，作为一个开源的双BSD和GPLv2许可的C库提供，以及一个生成和解码.zst、.gz、.xz和.lz4文件的命令行实用程序。</p>
+<p><strong>在 PostgreSQL 15 中，如果采用编译安装，需要添加选项 <code>--with-zstd</code>。</strong></p>
+<p>zstd 源码仓库：<a class="link"   target="_blank" rel="noopener" href="https://github.com/facebook/zstd" >https://github.com/facebook/zstd <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<img  alt="p1.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230315-ce1064d2-a373-48ed-9840-aee0f94d15d7.png"
+                      referrerpolicy="no-referrer"
+                >
+<h3 id="备份测试">备份测试</h3>
+<p>该测试主要是针对 PG 15 中 pg_basebackup 的新参数进行功能性测试验证，所以数据量较小。</p>
+<ul>
+<li>
+<p>数据源：<br>
+<a class="link"   target="_blank" rel="noopener" href="https://www.gov.uk/government/statistical-data-sets/price-paid-data-downloads" >https://www.gov.uk/government/statistical-data-sets/price-paid-data-downloads <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+</li>
+<li>
+<p>创建表：</p>
+</li>
+</ul>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- Create table:</span></span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> land_registry_price_paid_uk(</span><br><span class="line">  transaction uuid,</span><br><span class="line">  price <span class="type">numeric</span>,</span><br><span class="line">  transfer_date <span class="type">date</span>,</span><br><span class="line">  postcode text,</span><br><span class="line">  property_type <span class="type">char</span>(<span class="number">1</span>),</span><br><span class="line">  newly_built <span class="type">boolean</span>,</span><br><span class="line">  duration <span class="type">char</span>(<span class="number">1</span>),</span><br><span class="line">  paon text,</span><br><span class="line">  saon text,</span><br><span class="line">  street text,</span><br><span class="line">  locality text,</span><br><span class="line">  city text,</span><br><span class="line">  district text,</span><br><span class="line">  county text,</span><br><span class="line">  ppd_category_type <span class="type">char</span>(<span class="number">1</span>),</span><br><span class="line">  record_status <span class="type">char</span>(<span class="number">1</span>));</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>导入测试数据：</li>
+</ul>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- Copy CSV data, with appropriate munging:</span></span><br><span class="line"><span class="keyword">COPY</span> land_registry_price_paid_uk <span class="keyword">FROM</span> <span class="string">&#x27;/tmp/pp-2022.csv&#x27;</span> <span class="keyword">with</span> (format csv, encoding <span class="string">&#x27;win1252&#x27;</span>, header <span class="literal">false</span>, <span class="keyword">null</span> <span class="string">&#x27;&#x27;</span>, quote <span class="string">&#x27;&quot;&#x27;</span>, force_null (postcode, saon, paon, street, locality, city, district));</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>导入结果：</li>
+</ul>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">(postgres@[<span class="keyword">local</span>]) [postgres] <span class="number">22</span>:<span class="number">48</span>:<span class="number">25</span># <span class="keyword">COPY</span> land_registry_price_paid_uk <span class="keyword">FROM</span> <span class="string">&#x27;/tmp/pp-2022.csv&#x27;</span> <span class="keyword">with</span> (format csv, encoding <span class="string">&#x27;win1252&#x27;</span>, header <span class="literal">false</span>, <span class="keyword">null</span> <span class="string">&#x27;&#x27;</span>, quote <span class="string">&#x27;&quot;&#x27;</span>, force_null (postcode, saon, paon, street, locality, city, district));</span><br><span class="line"><span class="keyword">COPY</span> <span class="number">766786</span></span><br><span class="line"><span class="type">Time</span>: <span class="number">4067.681</span> ms (<span class="number">00</span>:<span class="number">04.068</span>)</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li><code>-Z none</code></li>
+</ul>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">time pg_basebackup -D b1 -Xs -Ft -Z none</span></span><br><span class="line">2023-03-15 23:05:18.929 CST [84988] LOG:  checkpoint starting: force wait</span><br><span class="line">2023-03-15 23:05:19.046 CST [84988] LOG:  checkpoint complete: wrote 4 buffers (0.0%); 0 WAL file(s) added, 1 removed, 0 recycled; write=0.106 s, sync=0.005 s, total=0.117 s; sync files=3, longest=0.002 s, average=0.002 s; distance=405 kB, estimate=405 kB</span><br><span class="line"></span><br><span class="line">real	0m1.120s</span><br><span class="line">user	0m0.037s</span><br><span class="line">sys	0m0.531s</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li><code>-Z server-gzip</code></li>
+</ul>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">time pg_basebackup -D b2 -Xs -Ft -Z server-gzip</span></span><br><span class="line">2023-03-15 23:06:08.393 CST [84988] LOG:  checkpoint starting: force wait</span><br><span class="line">2023-03-15 23:06:08.399 CST [84988] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 2 recycled; write=0.001 s, sync=0.001 s, total=0.006 s; sync files=0, longest=0.000 s, average=0.000 s; distance=32768 kB, estimate=32768 kB</span><br><span class="line"></span><br><span class="line">real	0m6.221s</span><br><span class="line">user	0m0.023s</span><br><span class="line">sys	0m0.249s</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li><code>-Z server-lz4</code></li>
+</ul>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">time pg_basebackup -D b3 -Xs -Ft -Z server-lz4</span></span><br><span class="line">2023-03-15 23:08:07.705 CST [84988] LOG:  checkpoint starting: force wait</span><br><span class="line">2023-03-15 23:08:07.711 CST [84988] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 2 recycled; write=0.001 s, sync=0.001 s, total=0.006 s; sync files=0, longest=0.000 s, average=0.000 s; distance=32768 kB, estimate=32768 kB</span><br><span class="line"></span><br><span class="line">real	0m0.850s</span><br><span class="line">user	0m0.019s</span><br><span class="line">sys	0m0.178s</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li><code>-Z server-zstd</code></li>
+</ul>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">time pg_basebackup -D b4 -Xs -Ft -Z server-zstd</span></span><br><span class="line">2023-03-15 23:08:59.603 CST [84988] LOG:  checkpoint starting: force wait</span><br><span class="line">2023-03-15 23:08:59.608 CST [84988] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 2 recycled; write=0.001 s, sync=0.001 s, total=0.006 s; sync files=0, longest=0.000 s, average=0.000 s; distance=32768 kB, estimate=32768 kB</span><br><span class="line"></span><br><span class="line">real	0m1.202s</span><br><span class="line">user	0m0.016s</span><br><span class="line">sys	0m0.148s</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li><code>-Z server-zstd:2</code></li>
+</ul>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">time pg_basebackup -D b5 -Xs -Ft -Z server-zstd:2</span></span><br><span class="line">2023-03-15 23:09:36.944 CST [84988] LOG:  checkpoint starting: force wait</span><br><span class="line">2023-03-15 23:09:36.949 CST [84988] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 2 recycled; write=0.001 s, sync=0.001 s, total=0.006 s; sync files=0, longest=0.000 s, average=0.000 s; distance=32768 kB, estimate=32768 kB</span><br><span class="line"></span><br><span class="line">real	0m0.958s</span><br><span class="line">user	0m0.015s</span><br><span class="line">sys	0m0.139s</span><br></pre></td></tr></table></figure></div>
+<img  alt="p2.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20230315-ca332cde-3842-4888-bd1a-289a6619d4f4.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>汇总测试结果，整理如下表：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:center">compress</th>
+<th style="text-align:center">cost time</th>
+<th style="text-align:center">backup size</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><code>-Z none</code></td>
+<td style="text-align:center">1.120s</td>
+<td style="text-align:center">145M</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>-Z server-gzip</code></td>
+<td style="text-align:center">6.221s</td>
+<td style="text-align:center">51M</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>-Z server-lz4</code></td>
+<td style="text-align:center">0.850s</td>
+<td style="text-align:center">65M</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>-Z server-zstd</code></td>
+<td style="text-align:center">1.202s</td>
+<td style="text-align:center">47M</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>-Z server-zstd:2</code></td>
+<td style="text-align:center">0.958s</td>
+<td style="text-align:center">49M</td>
+</tr>
+</tbody>
+</table>
+<p>可以看出不同的压缩参数会影响备份的大小和备份时间。使用不同的压缩算法和压缩级别需要在时间和空间之间做出权衡。</p>
+<h2 id="总结">总结</h2>
+<p>pg_basebackup 主要用于热备份，以及快速创建可用备库，压缩算法的支持大大减轻了磁盘空间的需求，网络传输压力，以及磁盘IO负载。</p>
+<p>此外，TOAST 压缩方式 (default_toast_compression) 已支持 LZ4 压缩算法，WAL 日志压缩方法 (wal_compression) 已支持 LZ4/zstd 压缩算法。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">(postgres@[<span class="keyword">local</span>]) [postgres] <span class="number">23</span>:<span class="number">00</span>:<span class="number">32</span># \dconfig <span class="operator">*</span>compression</span><br><span class="line">  List <span class="keyword">of</span> configuration parameters</span><br><span class="line"><span class="operator">+</span><span class="comment">---------------------------+-------+</span></span><br><span class="line"><span class="operator">|</span>         <span class="keyword">Parameter</span>         <span class="operator">|</span> <span class="keyword">Value</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">---------------------------+-------+</span></span><br><span class="line"><span class="operator">|</span> default_toast_compression <span class="operator">|</span> lz4   <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> wal_compression           <span class="operator">|</span> zstd  <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">---------------------------+-------+</span></span><br><span class="line">(<span class="number">2</span> <span class="keyword">rows</span>)</span><br></pre></td></tr></table></figure></div>
+<hr>
+<p><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/618917" >https://www.modb.pro/db/618917 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a><br>
+<a class="link"   target="_blank" rel="noopener" href="https://pgfans.cn/a/2504" >https://pgfans.cn/a/2504 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+
+        </div>
+
+        
+            <div class="post-copyright-info">
+                <div class="article-copyright-info-container">
+    <ul>
+    <!-- 2023-10-03, edit by shawnyan. -->
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Title:</strong> 【PG15】pg_basebackup 在 PostgreSQL 15 中的新特性</li>
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Author:</strong>
+            
+                严少安
+            
+        </li>
+        <li><strong>Created at:</strong> 2023-03-15 23:03:19</li>
+        
+            <li><strong>Updated at:</strong> 2023-03-15 23:03:19</li>
+        
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Link:</strong> https://shawnyan.cn/2023/postgresql/pg-15-pg-basebackup-new-feature/</li>
+        <li style="word-wrap: break-word; white-space: normal;">
+            <strong>
+                License:
+            </strong>
+            
+            This work is licensed under <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>.
+            
+
+        </li>
+    </ul>
+</div>
+
+            </div>
+        
+
+        
+            <ul class="post-tags-box">
+                
+                    <li class="tag-item">
+                        <a href="/tags/postgresql/">#postgresql</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/postgresql-15/">#postgresql 15</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/pg-basebackup/">#pg_basebackup</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/pg-%E6%96%B0%E7%89%B9%E6%80%A7/">#pg 新特性</a>&nbsp;
+                    </li>
+                
+            </ul>
+        
+
+        
+  <div class="recommended-article">
+   <div class="recommended-desktop">
+    <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+    </div>
+    <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/postgresql/pg-16-run-on-centos-7/" title="【PG16】后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG16】后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行" class="!max-w-none">
+  <span class="title">【PG16】后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行</span>
+</a><a class="recommended-article-item" href="/2023/postgresql/pg-15-jsonlog/" title="【PG15】PostgreSQL 15 新日志格式 jsonlog" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG15】PostgreSQL 15 新日志格式 jsonlog" class="!max-w-none">
+  <span class="title">【PG15】PostgreSQL 15 新日志格式 jsonlog</span>
+</a><a class="recommended-article-item" href="/2023/postgresql/pg-15-psqlrc/" title="【PG15】有趣的 psqlrc 你真的学废了麽" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG15】有趣的 psqlrc 你真的学废了麽" class="!max-w-none">
+  <span class="title">【PG15】有趣的 psqlrc 你真的学废了麽</span>
+</a></div>
+   </div>
+   <div class="recommended-mobile">
+   <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+   </div>
+   <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/postgresql/pg-16-run-on-centos-7/" title="【PG16】后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG16】后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行" class="!max-w-none">
+  <span class="title">【PG16】后 RHEL 7 时代, PG 16 如何在 CentOS 7 上运行</span>
+</a><a class="recommended-article-item" href="/2023/postgresql/pg-15-jsonlog/" title="【PG15】PostgreSQL 15 新日志格式 jsonlog" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG15】PostgreSQL 15 新日志格式 jsonlog" class="!max-w-none">
+  <span class="title">【PG15】PostgreSQL 15 新日志格式 jsonlog</span>
+</a></div>
+   </div>
+  </div>
+
+        
+            <div class="article-nav">
+                
+                    <div class="article-prev">
+                        <a class="prev"
+                        rel="prev"
+                        href="/2023/postgresql/pg-15-compile-with-dockerfile/"
+                        >
+                            <span class="left arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </span>
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">【PG15】【番外篇】自定义 Dockerfile 构建 PostgreSQL 15 编译版 Docker 镜像</span>
+                                <span class="post-nav-item">Prev posts</span>
+                            </span>
+                        </a>
+                    </div>
+                
+                
+                    <div class="article-next">
+                        <a class="next"
+                        rel="next"
+                        href="/2023/gbase/gbase-8c-install/"
+                        >
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">快速搭建 GBase 8c 集群环境</span>
+                                <span class="post-nav-item">Next posts</span>
+                            </span>
+                            <span class="right arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </a>
+                    </div>
+                
+            </div>
+        
+
+
+        
+            <div class="comment-container">
+                <div class="comments-container pjax">
+    <div id="comment-anchor"></div>
+    <div class="comment-area-title">
+        <i class="fa-solid fa-comments"></i>&nbsp;Comments
+    </div>
+    
+
+        
+            
+    <div id="gitalk-container"></div>
+    <script data-swup-reload-script
+            src="//cdn.staticfile.org/gitalk/1.8.0/gitalk.min.js"></script>
+    <script data-swup-reload-script>
+
+        function loadGitalk() {
+            let __gitalk__pathname = decodeURI(location.pathname);
+            const __gitalk__pathnameLength = __gitalk__pathname.length;
+            const __gitalk__pathnameMaxLength = 50;
+            if (__gitalk__pathnameLength > __gitalk__pathnameMaxLength) {
+                __gitalk__pathname = __gitalk__pathname.substring(0, __gitalk__pathnameMaxLength - 3) + '...';
+            }
+
+            try {
+                Gitalk && new Gitalk({
+                    clientID: '32d049bf3701e6791070',
+                    clientSecret: '36c295ad3dad4c739b530ef113d0a979d8c35c5d',
+                    repo: 'gitalk',
+                    owner: 'shawn0915',
+                    admin: ['shawn0915'],
+                    id: __gitalk__pathname,
+                    language: 'en'
+                }).render('gitalk-container');
+
+            } catch (e) {
+                window.Gitalk = null;
+            }
+        }
+
+        if ('true') {
+            const loadGitalkTimeout = setTimeout(() => {
+                loadGitalk();
+                clearTimeout(loadGitalkTimeout);
+            }, 1000);
+        } else {
+            window.addEventListener('DOMContentLoaded', loadGitalk);
+        }
+    </script>
+
+
+
+        
+    
+</div>
+
+            </div>
+        
+    </div>
+
+    
+        <div class="toc-content-container">
+            <div class="post-toc-wrap">
+    <div class="post-toc">
+        <div class="toc-title">On this page</div>
+<!--         <div class="page-title">【PG15】pg_basebackup 在 PostgreSQL 15 中的新特性</div> -->
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#pg-basebackup-%E4%BB%8B%E7%BB%8D"><span class="nav-text">pg_basebackup 介绍</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#pg-basebackup-%E5%B8%B8%E7%94%A8%E5%8F%82%E6%95%B0"><span class="nav-text">pg_basebackup 常用参数</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#pg-basebackup-%E5%9C%A8-PostgreSQL-15-%E4%B8%AD%E7%9A%84%E6%9B%B4%E6%96%B0"><span class="nav-text">pg_basebackup 在 PostgreSQL 15 中的更新</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#LZ4-zstd"><span class="nav-text">LZ4 &amp; zstd</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#target"><span class="nav-text">target</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#LZ4"><span class="nav-text">LZ4</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#zstd"><span class="nav-text">zstd</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A4%87%E4%BB%BD%E6%B5%8B%E8%AF%95"><span class="nav-text">备份测试</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-text">总结</span></a></li></ol>
+
+    </div>
+</div>
+
+        </div>
+    
+</div>
+
+
+
+                
+
+            </div>
+
+            
+
+        </div>
+
+        <div class="main-content-footer">
+            <footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2017</span>
+              -
+            
+            2024&nbsp;&nbsp;<i class="fa-solid fa-heart fa-beat" style="--fa-animation-duration: 0.5s; color: #f54545"></i>&nbsp;&nbsp;<a href="/">Shawn Yan</a>
+        </div>
+        
+            <script data-swup-reload-script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">VISITOR COUNT</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">TOTAL PAGE VIEWS</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">POWERED BY <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a></span>
+            <span class="text-sm lg:block">THEME&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.4.4</a></span>
+        </div>
+        
+        
+            <div>
+                Blog up for <span class="odometer" id="runtime_days" ></span> days <span class="odometer" id="runtime_hours"></span> hrs <span class="odometer" id="runtime_minutes"></span> Min <span class="odometer" id="runtime_seconds"></span> Sec
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+
+    </div>
+</footer>
+
+        </div>
+    </div>
+
+    
+        <div class="post-tools">
+            <div class="post-tools-container">
+    <ul class="article-tools-list">
+        <!-- TOC aside toggle -->
+        
+            <li class="right-bottom-tools page-aside-toggle">
+                <i class="fa-regular fa-outdent"></i>
+            </li>
+        
+
+        <!-- go comment -->
+        
+            <li class="go-comment">
+                <i class="fa-regular fa-comments"></i>
+            </li>
+        
+    </ul>
+</div>
+
+        </div>
+    
+
+    <div class="right-side-tools-container">
+        <div class="side-tools-container">
+    <ul class="hidden-tools-list">
+        <li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-plus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-minus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-expand-width flex justify-center items-center">
+            <i class="fa-regular fa-expand"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+            <i class="fa-regular fa-moon"></i>
+        </li>
+
+        <!-- rss -->
+        
+            <li class="right-bottom-tools rss flex justify-center items-center">
+                <a class="flex justify-center items-center"
+                   href="/atom.xml"
+                   target="_blank"
+                >
+                <i class="fa-regular fa-rss"></i>
+                </a>
+            </li>
+        
+
+        
+
+        <li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+            <i class="fa-regular fa-arrow-down"></i>
+        </li>
+    </ul>
+
+    <ul class="visible-tools-list">
+        <li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+            <i class="fa-regular fa-cog fa-spin"></i>
+        </li>
+        
+            <li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+                <i class="arrow-up fas fa-arrow-up"></i>
+                <span class="percent"></span>
+            </li>
+        
+        
+    </ul>
+</div>
+
+    </div>
+
+    <div class="image-viewer-container">
+    <img src="">
+</div>
+
+
+    
+        <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+          <span class="search-input-field-pre">
+            <i class="fa-solid fa-keyboard"></i>
+          </span>
+            <div class="search-input-container">
+                <input autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       placeholder="Search..."
+                       spellcheck="false"
+                       type="search"
+                       class="search-input"
+                >
+            </div>
+            <span class="popup-btn-close">
+                <i class="fa-solid fa-times"></i>
+            </span>
+        </div>
+        <div id="search-result">
+            <div id="no-result">
+                <i class="fa-solid fa-spinner fa-spin-pulse fa-5x fa-fw"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+
+</main>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Swup.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupSlideTheme.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScriptsPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupProgressPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScrollPlugin.min.js"></script>
+<script>
+    const swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+        ],
+        containers: ["#swup"],
+    });
+
+    swup.hooks.on("page:view", () => {
+        Global.refresh();
+    });
+
+    // if (document.readyState === "complete") {
+    //
+    // } else {
+    //     document.addEventListener("DOMContentLoaded", () => init());
+    // }
+</script>
+
+
+
+
+
+<script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/utils.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/main.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/navbarShrink.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/scrollTopBottom.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/lightDarkSwitch.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/categoryList.js"></script>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/localSearch.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/codeBlock.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/lazyload.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/runtime.js"></script>
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/odometer.min.js"></script>
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/assets/odometer-theme-minimal.css">
+
+
+
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Typed.min.js"></script>
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/typed.js"></script>
+
+
+
+
+
+
+<div class="post-scripts" data-swup-reload-script>
+    
+        <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/anime.min.js"></script>
+        <script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/tocToggle.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/toc.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/tabs.js"></script>
+    
+</div>
+
+
+</body>
+</html>

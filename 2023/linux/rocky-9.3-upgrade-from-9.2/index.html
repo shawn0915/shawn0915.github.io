@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="shawnyan,dba,oracle,mysql,tidb,mariadb,postgresql,gbase,proxysql">
+    
+    <meta name="author" content="Shawn Yan">
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+        
+        
+        
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://shawnyan.cn/2023/linux/rocky-9.3-upgrade-from-9.2/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+        <meta name="description" content="发版计划 前面介绍了如何安装和升级 Rocky Linux 9.2 操作系统，按照 RHEL 的发版计划，RHEL 9.3 已于 11 月 7 日发版，而 Rocky Linux 作为 RHEL 的下游，也于近日发布更新。  【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2 【Rocky 9】Step by Step 安装 Rocky">
+<meta property="og:type" content="article">
+<meta property="og:title" content="【Rocky 9】Rocky Linux 9.2 升级 9.3，及新特性实践">
+<meta property="og:url" content="https://shawnyan.cn/2023/linux/rocky-9.3-upgrade-from-9.2/index.html">
+<meta property="og:site_name" content="少安事务所">
+<meta property="og:description" content="发版计划 前面介绍了如何安装和升级 Rocky Linux 9.2 操作系统，按照 RHEL 的发版计划，RHEL 9.3 已于 11 月 7 日发版，而 Rocky Linux 作为 RHEL 的下游，也于近日发布更新。  【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2 【Rocky 9】Step by Step 安装 Rocky">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20231121-0b401079-e902-4483-b6b5-49c37d784bb0.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20231121-080b8479-a6d4-4e14-a53c-e98d3defbc54.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20231121-7f4c6bba-c4ae-4fea-8a1f-63dd485637cf.png">
+<meta property="article:published_time" content="2023-11-17T04:07:36.000Z">
+<meta property="article:modified_time" content="2023-11-21T06:33:19.000Z">
+<meta property="article:author" content="Shawn Yan">
+<meta property="article:tag" content="centos">
+<meta property="article:tag" content="redhat">
+<meta property="article:tag" content="rocky">
+<meta property="article:tag" content="linux">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20231121-0b401079-e902-4483-b6b5-49c37d784bb0.png">
+    
+    
+        <!-- Google tag (gtag.js) -->
+        <script src="https://www.googletagmanager.com/gtag/js?id=G-ZH71L5F7X2"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-ZH71L5F7X2');
+        </script>
+    
+    <!-- baidu tongji -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?2fa794d82f74c0bb3617ba62ee962b46";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/img/favicon.ico" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon.ico">
+    <meta name="theme-color" content="#767FF6">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <!--- Page Info-->
+    
+    <title>
+        
+            【Rocky 9】Rocky Linux 9.2 升级 9.3，及新特性实践 -
+        
+        少安事务所
+    </title>
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+<!--- use 2.5.0
+    
+        
+<link rel="stylesheet" href="/assets/build/styles.css">
+
+    
+-->
+    <link rel="stylesheet" href="//cdn.staticfile.org/hexo-theme-redefine/2.5.0/assets/build/styles.min.css">
+
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/fonts.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Satoshi/satoshi.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Chillax/chillax.css">
+    <!--- Font Part-->
+    
+    
+    
+    
+
+    <!--- Inject Part-->
+    
+    <script id="hexo-configurations">
+    let Global = window.Global || {};
+    Global.hexo_config = {"hostname":"shawnyan.cn","root":"/","language":"en","path":"search.xml"};
+    Global.theme_config = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":true,"list":[]},"code_block":{"copy":true,"style":"mac","font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":4,"number":false,"expand":true,"init_open":true},"copyright":true,"lazyload":true,"recommendation":{"enable":true,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#767FF6","secondary":null},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"open_graph":true,"google_analytics":{"enable":true,"id":"G-ZH71L5F7X2"},"root_color_mode":"dark"},"home_banner":{"enable":true,"style":"fixed","image":{"light":"https://asktug.com/uploads/default/original/4X/4/b/d/4bd94f804719672dd7e3cb29150ea6f777eb0aec.jpeg","dark":"/img/wallpaper/dark.webp"},"title":"Shawn Yan's Tech Blog.","subtitle":{"text":["A blog about MySQL, Oracle, TiDB, PostgreSQL and other databases."],"hitokoto":{"enable":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":500,"backing_delay":1500,"loop":true,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"links":{"github":"https://github.com/shawn0915","instagram":null,"zhihu":null,"twitter":null,"email":"admin@shawnyan.cn"},"qrs":{"weixin":null}}},"plugins":{"feed":{"enable":true},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":"回忆的沙漏 (10周年版)","artist":"回忆的沙漏 (10周年版)","url":"https://music.163.com/song/media/outer/url?id=1329122067.mp3","cover":"https://p1.music.126.net/oJorrgJ3IotZUAbZkBMuFw==/109951167771736533.jpg?param=68y68"}]},"mermaid":{"enable":false,"version":"9.3.0"}},"version":"2.4.4","navbar":{"auto_hide":false,"color":{"left":"#f78736","right":"#367df7","transparency":35},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Blog":{"path":"/archives","icon":"fa-regular fa-archive"},"Categories":{"path":"/categories","icon":"fa-regular fa-stream"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Links":{"icon":"fa-regular fa-link","submenus":{"My-params":"/my-params","Friends":"/links","Q":"/q"}}},"search":{"enable":true,"preload":true}},"page_templates":{"friends_column":3,"tags_style":"cloud"},"home":{"sidebar":{"enable":true,"position":"left","first_item":"info","announcement":null,"links":null},"article_date_format":"YYYY-MM-DD","categories":{"enable":true,"limit":10},"tags":{"enable":true,"limit":10}},"footerStart":"2017/11/27 00:00:00"};
+    Global.language_ago = {"second":"%s seconds ago","minute":"%s minutes ago","hour":"%s hours ago","day":"%s days ago","week":"%s weeks ago","month":"%s months ago","year":"%s years ago"};
+    Global.data_config = {"masonry":false};
+  </script>
+
+    <!--- Fontawesome Part-->
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/fontawesome.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/brands.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/solid.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/regular.min.css">
+    
+    
+    
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+
+
+<body>
+<div class="progress-bar-container">
+    
+
+    
+        <span class="pjax-progress-bar"></span>
+        <span class="swup-progress-icon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+    
+</div>
+
+
+<main class="page-container" id="swup">
+
+    
+
+    <div class="main-content-container">
+
+
+        <div class="main-content-header">
+            <header class="navbar-container">
+    
+    <div class="navbar-content">
+        <div class="left">
+            
+                <a class="logo-image" href="https://shawnyan.cn/">
+                    <img src="/img/favicon.ico">
+                </a>
+            
+            <a class="logo-title" href="https://shawnyan.cn/">
+                
+                少安事务所
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-house"></i>
+                                        
+                                        HOME
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/archives"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-archive"></i>
+                                        
+                                        BLOG
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/categories"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-stream"></i>
+                                        
+                                        CATEGORIES
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/tags"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-tags"></i>
+                                        
+                                        TAGS
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/about"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-user"></i>
+                                        
+                                        ABOUT
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="has-dropdown" 
+                                    href="#" onClick="return false;">
+                                    
+                                        
+                                            <i class="fa-regular fa-link"></i>
+                                        
+                                        LINKS&nbsp;<i class="fa-solid fa-chevron-down"></i>
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                                    <ul class="sub-menu">
+                                    
+                                        <li>
+                                        <a href="/my-params">MY-PARAMS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/links">FRIENDS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/q">Q
+                                        </a>
+                                        </li>
+                                    
+                                    </ul>
+                                
+                            </li>
+                    
+                    
+                        <li class="navbar-item search search-popup-trigger">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </li>
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                    <div class="icon-item search search-popup-trigger"><i class="fa-solid fa-magnifying-glass"></i></div>
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="navbar-drawer w-full absolute top-0 left-0 bg-background-color">
+        <ul class="drawer-navbar-list flex flex-col justify-start items-center">
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/"  >
+                             
+                                
+                                    <i class="fa-regular fa-house"></i>
+                                
+                                HOME
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/archives"  >
+                             
+                                
+                                    <i class="fa-regular fa-archive"></i>
+                                
+                                BLOG
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/categories"  >
+                             
+                                
+                                    <i class="fa-regular fa-stream"></i>
+                                
+                                CATEGORIES
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/tags"  >
+                             
+                                
+                                    <i class="fa-regular fa-tags"></i>
+                                
+                                TAGS
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/about"  >
+                             
+                                
+                                    <i class="fa-regular fa-user"></i>
+                                
+                                ABOUT
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group has-dropdown" 
+                        href="#" onClick="return false;">
+                            
+                                
+                                    <i class="fa-regular fa-link"></i>
+                                
+                                LINKS&nbsp;<i class="group-hover:rotate-180 transition-transform fa-solid fa-chevron-down"></i>
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                              
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/my-params">MY-PARAMS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/links">FRIENDS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/q">Q</a>
+                            </li>
+                        
+                    
+            
+
+        </ul>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+        </div>
+
+        <div class="main-content-body">
+
+            
+
+            <div class="main-content">
+
+                
+                    <div class="post-page-container">
+    <div class="article-content-container">
+
+        <div class="article-title">
+            
+                
+                
+                <!-- 2023-10-03, edit by shawnyan. -->
+                <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231121-0b401079-e902-4483-b6b5-49c37d784bb0.png" alt="【Rocky 9】Rocky Linux 9.2 升级 9.3，及新特性实践" class="max-w-none" referrerpolicy="no-referrer"/>
+                
+                <h1 class="article-title-cover">【Rocky 9】Rocky Linux 9.2 升级 9.3，及新特性实践</h1>
+            
+            </div>
+
+
+
+        
+            <div class="article-header">
+                <div class="avatar">
+                    
+                        <img src="/img/avatar.jpg">
+                    
+                </div>
+                <div class="info">
+                    <div class="author">
+                        
+                            <span class="name">ShawnYan</span>
+                        
+                        
+                            
+                                <span class="author-label">Lv.6</span>
+                            
+                        
+                    </div>
+                    <div class="meta-info">
+                        <div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2023-11-17 12:07:36</span>
+        <span class="mobile">2023-11-17 12:07:36</span>
+        <span class="hover-info">Created</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2023-11-21 14:33:19</span>
+            <span class="mobile">2023-11-21 14:33:19</span>
+            <span class="hover-info">Updated</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/red-hat/">Red Hat</a>&nbsp;
+                        </li>
+                    
+                    
+                
+                    
+                        
+                            <li>></li>
+                        
+                        <li>
+                            <a href="/categories/red-hat/rocky/">Rocky</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/centos/">centos</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/redhat/">redhat</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/rocky/">rocky</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/linux/">linux</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+        <span class="article-wordcount article-meta-item">
+            <i class="fa-regular fa-typewriter"></i>&nbsp;<span>3.2k Words</span>
+        </span>
+    
+    
+        <span class="article-min2read article-meta-item">
+            <i class="fa-regular fa-clock"></i>&nbsp;<span>17 Mins</span>
+        </span>
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+                    </div>
+                </div>
+            </div>
+        
+
+        
+
+
+        <div class="article-content markdown-body">
+            <img  alt="rocky-linux.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20231121-0b401079-e902-4483-b6b5-49c37d784bb0.png"
+                      referrerpolicy="no-referrer"
+                >
+<h2 id="发版计划">发版计划</h2>
+<p>前面介绍了如何安装和升级 Rocky Linux 9.2 操作系统，按照 RHEL 的发版计划，RHEL 9.3 已于 11 月 7 日发版，而 Rocky Linux 作为 RHEL 的下游，也于近日发布更新。</p>
+<ul>
+<li><a href="https://shawnyan.cn/2023/linux/centos-7.9-upgrade-to-rocky-9.2/">【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2</a></li>
+<li><a href="https://shawnyan.cn/2023/linux/rocky-9.2-install/">【Rocky 9】Step by Step 安装 Rocky Linux 9.2 系统</a></li>
+</ul>
+<!--
+- [【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2](https://www.modb.pro/db/1717086120041865216)
+- [【Rocky 9】Step by Step 安装 Rocky Linux 9.2 系统](https://www.modb.pro/db/1716634949384757248)
+-->
+<p>先来回顾一下 Red Hat Enterprise Linux Version 9 的生命周期。<br>
+依据官网说明，RHEL 9 每六个月发版一次，9.3 于 23 年 11 月发版，9.4 将在 24 年 2 月发布。<br>
+已发布的版本信息如下：</p>
+<table>
+<thead>
+<tr>
+<th><strong>发布版本</strong></th>
+<th><strong>GA 日期</strong></th>
+<th><strong>内核版本</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RHEL 9.3</td>
+<td>2023-11-07</td>
+<td>5.14.0-362.8.1.el9_3</td>
+</tr>
+<tr>
+<td>RHEL 9.2</td>
+<td>2023-05-10</td>
+<td>5.14.0-284.11.1.el9_2</td>
+</tr>
+<tr>
+<td>RHEL 9.1</td>
+<td>2022-11-15</td>
+<td>5.14.0-162.6.1.el9_1</td>
+</tr>
+<tr>
+<td>RHEL 9.0</td>
+<td>2022-05-17</td>
+<td>5.14.0-70.13.1.el9_0</td>
+</tr>
+</tbody>
+</table>
+<!--
+RHEL 9 发版计划
+https://access.redhat.com/support/policy/updates/errata#Full_Support_Phase
+https://access.redhat.com/articles/3078#RHEL9
+https://access.redhat.com/errata/RHBA-2023:6580
+https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/9/html/9.3_release_notes/index
+-->
+<img  alt="rhel9lifecycle.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20231121-080b8479-a6d4-4e14-a53c-e98d3defbc54.png"
+                      referrerpolicy="no-referrer"
+                >
+<h2 id="升级到-Rocky-9-3">升级到 Rocky 9.3</h2>
+<p>这里使用 <code>dnf</code> 在线升级，如果是内网用户，建议先查验 yum 源是否已更新。如果没有中央 yum 源，可以下载最新的 Rocky Linux 9.3 镜像，手动挂载，并配置本地 yum 源，然后再进行升级。</p>
+<ol>
+<li>检查当前的 Release 版本和 Kernel 版本。</li>
+</ol>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">cat /etc/redhat-release</span><br><span class="line">uname -a</span><br></pre></td></tr></table></figure></div>
+<p>输出：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ cat /etc/redhat-release</span><br><span class="line">Rocky Linux release 9.2 (Blue Onyx)</span><br><span class="line">[shawnyan@rocky9 ~]$ uname -a</span><br><span class="line">Linux rocky9.shawnyan.cn 5.14.0-284.30.1.el9_2.x86_64 #1 SMP PREEMPT_DYNAMIC Sat Sep 16 09:55:41 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux</span><br><span class="line">[shawnyan@rocky9 ~]$</span><br></pre></td></tr></table></figure></div>
+<ol start="2">
+<li>在线升级。</li>
+</ol>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dnf -y upgrade</span><br></pre></td></tr></table></figure></div>
+<p>输出日志：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ sudo dnf -y upgrade --allowerasing</span><br><span class="line">Last metadata expiration check: 0:00:19 ago on Tue 21 Nov 2023 01:33:19 PM UTC.</span><br><span class="line">Dependencies resolved.                                              </span><br><span class="line">==============================================================================================================================================</span><br><span class="line"> Package                                       Architecture          Version                     Repository                              Size</span><br><span class="line">==============================================================================================================================================</span><br><span class="line">Installing:                                                                                                   </span><br><span class="line"> kernel                                        x86_64                5.14.0-362.8.1.el9_3        baseos                                 5.1 M</span><br><span class="line">Upgrading:                                                                                                    </span><br><span class="line"> NetworkManager                                x86_64                1:1.44.0-3.el9              baseos                                 2.2 M</span><br><span class="line"> NetworkManager-adsl                           x86_64                1:1.44.0-3.el9              baseos                                  36 k</span><br><span class="line">...                                                                                                           </span><br><span class="line"> gcc                                           x86_64                11.4.1-2.1.el9              appstream                               32 M</span><br><span class="line"> gcc-c++                                       x86_64                11.4.1-2.1.el9              appstream                               13 M</span><br><span class="line"> gcc-plugin-annobin                            x86_64                11.4.1-2.1.el9              appstream                               48 k</span><br><span class="line"> gcc-toolset-12-binutils                       x86_64                2.38-19.el9                 appstream                              5.4 M</span><br><span class="line"> gcc-toolset-12-binutils-gold                  x86_64                2.38-19.el9                 appstream                              771 k</span><br><span class="line"> gdb                                           x86_64                10.2-11.el9                 appstream                              121 k</span><br><span class="line"> gdb-headless                                  x86_64                10.2-11.el9                 appstream                              3.9 M</span><br><span class="line">...                                                                                                           </span><br><span class="line"> iproute                                       x86_64                6.2.0-5.el9                 baseos                                 786 k</span><br><span class="line"> iproute-tc                                    x86_64                6.2.0-5.el9                 baseos                                 448 k</span><br><span class="line">...                                                                                                           </span><br><span class="line"> kernel-headers                                x86_64                5.14.0-362.8.1.el9_3        appstream                              6.5 M</span><br><span class="line"> kernel-srpm-macros                            noarch                1.0-13.el9                  appstream                               15 k</span><br><span class="line"> kernel-tools                                  x86_64                5.14.0-362.8.1.el9_3        baseos                                 5.3 M</span><br><span class="line"> kernel-tools-libs                             x86_64                5.14.0-362.8.1.el9_3        baseos                                 5.1 M</span><br><span class="line">...                                                                                                           </span><br><span class="line"> rocky-backgrounds                             noarch                90.14-2.el9                 appstream                               61 M</span><br><span class="line"> rocky-gpg-keys                                noarch                9.3-1.1.el9                 baseos                                  13 k</span><br><span class="line"> rocky-logos                                   x86_64                90.14-2.el9                 appstream                              715 k</span><br><span class="line"> rocky-release                                 noarch                9.3-1.1.el9                 baseos                                  23 k</span><br><span class="line"> rocky-repos                                   noarch                9.3-1.1.el9                 baseos                                  13 k</span><br><span class="line">...                                                                                                           </span><br><span class="line">Installing dependencies:                                                                                      </span><br><span class="line"> debugedit                                     x86_64                5.0-4.el9                   appstream                               76 k</span><br><span class="line"> kbd-legacy                                    noarch                2.4.0-9.el9                 baseos                                 502 k</span><br><span class="line"> kernel-core                                   x86_64                5.14.0-362.8.1.el9_3        baseos                                  20 M</span><br><span class="line"> kernel-modules                                x86_64                5.14.0-362.8.1.el9_3        baseos                                  37 M</span><br><span class="line"> kernel-modules-core                           x86_64                5.14.0-362.8.1.el9_3        baseos                                  32 M</span><br><span class="line"> libtraceevent                                 x86_64                1.5.3-3.el9                 baseos                                 213 k</span><br><span class="line"> liburing                                      x86_64                2.3-2.el9                   appstream                               26 k</span><br><span class="line"> libxcvt                                       x86_64                0.1.2-2.el9                 appstream                               13 k</span><br><span class="line">Installing weak dependencies:                                                                                 </span><br><span class="line"> kernel-devel                                  x86_64                5.14.0-362.8.1.el9_3        appstream                               20 M</span><br><span class="line">Removing dependent packages:                                                                                  </span><br><span class="line"> libstdc++-static                              x86_64                11.3.1-4.3.el9              @devel                                 6.5 M</span><br><span class="line"> libtirpc-devel                                x86_64                1.3.3-1.el9                 @devel                                 251 k</span><br><span class="line">                                                                                                              </span><br><span class="line">Transaction Summary                                                                                           </span><br><span class="line">==============================================================================================================================================</span><br><span class="line">Install   10 Packages                                                                                         </span><br><span class="line">Upgrade  459 Packages                                                                                         </span><br><span class="line">Remove     2 Packages                                                                                         </span><br><span class="line">                                                                                                              </span><br><span class="line">Total download size: 1.1 G                                                                                    </span><br><span class="line">...                                                                                                           </span><br><span class="line">----------------------------------------------------------------------------------------------------------------------------------------------</span><br><span class="line">Total                                                                                                         2.5 MB/s | 1.1 GB     07:11</span><br><span class="line">Running transaction check                                           </span><br><span class="line">Transaction check succeeded.                                           </span><br><span class="line">Running transaction test                                               </span><br><span class="line">Transaction test succeeded.                                            </span><br><span class="line">Running transaction                                                    </span><br><span class="line">  Running scriptlet: selinux-policy-targeted-38.1.23-1.el9.noarch                                                                         1/1</span><br><span class="line">  Running scriptlet: kmod-kvdo-8.2.1.6-98.el9.x86_64                                                                                      1/1</span><br><span class="line">  Preparing        :                                                                                                                      1/1</span><br><span class="line">  Upgrading        : libgcc-11.4.1-2.1.el9.x86_64                                                                                       1/930</span><br><span class="line">  Running scriptlet: libgcc-11.4.1-2.1.el9.x86_64                                                                                       1/930</span><br><span class="line">...                                                                    </span><br></pre></td></tr></table></figure></div>
+<img  alt="20231121_140107.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20231121-7f4c6bba-c4ae-4fea-8a1f-63dd485637cf.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>受系统资源和网速的影响，整个升级过程约半小时。</p>
+<ol start="3">
+<li>升级后查验。</li>
+</ol>
+<p>升级完成后，再次查看版本信息。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">cat /etc/redhat-release</span><br><span class="line">uname -a</span><br></pre></td></tr></table></figure></div>
+<p>输出：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ cat /etc/redhat-release</span><br><span class="line">Rocky Linux release 9.3 (Blue Onyx)</span><br><span class="line">[shawnyan@rocky9 ~]$ uname -a</span><br><span class="line">Linux rocky9.shawnyan.cn 5.14.0-362.8.1.el9_3.x86_64 #1 SMP PREEMPT_DYNAMIC Wed Nov 8 17:36:32 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux</span><br><span class="line">[shawnyan@rocky9 ~]$</span><br></pre></td></tr></table></figure></div>
+<h2 id="主要更新">主要更新</h2>
+<h3 id="Kernel-内核版本">Kernel 内核版本</h3>
+<p>上文的表格中已经标记了 RHEL 的内核版本，Rocky Linux 与 RHEL 保持一致，在 Rocky 9.2 中是 <code>5.14.0-284.11.1.el9_2</code>。</p>
+<p>我本地环境升级过，所以小版本号略高一点：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ uname -r</span><br><span class="line">5.14.0-284.30.1.el9_2.x86_64</span><br></pre></td></tr></table></figure></div>
+<p>而在 Rocky 9.3 中，默认的内核版本升级为 <code>5.14.0-362.8.1.el9_3</code>。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ uname -r</span><br><span class="line">5.14.0-362.8.1.el9_3.x86_64</span><br></pre></td></tr></table></figure></div>
+<h3 id="编译工具-GCC">编译工具 GCC</h3>
+<p>GCC (GNU Compiler Collection) 提供了使用C、c++ 和 Fortran 编程语言开发应用程序的工具。</p>
+<p>在 Rocky 9.2 中，GCC 工具的版本默认为 11.3.1。同时，可以通过安装 <code>gcc-toolset</code> 将其版本升级到 12。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ gcc --version</span><br><span class="line">gcc (GCC) 11.3.1 20221121 (Red Hat 11.3.1-4)</span><br><span class="line">Copyright (C) 2021 Free Software Foundation, Inc.</span><br><span class="line">This is free software; see the source for copying conditions.  There is NO</span><br><span class="line">warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.</span><br><span class="line">[shawnyan@rocky9 ~]$</span><br><span class="line">[shawnyan@rocky9 ~]$ rpm -qa | grep gcc-toolset</span><br><span class="line">gcc-toolset-12-runtime-12.0-6.el9.x86_64</span><br><span class="line">gcc-toolset-12-annobin-docs-11.08-2.el9.noarch</span><br><span class="line">gcc-toolset-12-libstdc++-devel-12.2.1-7.4.el9.x86_64</span><br><span class="line">gcc-toolset-12-binutils-gold-2.38-17.el9_2.1.x86_64</span><br><span class="line">gcc-toolset-12-binutils-2.38-17.el9_2.1.x86_64</span><br><span class="line">gcc-toolset-12-gcc-12.2.1-7.4.el9.x86_64</span><br><span class="line">gcc-toolset-12-gcc-c++-12.2.1-7.4.el9.x86_64</span><br><span class="line">gcc-toolset-12-annobin-plugin-gcc-11.08-2.el9.x86_64</span><br><span class="line">gcc-toolset-12-annobin-annocheck-11.08-2.el9.x86_64</span><br><span class="line">[shawnyan@rocky9 ~]$</span><br><span class="line">[shawnyan@rocky9 ~]$ scl enable gcc-toolset-12 bash</span><br><span class="line">[shawnyan@rocky9 ~]$ gcc --version</span><br><span class="line">gcc (GCC) 12.2.1 20221121 (Red Hat 12.2.1-7)</span><br><span class="line">Copyright (C) 2022 Free Software Foundation, Inc.</span><br><span class="line">This is free software; see the source for copying conditions.  There is NO</span><br><span class="line">warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.</span><br></pre></td></tr></table></figure></div>
+<p>在 Rocky 9.3 中，GCC 版本升级到了 11.4.1。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ gcc --version</span><br><span class="line">gcc (GCC) 11.4.1 20230605 (Red Hat 11.4.1-2)</span><br><span class="line">Copyright (C) 2021 Free Software Foundation, Inc.</span><br><span class="line">This is free software; see the source for copying conditions.  There is NO</span><br><span class="line">warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.</span><br><span class="line"></span><br><span class="line">[shawnyan@rocky9 ~]$ rpm -qa | grep gcc-toolset</span><br></pre></td></tr></table></figure></div>
+<p>同时，可以通过安装 <code>gcc-toolset</code> 将其版本升级到 13。</p>
+<ul>
+<li>安装 GCC Toolset 13</li>
+</ul>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ sudo dnf install gcc-toolset-13</span><br><span class="line">Last metadata expiration check: 0:02:04 ago on Tue 21 Nov 2023 02:06:55 PM UTC.</span><br><span class="line">Dependencies resolved.</span><br><span class="line">=========================================================================================================================</span><br><span class="line"> Package                                       Architecture       Version                    Repository             Size</span><br><span class="line">=========================================================================================================================</span><br><span class="line">Installing:</span><br><span class="line"> gcc-toolset-13                                x86_64             13.0-2.el9                 appstream             9.9 k</span><br><span class="line">Installing dependencies:</span><br><span class="line"> gcc-toolset-13-annobin-docs                   noarch             12.20-1.el9                appstream              95 k</span><br><span class="line"> gcc-toolset-13-annobin-plugin-gcc             x86_64             12.20-1.el9                appstream             960 k</span><br><span class="line"> gcc-toolset-13-binutils                       x86_64             2.40-13.el9                appstream             5.6 M</span><br><span class="line"> gcc-toolset-13-binutils-gold                  x86_64             2.40-13.el9                appstream             803 k</span><br><span class="line"> gcc-toolset-13-dwz                            x86_64             0.14-0.el9                 appstream             126 k</span><br><span class="line"> gcc-toolset-13-gcc                            x86_64             13.1.1-4.2.el9             appstream              43 M</span><br><span class="line"> gcc-toolset-13-gcc-c++                        x86_64             13.1.1-4.2.el9             appstream              13 M</span><br><span class="line"> gcc-toolset-13-gcc-gfortran                   x86_64             13.1.1-4.2.el9             appstream              14 M</span><br><span class="line"> gcc-toolset-13-gdb                            x86_64             12.1-3.el9                 appstream             4.3 M</span><br><span class="line"> gcc-toolset-13-libquadmath-devel              x86_64             13.1.1-4.2.el9             appstream             185 k</span><br><span class="line"> gcc-toolset-13-libstdc++-devel                x86_64             13.1.1-4.2.el9             appstream             3.3 M</span><br><span class="line"> gcc-toolset-13-runtime                        x86_64             13.0-2.el9                 appstream              27 k</span><br><span class="line"> libgfortran                                   x86_64             11.4.1-2.1.el9             baseos                807 k</span><br><span class="line"> libquadmath                                   x86_64             11.4.1-2.1.el9             baseos                197 k</span><br><span class="line"></span><br><span class="line">Transaction Summary</span><br><span class="line">=========================================================================================================================</span><br><span class="line">Install  15 Packages</span><br><span class="line"></span><br><span class="line">Total download size: 87 M</span><br><span class="line">Installed size: 255 M</span><br><span class="line">...</span><br><span class="line">Installed:</span><br><span class="line">  gcc-toolset-13-13.0-2.el9.x86_64                             gcc-toolset-13-annobin-docs-12.20-1.el9.noarch</span><br><span class="line">  gcc-toolset-13-annobin-plugin-gcc-12.20-1.el9.x86_64         gcc-toolset-13-binutils-2.40-13.el9.x86_64</span><br><span class="line">  gcc-toolset-13-binutils-gold-2.40-13.el9.x86_64              gcc-toolset-13-dwz-0.14-0.el9.x86_64</span><br><span class="line">  gcc-toolset-13-gcc-13.1.1-4.2.el9.x86_64                     gcc-toolset-13-gcc-c++-13.1.1-4.2.el9.x86_64</span><br><span class="line">  gcc-toolset-13-gcc-gfortran-13.1.1-4.2.el9.x86_64            gcc-toolset-13-gdb-12.1-3.el9.x86_64</span><br><span class="line">  gcc-toolset-13-libquadmath-devel-13.1.1-4.2.el9.x86_64       gcc-toolset-13-libstdc++-devel-13.1.1-4.2.el9.x86_64</span><br><span class="line">  gcc-toolset-13-runtime-13.0-2.el9.x86_64                     libgfortran-11.4.1-2.1.el9.x86_64</span><br><span class="line">  libquadmath-11.4.1-2.1.el9.x86_64</span><br><span class="line"></span><br><span class="line">Complete!</span><br><span class="line">Installed:</span><br><span class="line">  gcc-toolset-13-13.0-2.el9.x86_64                             gcc-toolset-13-annobin-docs-12.20-1.el9.noarch</span><br><span class="line">  gcc-toolset-13-annobin-plugin-gcc-12.20-1.el9.x86_64         gcc-toolset-13-binutils-2.40-13.el9.x86_64</span><br><span class="line">  gcc-toolset-13-binutils-gold-2.40-13.el9.x86_64              gcc-toolset-13-dwz-0.14-0.el9.x86_64</span><br><span class="line">  gcc-toolset-13-gcc-13.1.1-4.2.el9.x86_64                     gcc-toolset-13-gcc-c++-13.1.1-4.2.el9.x86_64</span><br><span class="line">  gcc-toolset-13-gcc-gfortran-13.1.1-4.2.el9.x86_64            gcc-toolset-13-gdb-12.1-3.el9.x86_64</span><br><span class="line">  gcc-toolset-13-libquadmath-devel-13.1.1-4.2.el9.x86_64       gcc-toolset-13-libstdc++-devel-13.1.1-4.2.el9.x86_64</span><br><span class="line">  gcc-toolset-13-runtime-13.0-2.el9.x86_64                     libgfortran-11.4.1-2.1.el9.x86_64</span><br><span class="line">  libquadmath-11.4.1-2.1.el9.x86_64</span><br><span class="line"></span><br><span class="line">Complete!</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>查看 GCC Toolset 13 安装包</li>
+</ul>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ rpm -qa | grep gcc-toolset-13</span><br><span class="line">gcc-toolset-13-runtime-13.0-2.el9.x86_64</span><br><span class="line">gcc-toolset-13-libstdc++-devel-13.1.1-4.2.el9.x86_64</span><br><span class="line">gcc-toolset-13-annobin-docs-12.20-1.el9.noarch</span><br><span class="line">gcc-toolset-13-binutils-gold-2.40-13.el9.x86_64</span><br><span class="line">gcc-toolset-13-binutils-2.40-13.el9.x86_64</span><br><span class="line">gcc-toolset-13-gcc-13.1.1-4.2.el9.x86_64</span><br><span class="line">gcc-toolset-13-libquadmath-devel-13.1.1-4.2.el9.x86_64</span><br><span class="line">gcc-toolset-13-gcc-gfortran-13.1.1-4.2.el9.x86_64</span><br><span class="line">gcc-toolset-13-gcc-c++-13.1.1-4.2.el9.x86_64</span><br><span class="line">gcc-toolset-13-annobin-plugin-gcc-12.20-1.el9.x86_64</span><br><span class="line">gcc-toolset-13-gdb-12.1-3.el9.x86_64</span><br><span class="line">gcc-toolset-13-dwz-0.14-0.el9.x86_64</span><br><span class="line">gcc-toolset-13-13.0-2.el9.x86_64</span><br><span class="line">[shawnyan@rocky9 ~]$</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>运行会话，查看 gcc 版本</li>
+</ul>
+<div class="highlight-container" data-rel="Bash"><figure class="iseeu highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ scl <span class="built_in">enable</span> gcc-toolset-13 bash</span><br><span class="line">[shawnyan@rocky9 ~]$ gcc --version</span><br><span class="line">gcc (GCC) 13.1.1 20230614 (Red Hat 13.1.1-4)</span><br><span class="line">Copyright (C) 2023 Free Software Foundation, Inc.</span><br><span class="line">This is free software; see the <span class="built_in">source</span> <span class="keyword">for</span> copying conditions.  There is NO</span><br><span class="line">warranty; not even <span class="keyword">for</span> MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.</span><br><span class="line"></span><br><span class="line">[shawnyan@rocky9 ~]$</span><br></pre></td></tr></table></figure></div>
+<!--
+The GNU Compiler Collection (GCC) provides tools for developing applications with the C, C++, and Fortran programming languages.
+
+Bugzilla:2193180
+https://bugzilla.redhat.com/show_bug.cgi?id=2193180
+
+To run a tool from GCC Toolset 13:
+$ scl enable gcc-toolset-13 tool
+To run a shell session where tool versions from GCC Toolset 13 override system versions of these tools:
+-->
+<h3 id="Java-运行环境">Java 运行环境</h3>
+<p>在 Rocky 9.2 中，appstream 仓库中包含 OpenJDK 1.8.0/11/17 三个版本。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ cat /etc/redhat-release</span><br><span class="line">Rocky Linux release 9.2 (Blue Onyx)</span><br><span class="line">[shawnyan@rocky9 ~]$ yum list java-*-openjdk</span><br><span class="line">Last metadata expiration check: 4 days, 18:16:06 ago on Sat 11 Nov 2023 08:35:35 PM UTC.</span><br><span class="line">Available Packages</span><br><span class="line">java-1.8.0-openjdk.x86_64       1:1.8.0.392.b08-3.el9               appstream</span><br><span class="line">java-11-openjdk.x86_64          1:11.0.21.0.9-2.el9                 appstream</span><br><span class="line">java-17-openjdk.x86_64          1:17.0.9.0.9-2.el9                  appstream</span><br></pre></td></tr></table></figure></div>
+<p>而在 Rocky 9.3 中，appstream 仓库新增包含了 OpenJDK 21。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ cat /etc/redhat-release</span><br><span class="line">Rocky Linux release 9.3 (Blue Onyx)</span><br><span class="line">[shawnyan@rocky9 ~]$ yum list java-*-openjdk</span><br><span class="line">Rocky Linux 9 - AppStream                                                                5.4 MB/s | 7.4 MB     00:01</span><br><span class="line">Rocky Linux 9 - BaseOS                                                                   2.5 MB/s | 2.2 MB     00:00</span><br><span class="line">Rocky Linux 9 - Extras                                                                    30 kB/s |  13 kB     00:00</span><br><span class="line">Available Packages</span><br><span class="line">java-1.8.0-openjdk.x86_64                              1:1.8.0.392.b08-3.el9                                  appstream</span><br><span class="line">java-11-openjdk.x86_64                                 1:11.0.21.0.9-2.el9                                    appstream</span><br><span class="line">java-17-openjdk.x86_64                                 1:17.0.9.0.9-2.el9                                     appstream</span><br><span class="line">java-21-openjdk.x86_64                                 1:21.0.1.0.12-3.el9                                    appstream</span><br><span class="line">[shawnyan@rocky9 ~]$</span><br></pre></td></tr></table></figure></div>
+<h3 id="DBMS-数据库">DBMS 数据库</h3>
+<p>在 Rocky 9.2 中，默认提供四种数据库： MariaDB 10.5, MySQL 8.0, PostgreSQL 13/15, Redis 6。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ cat /etc/redhat-release</span><br><span class="line">Rocky Linux release 9.2 (Blue Onyx)</span><br><span class="line">[shawnyan@rocky9 ~]$ yum list mariadb-server*</span><br><span class="line">Last metadata expiration check: 5 days, 12:24:51 ago on Sat 11 Nov 2023 08:35:35 PM UTC.</span><br><span class="line">Available Packages</span><br><span class="line">mariadb-server.x86_64                                        3:10.5.22-1.el9_2                                  appstream</span><br><span class="line">mariadb-server-galera.x86_64                                 3:10.5.22-1.el9_2                                  appstream</span><br><span class="line">mariadb-server-utils.x86_64                                  3:10.5.22-1.el9_2                                  appstream</span><br><span class="line">[shawnyan@rocky9 ~]$ yum list mysql-server*</span><br><span class="line">Last metadata expiration check: 5 days, 12:24:53 ago on Sat 11 Nov 2023 08:35:35 PM UTC.</span><br><span class="line">Available Packages</span><br><span class="line">mysql-server.x86_64                                       8.0.32-1.el9_2                                        appstream</span><br><span class="line">[shawnyan@rocky9 ~]$ yum list postgresql-server*</span><br><span class="line">Last metadata expiration check: 5 days, 12:24:58 ago on Sat 11 Nov 2023 08:35:35 PM UTC.</span><br><span class="line">Available Packages</span><br><span class="line">postgresql-server.x86_64                                        13.11-1.el9_2                                   appstream</span><br><span class="line">[shawnyan@rocky9 ~]$ dnf list redis</span><br><span class="line">Last metadata expiration check: 5 days, 13:58:28 ago on Sat 11 Nov 2023 08:35:35 PM UTC.</span><br><span class="line">Available Packages</span><br><span class="line">redis.x86_64                                            6.2.7-1.el9                                             appstream</span><br><span class="line">[shawnyan@rocky9 ~]$</span><br></pre></td></tr></table></figure></div>
+<p>升级到 Rocky 9.3 之后，由于时间关系，这四种准预装的数据库版本尚未更新。这里暂且留个 TODO，我们之后再看。</p>
+<p>此外，从 RHEL 9.2 开始，引入了 <code>postgresql:15</code> 模块流，可以通过以下方式进行安装 PG15.</p>
+<!--
+https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/9/html/configuring_and_using_database_servers/using-postgresql_configuring-and-using-database-servers
+Additional PostgreSQL versions are provided as modules with a shorter life cycle in minor releases of RHEL 9. RHEL 9.2 introduced PostgreSQL 15 as the postgresql:15 module stream. 
+-->
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ sudo dnf module install postgresql:15/server</span><br><span class="line">Last metadata expiration check: 2:39:51 ago on Fri 17 Nov 2023 07:07:33 AM UTC.</span><br><span class="line">Dependencies resolved.</span><br><span class="line">=========================================================================================================================</span><br><span class="line"> Package                          Architecture    Version                                       Repository          Size</span><br><span class="line">=========================================================================================================================</span><br><span class="line">Installing group/module packages:</span><br><span class="line"> postgresql-server                x86_64          15.3-1.module+el9.2.0+14925+a515b28a          appstream          6.1 M</span><br><span class="line">Installing dependencies:</span><br><span class="line"> postgresql                       x86_64          15.3-1.module+el9.2.0+14925+a515b28a          appstream          1.6 M</span><br><span class="line"> postgresql-private-libs          x86_64          15.3-1.module+el9.2.0+14925+a515b28a          appstream          137 k</span><br><span class="line">Installing module profiles:</span><br><span class="line"> postgresql/server</span><br><span class="line">Enabling module streams:</span><br><span class="line"> postgresql                                       15</span><br><span class="line"></span><br><span class="line">Transaction Summary</span><br><span class="line">=========================================================================================================================</span><br><span class="line">Install  3 Packages</span><br><span class="line"></span><br><span class="line">Total download size: 7.8 M</span><br><span class="line">Installed size: 32 M</span><br></pre></td></tr></table></figure></div>
+<h3 id="iproute">iproute</h3>
+<p>iproute 是高级IP路由和网络设备配置工具，包括常用的网络，如 ip, ss, tc 等。</p>
+<!--
+https://wiki.linuxfoundation.org/networking/iproute2
+-->
+<p>在 Rocky 9.2 中，iproute 的版本为 6.1.0。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ cat /etc/redhat-release</span><br><span class="line">Rocky Linux release 9.2 (Blue Onyx)</span><br><span class="line">[shawnyan@rocky9 ~]$ rpm -qa | grep iproute</span><br><span class="line">iproute-6.1.0-1.el9.x86_64</span><br><span class="line">iproute-tc-6.1.0-1.el9.x86_64</span><br><span class="line">[shawnyan@rocky9 ~]$</span><br></pre></td></tr></table></figure></div>
+<p>升级到 Rocky 9.3 后，iproute 的版本为 6.2.0。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ cat /etc/redhat-release</span><br><span class="line">Rocky Linux release 9.3 (Blue Onyx)</span><br><span class="line">[shawnyan@rocky9 ~]$ rpm -qa | grep iproute</span><br><span class="line">iproute-6.2.0-5.el9.x86_64</span><br><span class="line">iproute-tc-6.2.0-5.el9.x86_64</span><br><span class="line">[shawnyan@rocky9 ~]$</span><br></pre></td></tr></table></figure></div>
+<p>这里介绍一个新命令，<code>ip stats</code>，可以管理、显示接口状态信息，默认显示所有网络设备，包括 bridges 和 bonds，也可以通过 <code>dev</code> 和 <code>group</code> 过滤信息。</p>
+<p>例如：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ ip stats show dev ens33</span><br><span class="line">2: ens33: group offload subgroup hw_stats_info</span><br><span class="line">    l3_stats off used off</span><br><span class="line">2: ens33: group xstats_slave subgroup bond suite 802.3ad</span><br><span class="line">2: ens33: group xstats_slave subgroup bridge suite mcast</span><br><span class="line">2: ens33: group xstats_slave subgroup bridge suite stp</span><br><span class="line">2: ens33: group xstats subgroup bond suite 802.3ad</span><br><span class="line">2: ens33: group xstats subgroup bridge suite mcast</span><br><span class="line">2: ens33: group xstats subgroup bridge suite stp</span><br><span class="line">2: ens33: group afstats subgroup mpls</span><br><span class="line">2: ens33: group offload subgroup l3_stats off used off</span><br><span class="line">2: ens33: group offload subgroup cpu_hit</span><br><span class="line"></span><br><span class="line">2: ens33: group link</span><br><span class="line">    RX:  bytes packets errors dropped  missed   mcast</span><br><span class="line">     137826417   94630      0       0       0       0</span><br><span class="line">    TX:  bytes packets errors dropped carrier collsns</span><br><span class="line">       2292768   36535      0       0       0       0</span><br><span class="line">[shawnyan@rocky9 ~]$</span><br></pre></td></tr></table></figure></div>
+<!--
+iproute rebased to version 6.2.0
+
+The iproute packages have been upgraded to upstream version 6.2.0, which provides a number of enhancements and bug fixes over the previous version. The most notable changes are:
+
+    The new ip stats command manages and shows interface statistics. By default, the ip stats show command displays statistics for all network devices, including bridges and bonds. You can filter the output by using the dev and group options. For further details, see the ip-stats(8) man page.
+    The ss utility now provides the -T (--threads) option to display thread information, which extends the -p (--processes) option. For further details, see the ss(8) man page.
+    You can use the new bridge fdb flush command to remove specific forwarding database (fdb) entries which match a supplied option. For further details, see the bridge(8) man page. 
+
+Jira:RHEL-428[1] 
+-->
+<h2 id="总结">总结</h2>
+<p>本文演示了如何将 Rocky Linux 9.2 升级到 9.3，并着重介绍了几点值得一看的新特性。</p>
+<p>Rocky Linux 9.3 是 23 年发行的第二个大版本，相信已经有企业将 Rocky 9 用于生产环境。</p>
+<p>关于 Rocky 9 的更多分享，还将继续。</p>
+<hr>
+<p><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/1726849694440185856" >https://www.modb.pro/db/1726849694440185856 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+
+        </div>
+
+        
+            <div class="post-copyright-info">
+                <div class="article-copyright-info-container">
+    <ul>
+    <!-- 2023-10-03, edit by shawnyan. -->
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Title:</strong> 【Rocky 9】Rocky Linux 9.2 升级 9.3，及新特性实践</li>
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Author:</strong>
+            
+                ShawnYan
+            
+        </li>
+        <li><strong>Created at:</strong> 2023-11-17 12:07:36</li>
+        
+            <li><strong>Updated at:</strong> 2023-11-21 14:33:19</li>
+        
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Link:</strong> https://shawnyan.cn/2023/linux/rocky-9.3-upgrade-from-9.2/</li>
+        <li style="word-wrap: break-word; white-space: normal;">
+            <strong>
+                License:
+            </strong>
+            
+            This work is licensed under <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>.
+            
+
+        </li>
+    </ul>
+</div>
+
+            </div>
+        
+
+        
+            <ul class="post-tags-box">
+                
+                    <li class="tag-item">
+                        <a href="/tags/centos/">#centos</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/redhat/">#redhat</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/rocky/">#rocky</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/linux/">#linux</a>&nbsp;
+                    </li>
+                
+            </ul>
+        
+
+        
+  <div class="recommended-article">
+   <div class="recommended-desktop">
+    <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+    </div>
+    <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/linux/centos-7.9-upgrade-to-rocky-9.2/" title="【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231024-387674d4-6bf9-4517-bb04-e0c9212ceae4.png" alt="【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2" class="!max-w-none">
+  <span class="title">【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2</span>
+</a><a class="recommended-article-item" href="/2023/postgresql/pg-15-install-on-rocky-9/" title="【PG15】在 Rocky 9 上安装 PostgreSQL 15 的五种方法（总有一个你没用过🤪）" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG15】在 Rocky 9 上安装 PostgreSQL 15 的五种方法（总有一个你没用过🤪）" class="!max-w-none">
+  <span class="title">【PG15】在 Rocky 9 上安装 PostgreSQL 15 的五种方法（总有一个你没用过🤪）</span>
+</a><a class="recommended-article-item" href="/2023/stonedb/stonedb-8.0-v2.2.0-ee/" title="StoneDB 企业版 8.0-v2.2.0 初体验" rel="bookmark">
+  <img src="/img/head/dophin.jpeg" alt="StoneDB 企业版 8.0-v2.2.0 初体验" class="!max-w-none">
+  <span class="title">StoneDB 企业版 8.0-v2.2.0 初体验</span>
+</a></div>
+   </div>
+   <div class="recommended-mobile">
+   <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+   </div>
+   <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/linux/centos-7.9-upgrade-to-rocky-9.2/" title="【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231024-387674d4-6bf9-4517-bb04-e0c9212ceae4.png" alt="【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2" class="!max-w-none">
+  <span class="title">【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2</span>
+</a><a class="recommended-article-item" href="/2023/postgresql/pg-15-install-on-rocky-9/" title="【PG15】在 Rocky 9 上安装 PostgreSQL 15 的五种方法（总有一个你没用过🤪）" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20231002-8a28c62d-f381-4a47-87fa-de2625adb2b5.png" alt="【PG15】在 Rocky 9 上安装 PostgreSQL 15 的五种方法（总有一个你没用过🤪）" class="!max-w-none">
+  <span class="title">【PG15】在 Rocky 9 上安装 PostgreSQL 15 的五种方法（总有一个你没用过🤪）</span>
+</a></div>
+   </div>
+  </div>
+
+        
+            <div class="article-nav">
+                
+                    <div class="article-prev">
+                        <a class="prev"
+                        rel="prev"
+                        href="/2023/tidb/tidb-talk-record-rakuten/"
+                        >
+                            <span class="left arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </span>
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">记 Rakuten 技术分享会</span>
+                                <span class="post-nav-item">Prev posts</span>
+                            </span>
+                        </a>
+                    </div>
+                
+                
+                    <div class="article-next">
+                        <a class="next"
+                        rel="next"
+                        href="/2023/other/my-articles-2023/"
+                        >
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">【合集】2023 年文章清单</span>
+                                <span class="post-nav-item">Next posts</span>
+                            </span>
+                            <span class="right arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </a>
+                    </div>
+                
+            </div>
+        
+
+
+        
+            <div class="comment-container">
+                <div class="comments-container pjax">
+    <div id="comment-anchor"></div>
+    <div class="comment-area-title">
+        <i class="fa-solid fa-comments"></i>&nbsp;Comments
+    </div>
+    
+
+        
+            
+    <div id="gitalk-container"></div>
+    <script data-swup-reload-script
+            src="//cdn.staticfile.org/gitalk/1.8.0/gitalk.min.js"></script>
+    <script data-swup-reload-script>
+
+        function loadGitalk() {
+            let __gitalk__pathname = decodeURI(location.pathname);
+            const __gitalk__pathnameLength = __gitalk__pathname.length;
+            const __gitalk__pathnameMaxLength = 50;
+            if (__gitalk__pathnameLength > __gitalk__pathnameMaxLength) {
+                __gitalk__pathname = __gitalk__pathname.substring(0, __gitalk__pathnameMaxLength - 3) + '...';
+            }
+
+            try {
+                Gitalk && new Gitalk({
+                    clientID: '32d049bf3701e6791070',
+                    clientSecret: '36c295ad3dad4c739b530ef113d0a979d8c35c5d',
+                    repo: 'gitalk',
+                    owner: 'shawn0915',
+                    admin: ['shawn0915'],
+                    id: __gitalk__pathname,
+                    language: 'en'
+                }).render('gitalk-container');
+
+            } catch (e) {
+                window.Gitalk = null;
+            }
+        }
+
+        if ('true') {
+            const loadGitalkTimeout = setTimeout(() => {
+                loadGitalk();
+                clearTimeout(loadGitalkTimeout);
+            }, 1000);
+        } else {
+            window.addEventListener('DOMContentLoaded', loadGitalk);
+        }
+    </script>
+
+
+
+        
+    
+</div>
+
+            </div>
+        
+    </div>
+
+    
+        <div class="toc-content-container">
+            <div class="post-toc-wrap">
+    <div class="post-toc">
+        <div class="toc-title">On this page</div>
+<!--         <div class="page-title">【Rocky 9】Rocky Linux 9.2 升级 9.3，及新特性实践</div> -->
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%91%E7%89%88%E8%AE%A1%E5%88%92"><span class="nav-text">发版计划</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%87%E7%BA%A7%E5%88%B0-Rocky-9-3"><span class="nav-text">升级到 Rocky 9.3</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%BB%E8%A6%81%E6%9B%B4%E6%96%B0"><span class="nav-text">主要更新</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Kernel-%E5%86%85%E6%A0%B8%E7%89%88%E6%9C%AC"><span class="nav-text">Kernel 内核版本</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BC%96%E8%AF%91%E5%B7%A5%E5%85%B7-GCC"><span class="nav-text">编译工具 GCC</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Java-%E8%BF%90%E8%A1%8C%E7%8E%AF%E5%A2%83"><span class="nav-text">Java 运行环境</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#DBMS-%E6%95%B0%E6%8D%AE%E5%BA%93"><span class="nav-text">DBMS 数据库</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#iproute"><span class="nav-text">iproute</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-text">总结</span></a></li></ol>
+
+    </div>
+</div>
+
+        </div>
+    
+</div>
+
+
+
+                
+
+            </div>
+
+            
+
+        </div>
+
+        <div class="main-content-footer">
+            <footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2017</span>
+              -
+            
+            2024&nbsp;&nbsp;<i class="fa-solid fa-heart fa-beat" style="--fa-animation-duration: 0.5s; color: #f54545"></i>&nbsp;&nbsp;<a href="/">Shawn Yan</a>
+        </div>
+        
+            <script data-swup-reload-script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">VISITOR COUNT</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">TOTAL PAGE VIEWS</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">POWERED BY <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a></span>
+            <span class="text-sm lg:block">THEME&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.4.4</a></span>
+        </div>
+        
+        
+            <div>
+                Blog up for <span class="odometer" id="runtime_days" ></span> days <span class="odometer" id="runtime_hours"></span> hrs <span class="odometer" id="runtime_minutes"></span> Min <span class="odometer" id="runtime_seconds"></span> Sec
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+
+    </div>
+</footer>
+
+        </div>
+    </div>
+
+    
+        <div class="post-tools">
+            <div class="post-tools-container">
+    <ul class="article-tools-list">
+        <!-- TOC aside toggle -->
+        
+            <li class="right-bottom-tools page-aside-toggle">
+                <i class="fa-regular fa-outdent"></i>
+            </li>
+        
+
+        <!-- go comment -->
+        
+            <li class="go-comment">
+                <i class="fa-regular fa-comments"></i>
+            </li>
+        
+    </ul>
+</div>
+
+        </div>
+    
+
+    <div class="right-side-tools-container">
+        <div class="side-tools-container">
+    <ul class="hidden-tools-list">
+        <li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-plus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-minus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-expand-width flex justify-center items-center">
+            <i class="fa-regular fa-expand"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+            <i class="fa-regular fa-moon"></i>
+        </li>
+
+        <!-- rss -->
+        
+            <li class="right-bottom-tools rss flex justify-center items-center">
+                <a class="flex justify-center items-center"
+                   href="/atom.xml"
+                   target="_blank"
+                >
+                <i class="fa-regular fa-rss"></i>
+                </a>
+            </li>
+        
+
+        
+
+        <li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+            <i class="fa-regular fa-arrow-down"></i>
+        </li>
+    </ul>
+
+    <ul class="visible-tools-list">
+        <li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+            <i class="fa-regular fa-cog fa-spin"></i>
+        </li>
+        
+            <li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+                <i class="arrow-up fas fa-arrow-up"></i>
+                <span class="percent"></span>
+            </li>
+        
+        
+    </ul>
+</div>
+
+    </div>
+
+    <div class="image-viewer-container">
+    <img src="">
+</div>
+
+
+    
+        <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+          <span class="search-input-field-pre">
+            <i class="fa-solid fa-keyboard"></i>
+          </span>
+            <div class="search-input-container">
+                <input autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       placeholder="Search..."
+                       spellcheck="false"
+                       type="search"
+                       class="search-input"
+                >
+            </div>
+            <span class="popup-btn-close">
+                <i class="fa-solid fa-times"></i>
+            </span>
+        </div>
+        <div id="search-result">
+            <div id="no-result">
+                <i class="fa-solid fa-spinner fa-spin-pulse fa-5x fa-fw"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+
+</main>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Swup.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupSlideTheme.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScriptsPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupProgressPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScrollPlugin.min.js"></script>
+<script>
+    const swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+        ],
+        containers: ["#swup"],
+    });
+
+    swup.hooks.on("page:view", () => {
+        Global.refresh();
+    });
+
+    // if (document.readyState === "complete") {
+    //
+    // } else {
+    //     document.addEventListener("DOMContentLoaded", () => init());
+    // }
+</script>
+
+
+
+
+
+<script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/utils.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/main.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/navbarShrink.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/scrollTopBottom.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/lightDarkSwitch.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/categoryList.js"></script>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/localSearch.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/codeBlock.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/lazyload.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/runtime.js"></script>
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/odometer.min.js"></script>
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/assets/odometer-theme-minimal.css">
+
+
+
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Typed.min.js"></script>
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/typed.js"></script>
+
+
+
+
+
+
+<div class="post-scripts" data-swup-reload-script>
+    
+        <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/anime.min.js"></script>
+        <script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/tocToggle.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/toc.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/tabs.js"></script>
+    
+</div>
+
+
+</body>
+</html>

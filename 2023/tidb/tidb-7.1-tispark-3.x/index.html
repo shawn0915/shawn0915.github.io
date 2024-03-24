@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="shawnyan,dba,oracle,mysql,tidb,mariadb,postgresql,gbase,proxysql">
+    
+    <meta name="author" content="Shawn Yan">
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+        
+        
+        
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://shawnyan.cn/2023/tidb/tidb-7.1-tispark-3.x/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+        <meta name="description" content="TiDB 6.x in Action  已经发布一年了，去年撰写的 TiSpark 实践  文章便有一篇收录其中，一年时间过去了，TiSpark 版本也从当时的 v3.0.0 升到了现在的 v3.2.2，本文将综合浅析这些版本带来的诸多变化。  图 -- TiSpark v3.x New Feature Mind Map 发版时间表 从去年六月至今，TiSpark v3.x 系列已经发布了 11">
+<meta property="og:type" content="article">
+<meta property="og:title" content="TiDB 7.1.0 LTS 特性解读 | 浅析 TiSpark v3.x 新变化">
+<meta property="og:url" content="https://shawnyan.cn/2023/tidb/tidb-7.1-tispark-3.x/index.html">
+<meta property="og:site_name" content="少安事务所">
+<meta property="og:description" content="TiDB 6.x in Action  已经发布一年了，去年撰写的 TiSpark 实践  文章便有一篇收录其中，一年时间过去了，TiSpark 版本也从当时的 v3.0.0 升到了现在的 v3.2.2，本文将综合浅析这些版本带来的诸多变化。  图 -- TiSpark v3.x New Feature Mind Map 发版时间表 从去年六月至今，TiSpark v3.x 系列已经发布了 11">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png">
+<meta property="og:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/02-1690214631542.png">
+<meta property="og:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/03-1690214637246.png">
+<meta property="og:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/04-1690214643114.png">
+<meta property="og:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/05-1690214648656.png">
+<meta property="og:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/06-1690214656896.png">
+<meta property="og:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/07-1690214668408.png">
+<meta property="og:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/08-1690214673674.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg">
+<meta property="article:published_time" content="2023-07-24T14:40:56.000Z">
+<meta property="article:modified_time" content="2023-07-24T14:40:56.000Z">
+<meta property="article:author" content="Shawn Yan">
+<meta property="article:tag" content="python">
+<meta property="article:tag" content="tidb">
+<meta property="article:tag" content="tispark">
+<meta property="article:tag" content="spark">
+<meta property="article:tag" content="tidb 7.x">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png">
+    
+    
+        <!-- Google tag (gtag.js) -->
+        <script src="https://www.googletagmanager.com/gtag/js?id=G-ZH71L5F7X2"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-ZH71L5F7X2');
+        </script>
+    
+    <!-- baidu tongji -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?2fa794d82f74c0bb3617ba62ee962b46";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/img/favicon.ico" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon.ico">
+    <meta name="theme-color" content="#767FF6">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <!--- Page Info-->
+    
+    <title>
+        
+            TiDB 7.1.0 LTS 特性解读 | 浅析 TiSpark v3.x 新变化 -
+        
+        少安事务所
+    </title>
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+<!--- use 2.5.0
+    
+        
+<link rel="stylesheet" href="/assets/build/styles.css">
+
+    
+-->
+    <link rel="stylesheet" href="//cdn.staticfile.org/hexo-theme-redefine/2.5.0/assets/build/styles.min.css">
+
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/fonts.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Satoshi/satoshi.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Chillax/chillax.css">
+    <!--- Font Part-->
+    
+    
+    
+    
+
+    <!--- Inject Part-->
+    
+    <script id="hexo-configurations">
+    let Global = window.Global || {};
+    Global.hexo_config = {"hostname":"shawnyan.cn","root":"/","language":"en","path":"search.xml"};
+    Global.theme_config = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":true,"list":[]},"code_block":{"copy":true,"style":"mac","font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":4,"number":false,"expand":true,"init_open":true},"copyright":true,"lazyload":true,"recommendation":{"enable":true,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#767FF6","secondary":null},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"open_graph":true,"google_analytics":{"enable":true,"id":"G-ZH71L5F7X2"},"root_color_mode":"dark"},"home_banner":{"enable":true,"style":"fixed","image":{"light":"https://asktug.com/uploads/default/original/4X/4/b/d/4bd94f804719672dd7e3cb29150ea6f777eb0aec.jpeg","dark":"/img/wallpaper/dark.webp"},"title":"Shawn Yan's Tech Blog.","subtitle":{"text":["A blog about MySQL, Oracle, TiDB, PostgreSQL and other databases."],"hitokoto":{"enable":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":500,"backing_delay":1500,"loop":true,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"links":{"github":"https://github.com/shawn0915","instagram":null,"zhihu":null,"twitter":null,"email":"admin@shawnyan.cn"},"qrs":{"weixin":null}}},"plugins":{"feed":{"enable":true},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":"回忆的沙漏 (10周年版)","artist":"回忆的沙漏 (10周年版)","url":"https://music.163.com/song/media/outer/url?id=1329122067.mp3","cover":"https://p1.music.126.net/oJorrgJ3IotZUAbZkBMuFw==/109951167771736533.jpg?param=68y68"}]},"mermaid":{"enable":false,"version":"9.3.0"}},"version":"2.4.4","navbar":{"auto_hide":false,"color":{"left":"#f78736","right":"#367df7","transparency":35},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Blog":{"path":"/archives","icon":"fa-regular fa-archive"},"Categories":{"path":"/categories","icon":"fa-regular fa-stream"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Links":{"icon":"fa-regular fa-link","submenus":{"My-params":"/my-params","Friends":"/links","Q":"/q"}}},"search":{"enable":true,"preload":true}},"page_templates":{"friends_column":3,"tags_style":"cloud"},"home":{"sidebar":{"enable":true,"position":"left","first_item":"info","announcement":null,"links":null},"article_date_format":"YYYY-MM-DD","categories":{"enable":true,"limit":10},"tags":{"enable":true,"limit":10}},"footerStart":"2017/11/27 00:00:00"};
+    Global.language_ago = {"second":"%s seconds ago","minute":"%s minutes ago","hour":"%s hours ago","day":"%s days ago","week":"%s weeks ago","month":"%s months ago","year":"%s years ago"};
+    Global.data_config = {"masonry":false};
+  </script>
+
+    <!--- Fontawesome Part-->
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/fontawesome.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/brands.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/solid.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/regular.min.css">
+    
+    
+    
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+
+
+<body>
+<div class="progress-bar-container">
+    
+
+    
+        <span class="pjax-progress-bar"></span>
+        <span class="swup-progress-icon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+    
+</div>
+
+
+<main class="page-container" id="swup">
+
+    
+
+    <div class="main-content-container">
+
+
+        <div class="main-content-header">
+            <header class="navbar-container">
+    
+    <div class="navbar-content">
+        <div class="left">
+            
+                <a class="logo-image" href="https://shawnyan.cn/">
+                    <img src="/img/favicon.ico">
+                </a>
+            
+            <a class="logo-title" href="https://shawnyan.cn/">
+                
+                少安事务所
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-house"></i>
+                                        
+                                        HOME
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/archives"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-archive"></i>
+                                        
+                                        BLOG
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/categories"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-stream"></i>
+                                        
+                                        CATEGORIES
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/tags"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-tags"></i>
+                                        
+                                        TAGS
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/about"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-user"></i>
+                                        
+                                        ABOUT
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="has-dropdown" 
+                                    href="#" onClick="return false;">
+                                    
+                                        
+                                            <i class="fa-regular fa-link"></i>
+                                        
+                                        LINKS&nbsp;<i class="fa-solid fa-chevron-down"></i>
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                                    <ul class="sub-menu">
+                                    
+                                        <li>
+                                        <a href="/my-params">MY-PARAMS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/links">FRIENDS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/q">Q
+                                        </a>
+                                        </li>
+                                    
+                                    </ul>
+                                
+                            </li>
+                    
+                    
+                        <li class="navbar-item search search-popup-trigger">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </li>
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                    <div class="icon-item search search-popup-trigger"><i class="fa-solid fa-magnifying-glass"></i></div>
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="navbar-drawer w-full absolute top-0 left-0 bg-background-color">
+        <ul class="drawer-navbar-list flex flex-col justify-start items-center">
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/"  >
+                             
+                                
+                                    <i class="fa-regular fa-house"></i>
+                                
+                                HOME
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/archives"  >
+                             
+                                
+                                    <i class="fa-regular fa-archive"></i>
+                                
+                                BLOG
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/categories"  >
+                             
+                                
+                                    <i class="fa-regular fa-stream"></i>
+                                
+                                CATEGORIES
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/tags"  >
+                             
+                                
+                                    <i class="fa-regular fa-tags"></i>
+                                
+                                TAGS
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/about"  >
+                             
+                                
+                                    <i class="fa-regular fa-user"></i>
+                                
+                                ABOUT
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group has-dropdown" 
+                        href="#" onClick="return false;">
+                            
+                                
+                                    <i class="fa-regular fa-link"></i>
+                                
+                                LINKS&nbsp;<i class="group-hover:rotate-180 transition-transform fa-solid fa-chevron-down"></i>
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                              
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/my-params">MY-PARAMS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/links">FRIENDS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/q">Q</a>
+                            </li>
+                        
+                    
+            
+
+        </ul>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+        </div>
+
+        <div class="main-content-body">
+
+            
+
+            <div class="main-content">
+
+                
+                    <div class="post-page-container">
+    <div class="article-content-container">
+
+        <div class="article-title">
+            
+                
+                
+                <!-- 2023-10-03, edit by shawnyan. -->
+                <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png" alt="TiDB 7.1.0 LTS 特性解读 | 浅析 TiSpark v3.x 新变化" class="max-w-none" referrerpolicy="no-referrer"/>
+                
+                <h1 class="article-title-cover">TiDB 7.1.0 LTS 特性解读 | 浅析 TiSpark v3.x 新变化</h1>
+            
+            </div>
+
+
+
+        
+            <div class="article-header">
+                <div class="avatar">
+                    
+                        <img src="/img/avatar.jpg">
+                    
+                </div>
+                <div class="info">
+                    <div class="author">
+                        
+                            <span class="name">ShawnYan</span>
+                        
+                        
+                            
+                                <span class="author-label">Lv.6</span>
+                            
+                        
+                    </div>
+                    <div class="meta-info">
+                        <div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2023-07-24 22:40:56</span>
+        <span class="mobile">2023-07-24 22:40:56</span>
+        <span class="hover-info">Created</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2023-07-24 22:40:56</span>
+            <span class="mobile">2023-07-24 22:40:56</span>
+            <span class="hover-info">Updated</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/tidb/">TiDB</a>&nbsp;
+                        </li>
+                    
+                    
+                
+                    
+                        
+                            <li>></li>
+                        
+                        <li>
+                            <a href="/categories/tidb/tidb-7-x/">TiDB 7.x</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/python/">python</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/tidb/">tidb</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/tispark/">tispark</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/spark/">spark</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/tidb-7-x/">tidb 7.x</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+        <span class="article-wordcount article-meta-item">
+            <i class="fa-regular fa-typewriter"></i>&nbsp;<span>3.1k Words</span>
+        </span>
+    
+    
+        <span class="article-min2read article-meta-item">
+            <i class="fa-regular fa-clock"></i>&nbsp;<span>14 Mins</span>
+        </span>
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+                    </div>
+                </div>
+            </div>
+        
+
+        
+
+
+        <div class="article-content markdown-body">
+            <img  alt="tidb-7.x-new-feature-banner.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png"
+                      referrerpolicy="no-referrer"
+                >
+<p><a class="link"   target="_blank" rel="noopener" href="https://tidb.net/book/book-rush" >TiDB 6.x in Action <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 已经发布一年了，去年撰写的 <a class="link"   target="_blank" rel="noopener" href="https://tidb.net/book/book-rush/best-practice/tispark-practice/" >TiSpark 实践 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 文章便有一篇收录其中，一年时间过去了，TiSpark 版本也从当时的 v3.0.0 升到了现在的 v3.2.2，本文将综合浅析这些版本带来的诸多变化。</p>
+<img  alt="02.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/02-1690214631542.png"
+                      referrerpolicy="no-referrer"
+                >
+图 -- TiSpark v3.x New Feature Mind Map
+<h2 id="发版时间表">发版时间表</h2>
+<p>从去年六月至今，TiSpark v3.x 系列已经发布了 11 个版本。目前，最新版本为 TiSpark v3.2.2。从 TiSpark 3.0 开始，全部使用 Scala 2.12 (2.12.10) 版本，不再支持 Scala 2.11。具体各版本的发版时间参见下表。</p>
+<img  alt="03.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/03-1690214637246.png"
+                      referrerpolicy="no-referrer"
+                >
+<h2 id="TiSpark-新变化">TiSpark 新变化</h2>
+<h3 id="Spark-兼容性">Spark 兼容性</h3>
+<p>从 TiSpark 3.1 开始，支持 Spark 3.0 ~ 3.3。不过各个小版本对 Spark 的依赖还是有略微区别，主要在于 Spark 的版本升级和安全威胁 (Vulnerabilities) 解决情况。具体信息参加下表。</p>
+<img  alt="04.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/04-1690214643114.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>对比最新 Spark 的 Release 和 Vulnerability 信息，笔者推测近期 TiSpark 或将支持 Spark v3.4.1 及 Scala 2.13.x，并升级大版本号到 TiSpark v3.3.x。</p>
+<img  alt="05.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/05-1690214648656.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>需要注意的是，在开始使用 TiSpark 之前，建议检查各组件的版本匹配情况，例如，目前尚不建议使用更高版本的 Scala 和 Spark，不然或可看到如下报错信息。(<a class="link"   target="_blank" rel="noopener" href="https://asktug.com/t/topic/1009677" >1009677 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>)</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">shawnyan@centos7:~/spark-3.3.2-bin-hadoop3-scala2.13/conf$ pyspark</span><br><span class="line">Python 3.6.8 (default, Nov 16 2020, 16:55:22)</span><br><span class="line">[GCC 4.8.5 20150623 (Red Hat 4.8.5-44)] on linux</span><br><span class="line">Type &quot;help&quot;, &quot;copyright&quot;, &quot;credits&quot; or &quot;license&quot; for more information.</span><br><span class="line">Setting default log level to &quot;WARN&quot;.</span><br><span class="line">To adjust logging level use sc.setLogLevel(newLevel). For SparkR, use setLogLevel(newLevel).</span><br><span class="line">23/07/18 17:18:15 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable</span><br><span class="line">23/07/18 17:18:16 WARN SparkSession: Cannot use org.apache.spark.sql.TiExtensions to configure session extensions.</span><br><span class="line">java.lang.NoClassDefFoundError: Could not initialize class com.pingcap.tispark.TiSparkInfo$</span><br><span class="line">        at org.apache.spark.sql.TiExtensions.apply(TiExtensions.scala:39)</span><br><span class="line">        at org.apache.spark.sql.TiExtensions.apply(TiExtensions.scala:35)</span><br><span class="line">...</span><br></pre></td></tr></table></figure></div>
+<h3 id="Jar-包命名">Jar 包命名</h3>
+<p>从 TiSpark v3.0.0 (<a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/pull/2370" >#2370 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>) 开始，对 TiSpark Jar 包的命名格式做了调整，更加规范，也便于选择。</p>
+<p>// 题外话，放心地直接选择最新版本的 TiSpark 就好了。</p>
+<p>变更后的格式为 <code>tispark-assembly-$&#123;spark.version.release&#125;_$&#123;scala.version.release&#125;</code>，例如 <code>tispark-assembly-3.3_2.12-3.2.2.jar</code> 表示 TiSpark v3.2.2 版本，支持 Spark v3.3.x，使用 Scala 2.12.x。</p>
+<h3 id="Jar-包大小-tikv-client-java">Jar 包大小 &amp; tikv-client-java</h3>
+<p>在查看 TiSpark 的 Release Notes 过程中发现，Assets 里 TiSpark v3.1.3 的 Jar 包大小还是 34 M，但是 v3.2.0 的 Jar 包大小已经变成了 50 M，关于此问题还开贴记录了一下 <a class="link"   target="_blank" rel="noopener" href="https://asktug.com/t/topic/1008839" >tispark package size 问题 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 。<br>
+后来倒推了一下 commit 记录，发现了对应的 PR <a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/pull/2491" >[GSOC2022]REFACTOR—Normalize pdclient to client-java #2491 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 。又仔细盘点 Release Notes 才发现与之对应的记录。</p>
+<blockquote>
+<p>v3.2.2: uprade client-java version to 3.3.5 to fix fail to query from TiFlash in (#2715) by @ti-chi-bot in #2716<br>
+v3.2.1: update client-java version to 3.3.4 (#2695) by @ti-chi-bot in #2696<br>
+v3.2.0: Normalize the Java client in TiSpark and use the official client-java #2491</p>
+</blockquote>
+<p>也就是说，TiSpark 从 v3.2 开始，直接引入了完整的 <a class="link"   target="_blank" rel="noopener" href="https://github.com/tikv/client-java" >client-java <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 作为依赖，而且在 TiSpark v3.2.2 中使用的是最新版本 TiKV client-java <a class="link"   target="_blank" rel="noopener" href="https://github.com/tikv/client-java/releases/tag/v3.3.5" >v3.3.5 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a><br>
+关于这项变更，在代码的设计文档里有专门说明：<a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/blob/master/docs/design/2022-08-11-normalize-client.md" >2022-08-11-normalize-client <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<h3 id="mysql-connector-java">mysql-connector-java</h3>
+<p>与 tikv-client-java 的情况相反，由于 mysql-connector-java 所使用的 License (GPLv2) 的特殊性 ，被从 TiSpark 的依赖中移除了，使用时需要自行导入。<br>
+以本文为例，<code>mysql-connector-j.jar</code> 放在 <code>~/spark-3.3.1-bin-hadoop2/jars</code> 路径下。</p>
+<blockquote>
+<p>v3.1.0, v3.0.2<br>
+We will not provide the mysql-connector-java dependency because of the limit of the GPL license #2457, #2460</p>
+</blockquote>
+<p>相关内容在官方文档中也有表述：<a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/dev/tispark-overview#%E8%8E%B7%E5%8F%96-mysql-connector-j" >获取 mysql-connector-j <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<p>！Tips:</p>
+<ol>
+<li>
+<p>在最新版的 TiSpark v3.2.2 中，引用的依赖是 <a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/blob/v3.2.2/pom.xml#L87C17" >mysql-connector-java 8.0.29 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> ，而 MySQL Connector/J 最新版为 <a class="link"   target="_blank" rel="noopener" href="https://dev.mysql.com/downloads/connector/j/" >8.0.33 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 。实际测试过程中直接使用 8.0.33 也没有问题。</p>
+</li>
+<li>
+<p>MySQL Connector/J 的 Class 名由 <code>com.mysql.jdbc.Driver</code> 改为 <code>com.mysql.cj.jdbc.Driver</code>，如果依旧使用旧名称 Connector 会弹出告警信息，不过基本没影响，毕竟这告警已经存在 8 年了。</p>
+</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Loading class `com.mysql.jdbc.Driver&#x27;. This is deprecated. The new driver class is `com.mysql.cj.jdbc.Driver&#x27;. </span><br><span class="line">The driver is automatically registered via the SPI and manual loading of the driver class is generally unnecessary.</span><br></pre></td></tr></table></figure></div>
+<ol start="3">
+<li>如果没导入 jdbc 会报错：</li>
+</ol>
+<div class="highlight-container" data-rel="Python"><figure class="iseeu highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;&gt;&gt; </span>df=spark.read.<span class="built_in">format</span>(<span class="string">&quot;jdbc&quot;</span>).options(url=url,</span><br><span class="line"><span class="meta">... </span>  driver=<span class="string">&quot;com.mysql.jdbc.Driver&quot;</span>,</span><br><span class="line"><span class="meta">... </span>  dbtable=<span class="string">&quot;t1&quot;</span></span><br><span class="line"><span class="meta">... </span>  ).load()</span><br><span class="line">Traceback (most recent call last):</span><br><span class="line">...</span><br><span class="line">  File <span class="string">&quot;/home/shawnyan/spark-3.3.1-bin-hadoop2/python/lib/py4j-0.10.9.5-src.zip/py4j/protocol.py&quot;</span>, line <span class="number">328</span>, <span class="keyword">in</span> get_return_value</span><br><span class="line">py4j.protocol.Py4JJavaError: An error occurred <span class="keyword">while</span> calling o51.load.</span><br><span class="line">: java.lang.ClassNotFoundException: com.mysql.jdbc.Driver</span><br><span class="line">        at java.net.URLClassLoader.findClass(URLClassLoader.java:<span class="number">382</span>)</span><br><span class="line">...</span><br></pre></td></tr></table></figure></div>
+<h3 id="TiDB-兼容性">TiDB 兼容性</h3>
+<p>在 <a href="https://shawnyan.cn/2022/tidb/tidb-6.0-tispark-guide/#TiSpark-%E7%89%88%E6%9C%AC%E8%AF%B4%E6%98%8E">TiSpark v2.5 开发入门实践及 TiSpark v3.0.0 新功能解读</a> 文中已经提及，从 TiSpark 2.4.0 开始支持 TiDB 5.0，目前 TiDB 版本已发布至 7.1 LTS，下图显示了 TiSpark 对 TiDB 版本的支持情况，数据均来自于 TiSpark Release Notes。</p>
+<img  alt="06.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/06-1690214656896.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>从 TiDB 6.0 开始有一项非常特殊的变化，默认启用新字符校验规则，具体在文章 <a href="https://shawnyan.cn/2022/tidb/tidb-6.0-new-collation/">TiDB 6.0 新特性解读 | Collation 规则</a> 中有表述。</p>
+<p>TiSpark 从 v3.1 开始兼容新字符校验规则，换言之，如果使用 TiDB 6.0 及以上版本，并启用了新 Collation 规则，建议将 TiSpark 升级到 v3.1 及以上版本。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">TiDB<span class="operator">&gt;</span> <span class="keyword">show</span> config <span class="keyword">where</span> name <span class="keyword">like</span> <span class="string">&#x27;new_collations_enabled_on_first_bootstrap&#x27;</span>;</span><br><span class="line"><span class="operator">+</span><span class="comment">------+------------------+-------------------------------------------+-------+</span></span><br><span class="line"><span class="operator">|</span> Type <span class="operator">|</span> Instance         <span class="operator">|</span> Name                                      <span class="operator">|</span> <span class="keyword">Value</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">------+------------------+-------------------------------------------+-------+</span></span><br><span class="line"><span class="operator">|</span> tidb <span class="operator">|</span> <span class="number">192.168</span><span class="number">.1</span><span class="number">.6</span>:<span class="number">4000</span> <span class="operator">|</span> new_collations_enabled_on_first_bootstrap <span class="operator">|</span> <span class="literal">true</span>  <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">------+------------------+-------------------------------------------+-------+</span></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.023</span> sec)</span><br></pre></td></tr></table></figure></div>
+<p>需要注意的是，当前 TiSpark 尚不完全支持所有字符校验规则，只支持如下几种：utf8_bin, utf8_general_ci, utf8_unicode_ci, utf8mb4_bin, utf8mb4_general_ci and utf8mb4_unicode_ci。 此外，也不支持 GBK 字符集。</p>
+<h3 id="TiSpark-参数变化">TiSpark 参数变化</h3>
+<h4 id="1️⃣-新字符集">1️⃣ 新字符集</h4>
+<p>TiSpark 新字符集相关参数：<code>spark.tispark.new_collation_enable</code></p>
+<p>这在上文已经解释了该参数的作用，不再赘述。这里补充一点，该参数不用刻意配置，TiSpark 会检测所连接的 TiDB 版本，如果是 6.0.0 以上，会设定为 true，否则设置为 false。</p>
+<h4 id="2️⃣-健康检查">2️⃣ 健康检查</h4>
+<p>TiSpark v3.2.2 新增两个健康检查参数，分别用于检查与 TiKV 和 TiFlash 的 grpc 通信超时情况 (<code>spark.tispark.grpc.health_check_timeout_in_ms</code>, 2000) ，以及控制监测间隔 (<code>spark.tispark.grpc.health_check_period_in_ms</code>, 3000) 。</p>
+<h4 id="3️⃣-加载到缓存">3️⃣ 加载到缓存</h4>
+<p>与上面两个参数相关联的需求背景是， TiSpark v3.0.3/v3.1.3/v3.2.1， 新增参数 <code>spark.tispark.load_tables</code>，该参数用于控制是否加载表到 Catalog 缓存，默认情况是初始化 catalogCache 时，会加载表到缓存。我们常说 10,000 小时定律，没想到 TiSpark 遇到了反向境况，背景是有用户报告 TiSpark 加载超过 10,000 张表会 hang 住。</p>
+<h4 id="4️⃣-TiKV-副本角色">4️⃣ TiKV 副本角色</h4>
+<p>TiSpark v3.2 中新增参数 <code>spark.tispark.replica_read</code> 以支持从 TiKV 的不同副本角色（默认为 Leader，还可选择 Follwer, Learner）读取数据，从而降低 Leader Region 的压力，提升数据读取能力。</p>
+<p>例如，从 Follower 角色的副本读取数据，只需在配置文件 <code>spark-default.conf</code> 中增加 <code>spark.tispark.replica_read follower</code>。</p>
+<p>与此相关还有三个新增参数可以控制 follower read 功能：</p>
+<ul>
+<li><code>spark.tispark.replica_read.label</code>：只查询 TiKV 上匹配的标签。</li>
+<li><code>spark.tispark.replica_read.address_whitelist</code>：只从给定的 TiKV IP 地址进行查询</li>
+<li><code>spark.tispark.replica_read.address_blacklist</code>：不从给定的 TiKV IP 地址进行查询</li>
+</ul>
+<p>官方文档中有简单介绍如何启用该功能：<a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/readonly-nodes#32-%E5%9C%A8-tispark-%E4%B8%AD%E4%BD%BF%E7%94%A8-follower-read" >在 TiSpark 中使用 Follower Read <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a><br>
+关于 Label 的内容，请参考 Placement Rules in SQL 相关文档，<a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/schedule-replicas-by-topology-labels" >通过拓扑 label 进行副本调度 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<h2 id="TiSpark-功能增强">TiSpark 功能增强</h2>
+<h3 id="CBO-增强">CBO 增强</h3>
+<p>TiSpark v3.0.3 提交了一个 PR (<a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/pull/2563" >#2563 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>) 来加强 CBO 能力，TiSpark 将分析 TiKV 表扫 (<code>TableReader</code>)， TiKV 索引扫 (<code>IndexReader</code>)， TiFlash 表扫 (<code>TableReader</code>)，并选择一个代价最小的路径来读取数据。</p>
+<h3 id="Physical-Plan-增强">Physical Plan 增强</h3>
+<p>从 TiSpark v3.1.0 版本开始，物理执行计划 (<a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/blob/v3.2.2/docs/design/2022-06-15-phyical_plan_explain.md" >Physical Plan <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>) 也得到了改进 (<a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/pull/2439" >#2439 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>) ，表示更加清晰，命名也延续 TiDB 一致性。</p>
+<ul>
+<li>TiKV 表扫 (<code>TableReader</code>)</li>
+</ul>
+<div class="highlight-container" data-rel="Python"><figure class="iseeu highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;&gt;&gt; </span>spark.sql(<span class="string">&quot;select * from t1&quot;</span>).explain()</span><br><span class="line">== Physical Plan ==</span><br><span class="line">*(<span class="number">1</span>) ColumnarToRow</span><br><span class="line">+- TiKV CoprocessorRDD&#123;[table: t1] TableReader, Columns: <span class="built_in">id</span>@LONG: &#123; TableRangeScan: &#123; RangeFilter: [], Range: [([t\<span class="number">200</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>^_r\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>], [t\<span class="number">200</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>^_s\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>])] &#125; &#125;, startTs: <span class="number">442981720704417794</span>&#125; EstimatedCount:<span class="number">5</span></span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>TiKV 索引扫 (<code>IndexReader</code>)</li>
+</ul>
+<div class="highlight-container" data-rel="Python"><figure class="iseeu highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;&gt;&gt; </span>spark.sql(<span class="string">&quot;select * from t1 where id &gt; 2&quot;</span>).explain()</span><br><span class="line">== Physical Plan ==</span><br><span class="line">*(<span class="number">1</span>) ColumnarToRow</span><br><span class="line">+- TiKV CoprocessorRDD&#123;[table: t1] IndexReader, Columns: <span class="built_in">id</span>@LONG: &#123; IndexRangeScan(Index:t1_idx_id(<span class="built_in">id</span>)): &#123; RangeFilter: [[<span class="built_in">id</span>@LONG GREATER_THAN <span class="number">2</span>]], Range: [([t\<span class="number">200</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>^_i\<span class="number">200</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\001\003\<span class="number">200</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\003], [t\<span class="number">200</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>^_i\<span class="number">200</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\001\<span class="number">372</span>])] &#125; &#125;, startTs: <span class="number">442981723456667650</span>&#125;</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>TiFlash 表扫 (<code>TableReader</code>)</li>
+</ul>
+<div class="highlight-container" data-rel="Python"><figure class="iseeu highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;&gt;&gt; </span>spark.sql(<span class="string">&quot;select count(*) from t1&quot;</span>).explain()</span><br><span class="line">== Physical Plan ==</span><br><span class="line">AdaptiveSparkPlan isFinalPlan=false</span><br><span class="line">+- HashAggregate(keys=[], functions=[specialsum(count(<span class="number">1</span>)<span class="comment">#14L, LongType, 0)])</span></span><br><span class="line">   +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=<span class="number">25</span>]</span><br><span class="line">      +- HashAggregate(keys=[], functions=[partial_specialsum(count(<span class="number">1</span>)<span class="comment">#14L, LongType, 0)])</span></span><br><span class="line">         +- TiFlash CoprocessorRDD&#123;[table: t1] TableReader, Columns: <span class="built_in">id</span>@LONG: &#123; TableRangeSca</span><br><span class="line">n: &#123; RangeFilter: [], Range: [([t\<span class="number">200</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>^_r\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>], [t\<span class="number">200</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>^_s\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>])] &#125;, Aggregates: Count(<span class="number">1</span>) &#125;, startTs: <span class="number">442981759370657793</span>&#125; EstimatedCount:<span class="number">5</span></span><br></pre></td></tr></table></figure></div>
+<h3 id="TiFlash-轮转">TiFlash 轮转</h3>
+<p>从 TiSpark v3.0.3/v3.1.2/v3.2.0 开始，支持在读取 TiFlash 时采用 Round-Robin 策略的负载均衡 (<a class="link"   target="_blank" rel="noopener" href="https://github.com/tikv/client-java/pull/662" >client-java #662 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>) ，以此来提升 TiFlash 的利用率，如果有 2 个 TiFlash，不再总将所有负载发送到其中某个 TiFlash 上。</p>
+<h3 id="TiSpark-应用开发">TiSpark 应用开发</h3>
+<h4 id="DELETE">DELETE</h4>
+<p>从 TiSpark v3.0.0 开始，支持 <code>DELETE</code> 操作，这部分内容也已在 <a href="https://shawnyan.cn/2022/tidb/tidb-6.0-tispark-guide/#TiSpark-%E7%89%88%E6%9C%AC%E8%AF%B4%E6%98%8E">TiSpark v2.5 开发入门实践及 TiSpark v3.0.0 新功能解读</a> 文中提及，不再多言。</p>
+<h4 id="INSERT">INSERT</h4>
+<p>之前的版本(TiSpark v2.4)中，TiSpark 只能调用 datasource api 来写数据。现在，从 TiSpark v3.1.0 开始支持 <code>INSERT</code> SQL 语句，并在 TiSpark v3.2.0 中写入功能得到增强：</p>
+<ol>
+<li>支持写入带有 <code>AUTO_RANDOM</code> 为主键的表。(<a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/pull/2545" >#2545 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>)</li>
+</ol>
+<img  alt="07.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/07-1690214668408.png"
+                      referrerpolicy="no-referrer"
+                >
+<img  alt="08.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/08-1690214673674.png"
+                      referrerpolicy="no-referrer"
+                >
+<ol start="2">
+<li>支持写入带有新字符集的分区表。(<a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/pull/2565" >#2565 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>)</li>
+</ol>
+<p>更多内容可参阅 <a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/blob/master/docs/features/datasource_api_userguide.md" >TiDB Data Source API User Guide <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<h2 id="TiSpark-安全">TiSpark 安全</h2>
+<h3 id="Telemetry">Telemetry</h3>
+<p>TiSpark 的<a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/telemetry" >遥测 (Telemetry) <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 功能是从 v3.0.0 开始支持的，由参数 <code>spark.tispark.telemetry.enable</code> 进行开关控制。</p>
+<blockquote>
+<p>自 2023 年 2 月 20 日起，新发布的 TiDB 和 TiDB Dashboard 版本（含 v6.6.0），默认关闭遥测功能，即默认不再收集使用情况信息分享给 PingCAP。</p>
+</blockquote>
+<p>从 TiSpark v3.0.3/v3.1.3/v3.2.1/v3.3.0 起，默认关闭遥测功能，即，默认 <code>spark.tispark.telemetry.enable = false</code>。(<a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/pull/2621" >#2621 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>)</p>
+<h3 id="log4j2">log4j2</h3>
+<p>很多人到现在或许还对 21 年 log4j2 的“炒鸡”严重漏洞 (<a class="link"   target="_blank" rel="noopener" href="https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-44228" >CVE-2021-44228 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>) “念念不忘”。主要考虑到安全因素 Spark 对 log4j2 进行版本升级。<br>
+Spark v3.3.0 中的 log4j2 版本升至 2.17.2 (<a class="link"   target="_blank" rel="noopener" href="https://issues.apache.org/jira/browse/SPARK-38544" >SPARK-38544 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>) 。<br>
+Spark v3.4.0 中的 log4j2 版本升至 2.19.0 (<a class="link"   target="_blank" rel="noopener" href="https://issues.apache.org/jira/browse/SPARK-40484" >SPARK-40484 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>) 。<br>
+Spark v3.5.0 中的 log4j2 版本升至 2.20.0 (<a class="link"   target="_blank" rel="noopener" href="https://issues.apache.org/jira/browse/SPARK-42536" >SPARK-42536 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>) 。</p>
+<h2 id="遗留问题">遗留问题</h2>
+<ol>
+<li>
+<p>pyspark 可以选择直接从 TiFlash 读取数据，在文档 <a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/use-tispark-to-read-tiflash" >使用 TiSpark 读取 TiFlash <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 中有所介绍。但是，无法动态调整 TiSpark 选择哪个 storage (TiKV or TiFlash)，可以修改 <code>conf.set(&quot;spark.tispark.isolation_read_engines&quot;, &quot;tiflash&quot;)</code>，但不生效。只能修改配置文件 <code>spark-defaults.conf</code>，比如限定只从 TiFlash 读取数据 <code>spark.tispark.isolation_read_engines tiflash</code>，然后重启 worker 才能生效。(<a class="link"   target="_blank" rel="noopener" href="https://asktug.com/t/topic/1009913" >1009913 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>)</p>
+</li>
+<li>
+<p>每次使用 pyspark/spark-shell 都会遇到 <code>WARN TiConfiguration: Unable to find tikv.properties</code>，虽无伤大雅，嗯~ (<a class="link"   target="_blank" rel="noopener" href="https://asktug.com/t/topic/1009954" >1009954 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>)</p>
+</li>
+<li>
+<p>无法在 pyspark 中使用 <code>explain analyze</code> 语法，所以无法直接看到发出的语句在 TiKV 上消耗的 RU (<a href="https://shawnyan.cn/2023/tidb/tidb-7.1-resource-control/">资源管控</a>相关概念) 是多少。不过，Spark 中的 explain 和 TiDB 中的 explain 本就不一样。(<a class="link"   target="_blank" rel="noopener" href="https://asktug.com/t/topic/1009929" >1009929 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>)</p>
+</li>
+<li>
+<p>在测试新参数 <code>spark.tispark.replica_read</code> 时发现该参数会影响写操作。(<a class="link"   target="_blank" rel="noopener" href="https://asktug.com/t/topic/1010197" >1010197 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>)</p>
+</li>
+</ol>
+<h2 id="总结">总结</h2>
+<p>本文归纳总结了 TiSpark v3.0.0 以来的大部分新特性，相信对 TiSpark 爱好者或开发者会有所帮助。对 TiSpark 感兴趣、有需求的伙伴们，建议直接使用最新版 TiSpark，如果遇到 TiDB 升级 case，也建议对 TiSpark 进行版本升级。</p>
+<p>在使用 TiSpark 过程中如果遇到任何问题，推荐先来 <a class="link"   target="_blank" rel="noopener" href="https://search.asktug.com/" >AskTUG Search <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 一下，没有匹配的帖子可以提一个新的，相信很快会收到回应，AskTUG 社区可是拥有 <strong>30,000+</strong> 活跃用户的哦，是国产数据库厂商自建论坛里顶尖的存在。</p>
+<p>随着 TiSpark 版本更新，新特性的引入，Bug 的修复，我们期待看到更高效、更灵活和更可靠的数据处理体验。</p>
+<p>Ps.<br>
+本文开始编辑于 7/5，测试环境也搭建于当日，这期间 <a href="https://shawnyan.cn/2023/mysql/mysql-8.1.0-release/">MySQL 8.1 发布了</a>，文中的版本信息以 7/5 为基准。</p>
+<img  alt="logo.jpg" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg"
+                      referrerpolicy="no-referrer"
+                >
+        </div>
+
+        
+            <div class="post-copyright-info">
+                <div class="article-copyright-info-container">
+    <ul>
+    <!-- 2023-10-03, edit by shawnyan. -->
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Title:</strong> TiDB 7.1.0 LTS 特性解读 | 浅析 TiSpark v3.x 新变化</li>
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Author:</strong>
+            
+                ShawnYan
+            
+        </li>
+        <li><strong>Created at:</strong> 2023-07-24 22:40:56</li>
+        
+            <li><strong>Updated at:</strong> 2023-07-24 22:40:56</li>
+        
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Link:</strong> https://shawnyan.cn/2023/tidb/tidb-7.1-tispark-3.x/</li>
+        <li style="word-wrap: break-word; white-space: normal;">
+            <strong>
+                License:
+            </strong>
+            
+            This work is licensed under <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>.
+            
+
+        </li>
+    </ul>
+</div>
+
+            </div>
+        
+
+        
+            <ul class="post-tags-box">
+                
+                    <li class="tag-item">
+                        <a href="/tags/python/">#python</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/tidb/">#tidb</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/tispark/">#tispark</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/spark/">#spark</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/tidb-7-x/">#tidb 7.x</a>&nbsp;
+                    </li>
+                
+            </ul>
+        
+
+        
+  <div class="recommended-article">
+   <div class="recommended-desktop">
+    <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+    </div>
+    <div class="recommended-article-group"><a class="recommended-article-item" href="/2022/tidb/tidb-6.0-tispark-guide/" title="TiSpark v2.5 开发入门实践及 TiSpark v3.0.0 新功能解读" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/IMG_2005-1652257515326.jpg" alt="TiSpark v2.5 开发入门实践及 TiSpark v3.0.0 新功能解读" class="!max-w-none">
+  <span class="title">TiSpark v2.5 开发入门实践及 TiSpark v3.0.0 新功能解读</span>
+</a><a class="recommended-article-item" href="/2023/modb/modb-articles-recommended/" title="【年终盘点】【合集】严选首推文章清单" rel="bookmark">
+  <img src="/img/modb/modb-logo.png" alt="【年终盘点】【合集】严选首推文章清单" class="!max-w-none">
+  <span class="title">【年终盘点】【合集】严选首推文章清单</span>
+</a><a class="recommended-article-item" href="/2023/tidb/tidb-7.x-compile-tidb/" title="TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png" alt="TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）" class="!max-w-none">
+  <span class="title">TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）</span>
+</a></div>
+   </div>
+   <div class="recommended-mobile">
+   <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+   </div>
+   <div class="recommended-article-group"><a class="recommended-article-item" href="/2022/tidb/tidb-6.0-tispark-guide/" title="TiSpark v2.5 开发入门实践及 TiSpark v3.0.0 新功能解读" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/IMG_2005-1652257515326.jpg" alt="TiSpark v2.5 开发入门实践及 TiSpark v3.0.0 新功能解读" class="!max-w-none">
+  <span class="title">TiSpark v2.5 开发入门实践及 TiSpark v3.0.0 新功能解读</span>
+</a><a class="recommended-article-item" href="/2023/modb/modb-articles-recommended/" title="【年终盘点】【合集】严选首推文章清单" rel="bookmark">
+  <img src="/img/modb/modb-logo.png" alt="【年终盘点】【合集】严选首推文章清单" class="!max-w-none">
+  <span class="title">【年终盘点】【合集】严选首推文章清单</span>
+</a></div>
+   </div>
+  </div>
+
+        
+            <div class="article-nav">
+                
+                    <div class="article-prev">
+                        <a class="prev"
+                        rel="prev"
+                        href="/2023/mysql/mysql-8.0.26-bug-crash/"
+                        >
+                            <span class="left arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </span>
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">再遇 MySQL “一招必杀” Bug</span>
+                                <span class="post-nav-item">Prev posts</span>
+                            </span>
+                        </a>
+                    </div>
+                
+                
+                    <div class="article-next">
+                        <a class="next"
+                        rel="next"
+                        href="/2023/other/database-book-list/"
+                        >
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">严选书单 | 国产数据库的技术书籍（最新版）</span>
+                                <span class="post-nav-item">Next posts</span>
+                            </span>
+                            <span class="right arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </a>
+                    </div>
+                
+            </div>
+        
+
+
+        
+            <div class="comment-container">
+                <div class="comments-container pjax">
+    <div id="comment-anchor"></div>
+    <div class="comment-area-title">
+        <i class="fa-solid fa-comments"></i>&nbsp;Comments
+    </div>
+    
+
+        
+            
+    <div id="gitalk-container"></div>
+    <script data-swup-reload-script
+            src="//cdn.staticfile.org/gitalk/1.8.0/gitalk.min.js"></script>
+    <script data-swup-reload-script>
+
+        function loadGitalk() {
+            let __gitalk__pathname = decodeURI(location.pathname);
+            const __gitalk__pathnameLength = __gitalk__pathname.length;
+            const __gitalk__pathnameMaxLength = 50;
+            if (__gitalk__pathnameLength > __gitalk__pathnameMaxLength) {
+                __gitalk__pathname = __gitalk__pathname.substring(0, __gitalk__pathnameMaxLength - 3) + '...';
+            }
+
+            try {
+                Gitalk && new Gitalk({
+                    clientID: '32d049bf3701e6791070',
+                    clientSecret: '36c295ad3dad4c739b530ef113d0a979d8c35c5d',
+                    repo: 'gitalk',
+                    owner: 'shawn0915',
+                    admin: ['shawn0915'],
+                    id: __gitalk__pathname,
+                    language: 'en'
+                }).render('gitalk-container');
+
+            } catch (e) {
+                window.Gitalk = null;
+            }
+        }
+
+        if ('true') {
+            const loadGitalkTimeout = setTimeout(() => {
+                loadGitalk();
+                clearTimeout(loadGitalkTimeout);
+            }, 1000);
+        } else {
+            window.addEventListener('DOMContentLoaded', loadGitalk);
+        }
+    </script>
+
+
+
+        
+    
+</div>
+
+            </div>
+        
+    </div>
+
+    
+        <div class="toc-content-container">
+            <div class="post-toc-wrap">
+    <div class="post-toc">
+        <div class="toc-title">On this page</div>
+<!--         <div class="page-title">TiDB 7.1.0 LTS 特性解读 | 浅析 TiSpark v3.x 新变化</div> -->
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%91%E7%89%88%E6%97%B6%E9%97%B4%E8%A1%A8"><span class="nav-text">发版时间表</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#TiSpark-%E6%96%B0%E5%8F%98%E5%8C%96"><span class="nav-text">TiSpark 新变化</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Spark-%E5%85%BC%E5%AE%B9%E6%80%A7"><span class="nav-text">Spark 兼容性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Jar-%E5%8C%85%E5%91%BD%E5%90%8D"><span class="nav-text">Jar 包命名</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Jar-%E5%8C%85%E5%A4%A7%E5%B0%8F-tikv-client-java"><span class="nav-text">Jar 包大小 &amp; tikv-client-java</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#mysql-connector-java"><span class="nav-text">mysql-connector-java</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#TiDB-%E5%85%BC%E5%AE%B9%E6%80%A7"><span class="nav-text">TiDB 兼容性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#TiSpark-%E5%8F%82%E6%95%B0%E5%8F%98%E5%8C%96"><span class="nav-text">TiSpark 参数变化</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1%EF%B8%8F%E2%83%A3-%E6%96%B0%E5%AD%97%E7%AC%A6%E9%9B%86"><span class="nav-text">1️⃣ 新字符集</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2%EF%B8%8F%E2%83%A3-%E5%81%A5%E5%BA%B7%E6%A3%80%E6%9F%A5"><span class="nav-text">2️⃣ 健康检查</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3%EF%B8%8F%E2%83%A3-%E5%8A%A0%E8%BD%BD%E5%88%B0%E7%BC%93%E5%AD%98"><span class="nav-text">3️⃣ 加载到缓存</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4%EF%B8%8F%E2%83%A3-TiKV-%E5%89%AF%E6%9C%AC%E8%A7%92%E8%89%B2"><span class="nav-text">4️⃣ TiKV 副本角色</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#TiSpark-%E5%8A%9F%E8%83%BD%E5%A2%9E%E5%BC%BA"><span class="nav-text">TiSpark 功能增强</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#CBO-%E5%A2%9E%E5%BC%BA"><span class="nav-text">CBO 增强</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Physical-Plan-%E5%A2%9E%E5%BC%BA"><span class="nav-text">Physical Plan 增强</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#TiFlash-%E8%BD%AE%E8%BD%AC"><span class="nav-text">TiFlash 轮转</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#TiSpark-%E5%BA%94%E7%94%A8%E5%BC%80%E5%8F%91"><span class="nav-text">TiSpark 应用开发</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#DELETE"><span class="nav-text">DELETE</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#INSERT"><span class="nav-text">INSERT</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#TiSpark-%E5%AE%89%E5%85%A8"><span class="nav-text">TiSpark 安全</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Telemetry"><span class="nav-text">Telemetry</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#log4j2"><span class="nav-text">log4j2</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%81%97%E7%95%99%E9%97%AE%E9%A2%98"><span class="nav-text">遗留问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-text">总结</span></a></li></ol>
+
+    </div>
+</div>
+
+        </div>
+    
+</div>
+
+
+
+                
+
+            </div>
+
+            
+
+        </div>
+
+        <div class="main-content-footer">
+            <footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2017</span>
+              -
+            
+            2024&nbsp;&nbsp;<i class="fa-solid fa-heart fa-beat" style="--fa-animation-duration: 0.5s; color: #f54545"></i>&nbsp;&nbsp;<a href="/">Shawn Yan</a>
+        </div>
+        
+            <script data-swup-reload-script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">VISITOR COUNT</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">TOTAL PAGE VIEWS</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">POWERED BY <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a></span>
+            <span class="text-sm lg:block">THEME&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.4.4</a></span>
+        </div>
+        
+        
+            <div>
+                Blog up for <span class="odometer" id="runtime_days" ></span> days <span class="odometer" id="runtime_hours"></span> hrs <span class="odometer" id="runtime_minutes"></span> Min <span class="odometer" id="runtime_seconds"></span> Sec
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+
+    </div>
+</footer>
+
+        </div>
+    </div>
+
+    
+        <div class="post-tools">
+            <div class="post-tools-container">
+    <ul class="article-tools-list">
+        <!-- TOC aside toggle -->
+        
+            <li class="right-bottom-tools page-aside-toggle">
+                <i class="fa-regular fa-outdent"></i>
+            </li>
+        
+
+        <!-- go comment -->
+        
+            <li class="go-comment">
+                <i class="fa-regular fa-comments"></i>
+            </li>
+        
+    </ul>
+</div>
+
+        </div>
+    
+
+    <div class="right-side-tools-container">
+        <div class="side-tools-container">
+    <ul class="hidden-tools-list">
+        <li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-plus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-minus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-expand-width flex justify-center items-center">
+            <i class="fa-regular fa-expand"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+            <i class="fa-regular fa-moon"></i>
+        </li>
+
+        <!-- rss -->
+        
+            <li class="right-bottom-tools rss flex justify-center items-center">
+                <a class="flex justify-center items-center"
+                   href="/atom.xml"
+                   target="_blank"
+                >
+                <i class="fa-regular fa-rss"></i>
+                </a>
+            </li>
+        
+
+        
+
+        <li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+            <i class="fa-regular fa-arrow-down"></i>
+        </li>
+    </ul>
+
+    <ul class="visible-tools-list">
+        <li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+            <i class="fa-regular fa-cog fa-spin"></i>
+        </li>
+        
+            <li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+                <i class="arrow-up fas fa-arrow-up"></i>
+                <span class="percent"></span>
+            </li>
+        
+        
+    </ul>
+</div>
+
+    </div>
+
+    <div class="image-viewer-container">
+    <img src="">
+</div>
+
+
+    
+        <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+          <span class="search-input-field-pre">
+            <i class="fa-solid fa-keyboard"></i>
+          </span>
+            <div class="search-input-container">
+                <input autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       placeholder="Search..."
+                       spellcheck="false"
+                       type="search"
+                       class="search-input"
+                >
+            </div>
+            <span class="popup-btn-close">
+                <i class="fa-solid fa-times"></i>
+            </span>
+        </div>
+        <div id="search-result">
+            <div id="no-result">
+                <i class="fa-solid fa-spinner fa-spin-pulse fa-5x fa-fw"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+
+</main>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Swup.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupSlideTheme.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScriptsPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupProgressPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScrollPlugin.min.js"></script>
+<script>
+    const swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+        ],
+        containers: ["#swup"],
+    });
+
+    swup.hooks.on("page:view", () => {
+        Global.refresh();
+    });
+
+    // if (document.readyState === "complete") {
+    //
+    // } else {
+    //     document.addEventListener("DOMContentLoaded", () => init());
+    // }
+</script>
+
+
+
+
+
+<script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/utils.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/main.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/navbarShrink.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/scrollTopBottom.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/lightDarkSwitch.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/categoryList.js"></script>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/localSearch.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/codeBlock.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/lazyload.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/runtime.js"></script>
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/odometer.min.js"></script>
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/assets/odometer-theme-minimal.css">
+
+
+
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Typed.min.js"></script>
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/typed.js"></script>
+
+
+
+
+
+
+<div class="post-scripts" data-swup-reload-script>
+    
+        <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/anime.min.js"></script>
+        <script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/tocToggle.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/toc.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/tabs.js"></script>
+    
+</div>
+
+
+</body>
+</html>

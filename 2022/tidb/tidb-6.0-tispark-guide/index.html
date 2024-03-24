@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="shawnyan,dba,oracle,mysql,tidb,mariadb,postgresql,gbase,proxysql">
+    
+    <meta name="author" content="Shawn Yan">
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+        
+        
+        
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://shawnyan.cn/2022/tidb/tidb-6.0-tispark-guide/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+        <meta name="description" content="背景 Spark 是一款专为大规模数据处理而设计的计算引擎，而 TiSpark 是基于 Spark 非侵入式的强化插件，可以很好的兼容 TiDB，并对 TiDB 中的数据进行处理分析。TiSpark 集成了 mysql-connector-java，可以从 TiKV 和 TiFlash 读取数据。并且，TiSpark 实现了 TiKV 的 Java 客户端，可以写入数据到 TiKV，而不用经过 T">
+<meta property="og:type" content="article">
+<meta property="og:title" content="TiSpark v2.5 开发入门实践及 TiSpark v3.0.0 新功能解读">
+<meta property="og:url" content="https://shawnyan.cn/2022/tidb/tidb-6.0-tispark-guide/index.html">
+<meta property="og:site_name" content="少安事务所">
+<meta property="og:description" content="背景 Spark 是一款专为大规模数据处理而设计的计算引擎，而 TiSpark 是基于 Spark 非侵入式的强化插件，可以很好的兼容 TiDB，并对 TiDB 中的数据进行处理分析。TiSpark 集成了 mysql-connector-java，可以从 TiKV 和 TiFlash 读取数据。并且，TiSpark 实现了 TiKV 的 Java 客户端，可以写入数据到 TiKV，而不用经过 T">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/1-1655090475341.png">
+<meta property="og:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/2-1655090518068.png">
+<meta property="og:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/3-1655090526272.png">
+<meta property="og:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/5-1655090548324.png">
+<meta property="article:published_time" content="2022-06-14T10:06:37.000Z">
+<meta property="article:modified_time" content="2022-06-14T10:06:37.000Z">
+<meta property="article:author" content="Shawn Yan">
+<meta property="article:tag" content="tidb">
+<meta property="article:tag" content="tidb 6.x">
+<meta property="article:tag" content="tispark">
+<meta property="article:tag" content="spark">
+<meta property="article:tag" content="pyspark">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/1-1655090475341.png">
+    
+    
+        <!-- Google tag (gtag.js) -->
+        <script src="https://www.googletagmanager.com/gtag/js?id=G-ZH71L5F7X2"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-ZH71L5F7X2');
+        </script>
+    
+    <!-- baidu tongji -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?2fa794d82f74c0bb3617ba62ee962b46";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/img/favicon.ico" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon.ico">
+    <meta name="theme-color" content="#767FF6">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <!--- Page Info-->
+    
+    <title>
+        
+            TiSpark v2.5 开发入门实践及 TiSpark v3.0.0 新功能解读 -
+        
+        少安事务所
+    </title>
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+<!--- use 2.5.0
+    
+        
+<link rel="stylesheet" href="/assets/build/styles.css">
+
+    
+-->
+    <link rel="stylesheet" href="//cdn.staticfile.org/hexo-theme-redefine/2.5.0/assets/build/styles.min.css">
+
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/fonts.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Satoshi/satoshi.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Chillax/chillax.css">
+    <!--- Font Part-->
+    
+    
+    
+    
+
+    <!--- Inject Part-->
+    
+    <script id="hexo-configurations">
+    let Global = window.Global || {};
+    Global.hexo_config = {"hostname":"shawnyan.cn","root":"/","language":"en","path":"search.xml"};
+    Global.theme_config = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":true,"list":[]},"code_block":{"copy":true,"style":"mac","font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":4,"number":false,"expand":true,"init_open":true},"copyright":true,"lazyload":true,"recommendation":{"enable":true,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#767FF6","secondary":null},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"open_graph":true,"google_analytics":{"enable":true,"id":"G-ZH71L5F7X2"},"root_color_mode":"dark"},"home_banner":{"enable":true,"style":"fixed","image":{"light":"https://asktug.com/uploads/default/original/4X/4/b/d/4bd94f804719672dd7e3cb29150ea6f777eb0aec.jpeg","dark":"/img/wallpaper/dark.webp"},"title":"Shawn Yan's Tech Blog.","subtitle":{"text":["A blog about MySQL, Oracle, TiDB, PostgreSQL and other databases."],"hitokoto":{"enable":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":500,"backing_delay":1500,"loop":true,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"links":{"github":"https://github.com/shawn0915","instagram":null,"zhihu":null,"twitter":null,"email":"admin@shawnyan.cn"},"qrs":{"weixin":null}}},"plugins":{"feed":{"enable":true},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":"回忆的沙漏 (10周年版)","artist":"回忆的沙漏 (10周年版)","url":"https://music.163.com/song/media/outer/url?id=1329122067.mp3","cover":"https://p1.music.126.net/oJorrgJ3IotZUAbZkBMuFw==/109951167771736533.jpg?param=68y68"}]},"mermaid":{"enable":false,"version":"9.3.0"}},"version":"2.4.4","navbar":{"auto_hide":false,"color":{"left":"#f78736","right":"#367df7","transparency":35},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Blog":{"path":"/archives","icon":"fa-regular fa-archive"},"Categories":{"path":"/categories","icon":"fa-regular fa-stream"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Links":{"icon":"fa-regular fa-link","submenus":{"My-params":"/my-params","Friends":"/links","Q":"/q"}}},"search":{"enable":true,"preload":true}},"page_templates":{"friends_column":3,"tags_style":"cloud"},"home":{"sidebar":{"enable":true,"position":"left","first_item":"info","announcement":null,"links":null},"article_date_format":"YYYY-MM-DD","categories":{"enable":true,"limit":10},"tags":{"enable":true,"limit":10}},"footerStart":"2017/11/27 00:00:00"};
+    Global.language_ago = {"second":"%s seconds ago","minute":"%s minutes ago","hour":"%s hours ago","day":"%s days ago","week":"%s weeks ago","month":"%s months ago","year":"%s years ago"};
+    Global.data_config = {"masonry":false};
+  </script>
+
+    <!--- Fontawesome Part-->
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/fontawesome.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/brands.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/solid.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/regular.min.css">
+    
+    
+    
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+
+
+<body>
+<div class="progress-bar-container">
+    
+
+    
+        <span class="pjax-progress-bar"></span>
+        <span class="swup-progress-icon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+    
+</div>
+
+
+<main class="page-container" id="swup">
+
+    
+
+    <div class="main-content-container">
+
+
+        <div class="main-content-header">
+            <header class="navbar-container">
+    
+    <div class="navbar-content">
+        <div class="left">
+            
+                <a class="logo-image" href="https://shawnyan.cn/">
+                    <img src="/img/favicon.ico">
+                </a>
+            
+            <a class="logo-title" href="https://shawnyan.cn/">
+                
+                少安事务所
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-house"></i>
+                                        
+                                        HOME
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/archives"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-archive"></i>
+                                        
+                                        BLOG
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/categories"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-stream"></i>
+                                        
+                                        CATEGORIES
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/tags"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-tags"></i>
+                                        
+                                        TAGS
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/about"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-user"></i>
+                                        
+                                        ABOUT
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="has-dropdown" 
+                                    href="#" onClick="return false;">
+                                    
+                                        
+                                            <i class="fa-regular fa-link"></i>
+                                        
+                                        LINKS&nbsp;<i class="fa-solid fa-chevron-down"></i>
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                                    <ul class="sub-menu">
+                                    
+                                        <li>
+                                        <a href="/my-params">MY-PARAMS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/links">FRIENDS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/q">Q
+                                        </a>
+                                        </li>
+                                    
+                                    </ul>
+                                
+                            </li>
+                    
+                    
+                        <li class="navbar-item search search-popup-trigger">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </li>
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                    <div class="icon-item search search-popup-trigger"><i class="fa-solid fa-magnifying-glass"></i></div>
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="navbar-drawer w-full absolute top-0 left-0 bg-background-color">
+        <ul class="drawer-navbar-list flex flex-col justify-start items-center">
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/"  >
+                             
+                                
+                                    <i class="fa-regular fa-house"></i>
+                                
+                                HOME
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/archives"  >
+                             
+                                
+                                    <i class="fa-regular fa-archive"></i>
+                                
+                                BLOG
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/categories"  >
+                             
+                                
+                                    <i class="fa-regular fa-stream"></i>
+                                
+                                CATEGORIES
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/tags"  >
+                             
+                                
+                                    <i class="fa-regular fa-tags"></i>
+                                
+                                TAGS
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/about"  >
+                             
+                                
+                                    <i class="fa-regular fa-user"></i>
+                                
+                                ABOUT
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group has-dropdown" 
+                        href="#" onClick="return false;">
+                            
+                                
+                                    <i class="fa-regular fa-link"></i>
+                                
+                                LINKS&nbsp;<i class="group-hover:rotate-180 transition-transform fa-solid fa-chevron-down"></i>
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                              
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/my-params">MY-PARAMS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/links">FRIENDS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/q">Q</a>
+                            </li>
+                        
+                    
+            
+
+        </ul>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+        </div>
+
+        <div class="main-content-body">
+
+            
+
+            <div class="main-content">
+
+                
+                    <div class="post-page-container">
+    <div class="article-content-container">
+
+        <div class="article-title">
+            
+                
+                
+                <!-- 2023-10-03, edit by shawnyan. -->
+                <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/IMG_2005-1652257515326.jpg" alt="TiSpark v2.5 开发入门实践及 TiSpark v3.0.0 新功能解读" class="max-w-none" referrerpolicy="no-referrer"/>
+                
+                <h1 class="article-title-cover">TiSpark v2.5 开发入门实践及 TiSpark v3.0.0 新功能解读</h1>
+            
+            </div>
+
+
+
+        
+            <div class="article-header">
+                <div class="avatar">
+                    
+                        <img src="/img/avatar.jpg">
+                    
+                </div>
+                <div class="info">
+                    <div class="author">
+                        
+                            <span class="name">ShawnYan</span>
+                        
+                        
+                            
+                                <span class="author-label">Lv.6</span>
+                            
+                        
+                    </div>
+                    <div class="meta-info">
+                        <div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2022-06-14 18:06:37</span>
+        <span class="mobile">2022-06-14 18:06:37</span>
+        <span class="hover-info">Created</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2022-06-14 18:06:37</span>
+            <span class="mobile">2022-06-14 18:06:37</span>
+            <span class="hover-info">Updated</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/tidb/">TiDB</a>&nbsp;
+                        </li>
+                    
+                    
+                
+                    
+                        
+                            <li>></li>
+                        
+                        <li>
+                            <a href="/categories/tidb/tidb-6-x/">TiDB 6.x</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/tidb/">tidb</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/tidb-6-x/">tidb 6.x</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/tispark/">tispark</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/spark/">spark</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/pyspark/">pyspark</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+        <span class="article-wordcount article-meta-item">
+            <i class="fa-regular fa-typewriter"></i>&nbsp;<span>4.2k Words</span>
+        </span>
+    
+    
+        <span class="article-min2read article-meta-item">
+            <i class="fa-regular fa-clock"></i>&nbsp;<span>19 Mins</span>
+        </span>
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+                    </div>
+                </div>
+            </div>
+        
+
+        
+
+
+        <div class="article-content markdown-body">
+            <h1>背景</h1>
+<p>Spark 是一款专为大规模数据处理而设计的计算引擎，而 TiSpark 是基于 Spark 非侵入式的强化插件，可以很好的兼容 TiDB，并对 TiDB 中的数据进行处理分析。TiSpark 集成了 mysql-connector-java，可以从 TiKV 和 TiFlash 读取数据。并且，TiSpark 实现了 TiKV 的 Java 客户端，可以写入数据到 TiKV，而不用经过 TiDB Server。</p>
+<p>本文将介绍如何安装配置 TiSpark v2.5，并演示如何用 Spark 客户端对 TiDB 中的数据进行读、写、删操作，以及调用窗口函数。</p>
+<p>TiSpark v3.0.0 已于 6月15日正式发布，本文也将解读部分新功能。</p>
+<img  alt="1.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/1-1655090475341.png"
+                      referrerpolicy="no-referrer"
+                >
+<h1>TiSpark 安装</h1>
+<h2 id="版本信息">版本信息</h2>
+<p>TiSpark 需要配合 Spark 使用，而 Spark 是基于 Scala 开发的，Scala 依赖 JDK，故需要安装如下组件。</p>
+<p>本文所涉及的各个组件及版本信息如下：</p>
+<blockquote>
+<p>TiDB 6.0.0</p>
+<p>OpenJDK 1.8.0</p>
+<p>Scala 2.13.8</p>
+<p>Spark 3.0.3</p>
+<p>TiSpark 2.5.0</p>
+</blockquote>
+<h2 id="组件安装">组件安装</h2>
+<h3 id="TiDB">TiDB</h3>
+<p>本文使用的是 TiDB 6.0，安装步骤略，查看数据库版本如下。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">TiDB-v6 [test] 00:37:25&gt; select tidb_version()\G</span><br><span class="line">*************************** 1. row ***************************</span><br><span class="line">tidb_version(): Release Version: v6.0.0</span><br><span class="line">Edition: Community</span><br><span class="line">Git Commit Hash: 36a9810441ca0e496cbd22064af274b3be771081</span><br><span class="line">Git Branch: heads/refs/tags/v6.0.0</span><br><span class="line">UTC Build Time: 2022-03-31 10:33:28</span><br><span class="line">GoVersion: go1.18</span><br><span class="line">Race Enabled: false</span><br><span class="line">TiKV Min Version: v3.0.0-60965b006877ca7234adaced7890d7b029ed1306</span><br><span class="line">Check Table Before Drop: false</span><br><span class="line">1 row in set (0.001 sec)</span><br></pre></td></tr></table></figure></div>
+<h3 id="JDK">JDK</h3>
+<p>安装过程省略，直接查看 JDK 版本信息。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">shawnyan@centos7:~$ java -version</span><br><span class="line">openjdk version &quot;1.8.0_302&quot;</span><br><span class="line">OpenJDK Runtime Environment (build 1.8.0_302-b08)</span><br><span class="line">OpenJDK 64-Bit Server VM (build 25.302-b08, mixed mode)</span><br></pre></td></tr></table></figure></div>
+<h3 id="Scala">Scala</h3>
+<p>直接从 Scala 官网下载 2.12 版本的 RPM 包，并进行安装。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">wget https://downloads.lightbend.com/scala/2.12.15/scala-2.12.15.rpm</span><br><span class="line">sudo yum install ./scala-2.12.15.rpm</span><br></pre></td></tr></table></figure></div>
+<p>安装完成后，查看 Scala 版本。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">scala -version</span><br><span class="line">Scala code runner version 2.12.15 -- Copyright 2002-2021, LAMP/EPFL and Lightbend, Inc.</span><br></pre></td></tr></table></figure></div>
+<h3 id="Spark">Spark</h3>
+<p>从官网下载 Spark 3.0，解压后导入环境变量后，即可使用。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">wget https://archive.apache.org/dist/spark/spark-3.0.3/spark-3.0.3-bin-hadoop2.7.tgz</span><br><span class="line">tar zxvf spark-3.0.3-bin-hadoop2.7.tgz</span><br><span class="line"></span><br><span class="line">vi ~/.bashrc</span><br><span class="line">export PATH=$PATH:~/spark-3.0.3-bin-hadoop2.7/bin</span><br><span class="line">source ~/.bashrc</span><br></pre></td></tr></table></figure></div>
+<h3 id="TiSpark">TiSpark</h3>
+<blockquote>
+<p>通过对接 Spark 的 Extension 接口，TiSpark 得以在不直接修改 Spark 源代码的前提下，深度订制 Spark SQL 的根本行为，包括加入算子，扩充语法，修改执行计划等等，让它看起来更像是一款 Spark 原生产品而非第三方扩展。</p>
+</blockquote>
+<p>TiSpark 的主要部件是 <code>tispark-assembly-x.x.x.jar</code> 这个 jar 包，获取方式有两种，一是直接使用 <code>tiup install tispark</code>，二是直接下载 Jar 包。此外，在实际Java项目开发中，可直接在 <code>pom.xml</code> 中引用 <a class="link"   target="_blank" rel="noopener" href="https://asktug.com/t/topic/694149/3" >#694149 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>。由于 TiSpark 2.5 尚未推送到 tiup mirror，故本文采用第二种方式。</p>
+<p>通过 <code>tiup list</code> 可查看 tiup mirror 远端的 spark/tispark 版本。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">shawnyan@centos7:~$ tiup list spark</span><br><span class="line">Available versions for spark:</span><br><span class="line">Version  Installed  Release                    Platforms</span><br><span class="line">-------  ---------  -------                    ---------</span><br><span class="line">v2.4.3              2020-07-08T16:59:15+08:00  any/any</span><br><span class="line"></span><br><span class="line">shawnyan@centos7:~$ tiup list tispark</span><br><span class="line">Available versions for tispark:</span><br><span class="line">Version  Installed  Release                    Platforms</span><br><span class="line">-------  ---------  -------                    ---------</span><br><span class="line">v2.3.1              2020-07-09T15:59:03+08:00  any/any</span><br><span class="line">...</span><br><span class="line">v2.4.0              2021-04-16T15:07:02+08:00  any/any</span><br><span class="line">v2.4.1   YES        2021-05-17T15:17:01+08:00  any/any</span><br></pre></td></tr></table></figure></div>
+<p>下载 <code>tispark-assembly-2.5.0.jar</code> 后，将其移动到 spark 的 jars 路径下，如此启动 spark 客户端时就无需显式引用。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">wget https://github.com/pingcap/tispark/releases/download/v2.5.0/tispark-assembly-2.5.0.jar</span><br><span class="line">mv tispark-assembly-2.5.0.jar spark-3.0.3-bin-hadoop2.7/jars/</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>未放到 jars 路径下，需要显式引用</li>
+</ul>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">spark-shell --jars tispark-assembly-2.5.0.jar</span><br></pre></td></tr></table></figure></div>
+<ul>
+<li>已放到 jars 路径下，则可直接运行</li>
+</ul>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">spark-shell</span><br></pre></td></tr></table></figure></div>
+<p>启动 spark-shell 后，可以从 SparkContext WebUI 看到已经导入 TiSpark 的 jar 包。</p>
+<img  alt="2.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/2-1655090518068.png"
+                      referrerpolicy="no-referrer"
+                >
+<h4 id="TiSpark-v3-0-0-启用-Jar-包新命名规则">TiSpark v3.0.0 启用 Jar 包新命名规则</h4>
+<blockquote>
+<p>TiSpark 的 Jar 包有了新的命名规则： <code>tispark-assembly-&#123;spark_version&#125;_&#123;scala_version&#125;-&#123;$tispark_verison&#125;</code> <a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/pull/2370" >#2370 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+</blockquote>
+<p>这是一项兼容性修改，新命名规则为：<code>tispark-assembly-&#123;$spark_version&#125;_&#123;$scala_version&#125;-&#123;$tispark_verison&#125;</code>。Jar 包命名更加规范、清晰，用户可按需下载对应的 Jar 包。本次发版提供了三个 Jar 包，分别名为：</p>
+<ul>
+<li>tispark-assembly-3.0_2.12-3.0.0.jar</li>
+<li>tispark-assembly-3.1_2.12-3.0.0.jar</li>
+<li>tispark-assembly-3.2_2.12-3.0.0.jar</li>
+</ul>
+<p>TiSpark v3.0.0 支持 Scala 2.12，以及 Spark 3.0/3.1/3.2。本文使用 Spark 3.0，故这里需下载对应的 Jar 包，然后将其移动到 spark 的 jars 路径下。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">wget https://github.com/pingcap/tispark/releases/download/v3.0.0/tispark-assembly-3.0_2.12-3.0.0.jar</span><br><span class="line">mv tispark-assembly-3.0_2.12-3.0.0.jar spark-3.0.3-bin-hadoop2.7/jars/</span><br></pre></td></tr></table></figure></div>
+<h2 id="TiSpark-版本说明">TiSpark 版本说明</h2>
+<p>下表为 TiSpark、Spark、Scala 的版本对应表，并标注了是否需要 pytispark。本文中的示例使用 TiSpark 2.5.0 和 TiSpark 3.0.0，故直接使用 pyspark 即可，推荐各位读者使用最新版本。</p>
+<table>
+<thead>
+<tr>
+<th>TiSpark 版本</th>
+<th>Spark 版本</th>
+<th>Scala 版本</th>
+<th>是否需要 pytispark</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>&lt; 2.3</td>
+<td></td>
+<td>2.11</td>
+<td>✅</td>
+<td>支持 TiDB 4.0, 不再维护</td>
+</tr>
+<tr>
+<td>2.4.x</td>
+<td>2.3, 2.4</td>
+<td>2.11, 2.12</td>
+<td>pyspark ❎ spark-sumbit ✅</td>
+<td>支持 TiDB 4.0, TiDB 5.0</td>
+</tr>
+<tr>
+<td>2.5.x</td>
+<td>3.0, 3.1</td>
+<td>2.12</td>
+<td>❎</td>
+<td>支持 TiDB 4.0, TiDB 5.0</td>
+</tr>
+<tr>
+<td>3.0.0</td>
+<td>3.0, 3.1, 3.2</td>
+<td>2.12</td>
+<td>❎</td>
+<td>支持 TiDB 4.0, TiDB 5.0</td>
+</tr>
+</tbody>
+</table>
+<p>注：</p>
+<ol>
+<li>从 TiSpark 2.4.0 开始支持 TiDB 5.0。</li>
+<li>对于 TiDB 6.0，TiSpark 尚未完全支持，本文只是使用 TiDB 6.0 作为案例演示，而非生产环境中的实例。</li>
+</ol>
+<blockquote>
+<p>TiSpark 还未进行全面的 TiDB 6 兼容性测试，其中一个已知问题就是未支持 new_collations，着急用可以先关闭此选项，大部分功能应该可以正常使用。new_collations 的支持在排期中，在支持后我们相应也会进行 TiDB 6 的兼容性测试，最后宣布支持 tidb 6。时间大概在7-8 月</p>
+</blockquote>
+<ol start="3">
+<li>关于 pytispark 的 <a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/wiki/PySpark#%E4%BD%95%E6%97%B6%E4%BD%BF%E7%94%A8-pytispark" >官方阐释 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 如下：</li>
+</ol>
+<ul>
+<li>在不支持 extension 的 Spark 2.3 之前，TiSpark 通过替换 Spark 类的方式来改变 Spark 执行计划。这带来了一个问题：当我们结合 TiSpark 和 Spark 周边工具使用时，还需要进行额外的适配工作。其中 pytispark 就是为 TiSpark 和 pyspark 结合使用而生。</li>
+<li>Spark 2.3 之后推出了 extension ，TiSpark 抛弃了上述 hack 的方式转而使用 extension。理论上我们无需适配即可使用所有原生的 Spark 工具。但实际上，我们仍可能需 pytispark 来解决 SPARK-25003 带来的问题。需要明确的是，虽然同样是用了 pytispark ，但使用的目的是不一样的。</li>
+<li>Spark 3.0 之后, SPARK-25003 已被解决，我们可以放心大胆的直接使用 pyspark 了。但由于 This session stuff logic is a bit convoluted and many session changes were made. I wouldn’t backport it from 3.0 to 2.x unless it’s quite serious one. 该 fix 并没有 back port 到 2.3 以及 2.4 版本。如果你想使用 pyspark 与 tispark, 建议使用 spark 3.0 及以上版本。</li>
+</ul>
+<h1>TiSpark 开发实践</h1>
+<h2 id="TiSpark-v2-5-相关配置">TiSpark v2.5 相关配置</h2>
+<p>TiSpark 依赖于 PD 组件，所以在 Spark 的配置文件中，需要配置 PD 地址。本例中，将配置信息写入到 spark/conf 路径下的 <code>spark-defaults.conf</code> 文件。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">spark.sql.extensions org.apache.spark.sql.TiExtensions</span><br><span class="line">spark.tispark.pd.addresses 192.168.8.101:2379</span><br><span class="line">spark.tispark.tidb.addr 192.168.8.101</span><br><span class="line">spark.tispark.tidb.port 4000</span><br><span class="line"></span><br><span class="line"># enable write through SparkSQL</span><br><span class="line">spark.tispark.write.allow_spark_sql true</span><br><span class="line"></span><br><span class="line"># enable `Catalog` provided by `spark-3.0`.</span><br><span class="line">spark.sql.catalog.tidb_catalog org.apache.spark.sql.catalyst.catalog.TiCatalog</span><br><span class="line">spark.sql.catalog.tidb_catalog.pd.addresses 192.168.8.101:2379</span><br></pre></td></tr></table></figure></div>
+<p>注：</p>
+<ol>
+<li>实际使用时，建议将三个 pd 的地址都填写到 <code>pd.addresses</code> 配置项，本文为便于演示，只写了其中一个地址。</li>
+<li>这里要确保开启 <code>spark.tispark.write.allow_spark_sql</code>，才能将数据写入 TiKV。</li>
+</ol>
+<p>启动 spark-shell 后，可通过 WebUI 看到生效的 Spark 配置项。</p>
+<img  alt="3.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/3-1655090526272.png"
+                      referrerpolicy="no-referrer"
+                >
+<h3 id="TiSpark-v3-0-0-相关配置">TiSpark v3.0.0 相关配置</h3>
+<blockquote>
+<p>不再支持不使用 catalog 的方式。现在你必须配置 catalog 并使用 tidb_catalog <a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/pull/2252" >#2252 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+</blockquote>
+<p>解读：从 TiSpark v3.0.0 开始，配置项中必须启动下面两项，上文的案例中已启用这一配置，继续按上文示例使用即可。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">spark.sql.extensions  org.apache.spark.sql.TiExtensions</span><br><span class="line">spark.tispark.pd.addresses  $&#123;your_pd_adress&#125;</span><br></pre></td></tr></table></figure></div>
+<p>环境准备好之后，接下来将演示如何进行数据读取和写入。</p>
+<h2 id="使用-PySpark-进行数据读取">使用 PySpark 进行数据读取</h2>
+<p>首先演示如何使用 PySpark 读取 TiDB 中的数据。PySpark 是 Python 编写的 Spark 接口，可以调用 Python API 对 Spark 程序进行读写操作，并且可以进行数据分析。</p>
+<h3 id="安装-PySpark">安装 PySpark</h3>
+<p>这里主要介绍两种 pyspark 的安装方式：</p>
+<ol>
+<li>Spark 自带，所以无需另行安装。</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">shawnyan@centos7:~$ which pyspark</span><br><span class="line">~/spark-3.0.3-bin-hadoop2.7/bin/pyspark</span><br><span class="line"></span><br><span class="line">shawnyan@centos7:~$ pyspark --version</span><br><span class="line">Welcome to</span><br><span class="line">      ____              __</span><br><span class="line">     / __/__  ___ _____/ /__</span><br><span class="line">    _\ \/ _ \/ _ `/ __/  &#x27;_/</span><br><span class="line">   /___/ .__/\_,_/_/ /_/\_\   version 3.0.3</span><br><span class="line">      /_/</span><br><span class="line">                        </span><br><span class="line">Using Scala version 2.12.10, OpenJDK 64-Bit Server VM, 1.8.0_332</span><br><span class="line">Branch HEAD</span><br><span class="line">Compiled by user ubuntu on 2021-06-17T04:52:32Z</span><br><span class="line">Revision 65ac1e75dc468f53fc778cd2ce1ba3f21067aab8</span><br><span class="line">Url https://github.com/apache/spark</span><br><span class="line">Type --help for more information.</span><br></pre></td></tr></table></figure></div>
+<ol start="2">
+<li>使用 pip 进行安装。</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">shawnyan@centos7:~$ pip3 install pyspark --user</span><br><span class="line">Collecting pyspark</span><br><span class="line">  Using cached https://files.pythonhosted.org/packages/f4/65/41eb22b7b4623d9f4560526cc456cb6425770c098a9dff6763111c4455cc/pyspark-3.2.1.tar.gz</span><br><span class="line">Collecting py4j==0.10.9.3 (from pyspark)</span><br><span class="line">  Using cached https://files.pythonhosted.org/packages/5e/e6/68db58a1d94d41ae042400f7965ed6a2c30e4108f77b54672d6451f86ebd/py4j-0.10.9.3-py2.py3-none-any.whl</span><br><span class="line">Installing collected packages: py4j, pyspark</span><br><span class="line">  Running setup.py install for pyspark ... done</span><br><span class="line">Successfully installed py4j-0.10.9.3 pyspark-3.2.1</span><br></pre></td></tr></table></figure></div>
+<p>由此也可看出，PySpark 是借助 Py4j 实现 Python 调用 Java 来驱动 Spark 应用程序，其本质主要还是 JVM runtime，Java 到 Python 的结果返回是通过本地 Socket 完成。</p>
+<h3 id="启动-PySpark">启动 PySpark</h3>
+<p>启动 PySpark 时，可通过 <code>spark.driver.host</code> 配置项指定 IP，启动后，可通过该 IP 访问 WebUI 页面，在页面上可以直观的看到 Spark 配置项及计算结果。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pyspark --conf spark.driver.host=&#x27;192.168.8.101&#x27;</span><br></pre></td></tr></table></figure></div>
+<h3 id="查看-PySpark-版本信息">查看 PySpark 版本信息</h3>
+<p>在交互式客户端查看 PySpark 的版本信息：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&gt;&gt;&gt; print(&quot;pyspark &quot;+str(sc.version))</span><br><span class="line">pyspark 3.0.3</span><br><span class="line"></span><br><span class="line">&gt;&gt;&gt; import pyspark</span><br><span class="line">&gt;&gt;&gt; print(&quot;pyspark&quot;,pyspark.__version__)</span><br><span class="line">(&#x27;pyspark&#x27;, &#x27;3.0.3&#x27;)</span><br></pre></td></tr></table></figure></div>
+<h3 id="使用-PySpark-通过-JDBC-读取数据">使用 PySpark 通过 JDBC 读取数据</h3>
+<p>本例将演示如何通过 JDBC 读取 TiDB 中的数据。</p>
+<ol>
+<li>在 TiDB 中创建基础数据，创建表 t1, t2。</li>
+</ol>
+<ul>
+<li>基础数据如下：</li>
+</ul>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">create table t1 (id int, col char(1));</span><br><span class="line">insert t1 select 1,&#x27;a&#x27;;</span><br><span class="line">create table t2(id int, col char(2));</span><br><span class="line">insert t2 select 2,&#x27;b&#x27;;</span><br></pre></td></tr></table></figure></div>
+<ol start="2">
+<li>创建一个 Spark 连接</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">from pyspark.sql import SparkSession</span><br><span class="line">spark = SparkSession \</span><br><span class="line">        .Builder() \</span><br><span class="line">        .appName(&#x27;sql&#x27;) \</span><br><span class="line">        .master(&#x27;local&#x27;) \</span><br><span class="line">        .getOrCreate()</span><br></pre></td></tr></table></figure></div>
+<ol start="3">
+<li>设置 JDBC 连接信息，<code>dbtable</code> 是指预读取的表名。</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">url = &quot;jdbc:mysql://192.168.8.101:4000/test?user=root&amp;password=&amp;useSSL=false&amp;rewriteBatchedStatements=true&quot;</span><br><span class="line">df=spark.read.format(&quot;jdbc&quot;).options(url=url,</span><br><span class="line">  driver=&quot;com.mysql.jdbc.Driver&quot;,</span><br><span class="line">  dbtable=&quot;t1&quot;</span><br><span class="line">  ).load()</span><br></pre></td></tr></table></figure></div>
+<ol start="4">
+<li>按条件 <code>id=1</code> 过滤，并显示结果。</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&gt;&gt;&gt; df.filter(df.id == 1).show()</span><br><span class="line">+---+---+</span><br><span class="line">| id|col|</span><br><span class="line">+---+---+</span><br><span class="line">|  1|  a|</span><br><span class="line">+---+---+</span><br></pre></td></tr></table></figure></div>
+<ol start="5">
+<li>按 id 列进行分组统计，并显示结果。</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">&gt;&gt;&gt; countById = df.groupBy(&quot;id&quot;).count()</span><br><span class="line">&gt;&gt;&gt; countById.show()</span><br><span class="line">+---+-----+</span><br><span class="line">| id|count|</span><br><span class="line">+---+-----+</span><br><span class="line">|  1|    1|</span><br><span class="line">+---+-----+</span><br></pre></td></tr></table></figure></div>
+<h2 id="使用-spark-shell-进行数据写入">使用 spark-shell 进行数据写入</h2>
+<p>接下来，演示如何使用 spark-shell 写入数据到 TiDB。</p>
+<h3 id="启动-spark-shell">启动 spark-shell</h3>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">spark-shell --conf spark.driver.host=&#x27;192.168.8.101&#x27;</span><br></pre></td></tr></table></figure></div>
+<h3 id="查看-spark-shell-信息">查看 spark-shell 信息</h3>
+<p>查看 spark 和 tispark 版本信息。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">scala&gt; org.apache.spark.SPARK_VERSION</span><br><span class="line">res0: String = 3.0.3</span><br><span class="line"></span><br><span class="line">scala&gt; spark.sql(&quot;select ti_version()&quot;).collect</span><br><span class="line">res0: Array[org.apache.spark.sql.Row] = </span><br><span class="line">Array([Release Version: 2.5.0</span><br><span class="line">Git Commit Hash: e48b484f7f8e5a3b70cdd8294fecfdb92fcdd411</span><br><span class="line">Git Branch: release-2.5</span><br><span class="line">UTC Build Time: 2022-01-27 09:13:04</span><br><span class="line">Supported Spark Version: 3.0 3.1</span><br><span class="line">Current Spark Version: 3.0.3</span><br><span class="line">Current Spark Major Version: 3.0</span><br><span class="line">TimeZone: Asia/Shanghai])</span><br></pre></td></tr></table></figure></div>
+<p>从以上信息可知，当前 TiSpark 的代码取自分支 <code>release-2.5</code>，由此可快速定位到对应版本的源码：<a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/commit/e48b484f7f8e5a3b70cdd8294fecfdb92fcdd411" >e48b484 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+<h3 id="使用-spark-shell-写入数据">使用 spark-shell 写入数据</h3>
+<ol>
+<li>定义 SparkConf，配置 pd/tidb 地址和端口。</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">import org.apache.spark.SparkConf</span><br><span class="line"></span><br><span class="line">val sparkConf = new SparkConf().</span><br><span class="line">  setIfMissing(&quot;spark.master&quot;, &quot;local[*]&quot;).</span><br><span class="line">  setIfMissing(&quot;spark.app.name&quot;, getClass.getName).</span><br><span class="line">  setIfMissing(&quot;spark.sql.extensions&quot;, &quot;org.apache.spark.sql.TiExtensions&quot;).</span><br><span class="line">  setIfMissing(&quot;spark.tispark.pd.addresses&quot;, &quot;192.168.8.101:2379&quot;).</span><br><span class="line">  setIfMissing(&quot;spark.tispark.tidb.addr&quot;, &quot;tidb&quot;).</span><br><span class="line">  setIfMissing(&quot;spark.tispark.tidb.port&quot;, &quot;4000&quot;)</span><br></pre></td></tr></table></figure></div>
+<ol start="2">
+<li>配置好必要的依赖以后，初始化一个 SparkSession 对象。</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">import org.apache.spark.sql.SparkSession</span><br><span class="line"></span><br><span class="line">val spark = SparkSession.builder.config(sparkConf).getOrCreate()</span><br></pre></td></tr></table></figure></div>
+<ol start="3">
+<li>查看当前 t1 表中的数据量。</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">spark.sql(&quot;use tidb_catalog&quot;)</span><br><span class="line"></span><br><span class="line">spark.sql(&quot;select count(*) from test.t1&quot;).show()</span><br></pre></td></tr></table></figure></div>
+<ol start="4">
+<li>查询 t2 表中的数据，并将数据追加到 t1 表。</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">val df = spark.sql(&quot;select * from test.t2&quot;)</span><br><span class="line"></span><br><span class="line">df.write.</span><br><span class="line">  format(&quot;tidb&quot;).</span><br><span class="line">  option(&quot;tidb.user&quot;, &quot;root&quot;).</span><br><span class="line">  option(&quot;tidb.password&quot;, &quot;&quot;).</span><br><span class="line">  option(&quot;database&quot;, &quot;test&quot;).</span><br><span class="line">  option(&quot;table&quot;, &quot;t1&quot;).</span><br><span class="line">  mode(&quot;append&quot;).</span><br><span class="line">  save()</span><br></pre></td></tr></table></figure></div>
+<p>append 意为将此数据插入到具有与 DataFrame 相同的模式的现有表中。</p>
+<ol start="5">
+<li>再次查看 t1 表数据，确认数据已成功写入。</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">spark.sql(&quot;select * from test.t1&quot;).show()</span><br></pre></td></tr></table></figure></div>
+<p>数据写入的关键日志如下图：</p>
+<img  alt="4.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/5-1655090548324.png"
+                      referrerpolicy="no-referrer"
+                >
+<ol start="6">
+<li>也可从 TiDB 查询 t1 表数据，确认数据已写入。</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">TiDB-v6 [test] 17:27:21&gt; select * from t1;</span><br><span class="line">+------+------+</span><br><span class="line">| id   | col  |</span><br><span class="line">+------+------+</span><br><span class="line">|    1 | a    |</span><br><span class="line">|    2 | b    |</span><br><span class="line">+------+------+</span><br><span class="line">2 rows in set (0.002 sec)</span><br></pre></td></tr></table></figure></div>
+<h3 id="使用-spark-shell-进行数据删除">使用 spark-shell 进行数据删除</h3>
+<p>这是 TiSpark v3.0.0 的新特性。接下来，演示如何使用 spark-shell 删除数据。</p>
+<p>启动 spark-shell 后，查看 TiSpark 版本信息。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">scala&gt; spark.sql(&quot;select ti_version()&quot;).collect</span><br><span class="line">res1: Array[org.apache.spark.sql.Row] =</span><br><span class="line">Array([Release Version: 3.0.0</span><br><span class="line">Git Commit Hash: 4e48f9e5e87ee24fbdceb6aa5a9a3c5a7661e22e</span><br><span class="line">Git Branch: 3.0_release</span><br><span class="line">UTC Build Time: 2022-06-15 06:22:06</span><br><span class="line">Supported Spark Version: 3.0 3.1 3.2</span><br><span class="line">Current Spark Version: 3.0.3</span><br><span class="line">Current Spark Major Version: 3.0</span><br><span class="line">TimeZone: Asia/Shanghai])</span><br></pre></td></tr></table></figure></div>
+<p>前3个步骤与上一小节的写入步骤一样，从第4步开始，调用删除方法。</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">scala&gt; spark.sql(&quot;select count(*) from test.t1&quot;).show()</span><br><span class="line">+--------+</span><br><span class="line">|count(1)|</span><br><span class="line">+--------+</span><br><span class="line">|       1|</span><br><span class="line">+--------+</span><br><span class="line"></span><br><span class="line">scala&gt; spark.sql(&quot;delete from test.t1 where id=1&quot;)</span><br><span class="line">res5: org.apache.spark.sql.DataFrame = []</span><br><span class="line"></span><br><span class="line">scala&gt; spark.sql(&quot;select count(*) from test.t1&quot;).show()</span><br><span class="line">+--------+</span><br><span class="line">|count(1)|</span><br><span class="line">+--------+</span><br><span class="line">|       0|</span><br><span class="line">+--------+</span><br></pre></td></tr></table></figure></div>
+<p>对于新支持的 <code>delete</code> 操作，有如下<strong>限制</strong>，使用时需注意。</p>
+<ol>
+<li><code>Delete</code> 语句必须含有 <code>where</code> 条件，但不能接 <code>where 1=1</code>。</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">scala&gt; spark.sql(&quot;delete from test.t1 where 1=1&quot;)</span><br><span class="line">java.lang.IllegalArgumentException: requirement failed: Delete with alwaysTrue WHERE clause is not supported</span><br></pre></td></tr></table></figure></div>
+<ol start="2">
+<li>不支持子查询。</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">scala&gt; spark.sql(&quot;delete from test.t2 where id in (select id from test.t1)&quot;)</span><br><span class="line">org.apache.spark.sql.AnalysisException: Delete by condition with subquery is not supported: Some(id#275L IN (list#274 []));</span><br></pre></td></tr></table></figure></div>
+<ol start="3">
+<li>不支持分区表，不支持悲观事务。</li>
+</ol>
+<h3 id="使用-PySpark-演示窗口函数">使用 PySpark 演示窗口函数</h3>
+<p>本例已 <code>rank()</code> 函数为例，其他窗口函数类似。</p>
+<ol>
+<li>准备测试数据。</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">DROP TABLE if EXISTS student;</span><br><span class="line">CREATE TABLE if NOT EXISTS student (course VARCHAR(10), mark INT, name VARCHAR(10));</span><br><span class="line">INSERT INTO student VALUES</span><br><span class="line">(&#x27;Maths&#x27;, 60, &#x27;Thulile&#x27;),</span><br><span class="line">(&#x27;Maths&#x27;, 60, &#x27;Pritha&#x27;),</span><br><span class="line">(&#x27;Maths&#x27;, 70, &#x27;Voitto&#x27;),</span><br><span class="line">(&#x27;Maths&#x27;, 55, &#x27;Chun&#x27;),</span><br><span class="line">(&#x27;Biology&#x27;, 60, &#x27;Bilal&#x27;),</span><br><span class="line">(&#x27;Biology&#x27;, 70, &#x27;Roger&#x27;);</span><br></pre></td></tr></table></figure></div>
+<ol start="2">
+<li>与 《使用 PySpark 进行数据读取》小节的前3步一致。</li>
+<li>引用 pyspark 中的 <code>Window/functions</code> 方法，并进行查询。</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">from pyspark.sql import Window, functions</span><br><span class="line"></span><br><span class="line">w = Window.partitionBy(&quot;course&quot;).orderBy(functions.desc(&quot;mark&quot;))</span><br><span class="line">df.select(&quot;course&quot;, &quot;mark&quot;, &quot;name&quot;, functions.rank().over(w).alias(&quot;rank&quot;)).show()</span><br></pre></td></tr></table></figure></div>
+<ol start="4">
+<li>查询结果输出如下。</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">+-------+----+-------+----+</span><br><span class="line">| course|mark|   name|rank|</span><br><span class="line">+-------+----+-------+----+</span><br><span class="line">|  Maths|  70| Voitto|   1|</span><br><span class="line">|  Maths|  60|Thulile|   2|</span><br><span class="line">|  Maths|  60| Pritha|   2|</span><br><span class="line">|  Maths|  55|   Chun|   4|</span><br><span class="line">|Biology|  70|  Roger|   1|</span><br><span class="line">|Biology|  60|  Bilal|   2|</span><br><span class="line">+-------+----+-------+----+</span><br></pre></td></tr></table></figure></div>
+<p>实际上，在这个案例中，是通过 pyspark 连接到 TiDB Server，将表 <code>student</code> 的全部数据读取出来，再在 Spark 中进行运算，最终得到所示结果集。</p>
+<p>到此，四个案例已全部演示完毕。</p>
+<h2 id="TiSpark-v3-0-0-其他新功能">TiSpark v3.0.0 其他新功能</h2>
+<h3 id="TiSpark-v3-0-0-支持-Spark-3-2">TiSpark v3.0.0 支持 Spark 3.2</h3>
+<blockquote>
+<p>新特性 – 支持 Spark 3.2 <a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/pull/2287" >#2287 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+</blockquote>
+<p>解读：Spark 3.2.1 于 1月26日发版，是近期发布的最新稳定版本。</p>
+<h3 id="TiSpark-v3-0-0-支持遥测">TiSpark v3.0.0 支持遥测</h3>
+<blockquote>
+<p>新特性 – 支持遥测以收集相关信息 <a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/issues/2316" >#2316 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+</blockquote>
+<p>解读：</p>
+<ol>
+<li>遥测功能默认开启，可通过参数 <code>spark.tispark.telemetry.enable</code> 进行控制。</li>
+<li>遥测功能会收集操作系统信息和部分 TiSpark 配置信息，并将信息分享给 PingCAP。具体收集方法，可参考源码。</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">core/src/main/scala/com/pingcap/tispark/utils/SystemInfoUtil.scala</span><br><span class="line">core/src/main/scala/com/pingcap/tispark/telemetry/TelemetryRule.scala</span><br></pre></td></tr></table></figure></div>
+<ol start="3">
+<li>如果想看完整的遥测收集内容，可将 TiSpark 日志级别调至 <code>INFO</code> 及以下，然后在 Spark 的日志文件中查看。</li>
+</ol>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># tispark v3.0.0, print telemetry content</span><br><span class="line">log4j.logger.com.pingcap.tispark=WARN</span><br></pre></td></tr></table></figure></div>
+<h2 id="总结">总结</h2>
+<ol>
+<li>TiSpark 已支持从 TiKV 和 TiFlash 读取数据，并通过自定义插件的形式增强了数据处理能力和计算下推能力。并且支持绕过 TiDB Server 直接写入数据到 TiKV，大大提升了数据批量写入的效率。</li>
+<li>TiSpark 对 TiDB 6.0 的支持尚未得到完全测试 (<a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/pull/2238" >#2238 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>)，建议使用 TiSpark 3.0.0 + TiDB 5.4 的版本搭配。</li>
+<li>最新版本的 TiSpark 未推送到 tiup mirror，需从源码库下载，或直接通过 Maven 库引用。</li>
+<li>由于 PySpark 底层调用的是 py4j，实际仍会转化为 Java，所以对于大量的流式计算，建议直接使用 Scala 或者 Java 编写程序。</li>
+<li>TiSpark v3.0.0 支持删除语句，TiSpark 读写能力得到进一步强化。</li>
+<li>TiSpark 是 TiDB 周边生态中的一个重点项目，但毕竟使用场景有一定的局限性，所以在期待 TiSpark 功能增强的同时，应多予以一些耐心和信心。</li>
+</ol>
+<h1>参考链接</h1>
+<ul>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/pingcap/tispark" >TiSpark 源码 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/tispark-overview" >TiSpark 用户指南 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://spark.apache.org/" >Spark 官网 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></li>
+<li><a href="https://shawnyan.cn/2022/tidb/tidb-6.1-mpp-window-functions/">TiDB 6.x 新特性解读 | TiDB 6.1 MPP 实现窗口函数框架</a></li>
+</ul>
+<hr>
+<p><a class="link"   target="_blank" rel="noopener" href="https://www.modb.pro/db/414883" >https://www.modb.pro/db/414883 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 	<br>
+<a class="link"   target="_blank" rel="noopener" href="https://tidb.net/blog/5e697bac?shareId=2d29b9cf" >https://tidb.net/blog/5e697bac?shareId=2d29b9cf <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a><br>
+<a class="link"   target="_blank" rel="noopener" href="https://tidb.net/book/book-rush/best-practice/tispark-practice/tispark-guide" >https://tidb.net/book/book-rush/best-practice/tispark-practice/tispark-guide <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+
+        </div>
+
+        
+            <div class="post-copyright-info">
+                <div class="article-copyright-info-container">
+    <ul>
+    <!-- 2023-10-03, edit by shawnyan. -->
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Title:</strong> TiSpark v2.5 开发入门实践及 TiSpark v3.0.0 新功能解读</li>
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Author:</strong>
+            
+                ShawnYan
+            
+        </li>
+        <li><strong>Created at:</strong> 2022-06-14 18:06:37</li>
+        
+            <li><strong>Updated at:</strong> 2022-06-14 18:06:37</li>
+        
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Link:</strong> https://shawnyan.cn/2022/tidb/tidb-6.0-tispark-guide/</li>
+        <li style="word-wrap: break-word; white-space: normal;">
+            <strong>
+                License:
+            </strong>
+            
+            This work is licensed under <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>.
+            
+
+        </li>
+    </ul>
+</div>
+
+            </div>
+        
+
+        
+            <ul class="post-tags-box">
+                
+                    <li class="tag-item">
+                        <a href="/tags/tidb/">#tidb</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/tidb-6-x/">#tidb 6.x</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/tispark/">#tispark</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/spark/">#spark</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/pyspark/">#pyspark</a>&nbsp;
+                    </li>
+                
+            </ul>
+        
+
+        
+  <div class="recommended-article">
+   <div class="recommended-desktop">
+    <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+    </div>
+    <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/tidb/tidb-7.1-tispark-3.x/" title="TiDB 7.1.0 LTS 特性解读 | 浅析 TiSpark v3.x 新变化" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png" alt="TiDB 7.1.0 LTS 特性解读 | 浅析 TiSpark v3.x 新变化" class="!max-w-none">
+  <span class="title">TiDB 7.1.0 LTS 特性解读 | 浅析 TiSpark v3.x 新变化</span>
+</a><a class="recommended-article-item" href="/2023/tidb/tidb-7.x-compile-tidb/" title="TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png" alt="TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）" class="!max-w-none">
+  <span class="title">TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）</span>
+</a><a class="recommended-article-item" href="/2023/modb/modb-articles-recommended/" title="【年终盘点】【合集】严选首推文章清单" rel="bookmark">
+  <img src="/img/modb/modb-logo.png" alt="【年终盘点】【合集】严选首推文章清单" class="!max-w-none">
+  <span class="title">【年终盘点】【合集】严选首推文章清单</span>
+</a></div>
+   </div>
+   <div class="recommended-mobile">
+   <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+   </div>
+   <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/tidb/tidb-7.1-tispark-3.x/" title="TiDB 7.1.0 LTS 特性解读 | 浅析 TiSpark v3.x 新变化" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png" alt="TiDB 7.1.0 LTS 特性解读 | 浅析 TiSpark v3.x 新变化" class="!max-w-none">
+  <span class="title">TiDB 7.1.0 LTS 特性解读 | 浅析 TiSpark v3.x 新变化</span>
+</a><a class="recommended-article-item" href="/2023/tidb/tidb-7.x-compile-tidb/" title="TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）" rel="bookmark">
+  <img src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png" alt="TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）" class="!max-w-none">
+  <span class="title">TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解（文末彩蛋）</span>
+</a></div>
+   </div>
+  </div>
+
+        
+            <div class="article-nav">
+                
+                    <div class="article-prev">
+                        <a class="prev"
+                        rel="prev"
+                        href="/2022/tidb/tidb-6.1-mpp-window-functions/"
+                        >
+                            <span class="left arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </span>
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">TiDB 6.x 新特性解读 | TiDB 6.1 MPP 实现窗口函数框架</span>
+                                <span class="post-nav-item">Prev posts</span>
+                            </span>
+                        </a>
+                    </div>
+                
+                
+                    <div class="article-next">
+                        <a class="next"
+                        rel="next"
+                        href="/2022/opengauss/opengauss-blog-commit-to-gitee/"
+                        >
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">如何使用 Gitee 向 openGauss 社区提交博客</span>
+                                <span class="post-nav-item">Next posts</span>
+                            </span>
+                            <span class="right arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </a>
+                    </div>
+                
+            </div>
+        
+
+
+        
+            <div class="comment-container">
+                <div class="comments-container pjax">
+    <div id="comment-anchor"></div>
+    <div class="comment-area-title">
+        <i class="fa-solid fa-comments"></i>&nbsp;Comments
+    </div>
+    
+
+        
+            
+    <div id="gitalk-container"></div>
+    <script data-swup-reload-script
+            src="//cdn.staticfile.org/gitalk/1.8.0/gitalk.min.js"></script>
+    <script data-swup-reload-script>
+
+        function loadGitalk() {
+            let __gitalk__pathname = decodeURI(location.pathname);
+            const __gitalk__pathnameLength = __gitalk__pathname.length;
+            const __gitalk__pathnameMaxLength = 50;
+            if (__gitalk__pathnameLength > __gitalk__pathnameMaxLength) {
+                __gitalk__pathname = __gitalk__pathname.substring(0, __gitalk__pathnameMaxLength - 3) + '...';
+            }
+
+            try {
+                Gitalk && new Gitalk({
+                    clientID: '32d049bf3701e6791070',
+                    clientSecret: '36c295ad3dad4c739b530ef113d0a979d8c35c5d',
+                    repo: 'gitalk',
+                    owner: 'shawn0915',
+                    admin: ['shawn0915'],
+                    id: __gitalk__pathname,
+                    language: 'en'
+                }).render('gitalk-container');
+
+            } catch (e) {
+                window.Gitalk = null;
+            }
+        }
+
+        if ('true') {
+            const loadGitalkTimeout = setTimeout(() => {
+                loadGitalk();
+                clearTimeout(loadGitalkTimeout);
+            }, 1000);
+        } else {
+            window.addEventListener('DOMContentLoaded', loadGitalk);
+        }
+    </script>
+
+
+
+        
+    
+</div>
+
+            </div>
+        
+    </div>
+
+    
+        <div class="toc-content-container">
+            <div class="post-toc-wrap">
+    <div class="post-toc">
+        <div class="toc-title">On this page</div>
+<!--         <div class="page-title">TiSpark v2.5 开发入门实践及 TiSpark v3.0.0 新功能解读</div> -->
+        <ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link"><span class="nav-text">背景</span></a></li><li class="nav-item nav-level-1"><a class="nav-link"><span class="nav-text">TiSpark 安装</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%89%88%E6%9C%AC%E4%BF%A1%E6%81%AF"><span class="nav-text">版本信息</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BB%84%E4%BB%B6%E5%AE%89%E8%A3%85"><span class="nav-text">组件安装</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#TiDB"><span class="nav-text">TiDB</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#JDK"><span class="nav-text">JDK</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Scala"><span class="nav-text">Scala</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Spark"><span class="nav-text">Spark</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#TiSpark"><span class="nav-text">TiSpark</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#TiSpark-v3-0-0-%E5%90%AF%E7%94%A8-Jar-%E5%8C%85%E6%96%B0%E5%91%BD%E5%90%8D%E8%A7%84%E5%88%99"><span class="nav-text">TiSpark v3.0.0 启用 Jar 包新命名规则</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#TiSpark-%E7%89%88%E6%9C%AC%E8%AF%B4%E6%98%8E"><span class="nav-text">TiSpark 版本说明</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link"><span class="nav-text">TiSpark 开发实践</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#TiSpark-v2-5-%E7%9B%B8%E5%85%B3%E9%85%8D%E7%BD%AE"><span class="nav-text">TiSpark v2.5 相关配置</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#TiSpark-v3-0-0-%E7%9B%B8%E5%85%B3%E9%85%8D%E7%BD%AE"><span class="nav-text">TiSpark v3.0.0 相关配置</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8-PySpark-%E8%BF%9B%E8%A1%8C%E6%95%B0%E6%8D%AE%E8%AF%BB%E5%8F%96"><span class="nav-text">使用 PySpark 进行数据读取</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%89%E8%A3%85-PySpark"><span class="nav-text">安装 PySpark</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%90%AF%E5%8A%A8-PySpark"><span class="nav-text">启动 PySpark</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8B-PySpark-%E7%89%88%E6%9C%AC%E4%BF%A1%E6%81%AF"><span class="nav-text">查看 PySpark 版本信息</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8-PySpark-%E9%80%9A%E8%BF%87-JDBC-%E8%AF%BB%E5%8F%96%E6%95%B0%E6%8D%AE"><span class="nav-text">使用 PySpark 通过 JDBC 读取数据</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8-spark-shell-%E8%BF%9B%E8%A1%8C%E6%95%B0%E6%8D%AE%E5%86%99%E5%85%A5"><span class="nav-text">使用 spark-shell 进行数据写入</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%90%AF%E5%8A%A8-spark-shell"><span class="nav-text">启动 spark-shell</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8B-spark-shell-%E4%BF%A1%E6%81%AF"><span class="nav-text">查看 spark-shell 信息</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8-spark-shell-%E5%86%99%E5%85%A5%E6%95%B0%E6%8D%AE"><span class="nav-text">使用 spark-shell 写入数据</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8-spark-shell-%E8%BF%9B%E8%A1%8C%E6%95%B0%E6%8D%AE%E5%88%A0%E9%99%A4"><span class="nav-text">使用 spark-shell 进行数据删除</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8-PySpark-%E6%BC%94%E7%A4%BA%E7%AA%97%E5%8F%A3%E5%87%BD%E6%95%B0"><span class="nav-text">使用 PySpark 演示窗口函数</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#TiSpark-v3-0-0-%E5%85%B6%E4%BB%96%E6%96%B0%E5%8A%9F%E8%83%BD"><span class="nav-text">TiSpark v3.0.0 其他新功能</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#TiSpark-v3-0-0-%E6%94%AF%E6%8C%81-Spark-3-2"><span class="nav-text">TiSpark v3.0.0 支持 Spark 3.2</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#TiSpark-v3-0-0-%E6%94%AF%E6%8C%81%E9%81%A5%E6%B5%8B"><span class="nav-text">TiSpark v3.0.0 支持遥测</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-text">总结</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link"><span class="nav-text">参考链接</span></a></li></ol>
+
+    </div>
+</div>
+
+        </div>
+    
+</div>
+
+
+
+                
+
+            </div>
+
+            
+
+        </div>
+
+        <div class="main-content-footer">
+            <footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2017</span>
+              -
+            
+            2024&nbsp;&nbsp;<i class="fa-solid fa-heart fa-beat" style="--fa-animation-duration: 0.5s; color: #f54545"></i>&nbsp;&nbsp;<a href="/">Shawn Yan</a>
+        </div>
+        
+            <script data-swup-reload-script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">VISITOR COUNT</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">TOTAL PAGE VIEWS</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">POWERED BY <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a></span>
+            <span class="text-sm lg:block">THEME&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.4.4</a></span>
+        </div>
+        
+        
+            <div>
+                Blog up for <span class="odometer" id="runtime_days" ></span> days <span class="odometer" id="runtime_hours"></span> hrs <span class="odometer" id="runtime_minutes"></span> Min <span class="odometer" id="runtime_seconds"></span> Sec
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+
+    </div>
+</footer>
+
+        </div>
+    </div>
+
+    
+        <div class="post-tools">
+            <div class="post-tools-container">
+    <ul class="article-tools-list">
+        <!-- TOC aside toggle -->
+        
+            <li class="right-bottom-tools page-aside-toggle">
+                <i class="fa-regular fa-outdent"></i>
+            </li>
+        
+
+        <!-- go comment -->
+        
+            <li class="go-comment">
+                <i class="fa-regular fa-comments"></i>
+            </li>
+        
+    </ul>
+</div>
+
+        </div>
+    
+
+    <div class="right-side-tools-container">
+        <div class="side-tools-container">
+    <ul class="hidden-tools-list">
+        <li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-plus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-minus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-expand-width flex justify-center items-center">
+            <i class="fa-regular fa-expand"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+            <i class="fa-regular fa-moon"></i>
+        </li>
+
+        <!-- rss -->
+        
+            <li class="right-bottom-tools rss flex justify-center items-center">
+                <a class="flex justify-center items-center"
+                   href="/atom.xml"
+                   target="_blank"
+                >
+                <i class="fa-regular fa-rss"></i>
+                </a>
+            </li>
+        
+
+        
+
+        <li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+            <i class="fa-regular fa-arrow-down"></i>
+        </li>
+    </ul>
+
+    <ul class="visible-tools-list">
+        <li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+            <i class="fa-regular fa-cog fa-spin"></i>
+        </li>
+        
+            <li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+                <i class="arrow-up fas fa-arrow-up"></i>
+                <span class="percent"></span>
+            </li>
+        
+        
+    </ul>
+</div>
+
+    </div>
+
+    <div class="image-viewer-container">
+    <img src="">
+</div>
+
+
+    
+        <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+          <span class="search-input-field-pre">
+            <i class="fa-solid fa-keyboard"></i>
+          </span>
+            <div class="search-input-container">
+                <input autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       placeholder="Search..."
+                       spellcheck="false"
+                       type="search"
+                       class="search-input"
+                >
+            </div>
+            <span class="popup-btn-close">
+                <i class="fa-solid fa-times"></i>
+            </span>
+        </div>
+        <div id="search-result">
+            <div id="no-result">
+                <i class="fa-solid fa-spinner fa-spin-pulse fa-5x fa-fw"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+
+</main>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Swup.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupSlideTheme.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScriptsPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupProgressPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScrollPlugin.min.js"></script>
+<script>
+    const swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+        ],
+        containers: ["#swup"],
+    });
+
+    swup.hooks.on("page:view", () => {
+        Global.refresh();
+    });
+
+    // if (document.readyState === "complete") {
+    //
+    // } else {
+    //     document.addEventListener("DOMContentLoaded", () => init());
+    // }
+</script>
+
+
+
+
+
+<script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/utils.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/main.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/navbarShrink.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/scrollTopBottom.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/lightDarkSwitch.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/categoryList.js"></script>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/localSearch.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/codeBlock.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/lazyload.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/runtime.js"></script>
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/odometer.min.js"></script>
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/assets/odometer-theme-minimal.css">
+
+
+
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Typed.min.js"></script>
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/typed.js"></script>
+
+
+
+
+
+
+<div class="post-scripts" data-swup-reload-script>
+    
+        <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/anime.min.js"></script>
+        <script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/tocToggle.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/toc.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/tabs.js"></script>
+    
+</div>
+
+
+</body>
+</html>

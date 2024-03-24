@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="shawnyan,dba,oracle,mysql,tidb,mariadb,postgresql,gbase,proxysql">
+    
+    <meta name="author" content="Shawn Yan">
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+        
+        
+        
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://shawnyan.cn/2022/mysql/fanyi-migrate-a-mysql-table-to-redis/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+        <meta name="description" content="原文链接：https:&#x2F;&#x2F;www.mortensi.com&#x2F;2021&#x2F;12&#x2F;migrate-a-mysql-table-to-redis&#x2F;  原文作者：Admin   在这篇文章中，我将列出一些从MySQL逻辑复制一张表到Redis的一些选项。我将使用经典的world数据库运行示例。 world数据库可以在这里下载  ，所以如果您想尝试这些示例，只需将它导入到您的MySQL实例中。 123456">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[译] 迁移 MySQL 的表到 Redis">
+<meta property="og:url" content="https://shawnyan.cn/2022/mysql/fanyi-migrate-a-mysql-table-to-redis/index.html">
+<meta property="og:site_name" content="少安事务所">
+<meta property="og:description" content="原文链接：https:&#x2F;&#x2F;www.mortensi.com&#x2F;2021&#x2F;12&#x2F;migrate-a-mysql-table-to-redis&#x2F;  原文作者：Admin   在这篇文章中，我将列出一些从MySQL逻辑复制一张表到Redis的一些选项。我将使用经典的world数据库运行示例。 world数据库可以在这里下载  ，所以如果您想尝试这些示例，只需将它导入到您的MySQL实例中。 123456">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20220316-fd6c4619-fa42-45c6-9549-f29f79a406e0.png">
+<meta property="og:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20220316-bb2a5ad4-295d-497a-8ceb-21576775435f.png">
+<meta property="article:published_time" content="2022-03-16T12:03:49.000Z">
+<meta property="article:modified_time" content="2022-03-16T12:03:49.000Z">
+<meta property="article:author" content="Shawn Yan">
+<meta property="article:tag" content="mysql">
+<meta property="article:tag" content="译文">
+<meta property="article:tag" content="redis">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://oss-emcsprod-public.modb.pro/image/editor/20220316-fd6c4619-fa42-45c6-9549-f29f79a406e0.png">
+    
+    
+        <!-- Google tag (gtag.js) -->
+        <script src="https://www.googletagmanager.com/gtag/js?id=G-ZH71L5F7X2"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-ZH71L5F7X2');
+        </script>
+    
+    <!-- baidu tongji -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?2fa794d82f74c0bb3617ba62ee962b46";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/img/favicon.ico" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon.ico">
+    <meta name="theme-color" content="#767FF6">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <!--- Page Info-->
+    
+    <title>
+        
+            [译] 迁移 MySQL 的表到 Redis -
+        
+        少安事务所
+    </title>
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+<!--- use 2.5.0
+    
+        
+<link rel="stylesheet" href="/assets/build/styles.css">
+
+    
+-->
+    <link rel="stylesheet" href="//cdn.staticfile.org/hexo-theme-redefine/2.5.0/assets/build/styles.min.css">
+
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/fonts.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Satoshi/satoshi.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fonts/Chillax/chillax.css">
+    <!--- Font Part-->
+    
+    
+    
+    
+
+    <!--- Inject Part-->
+    
+    <script id="hexo-configurations">
+    let Global = window.Global || {};
+    Global.hexo_config = {"hostname":"shawnyan.cn","root":"/","language":"en","path":"search.xml"};
+    Global.theme_config = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":true,"list":[]},"code_block":{"copy":true,"style":"mac","font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":4,"number":false,"expand":true,"init_open":true},"copyright":true,"lazyload":true,"recommendation":{"enable":true,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#767FF6","secondary":null},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"open_graph":true,"google_analytics":{"enable":true,"id":"G-ZH71L5F7X2"},"root_color_mode":"dark"},"home_banner":{"enable":true,"style":"fixed","image":{"light":"https://asktug.com/uploads/default/original/4X/4/b/d/4bd94f804719672dd7e3cb29150ea6f777eb0aec.jpeg","dark":"/img/wallpaper/dark.webp"},"title":"Shawn Yan's Tech Blog.","subtitle":{"text":["A blog about MySQL, Oracle, TiDB, PostgreSQL and other databases."],"hitokoto":{"enable":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":500,"backing_delay":1500,"loop":true,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"links":{"github":"https://github.com/shawn0915","instagram":null,"zhihu":null,"twitter":null,"email":"admin@shawnyan.cn"},"qrs":{"weixin":null}}},"plugins":{"feed":{"enable":true},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":"回忆的沙漏 (10周年版)","artist":"回忆的沙漏 (10周年版)","url":"https://music.163.com/song/media/outer/url?id=1329122067.mp3","cover":"https://p1.music.126.net/oJorrgJ3IotZUAbZkBMuFw==/109951167771736533.jpg?param=68y68"}]},"mermaid":{"enable":false,"version":"9.3.0"}},"version":"2.4.4","navbar":{"auto_hide":false,"color":{"left":"#f78736","right":"#367df7","transparency":35},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Blog":{"path":"/archives","icon":"fa-regular fa-archive"},"Categories":{"path":"/categories","icon":"fa-regular fa-stream"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Links":{"icon":"fa-regular fa-link","submenus":{"My-params":"/my-params","Friends":"/links","Q":"/q"}}},"search":{"enable":true,"preload":true}},"page_templates":{"friends_column":3,"tags_style":"cloud"},"home":{"sidebar":{"enable":true,"position":"left","first_item":"info","announcement":null,"links":null},"article_date_format":"YYYY-MM-DD","categories":{"enable":true,"limit":10},"tags":{"enable":true,"limit":10}},"footerStart":"2017/11/27 00:00:00"};
+    Global.language_ago = {"second":"%s seconds ago","minute":"%s minutes ago","hour":"%s hours ago","day":"%s days ago","week":"%s weeks ago","month":"%s months ago","year":"%s years ago"};
+    Global.data_config = {"masonry":false};
+  </script>
+
+    <!--- Fontawesome Part-->
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/fontawesome.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/brands.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/solid.min.css">
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/fontawesome/regular.min.css">
+    
+    
+    
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+
+
+<body>
+<div class="progress-bar-container">
+    
+
+    
+        <span class="pjax-progress-bar"></span>
+        <span class="swup-progress-icon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+    
+</div>
+
+
+<main class="page-container" id="swup">
+
+    
+
+    <div class="main-content-container">
+
+
+        <div class="main-content-header">
+            <header class="navbar-container">
+    
+    <div class="navbar-content">
+        <div class="left">
+            
+                <a class="logo-image" href="https://shawnyan.cn/">
+                    <img src="/img/favicon.ico">
+                </a>
+            
+            <a class="logo-title" href="https://shawnyan.cn/">
+                
+                少安事务所
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-house"></i>
+                                        
+                                        HOME
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/archives"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-archive"></i>
+                                        
+                                        BLOG
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/categories"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-stream"></i>
+                                        
+                                        CATEGORIES
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/tags"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-tags"></i>
+                                        
+                                        TAGS
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="" 
+                                    href="/about"  >
+                                    
+                                        
+                                            <i class="fa-regular fa-user"></i>
+                                        
+                                        ABOUT
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class="has-dropdown" 
+                                    href="#" onClick="return false;">
+                                    
+                                        
+                                            <i class="fa-regular fa-link"></i>
+                                        
+                                        LINKS&nbsp;<i class="fa-solid fa-chevron-down"></i>
+                                    
+                                </a>
+                                <!-- Submenu -->
+                                
+                                    <ul class="sub-menu">
+                                    
+                                        <li>
+                                        <a href="/my-params">MY-PARAMS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/links">FRIENDS
+                                        </a>
+                                        </li>
+                                    
+                                        <li>
+                                        <a href="/q">Q
+                                        </a>
+                                        </li>
+                                    
+                                    </ul>
+                                
+                            </li>
+                    
+                    
+                        <li class="navbar-item search search-popup-trigger">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </li>
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                    <div class="icon-item search search-popup-trigger"><i class="fa-solid fa-magnifying-glass"></i></div>
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="navbar-drawer w-full absolute top-0 left-0 bg-background-color">
+        <ul class="drawer-navbar-list flex flex-col justify-start items-center">
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/"  >
+                             
+                                
+                                    <i class="fa-regular fa-house"></i>
+                                
+                                HOME
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/archives"  >
+                             
+                                
+                                    <i class="fa-regular fa-archive"></i>
+                                
+                                BLOG
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/categories"  >
+                             
+                                
+                                    <i class="fa-regular fa-stream"></i>
+                                
+                                CATEGORIES
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/tags"  >
+                             
+                                
+                                    <i class="fa-regular fa-tags"></i>
+                                
+                                TAGS
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group " 
+                        href="/about"  >
+                             
+                                
+                                    <i class="fa-regular fa-user"></i>
+                                
+                                ABOUT
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                    
+            
+                
+                    <li class="drawer-navbar-item text-base my-1.5 flex justify-center items-center">
+                        <a class="rounded-3xl py-1.5 px-5 hover:border hover:!text-primary active:!text-primary group has-dropdown" 
+                        href="#" onClick="return false;">
+                            
+                                
+                                    <i class="fa-regular fa-link"></i>
+                                
+                                LINKS&nbsp;<i class="group-hover:rotate-180 transition-transform fa-solid fa-chevron-down"></i>
+                            
+                        </a>
+                    </li>
+                    <!-- Submenu -->
+                              
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/my-params">MY-PARAMS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/links">FRIENDS</a>
+                            </li>
+                        
+                            <li class="text-base flex justify-center items-center hover:underline active:underline hover:underline-offset-1 rounded-3xl">
+                                <a class="py-0.5" href="/q">Q</a>
+                            </li>
+                        
+                    
+            
+
+        </ul>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+        </div>
+
+        <div class="main-content-body">
+
+            
+
+            <div class="main-content">
+
+                
+                    <div class="post-page-container">
+    <div class="article-content-container">
+
+        <div class="article-title">
+            
+                
+                
+                <!-- 2023-10-03, edit by shawnyan. -->
+                <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240307-279ad8cc-b226-4c9a-9a00-cef7bba3ca97.jpg" alt="[译] 迁移 MySQL 的表到 Redis" class="max-w-none" referrerpolicy="no-referrer"/>
+                
+                <h1 class="article-title-cover">[译] 迁移 MySQL 的表到 Redis</h1>
+            
+            </div>
+
+
+
+        
+            <div class="article-header">
+                <div class="avatar">
+                    
+                        <img src="/img/avatar.jpg">
+                    
+                </div>
+                <div class="info">
+                    <div class="author">
+                        
+                            <span class="name">严少安</span>
+                        
+                        
+                            
+                                <span class="author-label">Lv.6</span>
+                            
+                        
+                    </div>
+                    <div class="meta-info">
+                        <div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2022-03-16 20:03:49</span>
+        <span class="mobile">2022-03-16 20:03:49</span>
+        <span class="hover-info">Created</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2022-03-16 20:03:49</span>
+            <span class="mobile">2022-03-16 20:03:49</span>
+            <span class="hover-info">Updated</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/mysql/">MySQL</a>&nbsp;
+                        </li>
+                    
+                    
+                
+                    
+                        
+                            <li>></li>
+                        
+                        <li>
+                            <a href="/categories/mysql/translate/">Translate</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/mysql/">mysql</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/%E8%AF%91%E6%96%87/">译文</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/redis/">redis</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+        <span class="article-wordcount article-meta-item">
+            <i class="fa-regular fa-typewriter"></i>&nbsp;<span>2.7k Words</span>
+        </span>
+    
+    
+        <span class="article-min2read article-meta-item">
+            <i class="fa-regular fa-clock"></i>&nbsp;<span>12 Mins</span>
+        </span>
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+                    </div>
+                </div>
+            </div>
+        
+
+        
+
+
+        <div class="article-content markdown-body">
+            <blockquote>
+<p>原文链接：<a class="link"   target="_blank" rel="noopener" href="https://www.mortensi.com/2021/12/migrate-a-mysql-table-to-redis/" >https://www.mortensi.com/2021/12/migrate-a-mysql-table-to-redis/ <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a><br>
+原文作者：Admin</p>
+</blockquote>
+<img  alt="1.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20220316-fd6c4619-fa42-45c6-9549-f29f79a406e0.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>在这篇文章中，我将列出一些从MySQL逻辑复制一张表到Redis的一些选项。我将使用经典的<code>world</code>数据库运行示例。 <code>world</code>数据库可以在这里<a class="link"   target="_blank" rel="noopener" href="https://downloads.mysql.com/docs/world-db.zip" >下载 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> ，所以如果您想尝试这些示例，只需将它导入到您的MySQL实例中。</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">mysql<span class="operator">&gt;</span> use world;</span><br><span class="line">Database changed</span><br><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">show</span> tables;</span><br><span class="line"><span class="operator">+</span><span class="comment">-----------------+</span></span><br><span class="line"><span class="operator">|</span> Tables_in_world <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-----------------+</span></span><br><span class="line"><span class="operator">|</span> city            <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> country         <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> countrylanguage <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-----------------+</span></span><br><span class="line"><span class="number">3</span> <span class="keyword">rows</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.01</span> sec)</span><br></pre></td></tr></table></figure></div>
+<p>有多种方法可以将表格导入Redis，让我们来看看其中的几种。在下面的例子中，我将选择一个<a class="link"   target="_blank" rel="noopener" href="https://redis.io/topics/data-types-intro#redis-hashes" >Hash <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 数据类型，最类似于Redis的传统表行。</p>
+<blockquote>
+<p>Redis哈希是字符串字段和字符串值之间的映射，所以它们是表示对象的完美数据类型(例如，一个用户有许多字段，如名字、姓氏、年龄等)</p>
+</blockquote>
+<h2 id="使用-SELECT-INTO-OUTFILE-导出CSV格式，使用Python导入">使用 SELECT INTO OUTFILE 导出CSV格式，使用Python导入</h2>
+<p>为了从MySQL导出数据并将其导入Redis，我们可以使用MySQL <a class="link"   target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/en/select-into.html" >SELECT into OUTFILE <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 功能，它可以生成一个格式化的输出文件。特别是，我将确保字段用逗号分隔。让我们试一试：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">INTO</span> OUTFILE <span class="string">&#x27;/tmp/city.csv&#x27;</span> FIELDS TERMINATED <span class="keyword">BY</span> <span class="string">&#x27;,&#x27;</span> ENCLOSED <span class="keyword">BY</span> <span class="string">&#x27;&quot;&#x27;</span> LINES TERMINATED <span class="keyword">BY</span> <span class="string">&#x27;n&#x27;</span> <span class="keyword">FROM</span> world.city;</span><br><span class="line">ERROR <span class="number">1290</span> (HY000): The MySQL server <span class="keyword">is</span> <span class="keyword">running</span> <span class="keyword">with</span> the <span class="comment">--secure-file-priv option so it cannot execute this statement</span></span><br></pre></td></tr></table></figure></div>
+<p>噢，MySQL默认配置禁止导出数据到文件系统。让我们在配置文件my.cnf中修复它：</p>
+<div class="highlight-container" data-rel="Yaml"><figure class="iseeu highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[<span class="string">mysqld</span>]</span><br><span class="line"><span class="string">secure_file_priv=/tmp</span></span><br></pre></td></tr></table></figure></div>
+<p>现在我可以导出：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">INTO</span> OUTFILE <span class="string">&#x27;/tmp/city.csv&#x27;</span> FIELDS TERMINATED <span class="keyword">BY</span> <span class="string">&#x27;,&#x27;</span> ENCLOSED <span class="keyword">BY</span> <span class="string">&#x27;&quot;&#x27;</span> LINES TERMINATED <span class="keyword">BY</span> <span class="string">&#x27;n&#x27;</span> <span class="keyword">FROM</span> world.city;</span><br><span class="line">Query OK, <span class="number">4079</span> <span class="keyword">rows</span> affected (<span class="number">0.01</span> sec)</span><br></pre></td></tr></table></figure></div>
+<p>这是示例：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&quot;1&quot;,&quot;Kabul&quot;,&quot;AFG&quot;,&quot;Kabol&quot;,&quot;1780000&quot;</span><br><span class="line">&quot;2&quot;,&quot;Qandahar&quot;,&quot;AFG&quot;,&quot;Qandahar&quot;,&quot;237500&quot;</span><br><span class="line">&quot;3&quot;,&quot;Herat&quot;,&quot;AFG&quot;,&quot;Herat&quot;,&quot;186800&quot;</span><br><span class="line">&quot;4&quot;,&quot;Mazar-e-Sharif&quot;,&quot;AFG&quot;,&quot;Balkh&quot;,&quot;127800&quot;</span><br><span class="line">&quot;5&quot;,&quot;Amsterdam&quot;,&quot;NLD&quot;,&quot;Noord-Holland&quot;,&quot;731200&quot;</span><br><span class="line">&quot;6&quot;,&quot;Rotterdam&quot;,&quot;NLD&quot;,&quot;Zuid-Holland&quot;,&quot;593321&quot;</span><br><span class="line">&quot;7&quot;,&quot;Haag&quot;,&quot;NLD&quot;,&quot;Zuid-Holland&quot;,&quot;440900&quot;</span><br><span class="line">&quot;8&quot;,&quot;Utrecht&quot;,&quot;NLD&quot;,&quot;Utrecht&quot;,&quot;234323&quot;</span><br></pre></td></tr></table></figure></div>
+<p>现在数据是CSV格式，我能使用一个简单的Python脚本导入它，下面是个可用的示例（参考说明设置 Python <a class="link"   target="_blank" rel="noopener" href="https://www.mortensi.com/2021/12/connect-to-redis-with-python/" >环境 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 以连接到Redis）。</p>
+<div class="highlight-container" data-rel="Python"><figure class="iseeu highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#!/usr/bin/python3</span></span><br><span class="line"><span class="keyword">import</span> redis</span><br><span class="line"><span class="keyword">from</span> csv <span class="keyword">import</span> reader</span><br><span class="line"></span><br><span class="line">r = redis.Redis(host=<span class="string">&#x27;127.0.0.1&#x27;</span>, port=<span class="number">4321</span>, password=<span class="string">&#x27;&#x27;</span>)</span><br><span class="line"></span><br><span class="line"><span class="keyword">with</span> <span class="built_in">open</span>(<span class="string">&#x27;/tmp/city.csv&#x27;</span>, <span class="string">&#x27;r&#x27;</span>) <span class="keyword">as</span> cities:</span><br><span class="line">    csv_reader = reader(cities)</span><br><span class="line">    <span class="keyword">for</span> row <span class="keyword">in</span> csv_reader:</span><br><span class="line">        r.hset(<span class="string">&quot;city:&quot;</span> + row[<span class="number">0</span>],  mapping=&#123; <span class="string">&quot;Name&quot;</span> : row[<span class="number">1</span>], <span class="string">&quot;CountryCode&quot;</span> : row[<span class="number">2</span>], <span class="string">&quot;District&quot;</span> : row[<span class="number">3</span>], <span class="string">&quot;Population&quot;</span> : row[<span class="number">4</span>] &#125;)</span><br></pre></td></tr></table></figure></div>
+<p>让我们检查下是否正确导入：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:4321&gt; SCAN 0 MATCH city:* COUNT 5</span><br><span class="line">1) &quot;3072&quot;</span><br><span class="line">2) 1) &quot;city:2316&quot;</span><br><span class="line">   2) &quot;city:749&quot;</span><br><span class="line">   3) &quot;city:570&quot;</span><br><span class="line">   4) &quot;city:3625&quot;</span><br><span class="line">   5) &quot;city:3328&quot;</span><br><span class="line">   6) &quot;city:1771&quot;</span><br></pre></td></tr></table></figure></div>
+<p>我也可以验证Hash项的内容：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:4321&gt; HGETALL city:4059</span><br><span class="line">1) &quot;Name&quot;</span><br><span class="line">2) &quot;Cary&quot;</span><br><span class="line">3) &quot;CountryCode&quot;</span><br><span class="line">4) &quot;USA&quot;</span><br><span class="line">5) &quot;District&quot;</span><br><span class="line">6) &quot;North Carolina&quot;</span><br><span class="line">7) &quot;Population&quot;</span><br><span class="line">8) &quot;91213&quot;</span><br></pre></td></tr></table></figure></div>
+<h2 id="使用mysqldump导出CSV格式">使用mysqldump导出CSV格式</h2>
+<p>备份工具 <a class="link"   target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/en/mysqldump.html" >mysqldump <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 可作为客户端，可以从远端导出数据，而不需要修改让任何服务器配置。可以此来代替<code>SELECT INTO OUTFILE</code>，对有些人来说，它可能代表一个安全问题，因为它是在服务器本身导出行数据到文件系统，并需要启用<a class="link"   target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/en/server-system-variables.html#sysvar_secure_file_priv" >secure_file_priv <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysqldump --host=127.0.0.1 --user=root --password --tab=/tmp --fields-enclosed-by=&#x27;&quot;&#x27; --fields-terminated-by=&#x27;,&#x27; --lines-terminated-by=&#x27;n&#x27; world city</span><br></pre></td></tr></table></figure></div>
+<p>一旦文件导出（mysqldump导出两个文件，表定义保存在<code>city.sql</code>文件，数据以CSV格式保存在<code>city.txt</code>文件），数据可以按照说明导入。</p>
+<h2 id="使用RIOT导入CSV备份">使用RIOT导入CSV备份</h2>
+<p>假设你有一个MySQL表的CSV备份，事实上，CSV可以来自于任何数据源，比如Excel表格，Postgres等等。如果你不想编码来导入到Redis，你可以使用RIOT（Redis输入输出工具），用于将异构数据源迁移到Redis。</p>
+<img  alt="2.png" 
+                     lazyload
+                     src="/img/loading.svg"
+                     data-src="https://oss-emcsprod-public.modb.pro/image/editor/20220316-bb2a5ad4-295d-497a-8ceb-21576775435f.png"
+                      referrerpolicy="no-referrer"
+                >
+<p>Redis输入输出工具: RIOT</p>
+<blockquote>
+<p>Redis输入/输出工具(RIOT)是一个工具集，其设计目的在于帮助您从Redis导入导出数据。</p>
+</blockquote>
+<p>在本节中，我将演示RIOT的CSV导入工具，称之为 <a class="link"   target="_blank" rel="noopener" href="https://developer.redis.com/riot/index.html#_riot_file" >RIOT文件 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 。首先，安装它（我使用Mac，但是您可以参考文档了解其他安装方法）</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">brew install redis-developer/tap/riot-file</span><br></pre></td></tr></table></figure></div>
+<p>安装后，测试帮助方法：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">(redisvenv) bash-3.2$ riot-file --help</span><br><span class="line">The operation couldn’t be completed. Unable to locate a Java Runtime.</span><br><span class="line">Please visit http://www.java.com for information on installing Java.</span><br></pre></td></tr></table></figure></div>
+<p>是的，您也需要从<a class="link"   target="_blank" rel="noopener" href="http://www.java.com/" >www.java.com <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a>下载JRE，完成后，继续：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">(redisvenv) bash-3.2$ riot-file import hset --help</span><br><span class="line">Usage: riot-file import hset [OPTIONS]</span><br><span class="line">Set hashes from input</span><br><span class="line">-H, --help Show this help message and exit</span><br><span class="line">-s, --separator=&lt;str&gt; Key separator (default: :)</span><br><span class="line">-r, --remove Remove key or member fields the first time they are used</span><br><span class="line">--ignore-missing Ignore missing fields</span><br><span class="line">-p, --keyspace=&lt;str&gt; Keyspace prefix</span><br><span class="line">-k, --keys=&lt;fields&gt;... Key fields</span><br><span class="line">--include=&lt;field&gt;... Fields to include</span><br><span class="line">--exclude=&lt;field&gt;... Fields to exclude</span><br></pre></td></tr></table></figure></div>
+<p>现在，我们必须将CSV数据源映射到适当的Hash数据结构。我们原始的CSV文件第一行没有标题。如果我们想加标题，我们甚至可以按照顺序从 MySQL <a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/en/information-schema-tables-table.html"><code>information_schema</code></a> 中抽取。</p>
+<blockquote>
+<p>注意：MySQL SELECT INTO OUTFILE不会在导出的数据集添加头，这必须使用正确的SQL语法手动添加，或编辑导出的CSV文件。</p>
+</blockquote>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">SELECT</span> group_concat(COLUMN_NAME <span class="keyword">ORDER</span> <span class="keyword">BY</span> ORDINAL_POSITION separator <span class="string">&#x27;,&#x27;</span>) <span class="keyword">FROM</span> information_schema.COLUMNS <span class="keyword">WHERE</span> TABLE_NAME<span class="operator">=</span><span class="string">&#x27;city&#x27;</span> <span class="keyword">AND</span> TABLE_SCHEMA<span class="operator">=</span><span class="string">&#x27;world&#x27;</span>;</span><br><span class="line"><span class="operator">+</span><span class="comment">-------------------------------------------------------------------+</span></span><br><span class="line"><span class="operator">|</span> group_concat(COLUMN_NAME <span class="keyword">ORDER</span> <span class="keyword">BY</span> ORDINAL_POSITION separator <span class="string">&#x27;,&#x27;</span>) <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-------------------------------------------------------------------+</span></span><br><span class="line"><span class="operator">|</span> ID,Name,CountryCode,District,Population                           <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-------------------------------------------------------------------+</span></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure></div>
+<p>添加<code>ID,Name,CountryCode,District,Population</code>到CSV文件的第一行。但是我们仍然可以继续手动执行映射。在这里，我们指定字段在CSV文件中出现的顺序，指定表名（keyspace），及补充字段名（key）(例如<code>city:1234</code>)。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">riot-file -h 127.0.0.1 -p 4321 import /tmp/city.csv --fields ID Name CountryCode District Population hmset --keyspace city --keys ID</span><br></pre></td></tr></table></figure></div>
+<p>或者，如果CSV文件有从MySQL获得的头，我们可以添加<code>--header</code>参数来使用手动添加的CSV头。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">riot-file -h 127.0.0.1 -p 4321 import /tmp/city.csv --header hmset --keyspace city --keys ID</span><br></pre></td></tr></table></figure></div>
+<h2 id="使用-RIOT-DB-从MySQL导入">使用 RIOT DB 从MySQL导入</h2>
+<p>为了从没有中间转储备份导入MySQL，您可以编码一个方案，来连接源数据库和目标Redis库，或者简单地使用<a class="link"   target="_blank" rel="noopener" href="https://developer.redis.com/riot/index.html#_riot_db" >RIOT DB <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 。下面来安装它：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">brew install redis-developer/tap/riot-db</span><br></pre></td></tr></table></figure></div>
+<p>然后像往常一样导入，指定表名和列名，提供正确的连接信息，显然，需要定义导入数据集的查询语句。</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">riot-db -h 127.0.0.1 -p 4321 import &quot;SELECT * FROM city&quot; --url jdbc:mysql://root:Oracle1*@127.0.0.1:3306/world hmset --keyspace city --keys ID</span><br></pre></td></tr></table></figure></div>
+<h2 id="导出并以RESP格式做大量插入">导出并以RESP格式做大量插入</h2>
+<p>到目前为止，我已经探索了一些逻辑方法，但是对于大量插入，最高速度需要达到百万个键，有一种不同的方法，即使用redis-cli的管道模式，读取数据的同时，立即发送到服务器。特别地，使用这种方法，我们将使用<a class="link"   target="_blank" rel="noopener" href="https://redis.io/topics/protocol" >Redis协议(RESP) <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 。关于大量插入的更多信息请参阅<a class="link"   target="_blank" rel="noopener" href="https://redis.io/topics/mass-insert" >这里 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 。</p>
+<p>它可能导出RESP格式的表，并转瞬流到Redis服务器。让我们看看它是如何工作的。我们能使用SQL来生成数据，并以这种格式发送到Redis服务器：</p>
+<div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">*&lt;args&gt;&lt;cr&gt;&lt;lf&gt;</span><br><span class="line">$&lt;len0&gt;&lt;cr&gt;&lt;lf&gt;</span><br><span class="line">&lt;arg0&gt;&lt;cr&gt;&lt;lf&gt;</span><br><span class="line">$&lt;len1&gt;&lt;cr&gt;&lt;lf&gt;</span><br><span class="line">&lt;arg1&gt;&lt;cr&gt;&lt;lf&gt;</span><br><span class="line">...</span><br><span class="line">$&lt;lenN&gt;&lt;cr&gt;&lt;lf&gt;</span><br><span class="line">&lt;argN&gt;&lt;cr&gt;&lt;lf&gt;</span><br></pre></td></tr></table></figure></div>
+<p>这里：</p>
+<ul>
+<li>args 是参数的数量</li>
+<li>lenN 是参数跟随的长度</li>
+<li>argN 是参数</li>
+</ul>
+<p>假设我们要为MySQL表中的每一行添加一个Hash，每个Hash将插入4个字段，在RESP协议中生成转储的SQL语句将是这样的：</p>
+<div class="highlight-container" data-rel="Sql"><figure class="iseeu highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> CONCAT(</span><br><span class="line">&quot;*10\r\n&quot;,</span><br><span class="line"><span class="string">&#x27;$&#x27;</span>, LENGTH(redis_cmd), <span class="string">&#x27;\r\n&#x27;</span>,redis_cmd, <span class="string">&#x27;\r\n&#x27;</span>,<span class="string">&#x27;$&#x27;</span>, LENGTH(redis_key), <span class="string">&#x27;\r\n&#x27;</span>,redis_key, <span class="string">&#x27;\r\n&#x27;</span>,</span><br><span class="line"><span class="string">&#x27;$&#x27;</span>, LENGTH(hkey1), <span class="string">&#x27;\r\n&#x27;</span>,hkey1, <span class="string">&#x27;\r\n&#x27;</span>,<span class="string">&#x27;$&#x27;</span>, LENGTH(hval1), <span class="string">&#x27;\r\n&#x27;</span>, hval1, <span class="string">&#x27;\r\n&#x27;</span></span><br><span class="line"><span class="string">&#x27;$&#x27;</span>, LENGTH(hkey2), <span class="string">&#x27;\r\n&#x27;</span>,hkey2, <span class="string">&#x27;\r\n&#x27;</span>,<span class="string">&#x27;$&#x27;</span>, LENGTH(hval2), <span class="string">&#x27;\r\n&#x27;</span>, hval2, <span class="string">&#x27;\r\n&#x27;</span></span><br><span class="line"><span class="string">&#x27;$&#x27;</span>, LENGTH(hkey3), <span class="string">&#x27;\r\n&#x27;</span>,hkey3, <span class="string">&#x27;\r\n&#x27;</span>,<span class="string">&#x27;$&#x27;</span>, LENGTH(hval3), <span class="string">&#x27;\r\n&#x27;</span>, hval3, <span class="string">&#x27;\r\n&#x27;</span></span><br><span class="line"><span class="string">&#x27;$&#x27;</span>, LENGTH(hkey4), <span class="string">&#x27;\r\n&#x27;</span>,hkey4, <span class="string">&#x27;\r\n&#x27;</span>,<span class="string">&#x27;$&#x27;</span>, LENGTH(hval4), <span class="string">&#x27;\r\n&#x27;</span>, hval4, <span class="string">&#x27;\r\n&#x27;</span></span><br><span class="line">)</span><br><span class="line"><span class="keyword">FROM</span> (</span><br><span class="line"> <span class="keyword">SELECT</span></span><br><span class="line"><span class="string">&#x27;HSET&#x27;</span> <span class="keyword">AS</span> redis_cmd, CONCAT(<span class="string">&#x27;city:&#x27;</span>,ID) <span class="keyword">AS</span> redis_key,</span><br><span class="line"><span class="string">&#x27;Name&#x27;</span> <span class="keyword">AS</span> hkey1, Name <span class="keyword">AS</span> hval1,</span><br><span class="line"><span class="string">&#x27;CountryCode&#x27;</span> <span class="keyword">AS</span> hkey2, CountryCode <span class="keyword">AS</span> hval2,</span><br><span class="line"><span class="string">&#x27;District&#x27;</span> <span class="keyword">AS</span> hkey3, District <span class="keyword">AS</span> hval3,</span><br><span class="line"><span class="string">&#x27;Population&#x27;</span> <span class="keyword">AS</span> hkey4, Population <span class="keyword">AS</span> hval4</span><br><span class="line"> <span class="keyword">FROM</span> world.city</span><br><span class="line"> ) <span class="keyword">AS</span> t;</span><br></pre></td></tr></table></figure></div>
+<p>保存SQL到<code>resp.sql</code>文件，并用Redis的管道模式从MySQL流到Redis：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">bash-3.2$ mysql -h 127.0.0.1 -uroot -p -Dworld --skip-column-names --raw &lt;/tmp/resp.sql |redis-cli -p 4321 --pipe</span><br><span class="line">Enter password:</span><br><span class="line">All data transferred. Waiting for the last reply...</span><br><span class="line">Last reply received from server.</span><br><span class="line">errors: 0, replies: 4079</span><br></pre></td></tr></table></figure></div>
+<p>数据已经导入到Redis服务器！</p>
+<h2 id="使用-Redis-的-MySQL-连接器：redis-connect-mysql">使用 Redis 的 MySQL 连接器：redis-connect-mysql</h2>
+<p>最后一节，我将介绍如何使用Redis连接套件，特别是 <a class="link"   target="_blank" rel="noopener" href="https://github.com/redis-field-engineering/redis-connect-dist/tree/main/connectors/mysql#redis-connect-mysql" >redis-connect-mysql <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 。您可以阅读这份文档：</p>
+<blockquote>
+<p>redis-connect-mysql第一次连接MySQL时，它会读取所有模式的一致性快照。当快照创建完成，连接器将连续发送MySQL的变更并生成相应的insert,update或delete事件。</p>
+</blockquote>
+<p>因此，它不仅仅是一个迁移工具，还是一个连接异构数据库的复制和传输工具。Redis CDC （变更数据捕捉）曾在RedisConf 2021上演示，所以请查看演示的详细内容。</p>
+<blockquote>
+<p>译者注：这段视频在油管上，此处跳过。<br>
+<a class="link"   target="_blank" rel="noopener" href="https://www.youtube.com/embed/VrkZjh0REgU?feature=oembed" >RedisCDC: Seamless database migrations and continuous changed-data replication, Redis Labs <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a></p>
+</blockquote>
+<p>我现在没有运行使用RedisCDC的示例，但是请查看<a class="link"   target="_blank" rel="noopener" href="https://github.com/redis-field-engineering/redis-connect-dist/tree/main/connectors/mysql#setting-up-mysql-source" >代码库 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 来了解如何操作它。</p>
+<h2 id="清理">清理</h2>
+<p>为了移除那些导入的Hash值，您可以执行下面的命令：</p>
+<div class="highlight-container" data-rel="Shell"><figure class="iseeu highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">redis-cli -p &lt;PORT&gt; --scan --pattern city:* -i 0.01 | xargs redis-cli -p &lt;PORT&gt; unlink</span><br></pre></td></tr></table></figure></div>
+<h2 id="总结">总结</h2>
+<p>现在，您能从MySQL导出一张表，或者从其他的关系型数据库，任何可以导出CSV的数据库，或者RIOT DB，或者RedisCDC能连接的多种数据库。</p>
+<blockquote>
+<p>支持RedisCDC的连接器在 <a class="link"   target="_blank" rel="noopener" href="https://github.com/redis-field-engineering/redis-connect-dist/tree/main/connectors" >这里 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> ，支持 RIOT DB的连接器在<a class="link"   target="_blank" rel="noopener" href="https://developer.redis.com/riot/index.html#_drivers" >这里 <i class="fa-regular fa-arrow-up-right-from-square fa-sm"></i></a> 。</p>
+</blockquote>
+<p>接下来，您可能想知道您能用这些创建在Redis实例中的哈希值做些什么。所以我在下篇文章中，将分享一些例子，关于在Redis中存储、检索、更改、删除、索引和检索数据的命令。</p>
+<p>那么现在呢? 你可能想知道你可以用这些在Redis实例中创建的哈希值做什么。所以在下一篇文章中，我将分享几个在Redis中存储、检索、更改、删除、索引和搜索数据的命令示例。别走开，我很快就会写的！</p>
+
+        </div>
+
+        
+            <div class="post-copyright-info">
+                <div class="article-copyright-info-container">
+    <ul>
+    <!-- 2023-10-03, edit by shawnyan. -->
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Title:</strong> [译] 迁移 MySQL 的表到 Redis</li>
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Author:</strong>
+            
+                严少安
+            
+        </li>
+        <li><strong>Created at:</strong> 2022-03-16 20:03:49</li>
+        
+            <li><strong>Updated at:</strong> 2022-03-16 20:03:49</li>
+        
+        <li style="word-wrap: break-word; white-space: normal;"><strong>Link:</strong> https://shawnyan.cn/2022/mysql/fanyi-migrate-a-mysql-table-to-redis/</li>
+        <li style="word-wrap: break-word; white-space: normal;">
+            <strong>
+                License:
+            </strong>
+            
+            This work is licensed under <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>.
+            
+
+        </li>
+    </ul>
+</div>
+
+            </div>
+        
+
+        
+            <ul class="post-tags-box">
+                
+                    <li class="tag-item">
+                        <a href="/tags/mysql/">#mysql</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/%E8%AF%91%E6%96%87/">#译文</a>&nbsp;
+                    </li>
+                
+                    <li class="tag-item">
+                        <a href="/tags/redis/">#redis</a>&nbsp;
+                    </li>
+                
+            </ul>
+        
+
+        
+  <div class="recommended-article">
+   <div class="recommended-desktop">
+    <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+    </div>
+    <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/mysql/mysql-8.1.0-release/" title="【MySQL 8.x】重磅！MySQL 8.1.0 已来！有彩蛋~" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240307-279ad8cc-b226-4c9a-9a00-cef7bba3ca97.jpg" alt="【MySQL 8.x】重磅！MySQL 8.1.0 已来！有彩蛋~" class="!max-w-none">
+  <span class="title">【MySQL 8.x】重磅！MySQL 8.1.0 已来！有彩蛋~</span>
+</a><a class="recommended-article-item" href="/2022/tidb/mydumper-and-dumpling/" title="温故知新 | mydumper & dumpling 知识点汇总" rel="bookmark">
+  <img src="/img/tidb/mydumper.png" alt="温故知新 | mydumper & dumpling 知识点汇总" class="!max-w-none">
+  <span class="title">温故知新 | mydumper & dumpling 知识点汇总</span>
+</a><a class="recommended-article-item" href="/2022/mysql/fanyi-quick-peek-at-mysql-8-0-29/" title="[译] 快速浏览 MySQL 8.0.29" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240307-279ad8cc-b226-4c9a-9a00-cef7bba3ca97.jpg" alt="[译] 快速浏览 MySQL 8.0.29" class="!max-w-none">
+  <span class="title">[译] 快速浏览 MySQL 8.0.29</span>
+</a></div>
+   </div>
+   <div class="recommended-mobile">
+   <div class="recommended-article-header">
+     <i aria-hidden="true"></i><span>推荐阅读</span>
+   </div>
+   <div class="recommended-article-group"><a class="recommended-article-item" href="/2023/mysql/mysql-8.1.0-release/" title="【MySQL 8.x】重磅！MySQL 8.1.0 已来！有彩蛋~" rel="bookmark">
+  <img src="https://oss-emcsprod-public.modb.pro/image/editor/20240307-279ad8cc-b226-4c9a-9a00-cef7bba3ca97.jpg" alt="【MySQL 8.x】重磅！MySQL 8.1.0 已来！有彩蛋~" class="!max-w-none">
+  <span class="title">【MySQL 8.x】重磅！MySQL 8.1.0 已来！有彩蛋~</span>
+</a><a class="recommended-article-item" href="/2022/tidb/mydumper-and-dumpling/" title="温故知新 | mydumper & dumpling 知识点汇总" rel="bookmark">
+  <img src="/img/tidb/mydumper.png" alt="温故知新 | mydumper & dumpling 知识点汇总" class="!max-w-none">
+  <span class="title">温故知新 | mydumper & dumpling 知识点汇总</span>
+</a></div>
+   </div>
+  </div>
+
+        
+            <div class="article-nav">
+                
+                    <div class="article-prev">
+                        <a class="prev"
+                        rel="prev"
+                        href="/2022/modb/fanyi-oracle-mongodb-api/"
+                        >
+                            <span class="left arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </span>
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">[译] 甲骨文发布Oracle数据库对MongoDB的接口</span>
+                                <span class="post-nav-item">Prev posts</span>
+                            </span>
+                        </a>
+                    </div>
+                
+                
+                    <div class="article-next">
+                        <a class="next"
+                        rel="next"
+                        href="/2022/postgresql/fanyi-pg-15-jsonb-toaster/"
+                        >
+                            <span class="title flex justify-center items-center">
+                                <span class="post-nav-title-item">[译] 一个TOAST适配所有：JSONB TOASTER | PG 15 特性预览</span>
+                                <span class="post-nav-item">Next posts</span>
+                            </span>
+                            <span class="right arrow-icon flex justify-center items-center">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </a>
+                    </div>
+                
+            </div>
+        
+
+
+        
+            <div class="comment-container">
+                <div class="comments-container pjax">
+    <div id="comment-anchor"></div>
+    <div class="comment-area-title">
+        <i class="fa-solid fa-comments"></i>&nbsp;Comments
+    </div>
+    
+
+        
+            
+    <div id="gitalk-container"></div>
+    <script data-swup-reload-script
+            src="//cdn.staticfile.org/gitalk/1.8.0/gitalk.min.js"></script>
+    <script data-swup-reload-script>
+
+        function loadGitalk() {
+            let __gitalk__pathname = decodeURI(location.pathname);
+            const __gitalk__pathnameLength = __gitalk__pathname.length;
+            const __gitalk__pathnameMaxLength = 50;
+            if (__gitalk__pathnameLength > __gitalk__pathnameMaxLength) {
+                __gitalk__pathname = __gitalk__pathname.substring(0, __gitalk__pathnameMaxLength - 3) + '...';
+            }
+
+            try {
+                Gitalk && new Gitalk({
+                    clientID: '32d049bf3701e6791070',
+                    clientSecret: '36c295ad3dad4c739b530ef113d0a979d8c35c5d',
+                    repo: 'gitalk',
+                    owner: 'shawn0915',
+                    admin: ['shawn0915'],
+                    id: __gitalk__pathname,
+                    language: 'en'
+                }).render('gitalk-container');
+
+            } catch (e) {
+                window.Gitalk = null;
+            }
+        }
+
+        if ('true') {
+            const loadGitalkTimeout = setTimeout(() => {
+                loadGitalk();
+                clearTimeout(loadGitalkTimeout);
+            }, 1000);
+        } else {
+            window.addEventListener('DOMContentLoaded', loadGitalk);
+        }
+    </script>
+
+
+
+        
+    
+</div>
+
+            </div>
+        
+    </div>
+
+    
+        <div class="toc-content-container">
+            <div class="post-toc-wrap">
+    <div class="post-toc">
+        <div class="toc-title">On this page</div>
+<!--         <div class="page-title">[译] 迁移 MySQL 的表到 Redis</div> -->
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8-SELECT-INTO-OUTFILE-%E5%AF%BC%E5%87%BACSV%E6%A0%BC%E5%BC%8F%EF%BC%8C%E4%BD%BF%E7%94%A8Python%E5%AF%BC%E5%85%A5"><span class="nav-text">使用 SELECT INTO OUTFILE 导出CSV格式，使用Python导入</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8mysqldump%E5%AF%BC%E5%87%BACSV%E6%A0%BC%E5%BC%8F"><span class="nav-text">使用mysqldump导出CSV格式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8RIOT%E5%AF%BC%E5%85%A5CSV%E5%A4%87%E4%BB%BD"><span class="nav-text">使用RIOT导入CSV备份</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8-RIOT-DB-%E4%BB%8EMySQL%E5%AF%BC%E5%85%A5"><span class="nav-text">使用 RIOT DB 从MySQL导入</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AF%BC%E5%87%BA%E5%B9%B6%E4%BB%A5RESP%E6%A0%BC%E5%BC%8F%E5%81%9A%E5%A4%A7%E9%87%8F%E6%8F%92%E5%85%A5"><span class="nav-text">导出并以RESP格式做大量插入</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8-Redis-%E7%9A%84-MySQL-%E8%BF%9E%E6%8E%A5%E5%99%A8%EF%BC%9Aredis-connect-mysql"><span class="nav-text">使用 Redis 的 MySQL 连接器：redis-connect-mysql</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%B8%85%E7%90%86"><span class="nav-text">清理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-text">总结</span></a></li></ol>
+
+    </div>
+</div>
+
+        </div>
+    
+</div>
+
+
+
+                
+
+            </div>
+
+            
+
+        </div>
+
+        <div class="main-content-footer">
+            <footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2017</span>
+              -
+            
+            2024&nbsp;&nbsp;<i class="fa-solid fa-heart fa-beat" style="--fa-animation-duration: 0.5s; color: #f54545"></i>&nbsp;&nbsp;<a href="/">Shawn Yan</a>
+        </div>
+        
+            <script data-swup-reload-script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">VISITOR COUNT</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">TOTAL PAGE VIEWS</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">POWERED BY <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a></span>
+            <span class="text-sm lg:block">THEME&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.4.4</a></span>
+        </div>
+        
+        
+            <div>
+                Blog up for <span class="odometer" id="runtime_days" ></span> days <span class="odometer" id="runtime_hours"></span> hrs <span class="odometer" id="runtime_minutes"></span> Min <span class="odometer" id="runtime_seconds"></span> Sec
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+
+    </div>
+</footer>
+
+        </div>
+    </div>
+
+    
+        <div class="post-tools">
+            <div class="post-tools-container">
+    <ul class="article-tools-list">
+        <!-- TOC aside toggle -->
+        
+            <li class="right-bottom-tools page-aside-toggle">
+                <i class="fa-regular fa-outdent"></i>
+            </li>
+        
+
+        <!-- go comment -->
+        
+            <li class="go-comment">
+                <i class="fa-regular fa-comments"></i>
+            </li>
+        
+    </ul>
+</div>
+
+        </div>
+    
+
+    <div class="right-side-tools-container">
+        <div class="side-tools-container">
+    <ul class="hidden-tools-list">
+        <li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-plus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+            <i class="fa-regular fa-magnifying-glass-minus"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-expand-width flex justify-center items-center">
+            <i class="fa-regular fa-expand"></i>
+        </li>
+
+        <li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+            <i class="fa-regular fa-moon"></i>
+        </li>
+
+        <!-- rss -->
+        
+            <li class="right-bottom-tools rss flex justify-center items-center">
+                <a class="flex justify-center items-center"
+                   href="/atom.xml"
+                   target="_blank"
+                >
+                <i class="fa-regular fa-rss"></i>
+                </a>
+            </li>
+        
+
+        
+
+        <li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+            <i class="fa-regular fa-arrow-down"></i>
+        </li>
+    </ul>
+
+    <ul class="visible-tools-list">
+        <li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+            <i class="fa-regular fa-cog fa-spin"></i>
+        </li>
+        
+            <li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+                <i class="arrow-up fas fa-arrow-up"></i>
+                <span class="percent"></span>
+            </li>
+        
+        
+    </ul>
+</div>
+
+    </div>
+
+    <div class="image-viewer-container">
+    <img src="">
+</div>
+
+
+    
+        <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+          <span class="search-input-field-pre">
+            <i class="fa-solid fa-keyboard"></i>
+          </span>
+            <div class="search-input-container">
+                <input autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       placeholder="Search..."
+                       spellcheck="false"
+                       type="search"
+                       class="search-input"
+                >
+            </div>
+            <span class="popup-btn-close">
+                <i class="fa-solid fa-times"></i>
+            </span>
+        </div>
+        <div id="search-result">
+            <div id="no-result">
+                <i class="fa-solid fa-spinner fa-spin-pulse fa-5x fa-fw"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+
+</main>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Swup.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupSlideTheme.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScriptsPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupProgressPlugin.min.js"></script><script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/SwupScrollPlugin.min.js"></script>
+<script>
+    const swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+        ],
+        containers: ["#swup"],
+    });
+
+    swup.hooks.on("page:view", () => {
+        Global.refresh();
+    });
+
+    // if (document.readyState === "complete") {
+    //
+    // } else {
+    //     document.addEventListener("DOMContentLoaded", () => init());
+    // }
+</script>
+
+
+
+
+
+<script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/utils.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/main.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/navbarShrink.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/scrollTopBottom.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/lightDarkSwitch.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/categoryList.js"></script>
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/localSearch.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/codeBlock.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/lazyload.js"></script>
+
+
+
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/runtime.js"></script>
+    <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/odometer.min.js"></script>
+    <link rel="stylesheet" href="//evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/assets/odometer-theme-minimal.css">
+
+
+
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/Typed.min.js"></script>
+  <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/typed.js"></script>
+
+
+
+
+
+
+<div class="post-scripts" data-swup-reload-script>
+    
+        <script src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/libs/anime.min.js"></script>
+        <script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/tools/tocToggle.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/layouts/toc.js"></script><script type="module" src="https://evan.beee.top/projects/hexo-theme-redefine@2.4.4/source/js/plugins/tabs.js"></script>
+    
+</div>
+
+
+</body>
+</html>
