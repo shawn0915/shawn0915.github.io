@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        IvorySQL v3.0 新特性浅测 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;img alt=&#34;ivorysql-logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220419-f0ca4139-24ab-4ec2-b9c4-02b613d5b6ea.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;!--
+@[toc](目录)
+--&gt;
+&lt;h2 id=&#34;目录&#34;&gt;目录&lt;/h2&gt;
+&lt;pre&gt;&lt;code&gt;    IvorySQL 3.0 编译安装
+        操作系统
+        克隆源码
+        编译 IvorySQL 3
+    初始化 PG 模式 `initdb -m pg`
+    初始化 Oracle 模式 `initdb -m oracle`
+    IvorySQL 3 支持双端口号
+    总结
+    参考
+&lt;/code&gt;&lt;/pre&gt;
+&lt;hr&gt;
+&lt;p&gt;本文写在 IvorySQL 3.0 发版前夕，在 IvorySQL 正式 GA 前，先来一探 IvorySQL 3.0 的几个新特性。&lt;/p&gt;
+&lt;h2 id=&#34;IvorySQL-3-0-编译安装&#34;&gt;IvorySQL 3.0 编译安装&lt;/h2&gt;
+&lt;p&gt;之前介绍过 IvorySQL 2 的编译安装，但 3.0 是大版本变更，安装过程与之前还是有些许区别，需要注意。&lt;/p&gt;
+&lt;h3 id=&#34;操作系统&#34;&gt;操作系统&lt;/h3&gt;
+&lt;p&gt;操作系统信息：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ cat /etc/redhat-release&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Rocky Linux release 9.2 (Blue Onyx)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ uname -a&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Linux rocky9.shawnyan.cn 5.14.0-284.30.1.el9_2.x86_64 #1 SMP PREEMPT_DYNAMIC Sat Sep 16 09:55:41 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ date&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Tue Oct 31 10:12:29 PM CST 2023&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;本文使用的编译环境为 Rocky Linux 9.2 操作系统，关于如何安装该系统，可参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://shawnyan.cn/2023/linux/rocky-9.2-install/&#34;&gt;Step by Step 安装 Rocky Linux 9.2 系统&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;克隆源码&#34;&gt;克隆源码&lt;/h3&gt;
+&lt;p&gt;这里提示两种下载源码方式，一是直接用 git 进行克隆，可以获取到最新版的代码，及提交记录，二是直接下载打包好的源码。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;git clone https://github.com/IvorySQL/IvorySQL.git -b IVORY_REL_3_STABLE --depth=1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;查看源码版本&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 IvorySQL]# git lg&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;* a14ca56 - (grafted, HEAD -&amp;gt; IVORY_REL_3_STABLE, tag: Ivorysql_3.0_Beta, origin/IVORY_REL_3_STABLE) IvorySQL:Modify version information. (12 days ago) &amp;lt;wangjie&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;或者直接下载源码包&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;wget https://github.com/IvorySQL/IvorySQL/archive/refs/tags/Ivorysql_3.0_Beta.zip&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;编译-IvorySQL-3&#34;&gt;编译 IvorySQL 3&lt;/h3&gt;
+&lt;p&gt;进入代码目录，进行编译配置，这里需要注意的是，如果本地环境没有安装 ICU 类库，则会报错，所以可以在编译选项中排除编译 ICU 。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;编译配置项&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;./configure --prefix=/opt/ivorysql --with-extra-version=&amp;quot;-ShawnYan&amp;quot; \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--without-icu&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;输出日志：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;configure: using compiler=gcc (GCC) 11.3.1 20221121 (Red Hat 11.3.1-4)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;configure: using CFLAGS=-Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;configure: using CPPFLAGS= -D_GNU_SOURCE&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;configure: using LDFLAGS=  -Wl,--as-needed&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;configure: creating ./config.status&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;config.status: creating GNUmakefile&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;config.status: creating src/Makefile.global&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;config.status: creating src/include/pg_config.h&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;config.status: creating src/include/pg_config_ext.h&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;config.status: creating src/interfaces/ecpg/include/ecpg_config.h&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;config.status: linking src/backend/port/tas/dummy.s to src/backend/port/tas.s&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;config.status: linking src/backend/port/posix_sema.c to src/backend/port/pg_sema.c&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;config.status: linking src/backend/port/sysv_shmem.c to src/backend/port/pg_shmem.c&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;config.status: linking src/include/port/linux.h to src/include/pg_config_os.h&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;config.status: linking src/makefiles/Makefile.linux to src/Makefile.port&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 IvorySQL-Ivorysql_3.0_Beta]#&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;ICU 报错&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;checking for icu-uc icu-i18n... no&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;configure: error: ICU library not found&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;If you have ICU already installed, see config.log for details on the&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;failure.  It is possible the compiler isn&amp;#x27;t looking in the proper directory.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Use --without-icu to disable ICU support.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;blockquote&gt;
+&lt;p&gt;笔者案：这里是个优化点。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;ul&gt;
+&lt;li&gt;make 编译&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;虽然 Ivory 3 增加了新的编译方式，可以用 &lt;code&gt;meson&lt;/code&gt; 进行编译，但本文使用的方式依旧是传统的 &lt;code&gt;make&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;但是，在编译过程中遇到如下报错：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;Can&amp;#x27;t locate FindBin.pm in @INC (you may need to install the FindBin module) (@INC contains: /usr/local/lib64/perl5/5.32 /usr/local/share/perl5/5.32 /usr/lib64/perl5/vendor_perl /usr/share/perl5/vendor_perl /usr/lib64/perl5 /usr/share/perl5) at genbki.pl line 20.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;BEGIN failed--compilation aborted at genbki.pl line 20.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[2]: *** [Makefile:109: bki-stamp] Error 2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[2]: Leaving directory &amp;#x27;/data/IvorySQL-Ivorysql_3.0_Beta/src/backend/catalog&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: *** [Makefile:138: submake-catalog-headers] Error 2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: Leaving directory &amp;#x27;/data/IvorySQL-Ivorysql_3.0_Beta/src/backend&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make: *** [src/Makefile.global:393: submake-generated-headers] Error 2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;提示缺少依赖 &lt;code&gt;perl-FindBin&lt;/code&gt;，安装后再次编译，通过。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;笔者案：这里是个优化点。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: Leaving directory &amp;#x27;/data/IvorySQL-Ivorysql_3.0_Beta/contrib/ora_btree_gist&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make -C contrib/ora_btree_gin all&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: Entering directory &amp;#x27;/data/IvorySQL-Ivorysql_3.0_Beta/contrib/ora_btree_gin&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2 -fPIC -fvisibility=hidden -I. -I. -I../../src/include  -D_GNU_SOURCE   -c -o ora_btree_gin.o ora_btree_gin.c&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2 -fPIC -fvisibility=hidden -shared -o ora_btree_gin.so  ora_btree_gin.o -L../../src/port -L../../src/common    -Wl,--as-needed -Wl,-rpath,&amp;#x27;/opt/ivorysql/lib&amp;#x27;,--enable-new-dtags -fvisibility=hidden&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: Leaving directory &amp;#x27;/data/IvorySQL-Ivorysql_3.0_Beta/contrib/ora_btree_gin&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 IvorySQL-Ivorysql_3.0_Beta]#&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;编译完成后，进行安装。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 IvorySQL-Ivorysql_3.0_Beta]$ sudo make install&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make -C ./src/backend generated-headers&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: Entering directory &amp;#x27;/data/IvorySQL-Ivorysql_3.0_Beta/src/backend&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make -C catalog distprep generated-header-symlinks&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[2]: Entering directory &amp;#x27;/data/IvorySQL-Ivorysql_3.0_Beta/src/backend/catalog&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: Entering directory &amp;#x27;/data/IvorySQL-Ivorysql_3.0_Beta/contrib/ora_btree_gin&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/bin/mkdir -p &amp;#x27;/opt/ivorysql/lib/postgresql&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/bin/mkdir -p &amp;#x27;/opt/ivorysql/share/postgresql/extension&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/bin/mkdir -p &amp;#x27;/opt/ivorysql/share/postgresql/extension&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/bin/install -c -m 755  ora_btree_gin.so &amp;#x27;/opt/ivorysql/lib/postgresql/ora_btree_gin.so&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/bin/install -c -m 644 ./ora_btree_gin.control &amp;#x27;/opt/ivorysql/share/postgresql/extension/&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/bin/install -c -m 644 ./ora_btree_gin--1.0.sql  &amp;#x27;/opt/ivorysql/share/postgresql/extension/&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: Leaving directory &amp;#x27;/data/IvorySQL-Ivorysql_3.0_Beta/contrib/ora_btree_gin&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 IvorySQL-Ivorysql_3.0_Beta]$&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;接下来，初始化数据目录后，便可启动 IvorySQL 3。&lt;/p&gt;
+&lt;h2 id=&#34;初始化-PG-模式-initdb-m-pg&#34;&gt;初始化 PG 模式 &lt;code&gt;initdb -m pg&lt;/code&gt;&lt;/h2&gt;
+&lt;p&gt;从 IvorySQL 3 开始，IvorySQL 兼容 Oracle 的方式不再通过插件形式兼容，而是直接固化到源码中。&lt;br&gt;
+在 IvorySQL 初始化时，可以指定是 pg 模式，还是 oracle 模式，默认为 oracle 模式。&lt;/p&gt;
+&lt;p&gt;只是，在初始化的时候找了好久不知道可以传什么参数，试了 &lt;code&gt;postgres&lt;/code&gt;/&lt;code&gt;postgresql&lt;/code&gt; 都不行，原来只需要简单的 &lt;code&gt;pg&lt;/code&gt; 二字。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql@rocky9 ~]$ initdb -? | grep &amp;quot;dbmode&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  -m, --dbmode=MODE 	    set database mode, default is oracle&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;blockquote&gt;
+&lt;p&gt;笔者案：这里是个优化点。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;这里先指定 pg 模式，来看看熟悉的一面。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql@rocky9 ~]$ initdb -m pg&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The files belonging to this database system will be owned by user &amp;quot;ivorysql&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;This user must also own the server process.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The database cluster will be initialized with locale &amp;quot;en_US.UTF-8&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The default database encoding has accordingly been set to &amp;quot;UTF8&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The default text search configuration will be set to &amp;quot;english&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Data page checksums are disabled.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;fixing permissions on existing directory /var/lib/ivorysql/3/data ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;creating subdirectories ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;selecting dynamic shared memory implementation ... posix&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;selecting default max_connections ... 100&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;selecting default shared_buffers ... 128MB&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;selecting default time zone ... Asia/Shanghai&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;creating configuration files ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;running bootstrap script ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;performing post-bootstrap initialization ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;syncing data to disk ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;initdb: warning: enabling &amp;quot;trust&amp;quot; authentication for local connections&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Success. You can now start the database server using:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    pg_ctl -D /var/lib/ivorysql/3/data -l logfile start&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql@rocky9 ~]$ pg_ctl -D /var/lib/ivorysql/3/data -l logfile start&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;waiting for server to start.... done&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;server started&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;启动服务后，连接数据库，发现找不到 ivorysql 这个数据库，经确认，该库在 ivory 3 中已被移除。&lt;/p&gt;
+&lt;p&gt;为了便于测试，这里先手动创建一个名为 &lt;code&gt;ivorysql&lt;/code&gt; 的数据库，然后再次连接。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;查看版本号&lt;/li&gt;
+&lt;/ul&gt;
+&lt;img alt=&#34;01-version.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20231031-8b8078ba-7631-42b5-8c20-867cc04ee3d5.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;可以看到 IvorySQL 3.0 BETA 版，基于 PostgreSQL 16.0，版本号中加了我的签名。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;查看 ivorysql 相关设定&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; name,setting,short_desc &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; pg_settings &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; name &lt;span class=&#34;keyword&#34;&gt;like&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;%ivory%&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                name                 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;   setting   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;                              short_desc                              &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-------------------------------------+-------------+----------------------------------------------------------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.compatible_mode            &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; pg          &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Set&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;default&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;sql&lt;/span&gt; parser compatibility mode&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.database_mode              &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; pg          &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Set&lt;/span&gt; database mode&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.datetime_ignore_nls_mask   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Sets the datetime type input &lt;span class=&#34;keyword&#34;&gt;is&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;not&lt;/span&gt; controlled &lt;span class=&#34;keyword&#34;&gt;by&lt;/span&gt; the NLS parameter.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.enable_emptystring_to_NULL &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; off         &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; whether &lt;span class=&#34;keyword&#34;&gt;convert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;empty&lt;/span&gt; string &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; NULL.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.identifier_case_switch     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; interchange &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Set&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;character&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;case&lt;/span&gt; conversion mode.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.listen_addresses           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; localhost   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Sets oracle host name &lt;span class=&#34;keyword&#34;&gt;or&lt;/span&gt; IP address(es) &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; listen to.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.port                       &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1521&lt;/span&gt;        &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Sets the Oracle TCP port the server listens on.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;7&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;02-settings.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20231031-4b492fce-072b-490a-9d4b-4df482b739f2.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;初始化-Oracle-模式-initdb-m-oracle&#34;&gt;初始化 Oracle 模式 &lt;code&gt;initdb -m oracle&lt;/code&gt;&lt;/h2&gt;
+&lt;p&gt;由于 Ivory 3 中，初始化默认选择 oracle 模式，所以 &lt;code&gt;-m oracle&lt;/code&gt; 和不加 &lt;code&gt;-m&lt;/code&gt; 参数是等价的。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql@rocky9 3]$ initdb -m oracle&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The files belonging to this database system will be owned by user &amp;quot;ivorysql&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;This user must also own the server process.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The database cluster will be initialized with locale &amp;quot;en_US.UTF-8&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The default database encoding has accordingly been set to &amp;quot;UTF8&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The default text search configuration will be set to &amp;quot;english&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Data page checksums are disabled.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;fixing permissions on existing directory /var/lib/ivorysql/3/data ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;creating subdirectories ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;selecting dynamic shared memory implementation ... posix&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;selecting default max_connections ... 100&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;selecting default shared_buffers ... 128MB&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;selecting default time zone ... Asia/Shanghai&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;creating configuration files ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;running bootstrap script ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;performing post-bootstrap initialization ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;syncing data to disk ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;initdb: warning: enabling &amp;quot;trust&amp;quot; authentication for local connections&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Success. You can now start the database server using:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    pg_ctl -D /var/lib/ivorysql/3/data -l logfile start&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql@rocky9 3]$ &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;启动 Oracle 模式下的 IvorySQL 3&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;启动后，再次查询设定，可以看到，数据库模式变成了 oracle，但当前兼容模式是 pg。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; name,setting,short_desc &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; pg_settings &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; name &lt;span class=&#34;keyword&#34;&gt;like&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;%ivory%&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                name                 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;   setting   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;                              short_desc                              &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-------------------------------------+-------------+----------------------------------------------------------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.compatible_mode            &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; pg          &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Set&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;default&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;sql&lt;/span&gt; parser compatibility mode&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.database_mode              &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; oracle      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Set&lt;/span&gt; database mode&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.datetime_ignore_nls_mask   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Sets the datetime type input &lt;span class=&#34;keyword&#34;&gt;is&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;not&lt;/span&gt; controlled &lt;span class=&#34;keyword&#34;&gt;by&lt;/span&gt; the NLS parameter.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.enable_emptystring_to_NULL &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;on&lt;/span&gt;          &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; whether &lt;span class=&#34;keyword&#34;&gt;convert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;empty&lt;/span&gt; string &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; NULL.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.identifier_case_switch     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; interchange &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Set&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;character&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;case&lt;/span&gt; conversion mode.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.listen_addresses           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; localhost   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Sets oracle host name &lt;span class=&#34;keyword&#34;&gt;or&lt;/span&gt; IP address(es) &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; listen to.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.port                       &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1521&lt;/span&gt;        &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Sets the Oracle TCP port the server listens on.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;7&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;03-psql.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20231031-c35bfcac-7723-4047-bf3b-e876fb67a997.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;此时，创建 &lt;code&gt;varchar2&lt;/code&gt; 字段类型的表会报错。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;odb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt; t(id &lt;span class=&#34;type&#34;&gt;int&lt;/span&gt;, name varchar2(&lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;));&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;2023&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-10&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-31&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;22&lt;/span&gt;:&lt;span class=&#34;number&#34;&gt;23&lt;/span&gt;:&lt;span class=&#34;number&#34;&gt;41.196&lt;/span&gt; CST [&lt;span class=&#34;number&#34;&gt;84392&lt;/span&gt;] ERROR:  type &amp;quot;varchar2&amp;quot; does &lt;span class=&#34;keyword&#34;&gt;not&lt;/span&gt; exist &lt;span class=&#34;keyword&#34;&gt;at&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;character&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;29&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;2023&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-10&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-31&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;22&lt;/span&gt;:&lt;span class=&#34;number&#34;&gt;23&lt;/span&gt;:&lt;span class=&#34;number&#34;&gt;41.196&lt;/span&gt; CST [&lt;span class=&#34;number&#34;&gt;84392&lt;/span&gt;] STATEMENT:  &lt;span class=&#34;keyword&#34;&gt;create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt; t(id &lt;span class=&#34;type&#34;&gt;int&lt;/span&gt;, name varchar2(&lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;));&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ERROR:  type &amp;quot;varchar2&amp;quot; does &lt;span class=&#34;keyword&#34;&gt;not&lt;/span&gt; exist&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;LINE &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;: &lt;span class=&#34;keyword&#34;&gt;create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt; t(id &lt;span class=&#34;type&#34;&gt;int&lt;/span&gt;, name varchar2(&lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;));&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                    &lt;span class=&#34;operator&#34;&gt;^&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;这是因为 psql 默认从端口 5432 进入，如果想使用 IvorySQL 的 Oracle 模式，需要从端口 1521 进入。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql&lt;span class=&#34;variable&#34;&gt;@rocky9&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;]$ psql &lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;p1521&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;psql (&lt;span class=&#34;number&#34;&gt;16.0&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;ShawnYan)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;quot;help&amp;quot; &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; help.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; name,setting,short_desc &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; pg_settings &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; name &lt;span class=&#34;keyword&#34;&gt;like&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;%ivory%&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                name                 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;   setting   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;                              short_desc                              &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-------------------------------------+-------------+----------------------------------------------------------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.compatible_mode            &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; oracle      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Set&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;default&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;sql&lt;/span&gt; parser compatibility mode&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.database_mode              &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; oracle      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Set&lt;/span&gt; database mode&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.datetime_ignore_nls_mask   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Sets the datetime type input &lt;span class=&#34;keyword&#34;&gt;is&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;not&lt;/span&gt; controlled &lt;span class=&#34;keyword&#34;&gt;by&lt;/span&gt; the NLS parameter.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.enable_emptystring_to_NULL &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;on&lt;/span&gt;          &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; whether &lt;span class=&#34;keyword&#34;&gt;convert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;empty&lt;/span&gt; string &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; NULL.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.identifier_case_switch     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; interchange &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Set&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;character&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;case&lt;/span&gt; conversion mode.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.listen_addresses           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; localhost   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Sets oracle host name &lt;span class=&#34;keyword&#34;&gt;or&lt;/span&gt; IP address(es) &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; listen to.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.port                       &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1521&lt;/span&gt;        &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Sets the Oracle TCP port the server listens on.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;7&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;再次创建测试表，成功。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;odb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt; t(id &lt;span class=&#34;type&#34;&gt;int&lt;/span&gt;, name varchar2(&lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;));&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;odb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# \d t&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                     &lt;span class=&#34;keyword&#34;&gt;Table&lt;/span&gt; &amp;quot;public.t&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;keyword&#34;&gt;Column&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      Type       &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Collation&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Nullable &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Default&lt;/span&gt; &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;--------+-----------------+-----------+----------+---------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; id     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; pg_catalog.int4 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;          &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; name   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; varchar2(&lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;)    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;          &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;odb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;IvorySQL-3-支持双端口号&#34;&gt;IvorySQL 3 支持双端口号&lt;/h2&gt;
+&lt;p&gt;上文已经描述了 pg/oracle 两种模式，而且端口号不同，再次从 OS 层面进行验证。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql@rocky9 ~]$ ss -antpl | grep postgres&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;LISTEN 0      200        127.0.0.1:5432      0.0.0.0:*    users:((&amp;quot;postgres&amp;quot;,pid=84211,fd=7))&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;LISTEN 0      200        127.0.0.1:1521      0.0.0.0:*    users:((&amp;quot;postgres&amp;quot;,pid=84211,fd=9))&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;LISTEN 0      200            [::1]:5432         [::]:*    users:((&amp;quot;postgres&amp;quot;,pid=84211,fd=6))&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;LISTEN 0      200            [::1]:1521         [::]:*    users:((&amp;quot;postgres&amp;quot;,pid=84211,fd=8))&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql@rocky9 ~]$ &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;可以更加完整的看到，服务监听了 5432 和 1521 两个端口。&lt;/p&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;本文介绍了如何编译 IvorySQL 3 的源码，并提示了一些注意事项。然后介绍了 IvorySQL 3 框架增强功能。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;添加双 Parser 支持不同的数据库 Parser&lt;/li&gt;
+&lt;li&gt;添加双端口支持不同的数据库端口号&lt;/li&gt;
+&lt;li&gt;添加 &lt;code&gt;initdb -m&lt;/code&gt;，支持 PG 模式或 Oracle 模式&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;参考&#34;&gt;参考&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://shawnyan.cn/2023/postgresql/ivorysql-v2.3-feature/&#34;&gt;象牙数据库 IvorySQL v2.3 特性浅析&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://docs.ivorysql.org/&#34;&gt;IvorySQL 文档中心&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;!--
+https://github.com/IvorySQL/IvorySQL/pull/213/files
+IvorySQL:Add initdb -m,support postgres mode or oracle mode #213
+--&gt;
+&lt;hr&gt;
+&lt;p&gt;&lt;a href=&#34;https://www.modb.pro/db/1719316230573203456&#34;&gt;https://www.modb.pro/db/1719316230573203456&lt;/a&gt;&lt;br&gt;
+&lt;a href=&#34;https://pgfans.cn/a/2527&#34;&gt;https://pgfans.cn/a/2527&lt;/a&gt;&lt;/p&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="IvorySQL v3.0 新特性浅测">
+    <meta property="og:url" content="https://shawnyan.cn/2023/ivorysql/ivorysql-v3.0-feature/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;img alt=&#34;ivorysql-logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220419-f0ca4139-24ab-4ec2-b9c4-02b613d5b6ea.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;!--
+@[toc](目录)
+--&gt;
+&lt;h2 id=&#34;目录&#34;&gt;目录&lt;/h2&gt;
+&lt;pre&gt;&lt;code&gt;    IvorySQL 3.0 编译安装
+        操作系统
+        克隆源码
+        编译 IvorySQL 3
+    初始化 PG 模式 `initdb -m pg`
+    初始化 Oracle 模式 `initdb -m oracle`
+    IvorySQL 3 支持双端口号
+    总结
+    参考
+&lt;/code&gt;&lt;/pre&gt;
+&lt;hr&gt;
+&lt;p&gt;本文写在 IvorySQL 3.0 发版前夕，在 IvorySQL 正式 GA 前，先来一探 IvorySQL 3.0 的几个新特性。&lt;/p&gt;
+&lt;h2 id=&#34;IvorySQL-3-0-编译安装&#34;&gt;IvorySQL 3.0 编译安装&lt;/h2&gt;
+&lt;p&gt;之前介绍过 IvorySQL 2 的编译安装，但 3.0 是大版本变更，安装过程与之前还是有些许区别，需要注意。&lt;/p&gt;
+&lt;h3 id=&#34;操作系统&#34;&gt;操作系统&lt;/h3&gt;
+&lt;p&gt;操作系统信息：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ cat /etc/redhat-release&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Rocky Linux release 9.2 (Blue Onyx)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ uname -a&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Linux rocky9.shawnyan.cn 5.14.0-284.30.1.el9_2.x86_64 #1 SMP PREEMPT_DYNAMIC Sat Sep 16 09:55:41 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ date&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Tue Oct 31 10:12:29 PM CST 2023&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;本文使用的编译环境为 Rocky Linux 9.2 操作系统，关于如何安装该系统，可参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://shawnyan.cn/2023/linux/rocky-9.2-install/&#34;&gt;Step by Step 安装 Rocky Linux 9.2 系统&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;克隆源码&#34;&gt;克隆源码&lt;/h3&gt;
+&lt;p&gt;这里提示两种下载源码方式，一是直接用 git 进行克隆，可以获取到最新版的代码，及提交记录，二是直接下载打包好的源码。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;git clone https://github.com/IvorySQL/IvorySQL.git -b IVORY_REL_3_STABLE --depth=1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;查看源码版本&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 IvorySQL]# git lg&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;* a14ca56 - (grafted, HEAD -&amp;gt; IVORY_REL_3_STABLE, tag: Ivorysql_3.0_Beta, origin/IVORY_REL_3_STABLE) IvorySQL:Modify version information. (12 days ago) &amp;lt;wangjie&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;或者直接下载源码包&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;wget https://github.com/IvorySQL/IvorySQL/archive/refs/tags/Ivorysql_3.0_Beta.zip&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;编译-IvorySQL-3&#34;&gt;编译 IvorySQL 3&lt;/h3&gt;
+&lt;p&gt;进入代码目录，进行编译配置，这里需要注意的是，如果本地环境没有安装 ICU 类库，则会报错，所以可以在编译选项中排除编译 ICU 。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;编译配置项&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;./configure --prefix=/opt/ivorysql --with-extra-version=&amp;quot;-ShawnYan&amp;quot; \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--without-icu&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;输出日志：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;configure: using compiler=gcc (GCC) 11.3.1 20221121 (Red Hat 11.3.1-4)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;configure: using CFLAGS=-Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;configure: using CPPFLAGS= -D_GNU_SOURCE&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;configure: using LDFLAGS=  -Wl,--as-needed&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;configure: creating ./config.status&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;config.status: creating GNUmakefile&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;config.status: creating src/Makefile.global&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;config.status: creating src/include/pg_config.h&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;config.status: creating src/include/pg_config_ext.h&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;config.status: creating src/interfaces/ecpg/include/ecpg_config.h&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;config.status: linking src/backend/port/tas/dummy.s to src/backend/port/tas.s&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;config.status: linking src/backend/port/posix_sema.c to src/backend/port/pg_sema.c&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;config.status: linking src/backend/port/sysv_shmem.c to src/backend/port/pg_shmem.c&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;config.status: linking src/include/port/linux.h to src/include/pg_config_os.h&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;config.status: linking src/makefiles/Makefile.linux to src/Makefile.port&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 IvorySQL-Ivorysql_3.0_Beta]#&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;ICU 报错&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;checking for icu-uc icu-i18n... no&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;configure: error: ICU library not found&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;If you have ICU already installed, see config.log for details on the&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;failure.  It is possible the compiler isn&amp;#x27;t looking in the proper directory.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Use --without-icu to disable ICU support.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;blockquote&gt;
+&lt;p&gt;笔者案：这里是个优化点。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;ul&gt;
+&lt;li&gt;make 编译&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;虽然 Ivory 3 增加了新的编译方式，可以用 &lt;code&gt;meson&lt;/code&gt; 进行编译，但本文使用的方式依旧是传统的 &lt;code&gt;make&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;但是，在编译过程中遇到如下报错：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;Can&amp;#x27;t locate FindBin.pm in @INC (you may need to install the FindBin module) (@INC contains: /usr/local/lib64/perl5/5.32 /usr/local/share/perl5/5.32 /usr/lib64/perl5/vendor_perl /usr/share/perl5/vendor_perl /usr/lib64/perl5 /usr/share/perl5) at genbki.pl line 20.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;BEGIN failed--compilation aborted at genbki.pl line 20.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[2]: *** [Makefile:109: bki-stamp] Error 2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[2]: Leaving directory &amp;#x27;/data/IvorySQL-Ivorysql_3.0_Beta/src/backend/catalog&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: *** [Makefile:138: submake-catalog-headers] Error 2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: Leaving directory &amp;#x27;/data/IvorySQL-Ivorysql_3.0_Beta/src/backend&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make: *** [src/Makefile.global:393: submake-generated-headers] Error 2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;提示缺少依赖 &lt;code&gt;perl-FindBin&lt;/code&gt;，安装后再次编译，通过。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;笔者案：这里是个优化点。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: Leaving directory &amp;#x27;/data/IvorySQL-Ivorysql_3.0_Beta/contrib/ora_btree_gist&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make -C contrib/ora_btree_gin all&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: Entering directory &amp;#x27;/data/IvorySQL-Ivorysql_3.0_Beta/contrib/ora_btree_gin&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2 -fPIC -fvisibility=hidden -I. -I. -I../../src/include  -D_GNU_SOURCE   -c -o ora_btree_gin.o ora_btree_gin.c&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2 -fPIC -fvisibility=hidden -shared -o ora_btree_gin.so  ora_btree_gin.o -L../../src/port -L../../src/common    -Wl,--as-needed -Wl,-rpath,&amp;#x27;/opt/ivorysql/lib&amp;#x27;,--enable-new-dtags -fvisibility=hidden&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: Leaving directory &amp;#x27;/data/IvorySQL-Ivorysql_3.0_Beta/contrib/ora_btree_gin&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 IvorySQL-Ivorysql_3.0_Beta]#&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;编译完成后，进行安装。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 IvorySQL-Ivorysql_3.0_Beta]$ sudo make install&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make -C ./src/backend generated-headers&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: Entering directory &amp;#x27;/data/IvorySQL-Ivorysql_3.0_Beta/src/backend&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make -C catalog distprep generated-header-symlinks&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[2]: Entering directory &amp;#x27;/data/IvorySQL-Ivorysql_3.0_Beta/src/backend/catalog&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: Entering directory &amp;#x27;/data/IvorySQL-Ivorysql_3.0_Beta/contrib/ora_btree_gin&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/bin/mkdir -p &amp;#x27;/opt/ivorysql/lib/postgresql&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/bin/mkdir -p &amp;#x27;/opt/ivorysql/share/postgresql/extension&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/bin/mkdir -p &amp;#x27;/opt/ivorysql/share/postgresql/extension&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/bin/install -c -m 755  ora_btree_gin.so &amp;#x27;/opt/ivorysql/lib/postgresql/ora_btree_gin.so&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/bin/install -c -m 644 ./ora_btree_gin.control &amp;#x27;/opt/ivorysql/share/postgresql/extension/&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/bin/install -c -m 644 ./ora_btree_gin--1.0.sql  &amp;#x27;/opt/ivorysql/share/postgresql/extension/&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: Leaving directory &amp;#x27;/data/IvorySQL-Ivorysql_3.0_Beta/contrib/ora_btree_gin&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 IvorySQL-Ivorysql_3.0_Beta]$&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;接下来，初始化数据目录后，便可启动 IvorySQL 3。&lt;/p&gt;
+&lt;h2 id=&#34;初始化-PG-模式-initdb-m-pg&#34;&gt;初始化 PG 模式 &lt;code&gt;initdb -m pg&lt;/code&gt;&lt;/h2&gt;
+&lt;p&gt;从 IvorySQL 3 开始，IvorySQL 兼容 Oracle 的方式不再通过插件形式兼容，而是直接固化到源码中。&lt;br&gt;
+在 IvorySQL 初始化时，可以指定是 pg 模式，还是 oracle 模式，默认为 oracle 模式。&lt;/p&gt;
+&lt;p&gt;只是，在初始化的时候找了好久不知道可以传什么参数，试了 &lt;code&gt;postgres&lt;/code&gt;/&lt;code&gt;postgresql&lt;/code&gt; 都不行，原来只需要简单的 &lt;code&gt;pg&lt;/code&gt; 二字。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql@rocky9 ~]$ initdb -? | grep &amp;quot;dbmode&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  -m, --dbmode=MODE 	    set database mode, default is oracle&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;blockquote&gt;
+&lt;p&gt;笔者案：这里是个优化点。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;这里先指定 pg 模式，来看看熟悉的一面。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql@rocky9 ~]$ initdb -m pg&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The files belonging to this database system will be owned by user &amp;quot;ivorysql&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;This user must also own the server process.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The database cluster will be initialized with locale &amp;quot;en_US.UTF-8&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The default database encoding has accordingly been set to &amp;quot;UTF8&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The default text search configuration will be set to &amp;quot;english&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Data page checksums are disabled.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;fixing permissions on existing directory /var/lib/ivorysql/3/data ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;creating subdirectories ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;selecting dynamic shared memory implementation ... posix&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;selecting default max_connections ... 100&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;selecting default shared_buffers ... 128MB&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;selecting default time zone ... Asia/Shanghai&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;creating configuration files ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;running bootstrap script ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;performing post-bootstrap initialization ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;syncing data to disk ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;initdb: warning: enabling &amp;quot;trust&amp;quot; authentication for local connections&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Success. You can now start the database server using:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    pg_ctl -D /var/lib/ivorysql/3/data -l logfile start&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql@rocky9 ~]$ pg_ctl -D /var/lib/ivorysql/3/data -l logfile start&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;waiting for server to start.... done&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;server started&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;启动服务后，连接数据库，发现找不到 ivorysql 这个数据库，经确认，该库在 ivory 3 中已被移除。&lt;/p&gt;
+&lt;p&gt;为了便于测试，这里先手动创建一个名为 &lt;code&gt;ivorysql&lt;/code&gt; 的数据库，然后再次连接。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;查看版本号&lt;/li&gt;
+&lt;/ul&gt;
+&lt;img alt=&#34;01-version.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20231031-8b8078ba-7631-42b5-8c20-867cc04ee3d5.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;可以看到 IvorySQL 3.0 BETA 版，基于 PostgreSQL 16.0，版本号中加了我的签名。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;查看 ivorysql 相关设定&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; name,setting,short_desc &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; pg_settings &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; name &lt;span class=&#34;keyword&#34;&gt;like&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;%ivory%&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                name                 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;   setting   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;                              short_desc                              &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-------------------------------------+-------------+----------------------------------------------------------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.compatible_mode            &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; pg          &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Set&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;default&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;sql&lt;/span&gt; parser compatibility mode&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.database_mode              &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; pg          &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Set&lt;/span&gt; database mode&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.datetime_ignore_nls_mask   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Sets the datetime type input &lt;span class=&#34;keyword&#34;&gt;is&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;not&lt;/span&gt; controlled &lt;span class=&#34;keyword&#34;&gt;by&lt;/span&gt; the NLS parameter.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.enable_emptystring_to_NULL &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; off         &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; whether &lt;span class=&#34;keyword&#34;&gt;convert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;empty&lt;/span&gt; string &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; NULL.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.identifier_case_switch     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; interchange &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Set&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;character&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;case&lt;/span&gt; conversion mode.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.listen_addresses           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; localhost   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Sets oracle host name &lt;span class=&#34;keyword&#34;&gt;or&lt;/span&gt; IP address(es) &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; listen to.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.port                       &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1521&lt;/span&gt;        &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Sets the Oracle TCP port the server listens on.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;7&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;02-settings.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20231031-4b492fce-072b-490a-9d4b-4df482b739f2.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;初始化-Oracle-模式-initdb-m-oracle&#34;&gt;初始化 Oracle 模式 &lt;code&gt;initdb -m oracle&lt;/code&gt;&lt;/h2&gt;
+&lt;p&gt;由于 Ivory 3 中，初始化默认选择 oracle 模式，所以 &lt;code&gt;-m oracle&lt;/code&gt; 和不加 &lt;code&gt;-m&lt;/code&gt; 参数是等价的。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql@rocky9 3]$ initdb -m oracle&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The files belonging to this database system will be owned by user &amp;quot;ivorysql&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;This user must also own the server process.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The database cluster will be initialized with locale &amp;quot;en_US.UTF-8&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The default database encoding has accordingly been set to &amp;quot;UTF8&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The default text search configuration will be set to &amp;quot;english&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Data page checksums are disabled.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;fixing permissions on existing directory /var/lib/ivorysql/3/data ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;creating subdirectories ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;selecting dynamic shared memory implementation ... posix&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;selecting default max_connections ... 100&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;selecting default shared_buffers ... 128MB&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;selecting default time zone ... Asia/Shanghai&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;creating configuration files ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;running bootstrap script ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;performing post-bootstrap initialization ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;syncing data to disk ... ok&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;initdb: warning: enabling &amp;quot;trust&amp;quot; authentication for local connections&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Success. You can now start the database server using:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    pg_ctl -D /var/lib/ivorysql/3/data -l logfile start&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql@rocky9 3]$ &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;启动 Oracle 模式下的 IvorySQL 3&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;启动后，再次查询设定，可以看到，数据库模式变成了 oracle，但当前兼容模式是 pg。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; name,setting,short_desc &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; pg_settings &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; name &lt;span class=&#34;keyword&#34;&gt;like&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;%ivory%&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                name                 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;   setting   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;                              short_desc                              &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-------------------------------------+-------------+----------------------------------------------------------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.compatible_mode            &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; pg          &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Set&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;default&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;sql&lt;/span&gt; parser compatibility mode&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.database_mode              &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; oracle      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Set&lt;/span&gt; database mode&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.datetime_ignore_nls_mask   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Sets the datetime type input &lt;span class=&#34;keyword&#34;&gt;is&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;not&lt;/span&gt; controlled &lt;span class=&#34;keyword&#34;&gt;by&lt;/span&gt; the NLS parameter.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.enable_emptystring_to_NULL &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;on&lt;/span&gt;          &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; whether &lt;span class=&#34;keyword&#34;&gt;convert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;empty&lt;/span&gt; string &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; NULL.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.identifier_case_switch     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; interchange &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Set&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;character&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;case&lt;/span&gt; conversion mode.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.listen_addresses           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; localhost   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Sets oracle host name &lt;span class=&#34;keyword&#34;&gt;or&lt;/span&gt; IP address(es) &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; listen to.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.port                       &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1521&lt;/span&gt;        &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Sets the Oracle TCP port the server listens on.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;7&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;03-psql.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20231031-c35bfcac-7723-4047-bf3b-e876fb67a997.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;此时，创建 &lt;code&gt;varchar2&lt;/code&gt; 字段类型的表会报错。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;odb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt; t(id &lt;span class=&#34;type&#34;&gt;int&lt;/span&gt;, name varchar2(&lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;));&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;2023&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-10&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-31&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;22&lt;/span&gt;:&lt;span class=&#34;number&#34;&gt;23&lt;/span&gt;:&lt;span class=&#34;number&#34;&gt;41.196&lt;/span&gt; CST [&lt;span class=&#34;number&#34;&gt;84392&lt;/span&gt;] ERROR:  type &amp;quot;varchar2&amp;quot; does &lt;span class=&#34;keyword&#34;&gt;not&lt;/span&gt; exist &lt;span class=&#34;keyword&#34;&gt;at&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;character&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;29&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;2023&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-10&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-31&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;22&lt;/span&gt;:&lt;span class=&#34;number&#34;&gt;23&lt;/span&gt;:&lt;span class=&#34;number&#34;&gt;41.196&lt;/span&gt; CST [&lt;span class=&#34;number&#34;&gt;84392&lt;/span&gt;] STATEMENT:  &lt;span class=&#34;keyword&#34;&gt;create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt; t(id &lt;span class=&#34;type&#34;&gt;int&lt;/span&gt;, name varchar2(&lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;));&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ERROR:  type &amp;quot;varchar2&amp;quot; does &lt;span class=&#34;keyword&#34;&gt;not&lt;/span&gt; exist&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;LINE &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;: &lt;span class=&#34;keyword&#34;&gt;create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt; t(id &lt;span class=&#34;type&#34;&gt;int&lt;/span&gt;, name varchar2(&lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;));&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                    &lt;span class=&#34;operator&#34;&gt;^&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;这是因为 psql 默认从端口 5432 进入，如果想使用 IvorySQL 的 Oracle 模式，需要从端口 1521 进入。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql&lt;span class=&#34;variable&#34;&gt;@rocky9&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;]$ psql &lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;p1521&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;psql (&lt;span class=&#34;number&#34;&gt;16.0&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;ShawnYan)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;quot;help&amp;quot; &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; help.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; name,setting,short_desc &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; pg_settings &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; name &lt;span class=&#34;keyword&#34;&gt;like&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;%ivory%&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                name                 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;   setting   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;                              short_desc                              &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-------------------------------------+-------------+----------------------------------------------------------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.compatible_mode            &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; oracle      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Set&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;default&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;sql&lt;/span&gt; parser compatibility mode&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.database_mode              &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; oracle      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Set&lt;/span&gt; database mode&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.datetime_ignore_nls_mask   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Sets the datetime type input &lt;span class=&#34;keyword&#34;&gt;is&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;not&lt;/span&gt; controlled &lt;span class=&#34;keyword&#34;&gt;by&lt;/span&gt; the NLS parameter.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.enable_emptystring_to_NULL &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;on&lt;/span&gt;          &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; whether &lt;span class=&#34;keyword&#34;&gt;convert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;empty&lt;/span&gt; string &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; NULL.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.identifier_case_switch     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; interchange &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Set&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;character&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;case&lt;/span&gt; conversion mode.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.listen_addresses           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; localhost   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Sets oracle host name &lt;span class=&#34;keyword&#34;&gt;or&lt;/span&gt; IP address(es) &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; listen to.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.port                       &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1521&lt;/span&gt;        &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Sets the Oracle TCP port the server listens on.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;7&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;再次创建测试表，成功。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;odb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt; t(id &lt;span class=&#34;type&#34;&gt;int&lt;/span&gt;, name varchar2(&lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;));&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;odb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# \d t&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                     &lt;span class=&#34;keyword&#34;&gt;Table&lt;/span&gt; &amp;quot;public.t&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;keyword&#34;&gt;Column&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      Type       &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Collation&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Nullable &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Default&lt;/span&gt; &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;--------+-----------------+-----------+----------+---------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; id     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; pg_catalog.int4 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;          &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; name   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; varchar2(&lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;)    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;          &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;odb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;IvorySQL-3-支持双端口号&#34;&gt;IvorySQL 3 支持双端口号&lt;/h2&gt;
+&lt;p&gt;上文已经描述了 pg/oracle 两种模式，而且端口号不同，再次从 OS 层面进行验证。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql@rocky9 ~]$ ss -antpl | grep postgres&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;LISTEN 0      200        127.0.0.1:5432      0.0.0.0:*    users:((&amp;quot;postgres&amp;quot;,pid=84211,fd=7))&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;LISTEN 0      200        127.0.0.1:1521      0.0.0.0:*    users:((&amp;quot;postgres&amp;quot;,pid=84211,fd=9))&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;LISTEN 0      200            [::1]:5432         [::]:*    users:((&amp;quot;postgres&amp;quot;,pid=84211,fd=6))&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;LISTEN 0      200            [::1]:1521         [::]:*    users:((&amp;quot;postgres&amp;quot;,pid=84211,fd=8))&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql@rocky9 ~]$ &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;可以更加完整的看到，服务监听了 5432 和 1521 两个端口。&lt;/p&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;本文介绍了如何编译 IvorySQL 3 的源码，并提示了一些注意事项。然后介绍了 IvorySQL 3 框架增强功能。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;添加双 Parser 支持不同的数据库 Parser&lt;/li&gt;
+&lt;li&gt;添加双端口支持不同的数据库端口号&lt;/li&gt;
+&lt;li&gt;添加 &lt;code&gt;initdb -m&lt;/code&gt;，支持 PG 模式或 Oracle 模式&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;参考&#34;&gt;参考&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://shawnyan.cn/2023/postgresql/ivorysql-v2.3-feature/&#34;&gt;象牙数据库 IvorySQL v2.3 特性浅析&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://docs.ivorysql.org/&#34;&gt;IvorySQL 文档中心&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;!--
+https://github.com/IvorySQL/IvorySQL/pull/213/files
+IvorySQL:Add initdb -m,support postgres mode or oracle mode #213
+--&gt;
+&lt;hr&gt;
+&lt;p&gt;&lt;a href=&#34;https://www.modb.pro/db/1719316230573203456&#34;&gt;https://www.modb.pro/db/1719316230573203456&lt;/a&gt;&lt;br&gt;
+&lt;a href=&#34;https://pgfans.cn/a/2527&#34;&gt;https://pgfans.cn/a/2527&lt;/a&gt;&lt;/p&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/ivorysql/" class="category-badge">
+                                    IvorySQL
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">IvorySQL v3.0 新特性浅测</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2023-10-31
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                2.5k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                13 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <img alt="ivorysql-logo.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20220419-f0ca4139-24ab-4ec2-b9c4-02b613d5b6ea.jpg" referrerpolicy="no-referrer"/>
+<!--
+@[toc](目录)
+-->
+<h2 id="目录">目录</h2>
+<pre><code>    IvorySQL 3.0 编译安装
+        操作系统
+        克隆源码
+        编译 IvorySQL 3
+    初始化 PG 模式 `initdb -m pg`
+    初始化 Oracle 模式 `initdb -m oracle`
+    IvorySQL 3 支持双端口号
+    总结
+    参考
+</code></pre>
+<hr>
+<p>本文写在 IvorySQL 3.0 发版前夕，在 IvorySQL 正式 GA 前，先来一探 IvorySQL 3.0 的几个新特性。</p>
+<h2 id="IvorySQL-3-0-编译安装">IvorySQL 3.0 编译安装</h2>
+<p>之前介绍过 IvorySQL 2 的编译安装，但 3.0 是大版本变更，安装过程与之前还是有些许区别，需要注意。</p>
+<h3 id="操作系统">操作系统</h3>
+<p>操作系统信息：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ cat /etc/redhat-release</span><br><span class="line">Rocky Linux release 9.2 (Blue Onyx)</span><br><span class="line">[shawnyan@rocky9 ~]$ uname -a</span><br><span class="line">Linux rocky9.shawnyan.cn 5.14.0-284.30.1.el9_2.x86_64 #1 SMP PREEMPT_DYNAMIC Sat Sep 16 09:55:41 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux</span><br><span class="line">[shawnyan@rocky9 ~]$ date</span><br><span class="line">Tue Oct 31 10:12:29 PM CST 2023</span><br></pre></td></tr></table></figure>
+<p>本文使用的编译环境为 Rocky Linux 9.2 操作系统，关于如何安装该系统，可参考：</p>
+<ul>
+<li><a href="https://shawnyan.cn/2023/linux/rocky-9.2-install/">Step by Step 安装 Rocky Linux 9.2 系统</a></li>
+</ul>
+<h3 id="克隆源码">克隆源码</h3>
+<p>这里提示两种下载源码方式，一是直接用 git 进行克隆，可以获取到最新版的代码，及提交记录，二是直接下载打包好的源码。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git clone https://github.com/IvorySQL/IvorySQL.git -b IVORY_REL_3_STABLE --depth=1</span><br></pre></td></tr></table></figure>
+<ul>
+<li>查看源码版本</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@rocky9 IvorySQL]# git lg</span><br><span class="line">* a14ca56 - (grafted, HEAD -&gt; IVORY_REL_3_STABLE, tag: Ivorysql_3.0_Beta, origin/IVORY_REL_3_STABLE) IvorySQL:Modify version information. (12 days ago) &lt;wangjie&gt;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>或者直接下载源码包</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">wget https://github.com/IvorySQL/IvorySQL/archive/refs/tags/Ivorysql_3.0_Beta.zip</span><br></pre></td></tr></table></figure>
+<h3 id="编译-IvorySQL-3">编译 IvorySQL 3</h3>
+<p>进入代码目录，进行编译配置，这里需要注意的是，如果本地环境没有安装 ICU 类库，则会报错，所以可以在编译选项中排除编译 ICU 。</p>
+<ul>
+<li>编译配置项</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">./configure --prefix=/opt/ivorysql --with-extra-version=&quot;-ShawnYan&quot; \</span><br><span class="line">--without-icu</span><br></pre></td></tr></table></figure>
+<ul>
+<li>输出日志：</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">configure: using compiler=gcc (GCC) 11.3.1 20221121 (Red Hat 11.3.1-4)</span><br><span class="line">configure: using CFLAGS=-Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2</span><br><span class="line">configure: using CPPFLAGS= -D_GNU_SOURCE</span><br><span class="line">configure: using LDFLAGS=  -Wl,--as-needed</span><br><span class="line">configure: creating ./config.status</span><br><span class="line">config.status: creating GNUmakefile</span><br><span class="line">config.status: creating src/Makefile.global</span><br><span class="line">config.status: creating src/include/pg_config.h</span><br><span class="line">config.status: creating src/include/pg_config_ext.h</span><br><span class="line">config.status: creating src/interfaces/ecpg/include/ecpg_config.h</span><br><span class="line">config.status: linking src/backend/port/tas/dummy.s to src/backend/port/tas.s</span><br><span class="line">config.status: linking src/backend/port/posix_sema.c to src/backend/port/pg_sema.c</span><br><span class="line">config.status: linking src/backend/port/sysv_shmem.c to src/backend/port/pg_shmem.c</span><br><span class="line">config.status: linking src/include/port/linux.h to src/include/pg_config_os.h</span><br><span class="line">config.status: linking src/makefiles/Makefile.linux to src/Makefile.port</span><br><span class="line">[root@rocky9 IvorySQL-Ivorysql_3.0_Beta]#</span><br></pre></td></tr></table></figure>
+<ul>
+<li>ICU 报错</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">checking for icu-uc icu-i18n... no</span><br><span class="line">configure: error: ICU library not found</span><br><span class="line">If you have ICU already installed, see config.log for details on the</span><br><span class="line">failure.  It is possible the compiler isn&#x27;t looking in the proper directory.</span><br><span class="line">Use --without-icu to disable ICU support.</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>笔者案：这里是个优化点。</p>
+</blockquote>
+<ul>
+<li>make 编译</li>
+</ul>
+<p>虽然 Ivory 3 增加了新的编译方式，可以用 <code>meson</code> 进行编译，但本文使用的方式依旧是传统的 <code>make</code>。</p>
+<p>但是，在编译过程中遇到如下报错：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">Can&#x27;t locate FindBin.pm in @INC (you may need to install the FindBin module) (@INC contains: /usr/local/lib64/perl5/5.32 /usr/local/share/perl5/5.32 /usr/lib64/perl5/vendor_perl /usr/share/perl5/vendor_perl /usr/lib64/perl5 /usr/share/perl5) at genbki.pl line 20.</span><br><span class="line">BEGIN failed--compilation aborted at genbki.pl line 20.</span><br><span class="line">make[2]: *** [Makefile:109: bki-stamp] Error 2</span><br><span class="line">make[2]: Leaving directory &#x27;/data/IvorySQL-Ivorysql_3.0_Beta/src/backend/catalog&#x27;</span><br><span class="line">make[1]: *** [Makefile:138: submake-catalog-headers] Error 2</span><br><span class="line">make[1]: Leaving directory &#x27;/data/IvorySQL-Ivorysql_3.0_Beta/src/backend&#x27;</span><br><span class="line">make: *** [src/Makefile.global:393: submake-generated-headers] Error 2</span><br></pre></td></tr></table></figure>
+<p>提示缺少依赖 <code>perl-FindBin</code>，安装后再次编译，通过。</p>
+<blockquote>
+<p>笔者案：这里是个优化点。</p>
+</blockquote>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">make[1]: Leaving directory &#x27;/data/IvorySQL-Ivorysql_3.0_Beta/contrib/ora_btree_gist&#x27;</span><br><span class="line">make -C contrib/ora_btree_gin all</span><br><span class="line">make[1]: Entering directory &#x27;/data/IvorySQL-Ivorysql_3.0_Beta/contrib/ora_btree_gin&#x27;</span><br><span class="line">gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2 -fPIC -fvisibility=hidden -I. -I. -I../../src/include  -D_GNU_SOURCE   -c -o ora_btree_gin.o ora_btree_gin.c</span><br><span class="line">gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2 -fPIC -fvisibility=hidden -shared -o ora_btree_gin.so  ora_btree_gin.o -L../../src/port -L../../src/common    -Wl,--as-needed -Wl,-rpath,&#x27;/opt/ivorysql/lib&#x27;,--enable-new-dtags -fvisibility=hidden</span><br><span class="line">make[1]: Leaving directory &#x27;/data/IvorySQL-Ivorysql_3.0_Beta/contrib/ora_btree_gin&#x27;</span><br><span class="line">[root@rocky9 IvorySQL-Ivorysql_3.0_Beta]#</span><br></pre></td></tr></table></figure>
+<p>编译完成后，进行安装。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 IvorySQL-Ivorysql_3.0_Beta]$ sudo make install</span><br><span class="line">make -C ./src/backend generated-headers</span><br><span class="line">make[1]: Entering directory &#x27;/data/IvorySQL-Ivorysql_3.0_Beta/src/backend&#x27;</span><br><span class="line">make -C catalog distprep generated-header-symlinks</span><br><span class="line">make[2]: Entering directory &#x27;/data/IvorySQL-Ivorysql_3.0_Beta/src/backend/catalog&#x27;</span><br><span class="line">...</span><br><span class="line">make[1]: Entering directory &#x27;/data/IvorySQL-Ivorysql_3.0_Beta/contrib/ora_btree_gin&#x27;</span><br><span class="line">/bin/mkdir -p &#x27;/opt/ivorysql/lib/postgresql&#x27;</span><br><span class="line">/bin/mkdir -p &#x27;/opt/ivorysql/share/postgresql/extension&#x27;</span><br><span class="line">/bin/mkdir -p &#x27;/opt/ivorysql/share/postgresql/extension&#x27;</span><br><span class="line">/bin/install -c -m 755  ora_btree_gin.so &#x27;/opt/ivorysql/lib/postgresql/ora_btree_gin.so&#x27;</span><br><span class="line">/bin/install -c -m 644 ./ora_btree_gin.control &#x27;/opt/ivorysql/share/postgresql/extension/&#x27;</span><br><span class="line">/bin/install -c -m 644 ./ora_btree_gin--1.0.sql  &#x27;/opt/ivorysql/share/postgresql/extension/&#x27;</span><br><span class="line">make[1]: Leaving directory &#x27;/data/IvorySQL-Ivorysql_3.0_Beta/contrib/ora_btree_gin&#x27;</span><br><span class="line">[shawnyan@rocky9 IvorySQL-Ivorysql_3.0_Beta]$</span><br></pre></td></tr></table></figure>
+<p>接下来，初始化数据目录后，便可启动 IvorySQL 3。</p>
+<h2 id="初始化-PG-模式-initdb-m-pg">初始化 PG 模式 <code>initdb -m pg</code></h2>
+<p>从 IvorySQL 3 开始，IvorySQL 兼容 Oracle 的方式不再通过插件形式兼容，而是直接固化到源码中。<br>
+在 IvorySQL 初始化时，可以指定是 pg 模式，还是 oracle 模式，默认为 oracle 模式。</p>
+<p>只是，在初始化的时候找了好久不知道可以传什么参数，试了 <code>postgres</code>/<code>postgresql</code> 都不行，原来只需要简单的 <code>pg</code> 二字。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[ivorysql@rocky9 ~]$ initdb -? | grep &quot;dbmode&quot;</span><br><span class="line">  -m, --dbmode=MODE 	    set database mode, default is oracle</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>笔者案：这里是个优化点。</p>
+</blockquote>
+<p>这里先指定 pg 模式，来看看熟悉的一面。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">[ivorysql@rocky9 ~]$ initdb -m pg</span><br><span class="line">The files belonging to this database system will be owned by user &quot;ivorysql&quot;.</span><br><span class="line">This user must also own the server process.</span><br><span class="line"></span><br><span class="line">The database cluster will be initialized with locale &quot;en_US.UTF-8&quot;.</span><br><span class="line">The default database encoding has accordingly been set to &quot;UTF8&quot;.</span><br><span class="line">The default text search configuration will be set to &quot;english&quot;.</span><br><span class="line"></span><br><span class="line">Data page checksums are disabled.</span><br><span class="line"></span><br><span class="line">fixing permissions on existing directory /var/lib/ivorysql/3/data ... ok</span><br><span class="line">creating subdirectories ... ok</span><br><span class="line">selecting dynamic shared memory implementation ... posix</span><br><span class="line">selecting default max_connections ... 100</span><br><span class="line">selecting default shared_buffers ... 128MB</span><br><span class="line">selecting default time zone ... Asia/Shanghai</span><br><span class="line">creating configuration files ... ok</span><br><span class="line">running bootstrap script ... ok</span><br><span class="line">performing post-bootstrap initialization ... ok</span><br><span class="line">syncing data to disk ... ok</span><br><span class="line"></span><br><span class="line">initdb: warning: enabling &quot;trust&quot; authentication for local connections</span><br><span class="line">initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.</span><br><span class="line"></span><br><span class="line">Success. You can now start the database server using:</span><br><span class="line"></span><br><span class="line">    pg_ctl -D /var/lib/ivorysql/3/data -l logfile start</span><br><span class="line"></span><br><span class="line">[ivorysql@rocky9 ~]$ pg_ctl -D /var/lib/ivorysql/3/data -l logfile start</span><br><span class="line">waiting for server to start.... done</span><br><span class="line">server started</span><br></pre></td></tr></table></figure>
+<p>启动服务后，连接数据库，发现找不到 ivorysql 这个数据库，经确认，该库在 ivory 3 中已被移除。</p>
+<p>为了便于测试，这里先手动创建一个名为 <code>ivorysql</code> 的数据库，然后再次连接。</p>
+<ul>
+<li>查看版本号</li>
+</ul>
+<img alt="01-version.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20231031-8b8078ba-7631-42b5-8c20-867cc04ee3d5.png" referrerpolicy="no-referrer"/>
+<p>可以看到 IvorySQL 3.0 BETA 版，基于 PostgreSQL 16.0，版本号中加了我的签名。</p>
+<ul>
+<li>查看 ivorysql 相关设定</li>
+</ul>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">select</span> name,setting,short_desc <span class="keyword">from</span> pg_settings <span class="keyword">where</span> name <span class="keyword">like</span> <span class="string">&#x27;%ivory%&#x27;</span>;</span><br><span class="line">                name                 <span class="operator">|</span>   setting   <span class="operator">|</span>                              short_desc                              </span><br><span class="line"><span class="comment">-------------------------------------+-------------+----------------------------------------------------------------------</span></span><br><span class="line"> ivorysql.compatible_mode            <span class="operator">|</span> pg          <span class="operator">|</span> <span class="keyword">Set</span> <span class="keyword">default</span> <span class="keyword">sql</span> parser compatibility mode</span><br><span class="line"> ivorysql.database_mode              <span class="operator">|</span> pg          <span class="operator">|</span> <span class="keyword">Set</span> database mode</span><br><span class="line"> ivorysql.datetime_ignore_nls_mask   <span class="operator">|</span> <span class="number">0</span>           <span class="operator">|</span> Sets the datetime type input <span class="keyword">is</span> <span class="keyword">not</span> controlled <span class="keyword">by</span> the NLS parameter.</span><br><span class="line"> ivorysql.enable_emptystring_to_NULL <span class="operator">|</span> off         <span class="operator">|</span> whether <span class="keyword">convert</span> <span class="keyword">empty</span> string <span class="keyword">to</span> NULL.</span><br><span class="line"> ivorysql.identifier_case_switch     <span class="operator">|</span> interchange <span class="operator">|</span> <span class="keyword">Set</span> <span class="type">character</span> <span class="keyword">case</span> conversion mode.</span><br><span class="line"> ivorysql.listen_addresses           <span class="operator">|</span> localhost   <span class="operator">|</span> Sets oracle host name <span class="keyword">or</span> IP address(es) <span class="keyword">to</span> listen to.</span><br><span class="line"> ivorysql.port                       <span class="operator">|</span> <span class="number">1521</span>        <span class="operator">|</span> Sets the Oracle TCP port the server listens on.</span><br><span class="line">(<span class="number">7</span> <span class="keyword">rows</span>)</span><br></pre></td></tr></table></figure>
+<img alt="02-settings.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20231031-4b492fce-072b-490a-9d4b-4df482b739f2.png" referrerpolicy="no-referrer"/>
+<h2 id="初始化-Oracle-模式-initdb-m-oracle">初始化 Oracle 模式 <code>initdb -m oracle</code></h2>
+<p>由于 Ivory 3 中，初始化默认选择 oracle 模式，所以 <code>-m oracle</code> 和不加 <code>-m</code> 参数是等价的。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">[ivorysql@rocky9 3]$ initdb -m oracle</span><br><span class="line">The files belonging to this database system will be owned by user &quot;ivorysql&quot;.</span><br><span class="line">This user must also own the server process.</span><br><span class="line"></span><br><span class="line">The database cluster will be initialized with locale &quot;en_US.UTF-8&quot;.</span><br><span class="line">The default database encoding has accordingly been set to &quot;UTF8&quot;.</span><br><span class="line">The default text search configuration will be set to &quot;english&quot;.</span><br><span class="line"></span><br><span class="line">Data page checksums are disabled.</span><br><span class="line"></span><br><span class="line">fixing permissions on existing directory /var/lib/ivorysql/3/data ... ok</span><br><span class="line">creating subdirectories ... ok</span><br><span class="line">selecting dynamic shared memory implementation ... posix</span><br><span class="line">selecting default max_connections ... 100</span><br><span class="line">selecting default shared_buffers ... 128MB</span><br><span class="line">selecting default time zone ... Asia/Shanghai</span><br><span class="line">creating configuration files ... ok</span><br><span class="line">running bootstrap script ... ok</span><br><span class="line">performing post-bootstrap initialization ... ok</span><br><span class="line">syncing data to disk ... ok</span><br><span class="line"></span><br><span class="line">initdb: warning: enabling &quot;trust&quot; authentication for local connections</span><br><span class="line">initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.</span><br><span class="line"></span><br><span class="line">Success. You can now start the database server using:</span><br><span class="line"></span><br><span class="line">    pg_ctl -D /var/lib/ivorysql/3/data -l logfile start</span><br><span class="line"></span><br><span class="line">[ivorysql@rocky9 3]$ </span><br></pre></td></tr></table></figure>
+<ul>
+<li>启动 Oracle 模式下的 IvorySQL 3</li>
+</ul>
+<p>启动后，再次查询设定，可以看到，数据库模式变成了 oracle，但当前兼容模式是 pg。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">select</span> name,setting,short_desc <span class="keyword">from</span> pg_settings <span class="keyword">where</span> name <span class="keyword">like</span> <span class="string">&#x27;%ivory%&#x27;</span>;</span><br><span class="line">                name                 <span class="operator">|</span>   setting   <span class="operator">|</span>                              short_desc                              </span><br><span class="line"><span class="comment">-------------------------------------+-------------+----------------------------------------------------------------------</span></span><br><span class="line"> ivorysql.compatible_mode            <span class="operator">|</span> pg          <span class="operator">|</span> <span class="keyword">Set</span> <span class="keyword">default</span> <span class="keyword">sql</span> parser compatibility mode</span><br><span class="line"> ivorysql.database_mode              <span class="operator">|</span> oracle      <span class="operator">|</span> <span class="keyword">Set</span> database mode</span><br><span class="line"> ivorysql.datetime_ignore_nls_mask   <span class="operator">|</span> <span class="number">0</span>           <span class="operator">|</span> Sets the datetime type input <span class="keyword">is</span> <span class="keyword">not</span> controlled <span class="keyword">by</span> the NLS parameter.</span><br><span class="line"> ivorysql.enable_emptystring_to_NULL <span class="operator">|</span> <span class="keyword">on</span>          <span class="operator">|</span> whether <span class="keyword">convert</span> <span class="keyword">empty</span> string <span class="keyword">to</span> NULL.</span><br><span class="line"> ivorysql.identifier_case_switch     <span class="operator">|</span> interchange <span class="operator">|</span> <span class="keyword">Set</span> <span class="type">character</span> <span class="keyword">case</span> conversion mode.</span><br><span class="line"> ivorysql.listen_addresses           <span class="operator">|</span> localhost   <span class="operator">|</span> Sets oracle host name <span class="keyword">or</span> IP address(es) <span class="keyword">to</span> listen to.</span><br><span class="line"> ivorysql.port                       <span class="operator">|</span> <span class="number">1521</span>        <span class="operator">|</span> Sets the Oracle TCP port the server listens on.</span><br><span class="line">(<span class="number">7</span> <span class="keyword">rows</span>)</span><br></pre></td></tr></table></figure>
+<img alt="03-psql.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20231031-c35bfcac-7723-4047-bf3b-e876fb67a997.png" referrerpolicy="no-referrer"/>
+<p>此时，创建 <code>varchar2</code> 字段类型的表会报错。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">odb<span class="operator">=</span># <span class="keyword">create</span> <span class="keyword">table</span> t(id <span class="type">int</span>, name varchar2(<span class="number">10</span>));</span><br><span class="line"><span class="number">2023</span><span class="number">-10</span><span class="number">-31</span> <span class="number">22</span>:<span class="number">23</span>:<span class="number">41.196</span> CST [<span class="number">84392</span>] ERROR:  type &quot;varchar2&quot; does <span class="keyword">not</span> exist <span class="keyword">at</span> <span class="type">character</span> <span class="number">29</span></span><br><span class="line"><span class="number">2023</span><span class="number">-10</span><span class="number">-31</span> <span class="number">22</span>:<span class="number">23</span>:<span class="number">41.196</span> CST [<span class="number">84392</span>] STATEMENT:  <span class="keyword">create</span> <span class="keyword">table</span> t(id <span class="type">int</span>, name varchar2(<span class="number">10</span>));</span><br><span class="line">ERROR:  type &quot;varchar2&quot; does <span class="keyword">not</span> exist</span><br><span class="line">LINE <span class="number">1</span>: <span class="keyword">create</span> <span class="keyword">table</span> t(id <span class="type">int</span>, name varchar2(<span class="number">10</span>));</span><br><span class="line">                                    <span class="operator">^</span></span><br></pre></td></tr></table></figure>
+<p>这是因为 psql 默认从端口 5432 进入，如果想使用 IvorySQL 的 Oracle 模式，需要从端口 1521 进入。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">[ivorysql<span class="variable">@rocky9</span> <span class="number">3</span>]$ psql <span class="operator">-</span>p1521</span><br><span class="line">psql (<span class="number">16.0</span><span class="operator">-</span>ShawnYan)</span><br><span class="line">Type &quot;help&quot; <span class="keyword">for</span> help.</span><br><span class="line"></span><br><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">select</span> name,setting,short_desc <span class="keyword">from</span> pg_settings <span class="keyword">where</span> name <span class="keyword">like</span> <span class="string">&#x27;%ivory%&#x27;</span>;</span><br><span class="line">                name                 <span class="operator">|</span>   setting   <span class="operator">|</span>                              short_desc                              </span><br><span class="line"><span class="comment">-------------------------------------+-------------+----------------------------------------------------------------------</span></span><br><span class="line"> ivorysql.compatible_mode            <span class="operator">|</span> oracle      <span class="operator">|</span> <span class="keyword">Set</span> <span class="keyword">default</span> <span class="keyword">sql</span> parser compatibility mode</span><br><span class="line"> ivorysql.database_mode              <span class="operator">|</span> oracle      <span class="operator">|</span> <span class="keyword">Set</span> database mode</span><br><span class="line"> ivorysql.datetime_ignore_nls_mask   <span class="operator">|</span> <span class="number">0</span>           <span class="operator">|</span> Sets the datetime type input <span class="keyword">is</span> <span class="keyword">not</span> controlled <span class="keyword">by</span> the NLS parameter.</span><br><span class="line"> ivorysql.enable_emptystring_to_NULL <span class="operator">|</span> <span class="keyword">on</span>          <span class="operator">|</span> whether <span class="keyword">convert</span> <span class="keyword">empty</span> string <span class="keyword">to</span> NULL.</span><br><span class="line"> ivorysql.identifier_case_switch     <span class="operator">|</span> interchange <span class="operator">|</span> <span class="keyword">Set</span> <span class="type">character</span> <span class="keyword">case</span> conversion mode.</span><br><span class="line"> ivorysql.listen_addresses           <span class="operator">|</span> localhost   <span class="operator">|</span> Sets oracle host name <span class="keyword">or</span> IP address(es) <span class="keyword">to</span> listen to.</span><br><span class="line"> ivorysql.port                       <span class="operator">|</span> <span class="number">1521</span>        <span class="operator">|</span> Sets the Oracle TCP port the server listens on.</span><br><span class="line">(<span class="number">7</span> <span class="keyword">rows</span>)</span><br></pre></td></tr></table></figure>
+<p>再次创建测试表，成功。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">odb<span class="operator">=</span># <span class="keyword">create</span> <span class="keyword">table</span> t(id <span class="type">int</span>, name varchar2(<span class="number">10</span>));</span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span></span><br><span class="line">odb<span class="operator">=</span># \d t</span><br><span class="line">                     <span class="keyword">Table</span> &quot;public.t&quot;</span><br><span class="line"> <span class="keyword">Column</span> <span class="operator">|</span>      Type       <span class="operator">|</span> <span class="keyword">Collation</span> <span class="operator">|</span> Nullable <span class="operator">|</span> <span class="keyword">Default</span> </span><br><span class="line"><span class="comment">--------+-----------------+-----------+----------+---------</span></span><br><span class="line"> id     <span class="operator">|</span> pg_catalog.int4 <span class="operator">|</span>           <span class="operator">|</span>          <span class="operator">|</span> </span><br><span class="line"> name   <span class="operator">|</span> varchar2(<span class="number">10</span>)    <span class="operator">|</span>           <span class="operator">|</span>          <span class="operator">|</span> </span><br><span class="line"></span><br><span class="line">odb<span class="operator">=</span># </span><br></pre></td></tr></table></figure>
+<h2 id="IvorySQL-3-支持双端口号">IvorySQL 3 支持双端口号</h2>
+<p>上文已经描述了 pg/oracle 两种模式，而且端口号不同，再次从 OS 层面进行验证。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[ivorysql@rocky9 ~]$ ss -antpl | grep postgres</span><br><span class="line">LISTEN 0      200        127.0.0.1:5432      0.0.0.0:*    users:((&quot;postgres&quot;,pid=84211,fd=7))</span><br><span class="line">LISTEN 0      200        127.0.0.1:1521      0.0.0.0:*    users:((&quot;postgres&quot;,pid=84211,fd=9))</span><br><span class="line">LISTEN 0      200            [::1]:5432         [::]:*    users:((&quot;postgres&quot;,pid=84211,fd=6))</span><br><span class="line">LISTEN 0      200            [::1]:1521         [::]:*    users:((&quot;postgres&quot;,pid=84211,fd=8))</span><br><span class="line">[ivorysql@rocky9 ~]$ </span><br></pre></td></tr></table></figure>
+<p>可以更加完整的看到，服务监听了 5432 和 1521 两个端口。</p>
+<h2 id="总结">总结</h2>
+<p>本文介绍了如何编译 IvorySQL 3 的源码，并提示了一些注意事项。然后介绍了 IvorySQL 3 框架增强功能。</p>
+<ul>
+<li>添加双 Parser 支持不同的数据库 Parser</li>
+<li>添加双端口支持不同的数据库端口号</li>
+<li>添加 <code>initdb -m</code>，支持 PG 模式或 Oracle 模式</li>
+</ul>
+<h2 id="参考">参考</h2>
+<ul>
+<li><a href="https://shawnyan.cn/2023/postgresql/ivorysql-v2.3-feature/">象牙数据库 IvorySQL v2.3 特性浅析</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.ivorysql.org/">IvorySQL 文档中心</a></li>
+</ul>
+<hr>
+<!--
+https://github.com/IvorySQL/IvorySQL/pull/213/files
+IvorySQL:Add initdb -m,support postgres mode or oracle mode #213
+-->
+<hr>
+<p><a target="_blank" rel="noopener" href="https://www.modb.pro/db/1719316230573203456">https://www.modb.pro/db/1719316230573203456</a><br>
+<a target="_blank" rel="noopener" href="https://pgfans.cn/a/2527">https://pgfans.cn/a/2527</a></p>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/oracle/" class="tag-link">
+                                oracle
+                            </a>
+                        
+                            <a href="/tags/ivorysql/" class="tag-link">
+                                ivorysql
+                            </a>
+                        
+                            <a href="/tags/highgo/" class="tag-link">
+                                highgo
+                            </a>
+                        
+                            <a href="/tags/postgresql/" class="tag-link">
+                                postgresql
+                            </a>
+                        
+                            <a href="/tags/postgresql-16/" class="tag-link">
+                                postgresql 16
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2023/ivorysql/ivorysql-v3.0-feature/index.html">https://shawnyan.cn/2023/ivorysql/ivorysql-v3.0-feature/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2023/mysql/mysql-8.2.0-compile-customization/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">【MySQL 8.x】定制化 MySQL 8.2.0 编译选项（文末彩蛋）</span>
+        </a>
+    
+
+    
+        <a href="/2023/mysql/mysql-8.2.0-compile-on-rocky-9/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">【MySQL 8.x】在 Rocky 9 上编译 MySQL 8.2.0 Debug 版本编译指南</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%9B%AE%E5%BD%95"><span class="toc-text">目录</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#IvorySQL-3-0-%E7%BC%96%E8%AF%91%E5%AE%89%E8%A3%85"><span class="toc-text">IvorySQL 3.0 编译安装</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F"><span class="toc-text">操作系统</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%8B%E9%9A%86%E6%BA%90%E7%A0%81"><span class="toc-text">克隆源码</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BC%96%E8%AF%91-IvorySQL-3"><span class="toc-text">编译 IvorySQL 3</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%9D%E5%A7%8B%E5%8C%96-PG-%E6%A8%A1%E5%BC%8F-initdb-m-pg"><span class="toc-text">初始化 PG 模式 initdb -m pg</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%9D%E5%A7%8B%E5%8C%96-Oracle-%E6%A8%A1%E5%BC%8F-initdb-m-oracle"><span class="toc-text">初始化 Oracle 模式 initdb -m oracle</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#IvorySQL-3-%E6%94%AF%E6%8C%81%E5%8F%8C%E7%AB%AF%E5%8F%A3%E5%8F%B7"><span class="toc-text">IvorySQL 3 支持双端口号</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-text">参考</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

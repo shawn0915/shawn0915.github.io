@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        [RL9] Rocky Linux 9.4 搭载 PG 16.1 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;img alt=&#34;rocky94.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240615-8be09693-62e9-4f05-9ffa-cc429d9cc541.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;!--
+https://linuxiac.b-cdn.net/wp-content/uploads/2024/05/rocky94.jpg
+--&gt;
+&lt;p&gt;副标题：Rocky Linux 9.4 升级实录，及 PG 16 相关内容&lt;/p&gt;
+&lt;h2 id=&#34;背景&#34;&gt;背景&lt;/h2&gt;
+&lt;p&gt;Rocky Linux 9.4 (以下简称 RL) 于5月9日正式发布，本文记录了从 RL 9.3 升级到 9.4 的过程，以及升级前后的一些变化。&lt;/p&gt;
+&lt;p&gt;之前介绍过 RL 9 的相关内容，请戳：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://mp.weixin.qq.com/s/5AwTbcXIq27LaRtB8EfEWQ&#34;&gt;[RL9] Step by Step 安装 Rocky Linux 9.2 系统&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://mp.weixin.qq.com/s/q_oBBG9UK03fDcL6TCcSHQ&#34;&gt;[RL9] Rocky Linux 9.2 升级 9.3，及新特性实践&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;升级动因&#34;&gt;升级动因&lt;/h2&gt;
+&lt;p&gt;RL 9.4 为当前最新版本，升级了大量系统模块、软件包，包括最新的编程语言、编译工具和开发工具等，同时修复了若干安全漏洞、增强了系统安全性。&lt;/p&gt;
+&lt;p&gt;如果你在使用 RHEL 9，可参考其支持计划，偶数版本如9.0，9.2,9.4等，将在扩展升级支持 (Extended Update Support, EUS) 之外提供48个月的增强扩展升级支持(Enhanced EUS)。&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;RHEL 9&lt;/th&gt;
+&lt;th&gt;GA&lt;/th&gt;
+&lt;th&gt;EUS&lt;/th&gt;
+&lt;th&gt;Enhanced EUS&lt;/th&gt;
+&lt;th&gt;Kernel Version&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;9.4&lt;/td&gt;
+&lt;td&gt;2024-04-30&lt;/td&gt;
+&lt;td&gt;April 30, 2026&lt;/td&gt;
+&lt;td&gt;April 30, 2028&lt;/td&gt;
+&lt;td&gt;5.14.0-427.13.1.el9_4&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;9.2&lt;/td&gt;
+&lt;td&gt;2023-05-10&lt;/td&gt;
+&lt;td&gt;May 31, 2025&lt;/td&gt;
+&lt;td&gt;May 31, 2027&lt;/td&gt;
+&lt;td&gt;5.14.0-284.11.1.el9_2&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;9.0&lt;/td&gt;
+&lt;td&gt;2022-05-17&lt;/td&gt;
+&lt;td&gt;May 31, 2024&lt;/td&gt;
+&lt;td&gt;May 31, 2026&lt;/td&gt;
+&lt;td&gt;5.14.0-70.13.1.el9_0&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;升级过程&#34;&gt;升级过程&lt;/h2&gt;
+&lt;p&gt;如果是本地环境，可以先挂载 iso 镜像，设定本地 yum 源，然后进行更新即可。&lt;/p&gt;
+&lt;p&gt;如果是联网环境，可以执行命令 &lt;code&gt;dnf update&lt;/code&gt; 在线升级。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 ~]# dnf upgrade&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;依赖关系解决。&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;=======================================================================================&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; 软件包                      架构        版本                       仓库          大小&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;=======================================================================================&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;安装:                                                            &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; kernel                      x86_64      5.14.0-427.13.1.el9_4      iso-base     5.8 M&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;升级:                                                            &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; NetworkManager              x86_64      1:1.46.0-4.el9_4           iso-base     2.3 M&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...                                                             &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;安装依赖关系:                                                      &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; kernel-core                 x86_64      5.14.0-427.13.1.el9_4      iso-base      21 M&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...                                                             &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;安装弱的依赖:                                                      &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; evolution-data-server-ui    x86_64      3.40.4-9.el9               iso-app       82 k&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                                                &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;事务概要                                                          &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;=======================================================================================&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;安装    8 软件包&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;升级  456 软件包&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;总计：1.4 G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...                                                 &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;完毕！&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;rocky94.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240603-0c11e504-2dbc-44b7-bb3d-3219f555b3a8.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;版本比对&#34;&gt;版本比对&lt;/h2&gt;
+&lt;h3 id=&#34;操作系统和内核&#34;&gt;操作系统和内核&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;rocky 9.4&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 ~]# hostnamectl&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; Static hostname: rocky9.shawnyan.cn&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Operating System: Rocky Linux 9.4 (Blue Onyx)       &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;     CPE OS Name: cpe:/o:rocky:rocky:9::baseos&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          Kernel: Linux 5.14.0-427.18.1.el9_4.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    Architecture: x86-64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 ~]# &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 ~]# ls /boot/vmlinuz-*&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/boot/vmlinuz-0-rescue-703d66e159424744945b5a79849585a2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/boot/vmlinuz-5.14.0-284.30.1.el9_2.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/boot/vmlinuz-5.14.0-362.8.1.el9_3.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/boot/vmlinuz-5.14.0-427.18.1.el9_4.x86_64&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;rocky 9.3&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 ~]# hostnamectl&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; Static hostname: rocky9.shawnyan.cn&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Operating System: Rocky Linux 9.3 (Blue Onyx)      &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;     CPE OS Name: cpe:/o:rocky:rocky:9::baseos&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          Kernel: Linux 5.14.0-362.8.1.el9_3.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    Architecture: x86-64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 ~]# &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 ~]# ls /boot/vmlinuz-*&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/boot/vmlinuz-0-rescue-703d66e159424744945b5a79849585a2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/boot/vmlinuz-5.14.0-284.11.1.el9_2.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/boot/vmlinuz-5.14.0-284.30.1.el9_2.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/boot/vmlinuz-5.14.0-362.8.1.el9_3.x86_64&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;Rsyslog&#34;&gt;Rsyslog&lt;/h3&gt;
+&lt;p&gt;Rsyslogd 是用于日志记录的守护进程，rsyslogd 拥有高性能、灵活性、可靠性、安全性等特点，可以用于替代 syslogd 守护进程。&lt;/p&gt;
+&lt;p&gt;新版本的 Rsyslog 处理系统引入了可定制的 TLS/SSL 加密设置。&lt;/p&gt;
+&lt;p&gt;在以前的版本中，为单独的连接配置 TLS/SSL 加密设置仅限于全局设置。使用最新版本，你可以在 Rsyslog 中为每条单独的连接定义唯一的 TLS/SSL 设置。这包括指定不同的 CA 证书、私钥、公钥和 CRL 文件以增强安全性和灵活性。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;rocky 9.4&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ rsyslogd -version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;rsyslogd  8.2310.0-4.el9 (aka 2023.10) compiled with:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        PLATFORM:                               x86_64-redhat-linux-gnu&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        PLATFORM (lsb_release -d):&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        FEATURE_REGEXP:                         Yes&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        GSSAPI Kerberos 5 support:              Yes&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        FEATURE_DEBUG (debug build, slow code): No&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        32bit Atomic operations supported:      Yes&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        64bit Atomic operations supported:      Yes&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        memory allocator:                       system default&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        Runtime Instrumentation (slow code):    No&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        uuid support:                           Yes&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        systemd support:                        Yes&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        Config file:                            /etc/rsyslog.conf&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        PID file:                               /var/run/rsyslogd.pid&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        Number of Bits in RainerScript integers: 64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;See https://www.rsyslog.com for more information.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;rocky 9.3&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ rsyslogd -version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;rsyslogd  8.2102.0-117.el9 (aka 2021.02) compiled with:&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;golang&#34;&gt;golang&lt;/h3&gt;
+&lt;p&gt;Go，通常被称为 golang，是由 Google 开发的开源编程语言。Go 语言设计于 2007 年，并于 2009 年正式对外发布。Go 语言的语法类似于 C 语言，但提供了内存安全、垃圾回收、结构化错误处理等现代编程语言特性。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;rocky 9.4&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ go version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;go version go1.21.9 (Red Hat 1.21.9-2.el9_4) linux/amd64&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;rocky 9.3&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 yum.repos.d]# go version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;go version go1.20.10 linux/amd64&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;由 Go 语言开发的数据库项目有很多，以下列举几款常见的数据库项目：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;关系型数据库 TiDB&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;是一个开源分布式 SQL 数据库，支持混合事务/分析处理 (HTAP) 工作负载。它与 MySQL 兼容，具有水平可扩展性、强一致性和高可用性。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;图数据库 Dgraph&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;是一个具有图形后端的水平可扩展分布式 GraphQL 数据库。它提供 ACID 事务、一致性复制和线性化读取。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;键值数据库 etcd&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;是一个分布式的可靠键值存储，用于存储分布式系统中最重要的数据，具有简单、安全、快速、可靠等特点。可用于配置管理和服务发现，常用于持久化 Kubernetes 集群状态。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;向量数据库 Milvus&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;是一个开源向量数据库，旨在为嵌入式相似性搜索和 AI 应用程序提供支持。Milvus 2.0 是一款云原生向量数据库，设计上存储与计算分离，所有组件均为无状态，增强了弹性和灵活性。&lt;/p&gt;
+&lt;h3 id=&#34;postgresql-16&#34;&gt;postgresql:16&lt;/h3&gt;
+&lt;p&gt;PostgreSQL 是一个功能强大的开源对象关系数据库系统，经过 35 多年的积极开发，在可靠性、功能稳健性和性能方面赢得了良好的声誉。&lt;/p&gt;
+&lt;p&gt;PostgreSQL 16 于 2023 年 9 月发布，进一步提高了性能并增加了更多复制选项等。&lt;/p&gt;
+&lt;p&gt;RHEL 9.4 引入了 PostgreSQL 16 作为 &lt;code&gt;postgresql:16&lt;/code&gt; 模块流。&lt;/p&gt;
+&lt;p&gt;关于PG模块流的更多内容，戳这里：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://mp.weixin.qq.com/s/6WhQr_WFvA1jI4Shw95Vzw&#34;&gt;【PG15】在 Rocky 9 上安装 PostgreSQL 15 的五种方法&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;安装步骤如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ sudo dnf module install postgresql:16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Dependencies resolved.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;=====================================================================================================&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; Package                     Arch       Version                                  Repository     Size&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;=====================================================================================================&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Installing group/module packages:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; postgresql-server           x86_64     16.1-1.module+el9.4.0+20018+a4fc542f     appstream     6.9 M&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Installing dependencies:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; postgresql                  x86_64     16.1-1.module+el9.4.0+20018+a4fc542f     appstream     1.8 M&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; postgresql-private-libs     x86_64     16.1-1.module+el9.4.0+20018+a4fc542f     appstream     141 k&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Installing module profiles:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; postgresql/server&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enabling module streams:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; postgresql                             16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Transaction Summary&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;=====================================================================================================&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Install  3 Packages&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Total download size: 8.9 M&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Installed size: 37 M&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Installed:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  postgresql-16.1-1.module+el9.4.0+20018+a4fc542f.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  postgresql-private-libs-16.1-1.module+el9.4.0+20018+a4fc542f.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  postgresql-server-16.1-1.module+el9.4.0+20018+a4fc542f.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Complete!&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;由于本机之前安装过PG，所以先要进行升级。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[postgres@rocky9 ~]$ postgresql-setup --upgrade&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; * Upgrading database.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; * Upgraded OK.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WARNING: The configuration files were replaced by default configuration.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WARNING: The previous configuration and data are stored in folder&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WARNING: /var/lib/pgsql/data-old.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WARNING: If you&amp;#x27;ve just upgraded your database from a previous major version of&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Fedora or RHEL, please run reindexdb against your databases.  Core library&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;collation data may have changed and this will invalidate database indexes.  For&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;example, in Fedora 28 and RHEL 8 there have been extensive changes in glibc&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;collations to support ISO 14651:2016 (Unicode 9.0.0 data) and your indexes may&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;be affected: https://sourceware.org/ml/libc-announce/2018/msg00002.html&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; * See /var/lib/pgsql/upgrade_postgresql.log for details.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;启动PG服务。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ sudo systemctl start postgresql&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ systemctl status postgresql&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;● postgresql.service - PostgreSQL database server&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;     Loaded: loaded (/usr/lib/systemd/system/postgresql.service; disabled; preset: disabled)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;     Active: active (running) since Mon 2024-06-02 14:05:29 UTC; 5s ago&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Jun 02 14:05:29 rocky9.shawnyan.cn systemd[1]: Started PostgreSQL database server.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看PG版本。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[postgres&lt;span class=&#34;variable&#34;&gt;@rocky9&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;~&lt;/span&gt;]$ psql &lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;c &lt;span class=&#34;string&#34;&gt;&amp;#x27;select version()&amp;#x27;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                                   version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;--------------------------------------------------------------------------------------------------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; PostgreSQL &lt;span class=&#34;number&#34;&gt;16.1&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;on&lt;/span&gt; x86_64&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;redhat&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;linux&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;gnu, compiled &lt;span class=&#34;keyword&#34;&gt;by&lt;/span&gt; gcc (GCC) &lt;span class=&#34;number&#34;&gt;11.4&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.1&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;20231218&lt;/span&gt; (Red Hat &lt;span class=&#34;number&#34;&gt;11.4&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.1&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-3&lt;/span&gt;), &lt;span class=&#34;number&#34;&gt;64&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;bit&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;本文介绍了如何从 Rocky Linux 9.3 升级到 RL 9.4，并介绍了 RL 9.4 部分新特性，以及介绍了 RL 9.4 中 PG:16 模块的相关内容。&lt;/p&gt;
+&lt;p&gt;– / END / –&lt;/p&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="[RL9] Rocky Linux 9.4 搭载 PG 16.1">
+    <meta property="og:url" content="https://shawnyan.cn/2024/linux/rocky-linux-9-4-and-pg-16-1/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;img alt=&#34;rocky94.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240615-8be09693-62e9-4f05-9ffa-cc429d9cc541.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;!--
+https://linuxiac.b-cdn.net/wp-content/uploads/2024/05/rocky94.jpg
+--&gt;
+&lt;p&gt;副标题：Rocky Linux 9.4 升级实录，及 PG 16 相关内容&lt;/p&gt;
+&lt;h2 id=&#34;背景&#34;&gt;背景&lt;/h2&gt;
+&lt;p&gt;Rocky Linux 9.4 (以下简称 RL) 于5月9日正式发布，本文记录了从 RL 9.3 升级到 9.4 的过程，以及升级前后的一些变化。&lt;/p&gt;
+&lt;p&gt;之前介绍过 RL 9 的相关内容，请戳：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://mp.weixin.qq.com/s/5AwTbcXIq27LaRtB8EfEWQ&#34;&gt;[RL9] Step by Step 安装 Rocky Linux 9.2 系统&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://mp.weixin.qq.com/s/q_oBBG9UK03fDcL6TCcSHQ&#34;&gt;[RL9] Rocky Linux 9.2 升级 9.3，及新特性实践&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;升级动因&#34;&gt;升级动因&lt;/h2&gt;
+&lt;p&gt;RL 9.4 为当前最新版本，升级了大量系统模块、软件包，包括最新的编程语言、编译工具和开发工具等，同时修复了若干安全漏洞、增强了系统安全性。&lt;/p&gt;
+&lt;p&gt;如果你在使用 RHEL 9，可参考其支持计划，偶数版本如9.0，9.2,9.4等，将在扩展升级支持 (Extended Update Support, EUS) 之外提供48个月的增强扩展升级支持(Enhanced EUS)。&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;RHEL 9&lt;/th&gt;
+&lt;th&gt;GA&lt;/th&gt;
+&lt;th&gt;EUS&lt;/th&gt;
+&lt;th&gt;Enhanced EUS&lt;/th&gt;
+&lt;th&gt;Kernel Version&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;9.4&lt;/td&gt;
+&lt;td&gt;2024-04-30&lt;/td&gt;
+&lt;td&gt;April 30, 2026&lt;/td&gt;
+&lt;td&gt;April 30, 2028&lt;/td&gt;
+&lt;td&gt;5.14.0-427.13.1.el9_4&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;9.2&lt;/td&gt;
+&lt;td&gt;2023-05-10&lt;/td&gt;
+&lt;td&gt;May 31, 2025&lt;/td&gt;
+&lt;td&gt;May 31, 2027&lt;/td&gt;
+&lt;td&gt;5.14.0-284.11.1.el9_2&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;9.0&lt;/td&gt;
+&lt;td&gt;2022-05-17&lt;/td&gt;
+&lt;td&gt;May 31, 2024&lt;/td&gt;
+&lt;td&gt;May 31, 2026&lt;/td&gt;
+&lt;td&gt;5.14.0-70.13.1.el9_0&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;升级过程&#34;&gt;升级过程&lt;/h2&gt;
+&lt;p&gt;如果是本地环境，可以先挂载 iso 镜像，设定本地 yum 源，然后进行更新即可。&lt;/p&gt;
+&lt;p&gt;如果是联网环境，可以执行命令 &lt;code&gt;dnf update&lt;/code&gt; 在线升级。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 ~]# dnf upgrade&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;依赖关系解决。&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;=======================================================================================&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; 软件包                      架构        版本                       仓库          大小&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;=======================================================================================&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;安装:                                                            &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; kernel                      x86_64      5.14.0-427.13.1.el9_4      iso-base     5.8 M&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;升级:                                                            &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; NetworkManager              x86_64      1:1.46.0-4.el9_4           iso-base     2.3 M&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...                                                             &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;安装依赖关系:                                                      &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; kernel-core                 x86_64      5.14.0-427.13.1.el9_4      iso-base      21 M&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...                                                             &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;安装弱的依赖:                                                      &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; evolution-data-server-ui    x86_64      3.40.4-9.el9               iso-app       82 k&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                                                &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;事务概要                                                          &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;=======================================================================================&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;安装    8 软件包&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;升级  456 软件包&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;总计：1.4 G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...                                                 &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;完毕！&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;rocky94.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240603-0c11e504-2dbc-44b7-bb3d-3219f555b3a8.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;版本比对&#34;&gt;版本比对&lt;/h2&gt;
+&lt;h3 id=&#34;操作系统和内核&#34;&gt;操作系统和内核&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;rocky 9.4&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 ~]# hostnamectl&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; Static hostname: rocky9.shawnyan.cn&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Operating System: Rocky Linux 9.4 (Blue Onyx)       &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;     CPE OS Name: cpe:/o:rocky:rocky:9::baseos&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          Kernel: Linux 5.14.0-427.18.1.el9_4.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    Architecture: x86-64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 ~]# &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 ~]# ls /boot/vmlinuz-*&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/boot/vmlinuz-0-rescue-703d66e159424744945b5a79849585a2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/boot/vmlinuz-5.14.0-284.30.1.el9_2.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/boot/vmlinuz-5.14.0-362.8.1.el9_3.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/boot/vmlinuz-5.14.0-427.18.1.el9_4.x86_64&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;rocky 9.3&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 ~]# hostnamectl&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; Static hostname: rocky9.shawnyan.cn&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Operating System: Rocky Linux 9.3 (Blue Onyx)      &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;     CPE OS Name: cpe:/o:rocky:rocky:9::baseos&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          Kernel: Linux 5.14.0-362.8.1.el9_3.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    Architecture: x86-64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 ~]# &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 ~]# ls /boot/vmlinuz-*&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/boot/vmlinuz-0-rescue-703d66e159424744945b5a79849585a2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/boot/vmlinuz-5.14.0-284.11.1.el9_2.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/boot/vmlinuz-5.14.0-284.30.1.el9_2.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/boot/vmlinuz-5.14.0-362.8.1.el9_3.x86_64&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;Rsyslog&#34;&gt;Rsyslog&lt;/h3&gt;
+&lt;p&gt;Rsyslogd 是用于日志记录的守护进程，rsyslogd 拥有高性能、灵活性、可靠性、安全性等特点，可以用于替代 syslogd 守护进程。&lt;/p&gt;
+&lt;p&gt;新版本的 Rsyslog 处理系统引入了可定制的 TLS/SSL 加密设置。&lt;/p&gt;
+&lt;p&gt;在以前的版本中，为单独的连接配置 TLS/SSL 加密设置仅限于全局设置。使用最新版本，你可以在 Rsyslog 中为每条单独的连接定义唯一的 TLS/SSL 设置。这包括指定不同的 CA 证书、私钥、公钥和 CRL 文件以增强安全性和灵活性。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;rocky 9.4&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ rsyslogd -version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;rsyslogd  8.2310.0-4.el9 (aka 2023.10) compiled with:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        PLATFORM:                               x86_64-redhat-linux-gnu&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        PLATFORM (lsb_release -d):&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        FEATURE_REGEXP:                         Yes&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        GSSAPI Kerberos 5 support:              Yes&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        FEATURE_DEBUG (debug build, slow code): No&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        32bit Atomic operations supported:      Yes&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        64bit Atomic operations supported:      Yes&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        memory allocator:                       system default&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        Runtime Instrumentation (slow code):    No&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        uuid support:                           Yes&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        systemd support:                        Yes&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        Config file:                            /etc/rsyslog.conf&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        PID file:                               /var/run/rsyslogd.pid&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        Number of Bits in RainerScript integers: 64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;See https://www.rsyslog.com for more information.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;rocky 9.3&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ rsyslogd -version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;rsyslogd  8.2102.0-117.el9 (aka 2021.02) compiled with:&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;golang&#34;&gt;golang&lt;/h3&gt;
+&lt;p&gt;Go，通常被称为 golang，是由 Google 开发的开源编程语言。Go 语言设计于 2007 年，并于 2009 年正式对外发布。Go 语言的语法类似于 C 语言，但提供了内存安全、垃圾回收、结构化错误处理等现代编程语言特性。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;rocky 9.4&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ go version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;go version go1.21.9 (Red Hat 1.21.9-2.el9_4) linux/amd64&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;rocky 9.3&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 yum.repos.d]# go version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;go version go1.20.10 linux/amd64&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;由 Go 语言开发的数据库项目有很多，以下列举几款常见的数据库项目：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;关系型数据库 TiDB&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;是一个开源分布式 SQL 数据库，支持混合事务/分析处理 (HTAP) 工作负载。它与 MySQL 兼容，具有水平可扩展性、强一致性和高可用性。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;图数据库 Dgraph&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;是一个具有图形后端的水平可扩展分布式 GraphQL 数据库。它提供 ACID 事务、一致性复制和线性化读取。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;键值数据库 etcd&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;是一个分布式的可靠键值存储，用于存储分布式系统中最重要的数据，具有简单、安全、快速、可靠等特点。可用于配置管理和服务发现，常用于持久化 Kubernetes 集群状态。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;向量数据库 Milvus&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;是一个开源向量数据库，旨在为嵌入式相似性搜索和 AI 应用程序提供支持。Milvus 2.0 是一款云原生向量数据库，设计上存储与计算分离，所有组件均为无状态，增强了弹性和灵活性。&lt;/p&gt;
+&lt;h3 id=&#34;postgresql-16&#34;&gt;postgresql:16&lt;/h3&gt;
+&lt;p&gt;PostgreSQL 是一个功能强大的开源对象关系数据库系统，经过 35 多年的积极开发，在可靠性、功能稳健性和性能方面赢得了良好的声誉。&lt;/p&gt;
+&lt;p&gt;PostgreSQL 16 于 2023 年 9 月发布，进一步提高了性能并增加了更多复制选项等。&lt;/p&gt;
+&lt;p&gt;RHEL 9.4 引入了 PostgreSQL 16 作为 &lt;code&gt;postgresql:16&lt;/code&gt; 模块流。&lt;/p&gt;
+&lt;p&gt;关于PG模块流的更多内容，戳这里：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://mp.weixin.qq.com/s/6WhQr_WFvA1jI4Shw95Vzw&#34;&gt;【PG15】在 Rocky 9 上安装 PostgreSQL 15 的五种方法&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;安装步骤如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ sudo dnf module install postgresql:16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Dependencies resolved.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;=====================================================================================================&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; Package                     Arch       Version                                  Repository     Size&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;=====================================================================================================&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Installing group/module packages:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; postgresql-server           x86_64     16.1-1.module+el9.4.0+20018+a4fc542f     appstream     6.9 M&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Installing dependencies:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; postgresql                  x86_64     16.1-1.module+el9.4.0+20018+a4fc542f     appstream     1.8 M&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; postgresql-private-libs     x86_64     16.1-1.module+el9.4.0+20018+a4fc542f     appstream     141 k&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Installing module profiles:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; postgresql/server&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enabling module streams:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; postgresql                             16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Transaction Summary&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;=====================================================================================================&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Install  3 Packages&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Total download size: 8.9 M&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Installed size: 37 M&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Installed:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  postgresql-16.1-1.module+el9.4.0+20018+a4fc542f.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  postgresql-private-libs-16.1-1.module+el9.4.0+20018+a4fc542f.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  postgresql-server-16.1-1.module+el9.4.0+20018+a4fc542f.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Complete!&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;由于本机之前安装过PG，所以先要进行升级。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[postgres@rocky9 ~]$ postgresql-setup --upgrade&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; * Upgrading database.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; * Upgraded OK.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WARNING: The configuration files were replaced by default configuration.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WARNING: The previous configuration and data are stored in folder&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WARNING: /var/lib/pgsql/data-old.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WARNING: If you&amp;#x27;ve just upgraded your database from a previous major version of&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Fedora or RHEL, please run reindexdb against your databases.  Core library&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;collation data may have changed and this will invalidate database indexes.  For&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;example, in Fedora 28 and RHEL 8 there have been extensive changes in glibc&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;collations to support ISO 14651:2016 (Unicode 9.0.0 data) and your indexes may&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;be affected: https://sourceware.org/ml/libc-announce/2018/msg00002.html&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; * See /var/lib/pgsql/upgrade_postgresql.log for details.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;启动PG服务。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ sudo systemctl start postgresql&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ systemctl status postgresql&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;● postgresql.service - PostgreSQL database server&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;     Loaded: loaded (/usr/lib/systemd/system/postgresql.service; disabled; preset: disabled)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;     Active: active (running) since Mon 2024-06-02 14:05:29 UTC; 5s ago&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Jun 02 14:05:29 rocky9.shawnyan.cn systemd[1]: Started PostgreSQL database server.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看PG版本。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[postgres&lt;span class=&#34;variable&#34;&gt;@rocky9&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;~&lt;/span&gt;]$ psql &lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;c &lt;span class=&#34;string&#34;&gt;&amp;#x27;select version()&amp;#x27;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                                   version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;--------------------------------------------------------------------------------------------------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; PostgreSQL &lt;span class=&#34;number&#34;&gt;16.1&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;on&lt;/span&gt; x86_64&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;redhat&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;linux&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;gnu, compiled &lt;span class=&#34;keyword&#34;&gt;by&lt;/span&gt; gcc (GCC) &lt;span class=&#34;number&#34;&gt;11.4&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.1&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;20231218&lt;/span&gt; (Red Hat &lt;span class=&#34;number&#34;&gt;11.4&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.1&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-3&lt;/span&gt;), &lt;span class=&#34;number&#34;&gt;64&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;bit&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;本文介绍了如何从 Rocky Linux 9.3 升级到 RL 9.4，并介绍了 RL 9.4 部分新特性，以及介绍了 RL 9.4 中 PG:16 模块的相关内容。&lt;/p&gt;
+&lt;p&gt;– / END / –&lt;/p&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/red-hat/" class="category-badge">
+                                    Red Hat
+                                </a>
+                            
+                                <a href="/categories/red-hat/rocky/" class="category-badge">
+                                    Rocky
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">[RL9] Rocky Linux 9.4 搭载 PG 16.1</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2024-06-15
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                1.8k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                8 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <img alt="rocky94.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20240615-8be09693-62e9-4f05-9ffa-cc429d9cc541.jpg" referrerpolicy="no-referrer"/>
+<!--
+https://linuxiac.b-cdn.net/wp-content/uploads/2024/05/rocky94.jpg
+-->
+<p>副标题：Rocky Linux 9.4 升级实录，及 PG 16 相关内容</p>
+<h2 id="背景">背景</h2>
+<p>Rocky Linux 9.4 (以下简称 RL) 于5月9日正式发布，本文记录了从 RL 9.3 升级到 9.4 的过程，以及升级前后的一些变化。</p>
+<p>之前介绍过 RL 9 的相关内容，请戳：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/5AwTbcXIq27LaRtB8EfEWQ">[RL9] Step by Step 安装 Rocky Linux 9.2 系统</a></li>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/q_oBBG9UK03fDcL6TCcSHQ">[RL9] Rocky Linux 9.2 升级 9.3，及新特性实践</a></li>
+</ul>
+<h2 id="升级动因">升级动因</h2>
+<p>RL 9.4 为当前最新版本，升级了大量系统模块、软件包，包括最新的编程语言、编译工具和开发工具等，同时修复了若干安全漏洞、增强了系统安全性。</p>
+<p>如果你在使用 RHEL 9，可参考其支持计划，偶数版本如9.0，9.2,9.4等，将在扩展升级支持 (Extended Update Support, EUS) 之外提供48个月的增强扩展升级支持(Enhanced EUS)。</p>
+<table>
+<thead>
+<tr>
+<th>RHEL 9</th>
+<th>GA</th>
+<th>EUS</th>
+<th>Enhanced EUS</th>
+<th>Kernel Version</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>9.4</td>
+<td>2024-04-30</td>
+<td>April 30, 2026</td>
+<td>April 30, 2028</td>
+<td>5.14.0-427.13.1.el9_4</td>
+</tr>
+<tr>
+<td>9.2</td>
+<td>2023-05-10</td>
+<td>May 31, 2025</td>
+<td>May 31, 2027</td>
+<td>5.14.0-284.11.1.el9_2</td>
+</tr>
+<tr>
+<td>9.0</td>
+<td>2022-05-17</td>
+<td>May 31, 2024</td>
+<td>May 31, 2026</td>
+<td>5.14.0-70.13.1.el9_0</td>
+</tr>
+</tbody>
+</table>
+<h2 id="升级过程">升级过程</h2>
+<p>如果是本地环境，可以先挂载 iso 镜像，设定本地 yum 源，然后进行更新即可。</p>
+<p>如果是联网环境，可以执行命令 <code>dnf update</code> 在线升级。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">[root@rocky9 ~]# dnf upgrade</span><br><span class="line">依赖关系解决。</span><br><span class="line">=======================================================================================</span><br><span class="line"> 软件包                      架构        版本                       仓库          大小</span><br><span class="line">=======================================================================================</span><br><span class="line">安装:                                                            </span><br><span class="line"> kernel                      x86_64      5.14.0-427.13.1.el9_4      iso-base     5.8 M</span><br><span class="line">升级:                                                            </span><br><span class="line"> NetworkManager              x86_64      1:1.46.0-4.el9_4           iso-base     2.3 M</span><br><span class="line">...                                                             </span><br><span class="line">安装依赖关系:                                                      </span><br><span class="line"> kernel-core                 x86_64      5.14.0-427.13.1.el9_4      iso-base      21 M</span><br><span class="line">...                                                             </span><br><span class="line">安装弱的依赖:                                                      </span><br><span class="line"> evolution-data-server-ui    x86_64      3.40.4-9.el9               iso-app       82 k</span><br><span class="line">                                                                </span><br><span class="line">事务概要                                                          </span><br><span class="line">=======================================================================================</span><br><span class="line">安装    8 软件包</span><br><span class="line">升级  456 软件包</span><br><span class="line"></span><br><span class="line">总计：1.4 G</span><br><span class="line">...                                                 </span><br><span class="line">完毕！</span><br></pre></td></tr></table></figure>
+<img alt="rocky94.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20240603-0c11e504-2dbc-44b7-bb3d-3219f555b3a8.png" referrerpolicy="no-referrer"/>
+<h2 id="版本比对">版本比对</h2>
+<h3 id="操作系统和内核">操作系统和内核</h3>
+<ul>
+<li>rocky 9.4</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">[root@rocky9 ~]# hostnamectl</span><br><span class="line"> Static hostname: rocky9.shawnyan.cn</span><br><span class="line">...</span><br><span class="line">Operating System: Rocky Linux 9.4 (Blue Onyx)       </span><br><span class="line">     CPE OS Name: cpe:/o:rocky:rocky:9::baseos</span><br><span class="line">          Kernel: Linux 5.14.0-427.18.1.el9_4.x86_64</span><br><span class="line">    Architecture: x86-64</span><br><span class="line">[root@rocky9 ~]# </span><br><span class="line">[root@rocky9 ~]# ls /boot/vmlinuz-*</span><br><span class="line">/boot/vmlinuz-0-rescue-703d66e159424744945b5a79849585a2</span><br><span class="line">/boot/vmlinuz-5.14.0-284.30.1.el9_2.x86_64</span><br><span class="line">/boot/vmlinuz-5.14.0-362.8.1.el9_3.x86_64</span><br><span class="line">/boot/vmlinuz-5.14.0-427.18.1.el9_4.x86_64</span><br></pre></td></tr></table></figure>
+<ul>
+<li>rocky 9.3</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">[root@rocky9 ~]# hostnamectl</span><br><span class="line"> Static hostname: rocky9.shawnyan.cn</span><br><span class="line">...</span><br><span class="line">Operating System: Rocky Linux 9.3 (Blue Onyx)      </span><br><span class="line">     CPE OS Name: cpe:/o:rocky:rocky:9::baseos</span><br><span class="line">          Kernel: Linux 5.14.0-362.8.1.el9_3.x86_64</span><br><span class="line">    Architecture: x86-64</span><br><span class="line">[root@rocky9 ~]# </span><br><span class="line">[root@rocky9 ~]# ls /boot/vmlinuz-*</span><br><span class="line">/boot/vmlinuz-0-rescue-703d66e159424744945b5a79849585a2</span><br><span class="line">/boot/vmlinuz-5.14.0-284.11.1.el9_2.x86_64</span><br><span class="line">/boot/vmlinuz-5.14.0-284.30.1.el9_2.x86_64</span><br><span class="line">/boot/vmlinuz-5.14.0-362.8.1.el9_3.x86_64</span><br></pre></td></tr></table></figure>
+<h3 id="Rsyslog">Rsyslog</h3>
+<p>Rsyslogd 是用于日志记录的守护进程，rsyslogd 拥有高性能、灵活性、可靠性、安全性等特点，可以用于替代 syslogd 守护进程。</p>
+<p>新版本的 Rsyslog 处理系统引入了可定制的 TLS/SSL 加密设置。</p>
+<p>在以前的版本中，为单独的连接配置 TLS/SSL 加密设置仅限于全局设置。使用最新版本，你可以在 Rsyslog 中为每条单独的连接定义唯一的 TLS/SSL 设置。这包括指定不同的 CA 证书、私钥、公钥和 CRL 文件以增强安全性和灵活性。</p>
+<ul>
+<li>rocky 9.4</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ rsyslogd -version</span><br><span class="line">rsyslogd  8.2310.0-4.el9 (aka 2023.10) compiled with:</span><br><span class="line">        PLATFORM:                               x86_64-redhat-linux-gnu</span><br><span class="line">        PLATFORM (lsb_release -d):</span><br><span class="line">        FEATURE_REGEXP:                         Yes</span><br><span class="line">        GSSAPI Kerberos 5 support:              Yes</span><br><span class="line">        FEATURE_DEBUG (debug build, slow code): No</span><br><span class="line">        32bit Atomic operations supported:      Yes</span><br><span class="line">        64bit Atomic operations supported:      Yes</span><br><span class="line">        memory allocator:                       system default</span><br><span class="line">        Runtime Instrumentation (slow code):    No</span><br><span class="line">        uuid support:                           Yes</span><br><span class="line">        systemd support:                        Yes</span><br><span class="line">        Config file:                            /etc/rsyslog.conf</span><br><span class="line">        PID file:                               /var/run/rsyslogd.pid</span><br><span class="line">        Number of Bits in RainerScript integers: 64</span><br><span class="line"></span><br><span class="line">See https://www.rsyslog.com for more information.</span><br></pre></td></tr></table></figure>
+<ul>
+<li>rocky 9.3</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ rsyslogd -version</span><br><span class="line">rsyslogd  8.2102.0-117.el9 (aka 2021.02) compiled with:</span><br></pre></td></tr></table></figure>
+<h3 id="golang">golang</h3>
+<p>Go，通常被称为 golang，是由 Google 开发的开源编程语言。Go 语言设计于 2007 年，并于 2009 年正式对外发布。Go 语言的语法类似于 C 语言，但提供了内存安全、垃圾回收、结构化错误处理等现代编程语言特性。</p>
+<ul>
+<li>rocky 9.4</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ go version</span><br><span class="line">go version go1.21.9 (Red Hat 1.21.9-2.el9_4) linux/amd64</span><br></pre></td></tr></table></figure>
+<ul>
+<li>rocky 9.3</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@rocky9 yum.repos.d]# go version</span><br><span class="line">go version go1.20.10 linux/amd64</span><br></pre></td></tr></table></figure>
+<p>由 Go 语言开发的数据库项目有很多，以下列举几款常见的数据库项目：</p>
+<ul>
+<li>关系型数据库 TiDB</li>
+</ul>
+<p>是一个开源分布式 SQL 数据库，支持混合事务/分析处理 (HTAP) 工作负载。它与 MySQL 兼容，具有水平可扩展性、强一致性和高可用性。</p>
+<ul>
+<li>图数据库 Dgraph</li>
+</ul>
+<p>是一个具有图形后端的水平可扩展分布式 GraphQL 数据库。它提供 ACID 事务、一致性复制和线性化读取。</p>
+<ul>
+<li>键值数据库 etcd</li>
+</ul>
+<p>是一个分布式的可靠键值存储，用于存储分布式系统中最重要的数据，具有简单、安全、快速、可靠等特点。可用于配置管理和服务发现，常用于持久化 Kubernetes 集群状态。</p>
+<ul>
+<li>向量数据库 Milvus</li>
+</ul>
+<p>是一个开源向量数据库，旨在为嵌入式相似性搜索和 AI 应用程序提供支持。Milvus 2.0 是一款云原生向量数据库，设计上存储与计算分离，所有组件均为无状态，增强了弹性和灵活性。</p>
+<h3 id="postgresql-16">postgresql:16</h3>
+<p>PostgreSQL 是一个功能强大的开源对象关系数据库系统，经过 35 多年的积极开发，在可靠性、功能稳健性和性能方面赢得了良好的声誉。</p>
+<p>PostgreSQL 16 于 2023 年 9 月发布，进一步提高了性能并增加了更多复制选项等。</p>
+<p>RHEL 9.4 引入了 PostgreSQL 16 作为 <code>postgresql:16</code> 模块流。</p>
+<p>关于PG模块流的更多内容，戳这里：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/6WhQr_WFvA1jI4Shw95Vzw">【PG15】在 Rocky 9 上安装 PostgreSQL 15 的五种方法</a></li>
+</ul>
+<p>安装步骤如下：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ sudo dnf module install postgresql:16</span><br><span class="line">Dependencies resolved.</span><br><span class="line">=====================================================================================================</span><br><span class="line"> Package                     Arch       Version                                  Repository     Size</span><br><span class="line">=====================================================================================================</span><br><span class="line">Installing group/module packages:</span><br><span class="line"> postgresql-server           x86_64     16.1-1.module+el9.4.0+20018+a4fc542f     appstream     6.9 M</span><br><span class="line">Installing dependencies:</span><br><span class="line"> postgresql                  x86_64     16.1-1.module+el9.4.0+20018+a4fc542f     appstream     1.8 M</span><br><span class="line"> postgresql-private-libs     x86_64     16.1-1.module+el9.4.0+20018+a4fc542f     appstream     141 k</span><br><span class="line">Installing module profiles:</span><br><span class="line"> postgresql/server</span><br><span class="line">Enabling module streams:</span><br><span class="line"> postgresql                             16</span><br><span class="line"></span><br><span class="line">Transaction Summary</span><br><span class="line">=====================================================================================================</span><br><span class="line">Install  3 Packages</span><br><span class="line"></span><br><span class="line">Total download size: 8.9 M</span><br><span class="line">Installed size: 37 M</span><br><span class="line">...</span><br><span class="line">Installed:</span><br><span class="line">  postgresql-16.1-1.module+el9.4.0+20018+a4fc542f.x86_64</span><br><span class="line">  postgresql-private-libs-16.1-1.module+el9.4.0+20018+a4fc542f.x86_64</span><br><span class="line">  postgresql-server-16.1-1.module+el9.4.0+20018+a4fc542f.x86_64</span><br><span class="line"></span><br><span class="line">Complete!</span><br></pre></td></tr></table></figure>
+<p>由于本机之前安装过PG，所以先要进行升级。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">[postgres@rocky9 ~]$ postgresql-setup --upgrade</span><br><span class="line"> * Upgrading database.</span><br><span class="line"> * Upgraded OK.</span><br><span class="line">WARNING: The configuration files were replaced by default configuration.</span><br><span class="line">WARNING: The previous configuration and data are stored in folder</span><br><span class="line">WARNING: /var/lib/pgsql/data-old.</span><br><span class="line">WARNING: If you&#x27;ve just upgraded your database from a previous major version of</span><br><span class="line">Fedora or RHEL, please run reindexdb against your databases.  Core library</span><br><span class="line">collation data may have changed and this will invalidate database indexes.  For</span><br><span class="line">example, in Fedora 28 and RHEL 8 there have been extensive changes in glibc</span><br><span class="line">collations to support ISO 14651:2016 (Unicode 9.0.0 data) and your indexes may</span><br><span class="line">be affected: https://sourceware.org/ml/libc-announce/2018/msg00002.html</span><br><span class="line"> * See /var/lib/pgsql/upgrade_postgresql.log for details.</span><br></pre></td></tr></table></figure>
+<p>启动PG服务。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ sudo systemctl start postgresql</span><br><span class="line">[shawnyan@rocky9 ~]$ systemctl status postgresql</span><br><span class="line">● postgresql.service - PostgreSQL database server</span><br><span class="line">     Loaded: loaded (/usr/lib/systemd/system/postgresql.service; disabled; preset: disabled)</span><br><span class="line">     Active: active (running) since Mon 2024-06-02 14:05:29 UTC; 5s ago</span><br><span class="line">...</span><br><span class="line">Jun 02 14:05:29 rocky9.shawnyan.cn systemd[1]: Started PostgreSQL database server.</span><br></pre></td></tr></table></figure>
+<p>查看PG版本。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[postgres<span class="variable">@rocky9</span> <span class="operator">~</span>]$ psql <span class="operator">-</span>c <span class="string">&#x27;select version()&#x27;</span></span><br><span class="line">                                                   version</span><br><span class="line"><span class="comment">--------------------------------------------------------------------------------------------------------------</span></span><br><span class="line"> PostgreSQL <span class="number">16.1</span> <span class="keyword">on</span> x86_64<span class="operator">-</span>redhat<span class="operator">-</span>linux<span class="operator">-</span>gnu, compiled <span class="keyword">by</span> gcc (GCC) <span class="number">11.4</span><span class="number">.1</span> <span class="number">20231218</span> (Red Hat <span class="number">11.4</span><span class="number">.1</span><span class="number">-3</span>), <span class="number">64</span><span class="operator">-</span>bit</span><br><span class="line">(<span class="number">1</span> <span class="type">row</span>)</span><br></pre></td></tr></table></figure>
+<h2 id="总结">总结</h2>
+<p>本文介绍了如何从 Rocky Linux 9.3 升级到 RL 9.4，并介绍了 RL 9.4 部分新特性，以及介绍了 RL 9.4 中 PG:16 模块的相关内容。</p>
+<p>– / END / –</p>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/redhat/" class="tag-link">
+                                redhat
+                            </a>
+                        
+                            <a href="/tags/centos/" class="tag-link">
+                                centos
+                            </a>
+                        
+                            <a href="/tags/linux/" class="tag-link">
+                                linux
+                            </a>
+                        
+                            <a href="/tags/rocky/" class="tag-link">
+                                rocky
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2024/linux/rocky-linux-9-4-and-pg-16-1/index.html">https://shawnyan.cn/2024/linux/rocky-linux-9-4-and-pg-16-1/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2024/mysql/mysql-upgrade-change-2024-1/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">MySQL 升级：Server 版本变更详解 (8.0.36 ~ 8.0.37)</span>
+        </a>
+    
+
+    
+        <a href="/2024/mysql/mysql-8-x-post-list/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">「合集」MySQL 8.x 系列文章汇总</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%83%8C%E6%99%AF"><span class="toc-text">背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%87%E7%BA%A7%E5%8A%A8%E5%9B%A0"><span class="toc-text">升级动因</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%87%E7%BA%A7%E8%BF%87%E7%A8%8B"><span class="toc-text">升级过程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%89%88%E6%9C%AC%E6%AF%94%E5%AF%B9"><span class="toc-text">版本比对</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%E5%92%8C%E5%86%85%E6%A0%B8"><span class="toc-text">操作系统和内核</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Rsyslog"><span class="toc-text">Rsyslog</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#golang"><span class="toc-text">golang</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#postgresql-16"><span class="toc-text">postgresql:16</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

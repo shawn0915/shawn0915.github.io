@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        TiDB 6.x 新特性解读 | Collation 规则 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;p&gt;对数据库而言，合适的字符集和 collation 规则能够大大提升使用者运维和分析的效率。TiDB 从 v4.0 开始支持新 collation 规则，并于 TiDB 6.0 版本进行了更新。本文将深入解读 Collation 规则在 TiDB 6.0 中的变更和应用。&lt;/p&gt;
+&lt;h2 id=&#34;引&#34;&gt;引&lt;/h2&gt;
+&lt;p&gt;这里的“引”，有两层含义，这第一层是“&lt;strong&gt;引&lt;/strong&gt;言”，从 &lt;a href=&#34;https://docs.pingcap.com/zh/tidb/v6.0/release-6.0.0-dmr#tidb-600-release-notes&#34;&gt;TiDB v6.0 发版说明&lt;/a&gt; 中可以了解到，TiDB 6.0 引入了很多新特性，同时也引入了新的 &lt;a href=&#34;https://docs.pingcap.com/zh/tidb/v6.0/release-6.0.0-dmr#%E7%89%88%E6%9C%AC%E7%AD%96%E7%95%A5%E5%8F%98%E6%9B%B4&#34;&gt;发版模型&lt;/a&gt; ，本文将对 TiDB 6.0 新特性一睹为快。&lt;/p&gt;
+&lt;p&gt;第二层含义是“抛砖&lt;strong&gt;引&lt;/strong&gt;玉”，开源社区的力量是无穷尽的，希望有更多人可以参与到开源中来，那么如何参与开源，其实途径远不止提交代码一种，比如，在 AskTUG 社区提问、回答、互动，再如，发现 &lt;a href=&#34;https://docs.pingcap.com/zh/tidb/stable&#34;&gt;TiDB 官方文档&lt;/a&gt; 有 Bug 或信息不完整，提出 Issue 和解决方案，又如，参与 &lt;a href=&#34;https://tidb.net/book/book-rush&#34;&gt;TiDB 6.0 Book Rush!&lt;/a&gt; 活动，做版本评测、案例文章等等。&lt;/p&gt;
+&lt;h2 id=&#34;默认启用新-Collation-规则&#34;&gt;默认启用新 Collation 规则&lt;/h2&gt;
+&lt;blockquote&gt;
+&lt;p&gt;TiDB 从 v4.0 开始支持新 collation 规则，在大小写不敏感、口音不敏感、padding 规则上与 MySQL 行为保持一致。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;TiDB 6.0 默认采用新的 Collation 规则。新 Collation 规则虽已在 TiDB 4.0 引入，但一直都是默认关闭项，只有集群初始化时才能变更。可通过系统表看到该变量值的设定。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;TiDB [(none)] 18:45:27&amp;gt; select * from mysql.tidb where variable_name = &amp;#x27;new_collation_enabled&amp;#x27;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------------+----------------+----------------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| VARIABLE_NAME         | VARIABLE_VALUE | COMMENT                                            |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------------+----------------+----------------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| new_collation_enabled | True           | If the new collations are enabled. Do not edit it. |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------------+----------------+----------------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.003 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看 &lt;code&gt;I_S.collations&lt;/code&gt; 表，可以知道 TiDB 6.0 已支持 11 种规则，较之前未启用新 collation 框架的版本新增了 5 种规则，分别是 &lt;code&gt;gbk_bin&lt;/code&gt;, &lt;code&gt;gbk_chinese_ci&lt;/code&gt;, &lt;code&gt;utf8_general_ci&lt;/code&gt;，&lt;code&gt;utf8_unicode_ci&lt;/code&gt;, &lt;code&gt;utf8mb4_unicode_ci&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;由于很多旧系统使用的是 GBK 字符集，所以在做系统重构的项目，尤其涉及到数据迁移的情况时，对于 GBK 字符集的支持就显得尤为重要和实用。当然，对于新项目，建议使用 UTF8mb4。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;TiDB [(none)] 18:45:51&amp;gt; select version()\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;version(): 5.7.25-TiDB-v6.0.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.001 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;TiDB [(none)] 18:46:00&amp;gt; SELECT * FROM information_schema.collations;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------+--------------------+------+------------+-------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| COLLATION_NAME     | CHARACTER_SET_NAME | ID   | IS_DEFAULT | IS_COMPILED | SORTLEN |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------+--------------------+------+------------+-------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| ascii_bin          | ascii              |   65 | Yes        | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| binary             | binary             |   63 | Yes        | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| gbk_bin            | gbk                |   87 |            | Yes         |       1 | (#28645)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| gbk_chinese_ci     | gbk                |   28 | Yes        | Yes         |       1 | (#28645)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| latin1_bin         | latin1             |   47 | Yes        | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| utf8_bin           | utf8               |   83 | Yes        | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| utf8_general_ci    | utf8               |   33 |            | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| utf8_unicode_ci    | utf8               |  192 |            | Yes         |       1 | (#18678)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| utf8mb4_bin        | utf8mb4            |   46 | Yes        | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| utf8mb4_general_ci | utf8mb4            |   45 |            | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| utf8mb4_unicode_ci | utf8mb4            |  224 |            | Yes         |       1 | (#18678)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------+--------------------+------+------------+-------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11 rows in set (0.001 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;TiDB [test] 19:05:14&amp;gt; SHOW CHARACTER SET;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+---------+-------------------------------------+-------------------+--------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| Charset | Description                         | Default collation | Maxlen |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+---------+-------------------------------------+-------------------+--------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| ascii   | US ASCII                            | ascii_bin         |      1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| binary  | binary                              | binary            |      1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| gbk     | Chinese Internal Code Specification | gbk_chinese_ci    |      2 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| latin1  | Latin1                              | latin1_bin        |      1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| utf8    | UTF-8 Unicode                       | utf8_bin          |      3 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| utf8mb4 | UTF-8 Unicode                       | utf8mb4_bin       |      4 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+---------+-------------------------------------+-------------------+--------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6 rows in set (0.001 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;而在 TiDB v5.4 未启用新 Collation 的结果为：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;TiDB-v5.4 [test] 10:17:22&amp;gt; select version()\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;version(): 5.7.25-TiDB-v5.4.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.001 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;TiDB-v5.4 [test] 10:19:39&amp;gt; SELECT * FROM information_schema.collations;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------------+--------------------+------+------------+-------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| COLLATION_NAME | CHARACTER_SET_NAME | ID   | IS_DEFAULT | IS_COMPILED | SORTLEN |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------------+--------------------+------+------------+-------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| utf8mb4_bin    | utf8mb4            |   46 | Yes        | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| latin1_bin     | latin1             |   47 | Yes        | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| binary         | binary             |   63 | Yes        | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| ascii_bin      | ascii              |   65 | Yes        | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| utf8_bin       | utf8               |   83 | Yes        | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| gbk_bin        | gbk                |   87 | Yes        | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------------+--------------------+------+------------+-------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6 rows in set (0.001 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;新-Collation-注意事项&#34;&gt;新 Collation 注意事项&lt;/h2&gt;
+&lt;p&gt;对于 TiDB 6.0 之前的版本，该配置项的默认值一直为 false ，但可以在集群初始化之前就改变其设定，如此就可以在集群初始化之后使用新的 collation 框架。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;service_configs:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  tidb:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    new_collations_enabled_on_first_bootstrap: true&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;不过，这里要强调注意的是，当 TiDB 集群跨大版本升级时，需要检查配置项。以免出现上下游集群字符校验规则不一致而导致数据不同步或查询结果不一致的情况。另外，当使用 BR 进行数据备份、恢复时，也需要注意 Collation 的设置，保证备份前、恢复后的集群设置相同，防止出现因配置项&lt;code&gt;new_collations_enabled_on_first_bootstrap&lt;/code&gt; 设定不同而报错。&lt;/p&gt;
+&lt;h2 id=&#34;Collation-Bug-修复&#34;&gt;Collation Bug 修复&lt;/h2&gt;
+&lt;p&gt;TiDB 6.0 中修复了2个关于 Collation 的 Bug，分别与比较函数和 JSON 相关，下面举两个小案例对其进行测试。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;修复带有 collation 的 greatest 或 least 函数结果出错的问题 #31789&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;测试用例：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;DROP TABLE IF EXISTS t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;CREATE TABLE t1 (&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;c1 char(20) CHARACTER SET utf8 COLLATE utf8_bin,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;c2 char(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INSERT INTO t1 VALUES (&amp;#x27;UUtJeaV&amp;#x27;,&amp;#x27;snRXXCZHBPW&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SET names utf8mb4 collate utf8mb4_bin;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SELECT greatest( c1, c2 ) as expr1 FROM t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SELECT least( c1, c2 ) as expr1 FROM t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SET names utf8mb4 collate utf8mb4_general_ci;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SELECT greatest( c1, c2 ) as expr1 FROM t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SELECT least( c1, c2 ) as expr1 FROM t1;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;测试结果：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;TiDB v5.4.0&lt;/li&gt;
+&lt;/ul&gt;
+&lt;img alt=&#34;1.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/2022-06-08_115256-1654660526515.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ul&gt;
+&lt;li&gt;TiDB v6.0.0&lt;/li&gt;
+&lt;/ul&gt;
+&lt;img alt=&#34;2.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/1-1651711633100.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;修复了 json 类型在 builtin-func 中推导 collation 错误的问题 #31320&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;修复这个问题的主要代码如下，期望表现是与 MySQL 一致，在使用 JSON 类型的内部方法时，应当始终使用 &lt;code&gt;utf8mb4_bin&lt;/code&gt; 规则。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;// The collation of JSON is always utf8mb4_bin in builtin-func which is same as MySQL&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;// see details https://github.com/pingcap/tidb/issues/31320#issuecomment-1010599311&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;if isJSON &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   dstCharset, dstCollation = charset.CharsetUTF8MB4, charset.CollationUTF8MB4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#125;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;测试用例：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;DROP&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt; IF &lt;span class=&#34;keyword&#34;&gt;EXISTS&lt;/span&gt; t2;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt; t2 (c1 json);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;INSERT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;INTO&lt;/span&gt; t2 &lt;span class=&#34;keyword&#34;&gt;VALUES&lt;/span&gt; (&lt;span class=&#34;string&#34;&gt;&amp;#x27;&amp;#123;\&amp;quot;测试\&amp;quot;: \&amp;quot;你好\&amp;quot;&amp;#125;&amp;#x27;&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;collation&lt;/span&gt;(c1), &lt;span class=&#34;keyword&#34;&gt;collation&lt;/span&gt;(&lt;span class=&#34;built_in&#34;&gt;upper&lt;/span&gt;(c1)), &lt;span class=&#34;keyword&#34;&gt;collation&lt;/span&gt;(elt(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;, c1, &lt;span class=&#34;number&#34;&gt;0x12&lt;/span&gt;)) &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; t2;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;测试结果：&lt;/p&gt;
+&lt;img alt=&#34;3.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/2-1651711643703.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;在 TiDB v5.4 中的测试结果为：&lt;/p&gt;
+&lt;img alt=&#34;4.jpg&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tc-1651713777354.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;新增内置函数-CHARSET&#34;&gt;新增内置函数 &lt;code&gt;CHARSET()&lt;/code&gt;&lt;/h2&gt;
+&lt;p&gt;TiDB 6.0 新增了一个新内置函数，用来判定入参的字符集，这与 Collation 是相关联的，所以一并举例演示。注：从 Issue &lt;a href=&#34;https://github.com/pingcap/tidb/issues/3931&#34;&gt;#3931&lt;/a&gt; 记录来看，这个需求早在 2017 年就提出来了，但是到 6.0 才合并到主干代码。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;TiDB [test] 23:54:42&amp;gt; select version()\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;version(): 5.7.25-TiDB-v6.0.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.001 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;TiDB [test] 00:03:51&amp;gt; set names utf8mb4;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, 0 rows affected (0.000 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;TiDB [test] 00:03:58&amp;gt; select charset(1);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| charset(1) |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| binary     |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.001 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;TiDB [test] 00:04:03&amp;gt; select charset(&amp;#x27;1&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| charset(&amp;#x27;1&amp;#x27;) |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| utf8mb4      |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.001 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;文档拾遗&#34;&gt;文档拾遗&lt;/h2&gt;
+&lt;p&gt;正如开篇所提到的，参与开源的途径有很多种，我们从开源中收益，自然也要回馈社区。&lt;/p&gt;
+&lt;p&gt;举一个实际例子，在写本文查阅文档时，就发现了 &lt;a href=&#34;https://docs.pingcap.com/zh/tidb/v6.0/information-schema-collations#collations&#34;&gt;Collations&lt;/a&gt; 这节在 v6.0 (DMR) 版本下的查询结果集与实际不符，于是便进行了反馈。&lt;/p&gt;
+&lt;img alt=&#34;5.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/3-1651711660998.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;在 GitHub 上提交了 Issue，处理速度也很快，第二天就已经完成初步修改，现处 Merge 到 master。&lt;/p&gt;
+&lt;p&gt;相关 Issue 链接为：&lt;a href=&#34;https://github.com/pingcap/docs/pull/8364&#34;&gt;https://github.com/pingcap/docs/pull/8364&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id=&#34;末&#34;&gt;末&lt;/h2&gt;
+&lt;p&gt;本文对 Collation 特性在 TiDB 6.0 中的变更进行了汇总阐释及举例说明，当前 TiDB 所提供的几种 Collation 已经可以支撑大部分业务场景，和大部分系统迁移需求建议在项目设计之初，就选用普适类型的字符集和规则，毕竟效率是提升生产力的重要因素之一。&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;&lt;a href=&#34;https://www.modb.pro/db/399619&#34;&gt;https://www.modb.pro/db/399619&lt;/a&gt;&lt;br&gt;
+&lt;a href=&#34;https://tidb.net/blog/82d7530c?shareId=2a395d20&#34;&gt;https://tidb.net/blog/82d7530c?shareId=2a395d20&lt;/a&gt;&lt;br&gt;
+&lt;a href=&#34;https://tidb.net/book/book-rush/features/new-features/new-collation&#34;&gt;https://tidb.net/book/book-rush/features/new-features/new-collation&lt;/a&gt;&lt;br&gt;
+&lt;a href=&#34;https://mp.weixin.qq.com/s/34hmemENLkTxaZ9OTDpc3Q&#34;&gt;https://mp.weixin.qq.com/s/34hmemENLkTxaZ9OTDpc3Q&lt;/a&gt;&lt;/p&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="TiDB 6.x 新特性解读 | Collation 规则">
+    <meta property="og:url" content="https://shawnyan.cn/2022/tidb/tidb-6.0-new-collation/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;p&gt;对数据库而言，合适的字符集和 collation 规则能够大大提升使用者运维和分析的效率。TiDB 从 v4.0 开始支持新 collation 规则，并于 TiDB 6.0 版本进行了更新。本文将深入解读 Collation 规则在 TiDB 6.0 中的变更和应用。&lt;/p&gt;
+&lt;h2 id=&#34;引&#34;&gt;引&lt;/h2&gt;
+&lt;p&gt;这里的“引”，有两层含义，这第一层是“&lt;strong&gt;引&lt;/strong&gt;言”，从 &lt;a href=&#34;https://docs.pingcap.com/zh/tidb/v6.0/release-6.0.0-dmr#tidb-600-release-notes&#34;&gt;TiDB v6.0 发版说明&lt;/a&gt; 中可以了解到，TiDB 6.0 引入了很多新特性，同时也引入了新的 &lt;a href=&#34;https://docs.pingcap.com/zh/tidb/v6.0/release-6.0.0-dmr#%E7%89%88%E6%9C%AC%E7%AD%96%E7%95%A5%E5%8F%98%E6%9B%B4&#34;&gt;发版模型&lt;/a&gt; ，本文将对 TiDB 6.0 新特性一睹为快。&lt;/p&gt;
+&lt;p&gt;第二层含义是“抛砖&lt;strong&gt;引&lt;/strong&gt;玉”，开源社区的力量是无穷尽的，希望有更多人可以参与到开源中来，那么如何参与开源，其实途径远不止提交代码一种，比如，在 AskTUG 社区提问、回答、互动，再如，发现 &lt;a href=&#34;https://docs.pingcap.com/zh/tidb/stable&#34;&gt;TiDB 官方文档&lt;/a&gt; 有 Bug 或信息不完整，提出 Issue 和解决方案，又如，参与 &lt;a href=&#34;https://tidb.net/book/book-rush&#34;&gt;TiDB 6.0 Book Rush!&lt;/a&gt; 活动，做版本评测、案例文章等等。&lt;/p&gt;
+&lt;h2 id=&#34;默认启用新-Collation-规则&#34;&gt;默认启用新 Collation 规则&lt;/h2&gt;
+&lt;blockquote&gt;
+&lt;p&gt;TiDB 从 v4.0 开始支持新 collation 规则，在大小写不敏感、口音不敏感、padding 规则上与 MySQL 行为保持一致。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;TiDB 6.0 默认采用新的 Collation 规则。新 Collation 规则虽已在 TiDB 4.0 引入，但一直都是默认关闭项，只有集群初始化时才能变更。可通过系统表看到该变量值的设定。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;TiDB [(none)] 18:45:27&amp;gt; select * from mysql.tidb where variable_name = &amp;#x27;new_collation_enabled&amp;#x27;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------------+----------------+----------------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| VARIABLE_NAME         | VARIABLE_VALUE | COMMENT                                            |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------------+----------------+----------------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| new_collation_enabled | True           | If the new collations are enabled. Do not edit it. |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------------+----------------+----------------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.003 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看 &lt;code&gt;I_S.collations&lt;/code&gt; 表，可以知道 TiDB 6.0 已支持 11 种规则，较之前未启用新 collation 框架的版本新增了 5 种规则，分别是 &lt;code&gt;gbk_bin&lt;/code&gt;, &lt;code&gt;gbk_chinese_ci&lt;/code&gt;, &lt;code&gt;utf8_general_ci&lt;/code&gt;，&lt;code&gt;utf8_unicode_ci&lt;/code&gt;, &lt;code&gt;utf8mb4_unicode_ci&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;由于很多旧系统使用的是 GBK 字符集，所以在做系统重构的项目，尤其涉及到数据迁移的情况时，对于 GBK 字符集的支持就显得尤为重要和实用。当然，对于新项目，建议使用 UTF8mb4。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;TiDB [(none)] 18:45:51&amp;gt; select version()\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;version(): 5.7.25-TiDB-v6.0.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.001 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;TiDB [(none)] 18:46:00&amp;gt; SELECT * FROM information_schema.collations;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------+--------------------+------+------------+-------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| COLLATION_NAME     | CHARACTER_SET_NAME | ID   | IS_DEFAULT | IS_COMPILED | SORTLEN |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------+--------------------+------+------------+-------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| ascii_bin          | ascii              |   65 | Yes        | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| binary             | binary             |   63 | Yes        | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| gbk_bin            | gbk                |   87 |            | Yes         |       1 | (#28645)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| gbk_chinese_ci     | gbk                |   28 | Yes        | Yes         |       1 | (#28645)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| latin1_bin         | latin1             |   47 | Yes        | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| utf8_bin           | utf8               |   83 | Yes        | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| utf8_general_ci    | utf8               |   33 |            | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| utf8_unicode_ci    | utf8               |  192 |            | Yes         |       1 | (#18678)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| utf8mb4_bin        | utf8mb4            |   46 | Yes        | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| utf8mb4_general_ci | utf8mb4            |   45 |            | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| utf8mb4_unicode_ci | utf8mb4            |  224 |            | Yes         |       1 | (#18678)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------+--------------------+------+------------+-------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11 rows in set (0.001 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;TiDB [test] 19:05:14&amp;gt; SHOW CHARACTER SET;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+---------+-------------------------------------+-------------------+--------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| Charset | Description                         | Default collation | Maxlen |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+---------+-------------------------------------+-------------------+--------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| ascii   | US ASCII                            | ascii_bin         |      1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| binary  | binary                              | binary            |      1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| gbk     | Chinese Internal Code Specification | gbk_chinese_ci    |      2 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| latin1  | Latin1                              | latin1_bin        |      1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| utf8    | UTF-8 Unicode                       | utf8_bin          |      3 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| utf8mb4 | UTF-8 Unicode                       | utf8mb4_bin       |      4 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+---------+-------------------------------------+-------------------+--------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6 rows in set (0.001 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;而在 TiDB v5.4 未启用新 Collation 的结果为：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;TiDB-v5.4 [test] 10:17:22&amp;gt; select version()\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;version(): 5.7.25-TiDB-v5.4.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.001 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;TiDB-v5.4 [test] 10:19:39&amp;gt; SELECT * FROM information_schema.collations;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------------+--------------------+------+------------+-------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| COLLATION_NAME | CHARACTER_SET_NAME | ID   | IS_DEFAULT | IS_COMPILED | SORTLEN |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------------+--------------------+------+------------+-------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| utf8mb4_bin    | utf8mb4            |   46 | Yes        | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| latin1_bin     | latin1             |   47 | Yes        | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| binary         | binary             |   63 | Yes        | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| ascii_bin      | ascii              |   65 | Yes        | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| utf8_bin       | utf8               |   83 | Yes        | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| gbk_bin        | gbk                |   87 | Yes        | Yes         |       1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------------+--------------------+------+------------+-------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6 rows in set (0.001 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;新-Collation-注意事项&#34;&gt;新 Collation 注意事项&lt;/h2&gt;
+&lt;p&gt;对于 TiDB 6.0 之前的版本，该配置项的默认值一直为 false ，但可以在集群初始化之前就改变其设定，如此就可以在集群初始化之后使用新的 collation 框架。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;service_configs:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  tidb:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    new_collations_enabled_on_first_bootstrap: true&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;不过，这里要强调注意的是，当 TiDB 集群跨大版本升级时，需要检查配置项。以免出现上下游集群字符校验规则不一致而导致数据不同步或查询结果不一致的情况。另外，当使用 BR 进行数据备份、恢复时，也需要注意 Collation 的设置，保证备份前、恢复后的集群设置相同，防止出现因配置项&lt;code&gt;new_collations_enabled_on_first_bootstrap&lt;/code&gt; 设定不同而报错。&lt;/p&gt;
+&lt;h2 id=&#34;Collation-Bug-修复&#34;&gt;Collation Bug 修复&lt;/h2&gt;
+&lt;p&gt;TiDB 6.0 中修复了2个关于 Collation 的 Bug，分别与比较函数和 JSON 相关，下面举两个小案例对其进行测试。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;修复带有 collation 的 greatest 或 least 函数结果出错的问题 #31789&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;测试用例：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;DROP TABLE IF EXISTS t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;CREATE TABLE t1 (&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;c1 char(20) CHARACTER SET utf8 COLLATE utf8_bin,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;c2 char(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INSERT INTO t1 VALUES (&amp;#x27;UUtJeaV&amp;#x27;,&amp;#x27;snRXXCZHBPW&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SET names utf8mb4 collate utf8mb4_bin;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SELECT greatest( c1, c2 ) as expr1 FROM t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SELECT least( c1, c2 ) as expr1 FROM t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SET names utf8mb4 collate utf8mb4_general_ci;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SELECT greatest( c1, c2 ) as expr1 FROM t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SELECT least( c1, c2 ) as expr1 FROM t1;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;测试结果：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;TiDB v5.4.0&lt;/li&gt;
+&lt;/ul&gt;
+&lt;img alt=&#34;1.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/2022-06-08_115256-1654660526515.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ul&gt;
+&lt;li&gt;TiDB v6.0.0&lt;/li&gt;
+&lt;/ul&gt;
+&lt;img alt=&#34;2.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/1-1651711633100.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;修复了 json 类型在 builtin-func 中推导 collation 错误的问题 #31320&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;修复这个问题的主要代码如下，期望表现是与 MySQL 一致，在使用 JSON 类型的内部方法时，应当始终使用 &lt;code&gt;utf8mb4_bin&lt;/code&gt; 规则。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;// The collation of JSON is always utf8mb4_bin in builtin-func which is same as MySQL&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;// see details https://github.com/pingcap/tidb/issues/31320#issuecomment-1010599311&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;if isJSON &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   dstCharset, dstCollation = charset.CharsetUTF8MB4, charset.CollationUTF8MB4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#125;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;测试用例：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;DROP&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt; IF &lt;span class=&#34;keyword&#34;&gt;EXISTS&lt;/span&gt; t2;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt; t2 (c1 json);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;INSERT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;INTO&lt;/span&gt; t2 &lt;span class=&#34;keyword&#34;&gt;VALUES&lt;/span&gt; (&lt;span class=&#34;string&#34;&gt;&amp;#x27;&amp;#123;\&amp;quot;测试\&amp;quot;: \&amp;quot;你好\&amp;quot;&amp;#125;&amp;#x27;&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;collation&lt;/span&gt;(c1), &lt;span class=&#34;keyword&#34;&gt;collation&lt;/span&gt;(&lt;span class=&#34;built_in&#34;&gt;upper&lt;/span&gt;(c1)), &lt;span class=&#34;keyword&#34;&gt;collation&lt;/span&gt;(elt(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;, c1, &lt;span class=&#34;number&#34;&gt;0x12&lt;/span&gt;)) &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; t2;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;测试结果：&lt;/p&gt;
+&lt;img alt=&#34;3.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/2-1651711643703.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;在 TiDB v5.4 中的测试结果为：&lt;/p&gt;
+&lt;img alt=&#34;4.jpg&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tc-1651713777354.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;新增内置函数-CHARSET&#34;&gt;新增内置函数 &lt;code&gt;CHARSET()&lt;/code&gt;&lt;/h2&gt;
+&lt;p&gt;TiDB 6.0 新增了一个新内置函数，用来判定入参的字符集，这与 Collation 是相关联的，所以一并举例演示。注：从 Issue &lt;a href=&#34;https://github.com/pingcap/tidb/issues/3931&#34;&gt;#3931&lt;/a&gt; 记录来看，这个需求早在 2017 年就提出来了，但是到 6.0 才合并到主干代码。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;TiDB [test] 23:54:42&amp;gt; select version()\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;version(): 5.7.25-TiDB-v6.0.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.001 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;TiDB [test] 00:03:51&amp;gt; set names utf8mb4;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, 0 rows affected (0.000 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;TiDB [test] 00:03:58&amp;gt; select charset(1);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| charset(1) |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| binary     |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.001 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;TiDB [test] 00:04:03&amp;gt; select charset(&amp;#x27;1&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| charset(&amp;#x27;1&amp;#x27;) |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| utf8mb4      |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.001 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;文档拾遗&#34;&gt;文档拾遗&lt;/h2&gt;
+&lt;p&gt;正如开篇所提到的，参与开源的途径有很多种，我们从开源中收益，自然也要回馈社区。&lt;/p&gt;
+&lt;p&gt;举一个实际例子，在写本文查阅文档时，就发现了 &lt;a href=&#34;https://docs.pingcap.com/zh/tidb/v6.0/information-schema-collations#collations&#34;&gt;Collations&lt;/a&gt; 这节在 v6.0 (DMR) 版本下的查询结果集与实际不符，于是便进行了反馈。&lt;/p&gt;
+&lt;img alt=&#34;5.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/3-1651711660998.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;在 GitHub 上提交了 Issue，处理速度也很快，第二天就已经完成初步修改，现处 Merge 到 master。&lt;/p&gt;
+&lt;p&gt;相关 Issue 链接为：&lt;a href=&#34;https://github.com/pingcap/docs/pull/8364&#34;&gt;https://github.com/pingcap/docs/pull/8364&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id=&#34;末&#34;&gt;末&lt;/h2&gt;
+&lt;p&gt;本文对 Collation 特性在 TiDB 6.0 中的变更进行了汇总阐释及举例说明，当前 TiDB 所提供的几种 Collation 已经可以支撑大部分业务场景，和大部分系统迁移需求建议在项目设计之初，就选用普适类型的字符集和规则，毕竟效率是提升生产力的重要因素之一。&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;&lt;a href=&#34;https://www.modb.pro/db/399619&#34;&gt;https://www.modb.pro/db/399619&lt;/a&gt;&lt;br&gt;
+&lt;a href=&#34;https://tidb.net/blog/82d7530c?shareId=2a395d20&#34;&gt;https://tidb.net/blog/82d7530c?shareId=2a395d20&lt;/a&gt;&lt;br&gt;
+&lt;a href=&#34;https://tidb.net/book/book-rush/features/new-features/new-collation&#34;&gt;https://tidb.net/book/book-rush/features/new-features/new-collation&lt;/a&gt;&lt;br&gt;
+&lt;a href=&#34;https://mp.weixin.qq.com/s/34hmemENLkTxaZ9OTDpc3Q&#34;&gt;https://mp.weixin.qq.com/s/34hmemENLkTxaZ9OTDpc3Q&lt;/a&gt;&lt;/p&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/tidb/" class="category-badge">
+                                    TiDB
+                                </a>
+                            
+                                <a href="/categories/tidb/tidb-6-x/" class="category-badge">
+                                    TiDB 6.x
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">TiDB 6.x 新特性解读 | Collation 规则</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2022-05-05
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                1.7k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                7 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <p>对数据库而言，合适的字符集和 collation 规则能够大大提升使用者运维和分析的效率。TiDB 从 v4.0 开始支持新 collation 规则，并于 TiDB 6.0 版本进行了更新。本文将深入解读 Collation 规则在 TiDB 6.0 中的变更和应用。</p>
+<h2 id="引">引</h2>
+<p>这里的“引”，有两层含义，这第一层是“<strong>引</strong>言”，从 <a target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/v6.0/release-6.0.0-dmr#tidb-600-release-notes">TiDB v6.0 发版说明</a> 中可以了解到，TiDB 6.0 引入了很多新特性，同时也引入了新的 <a target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/v6.0/release-6.0.0-dmr#%E7%89%88%E6%9C%AC%E7%AD%96%E7%95%A5%E5%8F%98%E6%9B%B4">发版模型</a> ，本文将对 TiDB 6.0 新特性一睹为快。</p>
+<p>第二层含义是“抛砖<strong>引</strong>玉”，开源社区的力量是无穷尽的，希望有更多人可以参与到开源中来，那么如何参与开源，其实途径远不止提交代码一种，比如，在 AskTUG 社区提问、回答、互动，再如，发现 <a target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable">TiDB 官方文档</a> 有 Bug 或信息不完整，提出 Issue 和解决方案，又如，参与 <a target="_blank" rel="noopener" href="https://tidb.net/book/book-rush">TiDB 6.0 Book Rush!</a> 活动，做版本评测、案例文章等等。</p>
+<h2 id="默认启用新-Collation-规则">默认启用新 Collation 规则</h2>
+<blockquote>
+<p>TiDB 从 v4.0 开始支持新 collation 规则，在大小写不敏感、口音不敏感、padding 规则上与 MySQL 行为保持一致。</p>
+</blockquote>
+<p>TiDB 6.0 默认采用新的 Collation 规则。新 Collation 规则虽已在 TiDB 4.0 引入，但一直都是默认关闭项，只有集群初始化时才能变更。可通过系统表看到该变量值的设定。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">TiDB [(none)] 18:45:27&gt; select * from mysql.tidb where variable_name = &#x27;new_collation_enabled&#x27;;</span><br><span class="line">+-----------------------+----------------+----------------------------------------------------+</span><br><span class="line">| VARIABLE_NAME         | VARIABLE_VALUE | COMMENT                                            |</span><br><span class="line">+-----------------------+----------------+----------------------------------------------------+</span><br><span class="line">| new_collation_enabled | True           | If the new collations are enabled. Do not edit it. |</span><br><span class="line">+-----------------------+----------------+----------------------------------------------------+</span><br><span class="line">1 row in set (0.003 sec)</span><br></pre></td></tr></table></figure>
+<p>查看 <code>I_S.collations</code> 表，可以知道 TiDB 6.0 已支持 11 种规则，较之前未启用新 collation 框架的版本新增了 5 种规则，分别是 <code>gbk_bin</code>, <code>gbk_chinese_ci</code>, <code>utf8_general_ci</code>，<code>utf8_unicode_ci</code>, <code>utf8mb4_unicode_ci</code>。</p>
+<p>由于很多旧系统使用的是 GBK 字符集，所以在做系统重构的项目，尤其涉及到数据迁移的情况时，对于 GBK 字符集的支持就显得尤为重要和实用。当然，对于新项目，建议使用 UTF8mb4。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">TiDB [(none)] 18:45:51&gt; select version()\G</span><br><span class="line">*************************** 1. row ***************************</span><br><span class="line">version(): 5.7.25-TiDB-v6.0.0</span><br><span class="line">1 row in set (0.001 sec)</span><br><span class="line"></span><br><span class="line">TiDB [(none)] 18:46:00&gt; SELECT * FROM information_schema.collations;</span><br><span class="line">+--------------------+--------------------+------+------------+-------------+---------+</span><br><span class="line">| COLLATION_NAME     | CHARACTER_SET_NAME | ID   | IS_DEFAULT | IS_COMPILED | SORTLEN |</span><br><span class="line">+--------------------+--------------------+------+------------+-------------+---------+</span><br><span class="line">| ascii_bin          | ascii              |   65 | Yes        | Yes         |       1 |</span><br><span class="line">| binary             | binary             |   63 | Yes        | Yes         |       1 |</span><br><span class="line">| gbk_bin            | gbk                |   87 |            | Yes         |       1 | (#28645)</span><br><span class="line">| gbk_chinese_ci     | gbk                |   28 | Yes        | Yes         |       1 | (#28645)</span><br><span class="line">| latin1_bin         | latin1             |   47 | Yes        | Yes         |       1 |</span><br><span class="line">| utf8_bin           | utf8               |   83 | Yes        | Yes         |       1 |</span><br><span class="line">| utf8_general_ci    | utf8               |   33 |            | Yes         |       1 |</span><br><span class="line">| utf8_unicode_ci    | utf8               |  192 |            | Yes         |       1 | (#18678)</span><br><span class="line">| utf8mb4_bin        | utf8mb4            |   46 | Yes        | Yes         |       1 |</span><br><span class="line">| utf8mb4_general_ci | utf8mb4            |   45 |            | Yes         |       1 |</span><br><span class="line">| utf8mb4_unicode_ci | utf8mb4            |  224 |            | Yes         |       1 | (#18678)</span><br><span class="line">+--------------------+--------------------+------+------------+-------------+---------+</span><br><span class="line">11 rows in set (0.001 sec)</span><br><span class="line"></span><br><span class="line">TiDB [test] 19:05:14&gt; SHOW CHARACTER SET;</span><br><span class="line">+---------+-------------------------------------+-------------------+--------+</span><br><span class="line">| Charset | Description                         | Default collation | Maxlen |</span><br><span class="line">+---------+-------------------------------------+-------------------+--------+</span><br><span class="line">| ascii   | US ASCII                            | ascii_bin         |      1 |</span><br><span class="line">| binary  | binary                              | binary            |      1 |</span><br><span class="line">| gbk     | Chinese Internal Code Specification | gbk_chinese_ci    |      2 |</span><br><span class="line">| latin1  | Latin1                              | latin1_bin        |      1 |</span><br><span class="line">| utf8    | UTF-8 Unicode                       | utf8_bin          |      3 |</span><br><span class="line">| utf8mb4 | UTF-8 Unicode                       | utf8mb4_bin       |      4 |</span><br><span class="line">+---------+-------------------------------------+-------------------+--------+</span><br><span class="line">6 rows in set (0.001 sec)</span><br></pre></td></tr></table></figure>
+<p>而在 TiDB v5.4 未启用新 Collation 的结果为：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">TiDB-v5.4 [test] 10:17:22&gt; select version()\G</span><br><span class="line">*************************** 1. row ***************************</span><br><span class="line">version(): 5.7.25-TiDB-v5.4.0</span><br><span class="line">1 row in set (0.001 sec)</span><br><span class="line"></span><br><span class="line">TiDB-v5.4 [test] 10:19:39&gt; SELECT * FROM information_schema.collations;</span><br><span class="line">+----------------+--------------------+------+------------+-------------+---------+</span><br><span class="line">| COLLATION_NAME | CHARACTER_SET_NAME | ID   | IS_DEFAULT | IS_COMPILED | SORTLEN |</span><br><span class="line">+----------------+--------------------+------+------------+-------------+---------+</span><br><span class="line">| utf8mb4_bin    | utf8mb4            |   46 | Yes        | Yes         |       1 |</span><br><span class="line">| latin1_bin     | latin1             |   47 | Yes        | Yes         |       1 |</span><br><span class="line">| binary         | binary             |   63 | Yes        | Yes         |       1 |</span><br><span class="line">| ascii_bin      | ascii              |   65 | Yes        | Yes         |       1 |</span><br><span class="line">| utf8_bin       | utf8               |   83 | Yes        | Yes         |       1 |</span><br><span class="line">| gbk_bin        | gbk                |   87 | Yes        | Yes         |       1 |</span><br><span class="line">+----------------+--------------------+------+------------+-------------+---------+</span><br><span class="line">6 rows in set (0.001 sec)</span><br></pre></td></tr></table></figure>
+<h2 id="新-Collation-注意事项">新 Collation 注意事项</h2>
+<p>对于 TiDB 6.0 之前的版本，该配置项的默认值一直为 false ，但可以在集群初始化之前就改变其设定，如此就可以在集群初始化之后使用新的 collation 框架。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">service_configs:</span><br><span class="line">  tidb:</span><br><span class="line">    new_collations_enabled_on_first_bootstrap: true</span><br></pre></td></tr></table></figure>
+<p>不过，这里要强调注意的是，当 TiDB 集群跨大版本升级时，需要检查配置项。以免出现上下游集群字符校验规则不一致而导致数据不同步或查询结果不一致的情况。另外，当使用 BR 进行数据备份、恢复时，也需要注意 Collation 的设置，保证备份前、恢复后的集群设置相同，防止出现因配置项<code>new_collations_enabled_on_first_bootstrap</code> 设定不同而报错。</p>
+<h2 id="Collation-Bug-修复">Collation Bug 修复</h2>
+<p>TiDB 6.0 中修复了2个关于 Collation 的 Bug，分别与比较函数和 JSON 相关，下面举两个小案例对其进行测试。</p>
+<ol>
+<li>修复带有 collation 的 greatest 或 least 函数结果出错的问题 #31789</li>
+</ol>
+<p>测试用例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">DROP TABLE IF EXISTS t1;</span><br><span class="line">CREATE TABLE t1 (</span><br><span class="line">c1 char(20) CHARACTER SET utf8 COLLATE utf8_bin,</span><br><span class="line">c2 char(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin);</span><br><span class="line">INSERT INTO t1 VALUES (&#x27;UUtJeaV&#x27;,&#x27;snRXXCZHBPW&#x27;);</span><br><span class="line"></span><br><span class="line">SET names utf8mb4 collate utf8mb4_bin;</span><br><span class="line">SELECT greatest( c1, c2 ) as expr1 FROM t1;</span><br><span class="line">SELECT least( c1, c2 ) as expr1 FROM t1;</span><br><span class="line"></span><br><span class="line">SET names utf8mb4 collate utf8mb4_general_ci;</span><br><span class="line">SELECT greatest( c1, c2 ) as expr1 FROM t1;</span><br><span class="line">SELECT least( c1, c2 ) as expr1 FROM t1;</span><br></pre></td></tr></table></figure>
+<p>测试结果：</p>
+<ul>
+<li>TiDB v5.4.0</li>
+</ul>
+<img alt="1.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/2022-06-08_115256-1654660526515.png" referrerpolicy="no-referrer"/>
+<ul>
+<li>TiDB v6.0.0</li>
+</ul>
+<img alt="2.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/1-1651711633100.png" referrerpolicy="no-referrer"/>
+<ol start="2">
+<li>修复了 json 类型在 builtin-func 中推导 collation 错误的问题 #31320</li>
+</ol>
+<p>修复这个问题的主要代码如下，期望表现是与 MySQL 一致，在使用 JSON 类型的内部方法时，应当始终使用 <code>utf8mb4_bin</code> 规则。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">// The collation of JSON is always utf8mb4_bin in builtin-func which is same as MySQL</span><br><span class="line">// see details https://github.com/pingcap/tidb/issues/31320#issuecomment-1010599311</span><br><span class="line">if isJSON &#123;</span><br><span class="line">   dstCharset, dstCollation = charset.CharsetUTF8MB4, charset.CollationUTF8MB4</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>测试用例：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">DROP</span> <span class="keyword">TABLE</span> IF <span class="keyword">EXISTS</span> t2;</span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> t2 (c1 json);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> t2 <span class="keyword">VALUES</span> (<span class="string">&#x27;&#123;\&quot;测试\&quot;: \&quot;你好\&quot;&#125;&#x27;</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> <span class="keyword">collation</span>(c1), <span class="keyword">collation</span>(<span class="built_in">upper</span>(c1)), <span class="keyword">collation</span>(elt(<span class="number">1</span>, c1, <span class="number">0x12</span>)) <span class="keyword">FROM</span> t2;</span><br></pre></td></tr></table></figure>
+<p>测试结果：</p>
+<img alt="3.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/2-1651711643703.png" referrerpolicy="no-referrer"/>
+<p>在 TiDB v5.4 中的测试结果为：</p>
+<img alt="4.jpg" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tc-1651713777354.jpg" referrerpolicy="no-referrer"/>
+<h2 id="新增内置函数-CHARSET">新增内置函数 <code>CHARSET()</code></h2>
+<p>TiDB 6.0 新增了一个新内置函数，用来判定入参的字符集，这与 Collation 是相关联的，所以一并举例演示。注：从 Issue <a target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/issues/3931">#3931</a> 记录来看，这个需求早在 2017 年就提出来了，但是到 6.0 才合并到主干代码。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">TiDB [test] 23:54:42&gt; select version()\G</span><br><span class="line">*************************** 1. row ***************************</span><br><span class="line">version(): 5.7.25-TiDB-v6.0.0</span><br><span class="line">1 row in set (0.001 sec)</span><br><span class="line"></span><br><span class="line">TiDB [test] 00:03:51&gt; set names utf8mb4;</span><br><span class="line">Query OK, 0 rows affected (0.000 sec)</span><br><span class="line"></span><br><span class="line">TiDB [test] 00:03:58&gt; select charset(1);</span><br><span class="line">+------------+</span><br><span class="line">| charset(1) |</span><br><span class="line">+------------+</span><br><span class="line">| binary     |</span><br><span class="line">+------------+</span><br><span class="line">1 row in set (0.001 sec)</span><br><span class="line"></span><br><span class="line">TiDB [test] 00:04:03&gt; select charset(&#x27;1&#x27;);</span><br><span class="line">+--------------+</span><br><span class="line">| charset(&#x27;1&#x27;) |</span><br><span class="line">+--------------+</span><br><span class="line">| utf8mb4      |</span><br><span class="line">+--------------+</span><br><span class="line">1 row in set (0.001 sec)</span><br></pre></td></tr></table></figure>
+<h2 id="文档拾遗">文档拾遗</h2>
+<p>正如开篇所提到的，参与开源的途径有很多种，我们从开源中收益，自然也要回馈社区。</p>
+<p>举一个实际例子，在写本文查阅文档时，就发现了 <a target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/v6.0/information-schema-collations#collations">Collations</a> 这节在 v6.0 (DMR) 版本下的查询结果集与实际不符，于是便进行了反馈。</p>
+<img alt="5.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/3-1651711660998.png" referrerpolicy="no-referrer"/>
+<p>在 GitHub 上提交了 Issue，处理速度也很快，第二天就已经完成初步修改，现处 Merge 到 master。</p>
+<p>相关 Issue 链接为：<a target="_blank" rel="noopener" href="https://github.com/pingcap/docs/pull/8364">https://github.com/pingcap/docs/pull/8364</a></p>
+<h2 id="末">末</h2>
+<p>本文对 Collation 特性在 TiDB 6.0 中的变更进行了汇总阐释及举例说明，当前 TiDB 所提供的几种 Collation 已经可以支撑大部分业务场景，和大部分系统迁移需求建议在项目设计之初，就选用普适类型的字符集和规则，毕竟效率是提升生产力的重要因素之一。</p>
+<hr>
+<p><a target="_blank" rel="noopener" href="https://www.modb.pro/db/399619">https://www.modb.pro/db/399619</a><br>
+<a target="_blank" rel="noopener" href="https://tidb.net/blog/82d7530c?shareId=2a395d20">https://tidb.net/blog/82d7530c?shareId=2a395d20</a><br>
+<a target="_blank" rel="noopener" href="https://tidb.net/book/book-rush/features/new-features/new-collation">https://tidb.net/book/book-rush/features/new-features/new-collation</a><br>
+<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/34hmemENLkTxaZ9OTDpc3Q">https://mp.weixin.qq.com/s/34hmemENLkTxaZ9OTDpc3Q</a></p>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/tidb/" class="tag-link">
+                                tidb
+                            </a>
+                        
+                            <a href="/tags/pingcap/" class="tag-link">
+                                pingcap
+                            </a>
+                        
+                            <a href="/tags/tidb-6-x/" class="tag-link">
+                                tidb 6.x
+                            </a>
+                        
+                            <a href="/tags/asktug/" class="tag-link">
+                                asktug
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2022/tidb/tidb-6.0-new-collation/index.html">https://shawnyan.cn/2022/tidb/tidb-6.0-new-collation/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2022/tidb/tidb-6.0-tiflash-pushing-down/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">TiDB 6.x 新特性解读 | TiFlash 新增算子和函数下推</span>
+        </a>
+    
+
+    
+        <a href="/2022/tdsql/tencentcloud-tdsql-backup-binlogproducter/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">腾讯云数据库 TDSQL -- 备份工具 binlogproducter 解析</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BC%95"><span class="toc-text">引</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%BB%98%E8%AE%A4%E5%90%AF%E7%94%A8%E6%96%B0-Collation-%E8%A7%84%E5%88%99"><span class="toc-text">默认启用新 Collation 规则</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%96%B0-Collation-%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9"><span class="toc-text">新 Collation 注意事项</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Collation-Bug-%E4%BF%AE%E5%A4%8D"><span class="toc-text">Collation Bug 修复</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%96%B0%E5%A2%9E%E5%86%85%E7%BD%AE%E5%87%BD%E6%95%B0-CHARSET"><span class="toc-text">新增内置函数 CHARSET()</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%96%87%E6%A1%A3%E6%8B%BE%E9%81%97"><span class="toc-text">文档拾遗</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%AB"><span class="toc-text">末</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

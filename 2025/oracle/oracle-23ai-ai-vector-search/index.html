@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        Oracle 23ai 的 AI Vector Search 特性 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;h2 id=&#34;AI-Vector-Search-是什么&#34;&gt;AI Vector Search 是什么&lt;/h2&gt;
+&lt;p&gt;Oracle 23ai 的 AI Vector Search 功能是数据库中的一项创新技术，它能将非结构化数据（如文本、图像、音视频等）转化为高维向量（Vector Embedding），进而在数据库中构建基于向量的相似性搜索能力。这一功能极大地提升了对复杂数据的搜索效率和准确性，尤其适用于人工智能和机器学习工作负载。&lt;/p&gt;
+&lt;img alt=&#34;1.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20250512-1921605715056144384_3351.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;Oracle 的 AI Vector Search 功能包含以下三个核心层级：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;向量生成层&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;它集成了多种预训练 AI 模型（如 BERT、ResNet 等）来生成向量，并支持 Open Neural Network Exchange (ONNX) 格式模型部署，以实现低延迟推理。&lt;/p&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;向量存储层&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;引入了新的 VECTOR 数据类型，最大支持维度达 4,000，并采用分片（Sharding）技术实现 PB 级向量存储。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SQL&amp;gt; CREATE TABLE docs (doc_id INT, doc_text CLOB, doc_vector VECTOR);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Table created.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SQL&amp;gt; desc docs;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; Name					   Null?    Type&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ----------------------------------------- -------- ----------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; DOC_ID 					    NUMBER(38)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; DOC_TEXT					    CLOB&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; DOC_VECTOR					    VECTOR(*, *, DENSE)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SQL&amp;gt; &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;向量检索层&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;支持 ANN（Approximate Nearest Neighbor）算法，内置 HNSW（Hierarchical Navigable Small World）索引结构，实现微秒（μs）级响应。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;CREATE VECTOR INDEX hnsw_doc &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;     ON docs (doc_vector) &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ORGANIZATION INMEMORY NEIGHBOR GRAPH&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; WITH TARGET ACCURACY 95;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;AI-Vector-Search-工作流&#34;&gt;AI Vector Search 工作流&lt;/h2&gt;
+&lt;p&gt;Oracle AI Vector Search 专为人工智能工作负载设计，支持用户基于语义和图像相似性而非单纯关键词查询数据。&lt;/p&gt;
+&lt;p&gt;它主要有以下工作流程：&lt;/p&gt;
+&lt;p&gt;一是从非结构化数据生成向量嵌入，可在 Oracle Database 内外进行，但在数据库内进行时需先按 ONNX 标准导入向量嵌入模型，且非结构化数据可在数据库内外存放；&lt;/p&gt;
+&lt;p&gt;二是将向量嵌入、非结构化数据及关系业务数据存储于 Oracle Database，若向量嵌入在数据库外存储，可通过 SQL*Loader 或 Data Pump 加载到数据库内关系表，也可通过外部表访问；&lt;/p&gt;
+&lt;p&gt;三是创建向量索引和混合向量索引，与常规表列创建索引类似，可分别为向量嵌入及非结构化数据创建向量索引和混合向量索引（结合 Oracle Text 索引和向量索引），利于在巨大向量空间中运行相似性搜索；&lt;/p&gt;
+&lt;p&gt;四是利用 Oracle AI Vector Search 的原生 SQL 操作结合相似性与传统关系键搜索，还能运行混合搜索，这种高级信息检索技术融合相似性与关键词搜索，以获得高度相关的搜索结果，SQL 和 PL/SQL 可将非结构化数据转换为多个片段，再为每个片段生成向量嵌入；&lt;/p&gt;
+&lt;p&gt;五是生成提示并将其发送给大型语言模型（LLM）以实现完整的 RAG 推理，借助向量公用程序 PL/SQL API，可用文本提示和图像（通过 LLM 驱动的界面）向 LLM 发送提示，因 LLM 在训练截止后无法访问新信息，通过提供公司最新信息可降低其编造答案的可能性，RAG 方法结合预训练语言模型（包括重新排名模型）的优势与实时从数据集或数据库检索信息的能力，Oracle AI Vector Search 支持通过 LangChain、Ollama 和 LlamaIndex 等流行框架实现 RAG 与 LLM 集成。&lt;/p&gt;
+&lt;h2 id=&#34;AI-Vector-Search-性能调优&#34;&gt;AI Vector Search 性能调优&lt;/h2&gt;
+&lt;p&gt;在考虑 AI Vector Search 性能优化时，可以从如下三个维度着手。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;索引结构优化&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;由于传统 B-Tree 索引在向量场景下失效，需根据 HNSW 索引特性调整存储参数。例如，NEIGHBORS 参数控制图结构的连接密度，EF_CONSTRUCTION 参数影响索引构建质量与速度的平衡。Oracle 还引入了新的内存结构 —— 向量内存池（Vector Memory Pool），用于存储 HNSW 向量索引和相关元数据，并通过 vector_memory_size 参数控制其大小。&lt;/p&gt;
+&lt;img alt=&#34;2.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20250512-1921605788531961856_3351.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;Oracle AI Vector Search 相关程序包&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;DBMS_VECTOR ：简化了与 Oracle AI Vector Search 的常见操作流程，例如可以从用户数据中提取片段或嵌入式数据，能够基于给定的提示或图像生成文本，支持创建向量索引以及生成有关索引准确性的报告。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;DBMS_VECTOR_CHAIN ：支持与 Oracle AI Vector Search 进行高级操作，涵盖了数据的分块及嵌入处理，同时还具备文本生成与总结功能。它更适合用于结合相似性搜索和混合搜索的文本处理场景，其优势在于能够将各项功能以流水线的方式组合起来，从而实现端到端的搜索流程。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;DBMS_HYBRID_VECTOR ：该程序包内含基于 JSON 的查询 API SEARCH，借助它能够针对混合向量索引执行查询操作。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;混合负载管理&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;在 OLTP 与向量搜索并发的场景下，可通过 Resource Manager 设置向量搜索任务组，防止 CPU 过载，确保系统稳定运行。&lt;/p&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;从 Cloud 到 AI，Oracle 正全面发力 AI，AI Vector Search 是 Oracle 23ai 的新特性，并随着版本迭代不断优化。Oracle AI Vector Search 通过将非结构化数据转化为高维向量，实现了基于向量的相似性搜索，极大地提升了复杂数据的搜索效率和准确性。通过创建向量索引和混合向量索引，可以高效地进行相似性搜索和混合搜索。性能调优方面，可以通过优化索引结构、合理设置相关程序包参数以及进行混合负载管理来进一步提升性能。Oracle AI Vector Search 为 AI 工作负载提供了强大的支持，使得企业能够更好地利用非结构化数据进行智能化应用开发。&lt;/p&gt;
+&lt;p&gt;Have a nice day ~&lt;/p&gt;
+&lt;p&gt;– / END / –&lt;/p&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="Oracle 23ai 的 AI Vector Search 特性">
+    <meta property="og:url" content="https://shawnyan.cn/2025/oracle/oracle-23ai-ai-vector-search/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;h2 id=&#34;AI-Vector-Search-是什么&#34;&gt;AI Vector Search 是什么&lt;/h2&gt;
+&lt;p&gt;Oracle 23ai 的 AI Vector Search 功能是数据库中的一项创新技术，它能将非结构化数据（如文本、图像、音视频等）转化为高维向量（Vector Embedding），进而在数据库中构建基于向量的相似性搜索能力。这一功能极大地提升了对复杂数据的搜索效率和准确性，尤其适用于人工智能和机器学习工作负载。&lt;/p&gt;
+&lt;img alt=&#34;1.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20250512-1921605715056144384_3351.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;Oracle 的 AI Vector Search 功能包含以下三个核心层级：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;向量生成层&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;它集成了多种预训练 AI 模型（如 BERT、ResNet 等）来生成向量，并支持 Open Neural Network Exchange (ONNX) 格式模型部署，以实现低延迟推理。&lt;/p&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;向量存储层&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;引入了新的 VECTOR 数据类型，最大支持维度达 4,000，并采用分片（Sharding）技术实现 PB 级向量存储。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SQL&amp;gt; CREATE TABLE docs (doc_id INT, doc_text CLOB, doc_vector VECTOR);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Table created.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SQL&amp;gt; desc docs;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; Name					   Null?    Type&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ----------------------------------------- -------- ----------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; DOC_ID 					    NUMBER(38)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; DOC_TEXT					    CLOB&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; DOC_VECTOR					    VECTOR(*, *, DENSE)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SQL&amp;gt; &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;向量检索层&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;支持 ANN（Approximate Nearest Neighbor）算法，内置 HNSW（Hierarchical Navigable Small World）索引结构，实现微秒（μs）级响应。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;CREATE VECTOR INDEX hnsw_doc &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;     ON docs (doc_vector) &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ORGANIZATION INMEMORY NEIGHBOR GRAPH&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; WITH TARGET ACCURACY 95;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;AI-Vector-Search-工作流&#34;&gt;AI Vector Search 工作流&lt;/h2&gt;
+&lt;p&gt;Oracle AI Vector Search 专为人工智能工作负载设计，支持用户基于语义和图像相似性而非单纯关键词查询数据。&lt;/p&gt;
+&lt;p&gt;它主要有以下工作流程：&lt;/p&gt;
+&lt;p&gt;一是从非结构化数据生成向量嵌入，可在 Oracle Database 内外进行，但在数据库内进行时需先按 ONNX 标准导入向量嵌入模型，且非结构化数据可在数据库内外存放；&lt;/p&gt;
+&lt;p&gt;二是将向量嵌入、非结构化数据及关系业务数据存储于 Oracle Database，若向量嵌入在数据库外存储，可通过 SQL*Loader 或 Data Pump 加载到数据库内关系表，也可通过外部表访问；&lt;/p&gt;
+&lt;p&gt;三是创建向量索引和混合向量索引，与常规表列创建索引类似，可分别为向量嵌入及非结构化数据创建向量索引和混合向量索引（结合 Oracle Text 索引和向量索引），利于在巨大向量空间中运行相似性搜索；&lt;/p&gt;
+&lt;p&gt;四是利用 Oracle AI Vector Search 的原生 SQL 操作结合相似性与传统关系键搜索，还能运行混合搜索，这种高级信息检索技术融合相似性与关键词搜索，以获得高度相关的搜索结果，SQL 和 PL/SQL 可将非结构化数据转换为多个片段，再为每个片段生成向量嵌入；&lt;/p&gt;
+&lt;p&gt;五是生成提示并将其发送给大型语言模型（LLM）以实现完整的 RAG 推理，借助向量公用程序 PL/SQL API，可用文本提示和图像（通过 LLM 驱动的界面）向 LLM 发送提示，因 LLM 在训练截止后无法访问新信息，通过提供公司最新信息可降低其编造答案的可能性，RAG 方法结合预训练语言模型（包括重新排名模型）的优势与实时从数据集或数据库检索信息的能力，Oracle AI Vector Search 支持通过 LangChain、Ollama 和 LlamaIndex 等流行框架实现 RAG 与 LLM 集成。&lt;/p&gt;
+&lt;h2 id=&#34;AI-Vector-Search-性能调优&#34;&gt;AI Vector Search 性能调优&lt;/h2&gt;
+&lt;p&gt;在考虑 AI Vector Search 性能优化时，可以从如下三个维度着手。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;索引结构优化&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;由于传统 B-Tree 索引在向量场景下失效，需根据 HNSW 索引特性调整存储参数。例如，NEIGHBORS 参数控制图结构的连接密度，EF_CONSTRUCTION 参数影响索引构建质量与速度的平衡。Oracle 还引入了新的内存结构 —— 向量内存池（Vector Memory Pool），用于存储 HNSW 向量索引和相关元数据，并通过 vector_memory_size 参数控制其大小。&lt;/p&gt;
+&lt;img alt=&#34;2.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20250512-1921605788531961856_3351.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;Oracle AI Vector Search 相关程序包&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;DBMS_VECTOR ：简化了与 Oracle AI Vector Search 的常见操作流程，例如可以从用户数据中提取片段或嵌入式数据，能够基于给定的提示或图像生成文本，支持创建向量索引以及生成有关索引准确性的报告。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;DBMS_VECTOR_CHAIN ：支持与 Oracle AI Vector Search 进行高级操作，涵盖了数据的分块及嵌入处理，同时还具备文本生成与总结功能。它更适合用于结合相似性搜索和混合搜索的文本处理场景，其优势在于能够将各项功能以流水线的方式组合起来，从而实现端到端的搜索流程。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;DBMS_HYBRID_VECTOR ：该程序包内含基于 JSON 的查询 API SEARCH，借助它能够针对混合向量索引执行查询操作。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;混合负载管理&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;在 OLTP 与向量搜索并发的场景下，可通过 Resource Manager 设置向量搜索任务组，防止 CPU 过载，确保系统稳定运行。&lt;/p&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;从 Cloud 到 AI，Oracle 正全面发力 AI，AI Vector Search 是 Oracle 23ai 的新特性，并随着版本迭代不断优化。Oracle AI Vector Search 通过将非结构化数据转化为高维向量，实现了基于向量的相似性搜索，极大地提升了复杂数据的搜索效率和准确性。通过创建向量索引和混合向量索引，可以高效地进行相似性搜索和混合搜索。性能调优方面，可以通过优化索引结构、合理设置相关程序包参数以及进行混合负载管理来进一步提升性能。Oracle AI Vector Search 为 AI 工作负载提供了强大的支持，使得企业能够更好地利用非结构化数据进行智能化应用开发。&lt;/p&gt;
+&lt;p&gt;Have a nice day ~&lt;/p&gt;
+&lt;p&gt;– / END / –&lt;/p&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/oracle/" class="category-badge">
+                                    Oracle
+                                </a>
+                            
+                                <a href="/categories/oracle/23ai/" class="category-badge">
+                                    23ai
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">Oracle 23ai 的 AI Vector Search 特性</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2025-04-21
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                1.4k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                5 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <h2 id="AI-Vector-Search-是什么">AI Vector Search 是什么</h2>
+<p>Oracle 23ai 的 AI Vector Search 功能是数据库中的一项创新技术，它能将非结构化数据（如文本、图像、音视频等）转化为高维向量（Vector Embedding），进而在数据库中构建基于向量的相似性搜索能力。这一功能极大地提升了对复杂数据的搜索效率和准确性，尤其适用于人工智能和机器学习工作负载。</p>
+<img alt="1.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20250512-1921605715056144384_3351.png" referrerpolicy="no-referrer"/>
+<p>Oracle 的 AI Vector Search 功能包含以下三个核心层级：</p>
+<ol>
+<li>向量生成层</li>
+</ol>
+<p>它集成了多种预训练 AI 模型（如 BERT、ResNet 等）来生成向量，并支持 Open Neural Network Exchange (ONNX) 格式模型部署，以实现低延迟推理。</p>
+<ol start="2">
+<li>向量存储层</li>
+</ol>
+<p>引入了新的 VECTOR 数据类型，最大支持维度达 4,000，并采用分片（Sharding）技术实现 PB 级向量存储。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">SQL&gt; CREATE TABLE docs (doc_id INT, doc_text CLOB, doc_vector VECTOR);</span><br><span class="line"></span><br><span class="line">Table created.</span><br><span class="line"></span><br><span class="line">SQL&gt; desc docs;</span><br><span class="line"> Name					   Null?    Type</span><br><span class="line"> ----------------------------------------- -------- ----------------------------</span><br><span class="line"> DOC_ID 					    NUMBER(38)</span><br><span class="line"> DOC_TEXT					    CLOB</span><br><span class="line"> DOC_VECTOR					    VECTOR(*, *, DENSE)</span><br><span class="line"></span><br><span class="line">SQL&gt; </span><br></pre></td></tr></table></figure>
+<ol start="3">
+<li>向量检索层</li>
+</ol>
+<p>支持 ANN（Approximate Nearest Neighbor）算法，内置 HNSW（Hierarchical Navigable Small World）索引结构，实现微秒（μs）级响应。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">CREATE VECTOR INDEX hnsw_doc </span><br><span class="line">     ON docs (doc_vector) </span><br><span class="line"> ORGANIZATION INMEMORY NEIGHBOR GRAPH</span><br><span class="line"> WITH TARGET ACCURACY 95;</span><br></pre></td></tr></table></figure>
+<h2 id="AI-Vector-Search-工作流">AI Vector Search 工作流</h2>
+<p>Oracle AI Vector Search 专为人工智能工作负载设计，支持用户基于语义和图像相似性而非单纯关键词查询数据。</p>
+<p>它主要有以下工作流程：</p>
+<p>一是从非结构化数据生成向量嵌入，可在 Oracle Database 内外进行，但在数据库内进行时需先按 ONNX 标准导入向量嵌入模型，且非结构化数据可在数据库内外存放；</p>
+<p>二是将向量嵌入、非结构化数据及关系业务数据存储于 Oracle Database，若向量嵌入在数据库外存储，可通过 SQL*Loader 或 Data Pump 加载到数据库内关系表，也可通过外部表访问；</p>
+<p>三是创建向量索引和混合向量索引，与常规表列创建索引类似，可分别为向量嵌入及非结构化数据创建向量索引和混合向量索引（结合 Oracle Text 索引和向量索引），利于在巨大向量空间中运行相似性搜索；</p>
+<p>四是利用 Oracle AI Vector Search 的原生 SQL 操作结合相似性与传统关系键搜索，还能运行混合搜索，这种高级信息检索技术融合相似性与关键词搜索，以获得高度相关的搜索结果，SQL 和 PL/SQL 可将非结构化数据转换为多个片段，再为每个片段生成向量嵌入；</p>
+<p>五是生成提示并将其发送给大型语言模型（LLM）以实现完整的 RAG 推理，借助向量公用程序 PL/SQL API，可用文本提示和图像（通过 LLM 驱动的界面）向 LLM 发送提示，因 LLM 在训练截止后无法访问新信息，通过提供公司最新信息可降低其编造答案的可能性，RAG 方法结合预训练语言模型（包括重新排名模型）的优势与实时从数据集或数据库检索信息的能力，Oracle AI Vector Search 支持通过 LangChain、Ollama 和 LlamaIndex 等流行框架实现 RAG 与 LLM 集成。</p>
+<h2 id="AI-Vector-Search-性能调优">AI Vector Search 性能调优</h2>
+<p>在考虑 AI Vector Search 性能优化时，可以从如下三个维度着手。</p>
+<ol>
+<li>索引结构优化</li>
+</ol>
+<p>由于传统 B-Tree 索引在向量场景下失效，需根据 HNSW 索引特性调整存储参数。例如，NEIGHBORS 参数控制图结构的连接密度，EF_CONSTRUCTION 参数影响索引构建质量与速度的平衡。Oracle 还引入了新的内存结构 —— 向量内存池（Vector Memory Pool），用于存储 HNSW 向量索引和相关元数据，并通过 vector_memory_size 参数控制其大小。</p>
+<img alt="2.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20250512-1921605788531961856_3351.png" referrerpolicy="no-referrer"/>
+<ol start="2">
+<li>Oracle AI Vector Search 相关程序包</li>
+</ol>
+<ul>
+<li>
+<p>DBMS_VECTOR ：简化了与 Oracle AI Vector Search 的常见操作流程，例如可以从用户数据中提取片段或嵌入式数据，能够基于给定的提示或图像生成文本，支持创建向量索引以及生成有关索引准确性的报告。</p>
+</li>
+<li>
+<p>DBMS_VECTOR_CHAIN ：支持与 Oracle AI Vector Search 进行高级操作，涵盖了数据的分块及嵌入处理，同时还具备文本生成与总结功能。它更适合用于结合相似性搜索和混合搜索的文本处理场景，其优势在于能够将各项功能以流水线的方式组合起来，从而实现端到端的搜索流程。</p>
+</li>
+<li>
+<p>DBMS_HYBRID_VECTOR ：该程序包内含基于 JSON 的查询 API SEARCH，借助它能够针对混合向量索引执行查询操作。</p>
+</li>
+</ul>
+<ol start="3">
+<li>混合负载管理</li>
+</ol>
+<p>在 OLTP 与向量搜索并发的场景下，可通过 Resource Manager 设置向量搜索任务组，防止 CPU 过载，确保系统稳定运行。</p>
+<h2 id="总结">总结</h2>
+<p>从 Cloud 到 AI，Oracle 正全面发力 AI，AI Vector Search 是 Oracle 23ai 的新特性，并随着版本迭代不断优化。Oracle AI Vector Search 通过将非结构化数据转化为高维向量，实现了基于向量的相似性搜索，极大地提升了复杂数据的搜索效率和准确性。通过创建向量索引和混合向量索引，可以高效地进行相似性搜索和混合搜索。性能调优方面，可以通过优化索引结构、合理设置相关程序包参数以及进行混合负载管理来进一步提升性能。Oracle AI Vector Search 为 AI 工作负载提供了强大的支持，使得企业能够更好地利用非结构化数据进行智能化应用开发。</p>
+<p>Have a nice day ~</p>
+<p>– / END / –</p>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/oracle/" class="tag-link">
+                                oracle
+                            </a>
+                        
+                            <a href="/tags/oracle-23ai/" class="tag-link">
+                                oracle 23ai
+                            </a>
+                        
+                            <a href="/tags/ai/" class="tag-link">
+                                ai
+                            </a>
+                        
+                            <a href="/tags/vector/" class="tag-link">
+                                vector
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2025/oracle/oracle-23ai-ai-vector-search/index.html">https://shawnyan.cn/2025/oracle/oracle-23ai-ai-vector-search/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2025/linux/oracle-ace-worldwide-has-exceeded-600/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">Oracle Linux 10 安装失败不一定是 CPU 的锅</span>
+        </a>
+    
+
+    
+        <a href="/2025/oracle/oracle-23ai-json-partitioned-collection-table/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">Oracle 23ai 的 JSON 集合分区表</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#AI-Vector-Search-%E6%98%AF%E4%BB%80%E4%B9%88"><span class="toc-text">AI Vector Search 是什么</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#AI-Vector-Search-%E5%B7%A5%E4%BD%9C%E6%B5%81"><span class="toc-text">AI Vector Search 工作流</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#AI-Vector-Search-%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98"><span class="toc-text">AI Vector Search 性能调优</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

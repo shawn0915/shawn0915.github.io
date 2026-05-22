@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        【MySQL 8.x】在 Rocky 9 上编译 MySQL 8.2.0 Debug 版本编译指南 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;img alt=&#34;mysql-logo.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20231030-e3039511-88f3-4035-82fc-89d0f77a4e52.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;前情提要&#34;&gt;前情提要&lt;/h2&gt;
+&lt;p&gt;前文已经介绍了如何安装 Rocky Linux 9.2，这里便不再赘述。&lt;br&gt;
+同时，也已经介绍过 MySQL 8.2.0 的参数变化，以及提及如何安装 MySQL 8.2.0。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://shawnyan.cn/2023/mysql/mysql-8.2.0-sys-vars/&#34;&gt;【MySQL 8.2.0】从参数变化解读 MySQL 8.2.0 发版说明&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://shawnyan.cn/2023/linux/rocky-9.2-install/&#34;&gt;【Rocky 9】Step by Step 安装 Rocky Linux 9.2 系统&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://shawnyan.cn/2023/linux/centos-7.9-upgrade-to-rocky-9.2/&#34;&gt;【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;本文将着重介绍如何编译 MySQL 8.2.0 Debug 版本。&lt;/p&gt;
+&lt;h2 id=&#34;环境准备&#34;&gt;环境准备&lt;/h2&gt;
+&lt;p&gt;本文使用的操作系统为 Rocky Linux 9.2，下面简称 Rocky。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ cat /etc/redhat-release &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Rocky Linux release 9.2 (Blue Onyx)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ cmake --version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cmake version 3.20.2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;CMake suite maintained and supported by Kitware (kitware.com/cmake).&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;mysql-server 的源码为 cpp 语言，编译需要用到 cmake，这里已经安装好，版本为 3.20.2。&lt;/p&gt;
+&lt;h2 id=&#34;下载源码&#34;&gt;下载源码&lt;/h2&gt;
+&lt;p&gt;mysql-server 的源码，通常有两种下载途径：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;从 MySQL 官网下载源码包。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;官网下载地址：&lt;a href=&#34;https://dev.mysql.com/downloads/mysql/&#34;&gt;https://dev.mysql.com/downloads/mysql/&lt;/a&gt;&lt;/p&gt;
+&lt;img alt=&#34;01-mysql-download-page.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20231030-2c961430-ddc8-44aa-9d0e-30d2628b1485.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;从 GitHub 上克隆获取。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;git clone https://github.com/mysql/mysql-server.git&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;源码版本为：&lt;code&gt;mysql-8.2.0, 7307d4&lt;/code&gt;&lt;/p&gt;
+&lt;h2 id=&#34;编译源码&#34;&gt;编译源码&lt;/h2&gt;
+&lt;p&gt;下载源码后，进入源码路径，创建一个 debug 文件夹，专门用于编译。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mkdir debug&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cd debug&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;由于这次是编译 debug 版本，所以需要将构建类型设定为 debug。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;cmake .. -DCMAKE_BUILD_TYPE=Debug -DWITH_BOOST=. &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;编译的过程是漫长的，这个时间可以去煮杯咖啡，慢慢等待。&lt;/p&gt;
+&lt;img alt=&#34;02-compile-time.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20231031-0f5469e1-0cde-41bd-9125-65997d927034.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;最后，执行 &lt;code&gt;make install&lt;/code&gt; 进行安装，这里安装路径选择为默认路径，即 &lt;code&gt;/usr/local/mysql&lt;/code&gt;。&lt;/p&gt;
+&lt;h2 id=&#34;运行-MySQL-8-2-0-Debug-服务器&#34;&gt;运行 MySQL 8.2.0 Debug 服务器&lt;/h2&gt;
+&lt;p&gt;安装完成后，需要进行数据库初始化。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;/usr/local/mysql/bin/mysqld --initialize-insecure&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;然后启动即可。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[mysql@rocky9 mysql]$ /usr/local/mysql/bin/mysqld&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-30T10:10:05.928804Z 0 [System] [MY-015015] [Server] MySQL Server - start.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-30T10:10:06.674943Z 0 [System] [MY-010116] [Server] /usr/local/mysql/bin/mysqld (mysqld 8.2.0-debug) starting as process 70140&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-30T10:10:06.734430Z 1 [System] [MY-013576] [InnoDB] InnoDB initialization has started.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-30T10:10:08.003417Z 1 [System] [MY-013577] [InnoDB] InnoDB initialization has ended.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-30T10:10:09.939694Z 0 [System] [MY-010229] [Server] Starting XA crash recovery...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-30T10:10:09.945047Z 0 [System] [MY-010232] [Server] XA crash recovery finished.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-30T10:10:10.141478Z 0 [Warning] [MY-010068] [Server] CA certificate ca.pem is self signed.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-30T10:10:10.141636Z 0 [System] [MY-013602] [Server] Channel mysql_main configured to support TLS. Encrypted connections are now supported for this channel.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-30T10:10:10.460188Z 0 [System] [MY-011323] [Server] X Plugin ready for connections. Bind-address: &amp;#x27;::&amp;#x27; port: 33060, socket: /tmp/mysqlx.sock&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-30T10:10:10.461041Z 0 [System] [MY-010931] [Server] /usr/local/mysql/bin/mysqld: ready for connections. Version: &amp;#x27;8.2.0-debug&amp;#x27;  socket: &amp;#x27;/tmp/mysql.sock&amp;#x27;  port: 3306  Source distribution.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-30T10:10:25Z UTC - mysqld got signal 11 ;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;这里可以从日志中看到，MySQL 服务器已经启动，版本为：‘8.2.0-debug’。&lt;/p&gt;
+&lt;img alt=&#34;03-version.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20231031-cb9a53d1-cb74-4a93-b7c5-dbeb6a53b304.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;实验：SHOW-PARSE-TREE-新特性&#34;&gt;实验：&lt;code&gt;SHOW PARSE_TREE&lt;/code&gt; 新特性&lt;/h2&gt;
+&lt;p&gt;在 &lt;a href=&#34;https://shawnyan.cn/2023/mysql/mysql-8.2.0-sys-vars/&#34;&gt;【MySQL 8.2.0】从参数变化解读 MySQL 8.2.0 发版说明&lt;/a&gt; 中已经介绍过 &lt;code&gt;SHOW PARSE_TREE&lt;/code&gt; 新特性，但该特性仅支持 Debug 版本，所以这里可以进行测试。&lt;/p&gt;
+&lt;p&gt;示例如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; parse_tree &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;\G&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;输出结果如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; parse_tree &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1.&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Show_parse_tree: &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &amp;quot;text&amp;quot;: &amp;quot;select 1&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &amp;quot;type&amp;quot;: &amp;quot;PT_select_stmt&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &amp;quot;components&amp;quot;: [&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      &amp;quot;text&amp;quot;: &amp;quot;select 1&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      &amp;quot;type&amp;quot;: &amp;quot;PT_query_expression&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      &amp;quot;components&amp;quot;: [&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          &amp;quot;text&amp;quot;: &amp;quot;select 1&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          &amp;quot;type&amp;quot;: &amp;quot;PT_query_specification&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          &amp;quot;components&amp;quot;: [&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;            &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              &amp;quot;text&amp;quot;: &amp;quot;1&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              &amp;quot;type&amp;quot;: &amp;quot;PT_select_item_list&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              &amp;quot;components&amp;quot;: [&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  &amp;quot;text&amp;quot;: &amp;quot;1&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  &amp;quot;type&amp;quot;: &amp;quot;PTI_expr_with_alias&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  &amp;quot;components&amp;quot;: [&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                    &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                      &amp;quot;text&amp;quot;: &amp;quot;1&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                      &amp;quot;type&amp;quot;: &amp;quot;Item_int&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                    &amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  ]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                &amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              ]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;            &amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          ]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        &amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      ]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  ]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.00&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;不过，这里遇到了一个问题，看来这个新特性有严重的bug：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://bugs.mysql.com/bug.php?id=112883&#34;&gt;[Open] Bug #112883 	mysql 8.1.0/8.2.0, mysqld got signal 11, when send sql, show parse_tree&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;遇到问题&#34;&gt;遇到问题&lt;/h2&gt;
+&lt;h3 id=&#34;缺包问题&#34;&gt;缺包问题&lt;/h3&gt;
+&lt;p&gt;编译过程中会提示缺少类包，好在代码已经做了 catch 及 tips，这里只需依照提示安装对应缺少的包即可，比如：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;-- Could NOT find Curses (missing: CURSES_LIBRARY CURSES_INCLUDE_PATH) &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;CMake Error at cmake/readline.cmake:92 (MESSAGE):&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  Curses library not found.  Please install appropriate package,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      remove CMakeCache.txt and rerun cmake.On Debian/Ubuntu, package name is libncurses5-dev, on Redhat and derivates it is ncurses-devel.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Call Stack (most recent call first):&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  cmake/readline.cmake:126 (FIND_CURSES)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  cmake/readline.cmake:220 (MYSQL_USE_BUNDLED_EDITLINE)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  CMakeLists.txt:1934 (MYSQL_CHECK_EDITLINE)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;cmake 过程中遇到报错，提示安装 &lt;code&gt;ncurses-devel&lt;/code&gt;。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;yum install ncurses-devel&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;安装完成后，再次 cmake 通过。&lt;/p&gt;
+&lt;h3 id=&#34;编译报错&#34;&gt;编译报错&lt;/h3&gt;
+&lt;p&gt;编译过程中，遇到报错，似乎无解，只能扩充 VM 资源，再次进行编译。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;第一次报错&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ 88%] Building CXX object sql/CMakeFiles/sql_gis.dir/gis/overlaps.cc.o&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;g++: fatal error: 已杀死 signal terminated program cc1plus&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;compilation terminated.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[2]: *** [sql/CMakeFiles/sql_gis.dir/build.make:300：sql/CMakeFiles/sql_gis.dir/gis/intersection_functor.cc.o] 错误 1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[2]: *** 正在等待未完成的任务....&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: *** [CMakeFiles/Makefile2:33773：sql/CMakeFiles/sql_gis.dir/all] 错误 2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make: *** [Makefile:166：all] 错误 2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;real    150m33.063s&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;user    192m24.614s&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sys     33m36.786s&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 debug]#&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;第二次报错&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ 61%] Linking CXX executable ../runtime_output_directory/mysqld&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;collect2: fatal error: ld terminated with signal 9 [已杀死]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;compilation terminated.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[2]: *** [sql/CMakeFiles/mysqld.dir/build.make:157：runtime_output_directory/mysqld] 错误 1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[2]: *** 正在删除文件“runtime_output_directory/mysqld”&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: *** [CMakeFiles/Makefile2:12706：sql/CMakeFiles/mysqld.dir/all] 错误 2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make: *** [Makefile:156：all] 错误 2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;real    98m7.350s&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;user    79m50.233s&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sys     11m1.616s&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;这里也提示，在编译 MySQL 源码时，机器资源要给多一些，2c2g 是编译不过的。&lt;/p&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;文本介绍了如何编译 MySQL 8.2.0 源码，及进行了新特性的尝试。&lt;/p&gt;
+&lt;p&gt;不过，也遇到了一个问题，就是编译时间很长，如上面的编译报错，是在经历 150 分钟后，才抛出报错。&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="【MySQL 8.x】在 Rocky 9 上编译 MySQL 8.2.0 Debug 版本编译指南">
+    <meta property="og:url" content="https://shawnyan.cn/2023/mysql/mysql-8.2.0-compile-on-rocky-9/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;img alt=&#34;mysql-logo.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20231030-e3039511-88f3-4035-82fc-89d0f77a4e52.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;前情提要&#34;&gt;前情提要&lt;/h2&gt;
+&lt;p&gt;前文已经介绍了如何安装 Rocky Linux 9.2，这里便不再赘述。&lt;br&gt;
+同时，也已经介绍过 MySQL 8.2.0 的参数变化，以及提及如何安装 MySQL 8.2.0。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://shawnyan.cn/2023/mysql/mysql-8.2.0-sys-vars/&#34;&gt;【MySQL 8.2.0】从参数变化解读 MySQL 8.2.0 发版说明&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://shawnyan.cn/2023/linux/rocky-9.2-install/&#34;&gt;【Rocky 9】Step by Step 安装 Rocky Linux 9.2 系统&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://shawnyan.cn/2023/linux/centos-7.9-upgrade-to-rocky-9.2/&#34;&gt;【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;本文将着重介绍如何编译 MySQL 8.2.0 Debug 版本。&lt;/p&gt;
+&lt;h2 id=&#34;环境准备&#34;&gt;环境准备&lt;/h2&gt;
+&lt;p&gt;本文使用的操作系统为 Rocky Linux 9.2，下面简称 Rocky。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ cat /etc/redhat-release &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Rocky Linux release 9.2 (Blue Onyx)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ cmake --version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cmake version 3.20.2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;CMake suite maintained and supported by Kitware (kitware.com/cmake).&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;mysql-server 的源码为 cpp 语言，编译需要用到 cmake，这里已经安装好，版本为 3.20.2。&lt;/p&gt;
+&lt;h2 id=&#34;下载源码&#34;&gt;下载源码&lt;/h2&gt;
+&lt;p&gt;mysql-server 的源码，通常有两种下载途径：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;从 MySQL 官网下载源码包。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;官网下载地址：&lt;a href=&#34;https://dev.mysql.com/downloads/mysql/&#34;&gt;https://dev.mysql.com/downloads/mysql/&lt;/a&gt;&lt;/p&gt;
+&lt;img alt=&#34;01-mysql-download-page.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20231030-2c961430-ddc8-44aa-9d0e-30d2628b1485.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;从 GitHub 上克隆获取。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;git clone https://github.com/mysql/mysql-server.git&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;源码版本为：&lt;code&gt;mysql-8.2.0, 7307d4&lt;/code&gt;&lt;/p&gt;
+&lt;h2 id=&#34;编译源码&#34;&gt;编译源码&lt;/h2&gt;
+&lt;p&gt;下载源码后，进入源码路径，创建一个 debug 文件夹，专门用于编译。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mkdir debug&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cd debug&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;由于这次是编译 debug 版本，所以需要将构建类型设定为 debug。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;cmake .. -DCMAKE_BUILD_TYPE=Debug -DWITH_BOOST=. &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;编译的过程是漫长的，这个时间可以去煮杯咖啡，慢慢等待。&lt;/p&gt;
+&lt;img alt=&#34;02-compile-time.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20231031-0f5469e1-0cde-41bd-9125-65997d927034.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;最后，执行 &lt;code&gt;make install&lt;/code&gt; 进行安装，这里安装路径选择为默认路径，即 &lt;code&gt;/usr/local/mysql&lt;/code&gt;。&lt;/p&gt;
+&lt;h2 id=&#34;运行-MySQL-8-2-0-Debug-服务器&#34;&gt;运行 MySQL 8.2.0 Debug 服务器&lt;/h2&gt;
+&lt;p&gt;安装完成后，需要进行数据库初始化。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;/usr/local/mysql/bin/mysqld --initialize-insecure&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;然后启动即可。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[mysql@rocky9 mysql]$ /usr/local/mysql/bin/mysqld&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-30T10:10:05.928804Z 0 [System] [MY-015015] [Server] MySQL Server - start.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-30T10:10:06.674943Z 0 [System] [MY-010116] [Server] /usr/local/mysql/bin/mysqld (mysqld 8.2.0-debug) starting as process 70140&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-30T10:10:06.734430Z 1 [System] [MY-013576] [InnoDB] InnoDB initialization has started.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-30T10:10:08.003417Z 1 [System] [MY-013577] [InnoDB] InnoDB initialization has ended.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-30T10:10:09.939694Z 0 [System] [MY-010229] [Server] Starting XA crash recovery...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-30T10:10:09.945047Z 0 [System] [MY-010232] [Server] XA crash recovery finished.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-30T10:10:10.141478Z 0 [Warning] [MY-010068] [Server] CA certificate ca.pem is self signed.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-30T10:10:10.141636Z 0 [System] [MY-013602] [Server] Channel mysql_main configured to support TLS. Encrypted connections are now supported for this channel.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-30T10:10:10.460188Z 0 [System] [MY-011323] [Server] X Plugin ready for connections. Bind-address: &amp;#x27;::&amp;#x27; port: 33060, socket: /tmp/mysqlx.sock&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-30T10:10:10.461041Z 0 [System] [MY-010931] [Server] /usr/local/mysql/bin/mysqld: ready for connections. Version: &amp;#x27;8.2.0-debug&amp;#x27;  socket: &amp;#x27;/tmp/mysql.sock&amp;#x27;  port: 3306  Source distribution.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-30T10:10:25Z UTC - mysqld got signal 11 ;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;这里可以从日志中看到，MySQL 服务器已经启动，版本为：‘8.2.0-debug’。&lt;/p&gt;
+&lt;img alt=&#34;03-version.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20231031-cb9a53d1-cb74-4a93-b7c5-dbeb6a53b304.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;实验：SHOW-PARSE-TREE-新特性&#34;&gt;实验：&lt;code&gt;SHOW PARSE_TREE&lt;/code&gt; 新特性&lt;/h2&gt;
+&lt;p&gt;在 &lt;a href=&#34;https://shawnyan.cn/2023/mysql/mysql-8.2.0-sys-vars/&#34;&gt;【MySQL 8.2.0】从参数变化解读 MySQL 8.2.0 发版说明&lt;/a&gt; 中已经介绍过 &lt;code&gt;SHOW PARSE_TREE&lt;/code&gt; 新特性，但该特性仅支持 Debug 版本，所以这里可以进行测试。&lt;/p&gt;
+&lt;p&gt;示例如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; parse_tree &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;\G&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;输出结果如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; parse_tree &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1.&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Show_parse_tree: &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &amp;quot;text&amp;quot;: &amp;quot;select 1&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &amp;quot;type&amp;quot;: &amp;quot;PT_select_stmt&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &amp;quot;components&amp;quot;: [&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      &amp;quot;text&amp;quot;: &amp;quot;select 1&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      &amp;quot;type&amp;quot;: &amp;quot;PT_query_expression&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      &amp;quot;components&amp;quot;: [&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          &amp;quot;text&amp;quot;: &amp;quot;select 1&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          &amp;quot;type&amp;quot;: &amp;quot;PT_query_specification&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          &amp;quot;components&amp;quot;: [&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;            &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              &amp;quot;text&amp;quot;: &amp;quot;1&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              &amp;quot;type&amp;quot;: &amp;quot;PT_select_item_list&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              &amp;quot;components&amp;quot;: [&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  &amp;quot;text&amp;quot;: &amp;quot;1&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  &amp;quot;type&amp;quot;: &amp;quot;PTI_expr_with_alias&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  &amp;quot;components&amp;quot;: [&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                    &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                      &amp;quot;text&amp;quot;: &amp;quot;1&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                      &amp;quot;type&amp;quot;: &amp;quot;Item_int&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                    &amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  ]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                &amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              ]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;            &amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          ]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        &amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      ]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  ]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.00&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;不过，这里遇到了一个问题，看来这个新特性有严重的bug：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://bugs.mysql.com/bug.php?id=112883&#34;&gt;[Open] Bug #112883 	mysql 8.1.0/8.2.0, mysqld got signal 11, when send sql, show parse_tree&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;遇到问题&#34;&gt;遇到问题&lt;/h2&gt;
+&lt;h3 id=&#34;缺包问题&#34;&gt;缺包问题&lt;/h3&gt;
+&lt;p&gt;编译过程中会提示缺少类包，好在代码已经做了 catch 及 tips，这里只需依照提示安装对应缺少的包即可，比如：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;-- Could NOT find Curses (missing: CURSES_LIBRARY CURSES_INCLUDE_PATH) &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;CMake Error at cmake/readline.cmake:92 (MESSAGE):&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  Curses library not found.  Please install appropriate package,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      remove CMakeCache.txt and rerun cmake.On Debian/Ubuntu, package name is libncurses5-dev, on Redhat and derivates it is ncurses-devel.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Call Stack (most recent call first):&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  cmake/readline.cmake:126 (FIND_CURSES)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  cmake/readline.cmake:220 (MYSQL_USE_BUNDLED_EDITLINE)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  CMakeLists.txt:1934 (MYSQL_CHECK_EDITLINE)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;cmake 过程中遇到报错，提示安装 &lt;code&gt;ncurses-devel&lt;/code&gt;。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;yum install ncurses-devel&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;安装完成后，再次 cmake 通过。&lt;/p&gt;
+&lt;h3 id=&#34;编译报错&#34;&gt;编译报错&lt;/h3&gt;
+&lt;p&gt;编译过程中，遇到报错，似乎无解，只能扩充 VM 资源，再次进行编译。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;第一次报错&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ 88%] Building CXX object sql/CMakeFiles/sql_gis.dir/gis/overlaps.cc.o&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;g++: fatal error: 已杀死 signal terminated program cc1plus&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;compilation terminated.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[2]: *** [sql/CMakeFiles/sql_gis.dir/build.make:300：sql/CMakeFiles/sql_gis.dir/gis/intersection_functor.cc.o] 错误 1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[2]: *** 正在等待未完成的任务....&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: *** [CMakeFiles/Makefile2:33773：sql/CMakeFiles/sql_gis.dir/all] 错误 2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make: *** [Makefile:166：all] 错误 2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;real    150m33.063s&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;user    192m24.614s&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sys     33m36.786s&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 debug]#&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;第二次报错&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ 61%] Linking CXX executable ../runtime_output_directory/mysqld&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;collect2: fatal error: ld terminated with signal 9 [已杀死]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;compilation terminated.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[2]: *** [sql/CMakeFiles/mysqld.dir/build.make:157：runtime_output_directory/mysqld] 错误 1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[2]: *** 正在删除文件“runtime_output_directory/mysqld”&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: *** [CMakeFiles/Makefile2:12706：sql/CMakeFiles/mysqld.dir/all] 错误 2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make: *** [Makefile:156：all] 错误 2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;real    98m7.350s&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;user    79m50.233s&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sys     11m1.616s&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;这里也提示，在编译 MySQL 源码时，机器资源要给多一些，2c2g 是编译不过的。&lt;/p&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;文本介绍了如何编译 MySQL 8.2.0 源码，及进行了新特性的尝试。&lt;/p&gt;
+&lt;p&gt;不过，也遇到了一个问题，就是编译时间很长，如上面的编译报错，是在经历 150 分钟后，才抛出报错。&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/mysql/" class="category-badge">
+                                    MySQL
+                                </a>
+                            
+                                <a href="/categories/mysql/mysql-8-x/" class="category-badge">
+                                    MySQL 8.x
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">【MySQL 8.x】在 Rocky 9 上编译 MySQL 8.2.0 Debug 版本编译指南</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2023-10-31
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                1.3k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                6 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <img alt="mysql-logo.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20231030-e3039511-88f3-4035-82fc-89d0f77a4e52.png" referrerpolicy="no-referrer"/>
+<h2 id="前情提要">前情提要</h2>
+<p>前文已经介绍了如何安装 Rocky Linux 9.2，这里便不再赘述。<br>
+同时，也已经介绍过 MySQL 8.2.0 的参数变化，以及提及如何安装 MySQL 8.2.0。</p>
+<ul>
+<li><a href="https://shawnyan.cn/2023/mysql/mysql-8.2.0-sys-vars/">【MySQL 8.2.0】从参数变化解读 MySQL 8.2.0 发版说明</a></li>
+<li><a href="https://shawnyan.cn/2023/linux/rocky-9.2-install/">【Rocky 9】Step by Step 安装 Rocky Linux 9.2 系统</a></li>
+<li><a href="https://shawnyan.cn/2023/linux/centos-7.9-upgrade-to-rocky-9.2/">【Rocky 9】Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2</a></li>
+</ul>
+<p>本文将着重介绍如何编译 MySQL 8.2.0 Debug 版本。</p>
+<h2 id="环境准备">环境准备</h2>
+<p>本文使用的操作系统为 Rocky Linux 9.2，下面简称 Rocky。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ cat /etc/redhat-release </span><br><span class="line">Rocky Linux release 9.2 (Blue Onyx)</span><br><span class="line">[shawnyan@rocky9 ~]$ cmake --version</span><br><span class="line">cmake version 3.20.2</span><br><span class="line"></span><br><span class="line">CMake suite maintained and supported by Kitware (kitware.com/cmake).</span><br><span class="line">[shawnyan@rocky9 ~]$ </span><br></pre></td></tr></table></figure>
+<p>mysql-server 的源码为 cpp 语言，编译需要用到 cmake，这里已经安装好，版本为 3.20.2。</p>
+<h2 id="下载源码">下载源码</h2>
+<p>mysql-server 的源码，通常有两种下载途径：</p>
+<ol>
+<li>从 MySQL 官网下载源码包。</li>
+</ol>
+<p>官网下载地址：<a target="_blank" rel="noopener" href="https://dev.mysql.com/downloads/mysql/">https://dev.mysql.com/downloads/mysql/</a></p>
+<img alt="01-mysql-download-page.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20231030-2c961430-ddc8-44aa-9d0e-30d2628b1485.png" referrerpolicy="no-referrer"/>
+<ol start="2">
+<li>从 GitHub 上克隆获取。</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git clone https://github.com/mysql/mysql-server.git</span><br></pre></td></tr></table></figure>
+<p>源码版本为：<code>mysql-8.2.0, 7307d4</code></p>
+<h2 id="编译源码">编译源码</h2>
+<p>下载源码后，进入源码路径，创建一个 debug 文件夹，专门用于编译。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mkdir debug</span><br><span class="line">cd debug</span><br></pre></td></tr></table></figure>
+<p>由于这次是编译 debug 版本，所以需要将构建类型设定为 debug。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">cmake .. -DCMAKE_BUILD_TYPE=Debug -DWITH_BOOST=. </span><br><span class="line">make</span><br></pre></td></tr></table></figure>
+<p>编译的过程是漫长的，这个时间可以去煮杯咖啡，慢慢等待。</p>
+<img alt="02-compile-time.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20231031-0f5469e1-0cde-41bd-9125-65997d927034.png" referrerpolicy="no-referrer"/>
+<p>最后，执行 <code>make install</code> 进行安装，这里安装路径选择为默认路径，即 <code>/usr/local/mysql</code>。</p>
+<h2 id="运行-MySQL-8-2-0-Debug-服务器">运行 MySQL 8.2.0 Debug 服务器</h2>
+<p>安装完成后，需要进行数据库初始化。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/usr/local/mysql/bin/mysqld --initialize-insecure</span><br></pre></td></tr></table></figure>
+<p>然后启动即可。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">[mysql@rocky9 mysql]$ /usr/local/mysql/bin/mysqld</span><br><span class="line">2023-10-30T10:10:05.928804Z 0 [System] [MY-015015] [Server] MySQL Server - start.</span><br><span class="line">2023-10-30T10:10:06.674943Z 0 [System] [MY-010116] [Server] /usr/local/mysql/bin/mysqld (mysqld 8.2.0-debug) starting as process 70140</span><br><span class="line">2023-10-30T10:10:06.734430Z 1 [System] [MY-013576] [InnoDB] InnoDB initialization has started.</span><br><span class="line">2023-10-30T10:10:08.003417Z 1 [System] [MY-013577] [InnoDB] InnoDB initialization has ended.</span><br><span class="line">2023-10-30T10:10:09.939694Z 0 [System] [MY-010229] [Server] Starting XA crash recovery...</span><br><span class="line">2023-10-30T10:10:09.945047Z 0 [System] [MY-010232] [Server] XA crash recovery finished.</span><br><span class="line">2023-10-30T10:10:10.141478Z 0 [Warning] [MY-010068] [Server] CA certificate ca.pem is self signed.</span><br><span class="line">2023-10-30T10:10:10.141636Z 0 [System] [MY-013602] [Server] Channel mysql_main configured to support TLS. Encrypted connections are now supported for this channel.</span><br><span class="line">2023-10-30T10:10:10.460188Z 0 [System] [MY-011323] [Server] X Plugin ready for connections. Bind-address: &#x27;::&#x27; port: 33060, socket: /tmp/mysqlx.sock</span><br><span class="line">2023-10-30T10:10:10.461041Z 0 [System] [MY-010931] [Server] /usr/local/mysql/bin/mysqld: ready for connections. Version: &#x27;8.2.0-debug&#x27;  socket: &#x27;/tmp/mysql.sock&#x27;  port: 3306  Source distribution.</span><br><span class="line">2023-10-30T10:10:25Z UTC - mysqld got signal 11 ;</span><br></pre></td></tr></table></figure>
+<p>这里可以从日志中看到，MySQL 服务器已经启动，版本为：‘8.2.0-debug’。</p>
+<img alt="03-version.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20231031-cb9a53d1-cb74-4a93-b7c5-dbeb6a53b304.png" referrerpolicy="no-referrer"/>
+<h2 id="实验：SHOW-PARSE-TREE-新特性">实验：<code>SHOW PARSE_TREE</code> 新特性</h2>
+<p>在 <a href="https://shawnyan.cn/2023/mysql/mysql-8.2.0-sys-vars/">【MySQL 8.2.0】从参数变化解读 MySQL 8.2.0 发版说明</a> 中已经介绍过 <code>SHOW PARSE_TREE</code> 新特性，但该特性仅支持 Debug 版本，所以这里可以进行测试。</p>
+<p>示例如下：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">show</span> parse_tree <span class="keyword">select</span> <span class="number">1</span>\G</span><br></pre></td></tr></table></figure>
+<p>输出结果如下：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">show</span> parse_tree <span class="keyword">select</span> <span class="number">1</span>\G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">Show_parse_tree: &#123;</span><br><span class="line">  &quot;text&quot;: &quot;select 1&quot;,</span><br><span class="line">  &quot;type&quot;: &quot;PT_select_stmt&quot;,</span><br><span class="line">  &quot;components&quot;: [</span><br><span class="line">    &#123;</span><br><span class="line">      &quot;text&quot;: &quot;select 1&quot;,</span><br><span class="line">      &quot;type&quot;: &quot;PT_query_expression&quot;,</span><br><span class="line">      &quot;components&quot;: [</span><br><span class="line">        &#123;</span><br><span class="line">          &quot;text&quot;: &quot;select 1&quot;,</span><br><span class="line">          &quot;type&quot;: &quot;PT_query_specification&quot;,</span><br><span class="line">          &quot;components&quot;: [</span><br><span class="line">            &#123;</span><br><span class="line">              &quot;text&quot;: &quot;1&quot;,</span><br><span class="line">              &quot;type&quot;: &quot;PT_select_item_list&quot;,</span><br><span class="line">              &quot;components&quot;: [</span><br><span class="line">                &#123;</span><br><span class="line">                  &quot;text&quot;: &quot;1&quot;,</span><br><span class="line">                  &quot;type&quot;: &quot;PTI_expr_with_alias&quot;,</span><br><span class="line">                  &quot;components&quot;: [</span><br><span class="line">                    &#123;</span><br><span class="line">                      &quot;text&quot;: &quot;1&quot;,</span><br><span class="line">                      &quot;type&quot;: &quot;Item_int&quot;</span><br><span class="line">                    &#125;</span><br><span class="line">                  ]</span><br><span class="line">                &#125;</span><br><span class="line">              ]</span><br><span class="line">            &#125;</span><br><span class="line">          ]</span><br><span class="line">        &#125;</span><br><span class="line">      ]</span><br><span class="line">    &#125;</span><br><span class="line">  ]</span><br><span class="line">&#125;</span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure>
+<p>不过，这里遇到了一个问题，看来这个新特性有严重的bug：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://bugs.mysql.com/bug.php?id=112883">[Open] Bug #112883 	mysql 8.1.0/8.2.0, mysqld got signal 11, when send sql, show parse_tree</a></li>
+</ul>
+<h2 id="遇到问题">遇到问题</h2>
+<h3 id="缺包问题">缺包问题</h3>
+<p>编译过程中会提示缺少类包，好在代码已经做了 catch 及 tips，这里只需依照提示安装对应缺少的包即可，比如：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">-- Could NOT find Curses (missing: CURSES_LIBRARY CURSES_INCLUDE_PATH) </span><br><span class="line">CMake Error at cmake/readline.cmake:92 (MESSAGE):</span><br><span class="line">  Curses library not found.  Please install appropriate package,</span><br><span class="line"></span><br><span class="line">      remove CMakeCache.txt and rerun cmake.On Debian/Ubuntu, package name is libncurses5-dev, on Redhat and derivates it is ncurses-devel.</span><br><span class="line">Call Stack (most recent call first):</span><br><span class="line">  cmake/readline.cmake:126 (FIND_CURSES)</span><br><span class="line">  cmake/readline.cmake:220 (MYSQL_USE_BUNDLED_EDITLINE)</span><br><span class="line">  CMakeLists.txt:1934 (MYSQL_CHECK_EDITLINE)</span><br></pre></td></tr></table></figure>
+<p>cmake 过程中遇到报错，提示安装 <code>ncurses-devel</code>。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">yum install ncurses-devel</span><br></pre></td></tr></table></figure>
+<p>安装完成后，再次 cmake 通过。</p>
+<h3 id="编译报错">编译报错</h3>
+<p>编译过程中，遇到报错，似乎无解，只能扩充 VM 资源，再次进行编译。</p>
+<ul>
+<li>第一次报错</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">[ 88%] Building CXX object sql/CMakeFiles/sql_gis.dir/gis/overlaps.cc.o</span><br><span class="line">g++: fatal error: 已杀死 signal terminated program cc1plus</span><br><span class="line">compilation terminated.</span><br><span class="line">make[2]: *** [sql/CMakeFiles/sql_gis.dir/build.make:300：sql/CMakeFiles/sql_gis.dir/gis/intersection_functor.cc.o] 错误 1</span><br><span class="line">make[2]: *** 正在等待未完成的任务....</span><br><span class="line">make[1]: *** [CMakeFiles/Makefile2:33773：sql/CMakeFiles/sql_gis.dir/all] 错误 2</span><br><span class="line">make: *** [Makefile:166：all] 错误 2</span><br><span class="line"></span><br><span class="line">real    150m33.063s</span><br><span class="line">user    192m24.614s</span><br><span class="line">sys     33m36.786s</span><br><span class="line">[root@rocky9 debug]#</span><br></pre></td></tr></table></figure>
+<ul>
+<li>第二次报错</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">[ 61%] Linking CXX executable ../runtime_output_directory/mysqld</span><br><span class="line">collect2: fatal error: ld terminated with signal 9 [已杀死]</span><br><span class="line">compilation terminated.</span><br><span class="line">make[2]: *** [sql/CMakeFiles/mysqld.dir/build.make:157：runtime_output_directory/mysqld] 错误 1</span><br><span class="line">make[2]: *** 正在删除文件“runtime_output_directory/mysqld”</span><br><span class="line">make[1]: *** [CMakeFiles/Makefile2:12706：sql/CMakeFiles/mysqld.dir/all] 错误 2</span><br><span class="line">make: *** [Makefile:156：all] 错误 2</span><br><span class="line"></span><br><span class="line">real    98m7.350s</span><br><span class="line">user    79m50.233s</span><br><span class="line">sys     11m1.616s</span><br></pre></td></tr></table></figure>
+<p>这里也提示，在编译 MySQL 源码时，机器资源要给多一些，2c2g 是编译不过的。</p>
+<h2 id="总结">总结</h2>
+<p>文本介绍了如何编译 MySQL 8.2.0 源码，及进行了新特性的尝试。</p>
+<p>不过，也遇到了一个问题，就是编译时间很长，如上面的编译报错，是在经历 150 分钟后，才抛出报错。</p>
+<img alt="logo.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg" referrerpolicy="no-referrer"/>
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/oracle/" class="tag-link">
+                                oracle
+                            </a>
+                        
+                            <a href="/tags/rocky/" class="tag-link">
+                                rocky
+                            </a>
+                        
+                            <a href="/tags/mysql/" class="tag-link">
+                                mysql
+                            </a>
+                        
+                            <a href="/tags/compile/" class="tag-link">
+                                compile
+                            </a>
+                        
+                            <a href="/tags/mysql-8-x/" class="tag-link">
+                                mysql 8.x
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2023/mysql/mysql-8.2.0-compile-on-rocky-9/index.html">https://shawnyan.cn/2023/mysql/mysql-8.2.0-compile-on-rocky-9/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2023/ivorysql/ivorysql-v3.0-feature/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">IvorySQL v3.0 新特性浅测</span>
+        </a>
+    
+
+    
+        <a href="/2023/mysql/mysql-8.2.0-sys-vars/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">【MySQL 8.x】从参数变化解读 MySQL 8.2.0 发版说明</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E6%83%85%E6%8F%90%E8%A6%81"><span class="toc-text">前情提要</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%8E%AF%E5%A2%83%E5%87%86%E5%A4%87"><span class="toc-text">环境准备</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%8B%E8%BD%BD%E6%BA%90%E7%A0%81"><span class="toc-text">下载源码</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BC%96%E8%AF%91%E6%BA%90%E7%A0%81"><span class="toc-text">编译源码</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%BF%90%E8%A1%8C-MySQL-8-2-0-Debug-%E6%9C%8D%E5%8A%A1%E5%99%A8"><span class="toc-text">运行 MySQL 8.2.0 Debug 服务器</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%9E%E9%AA%8C%EF%BC%9ASHOW-PARSE-TREE-%E6%96%B0%E7%89%B9%E6%80%A7"><span class="toc-text">实验：SHOW PARSE_TREE 新特性</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%81%87%E5%88%B0%E9%97%AE%E9%A2%98"><span class="toc-text">遇到问题</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BC%BA%E5%8C%85%E9%97%AE%E9%A2%98"><span class="toc-text">缺包问题</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BC%96%E8%AF%91%E6%8A%A5%E9%94%99"><span class="toc-text">编译报错</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

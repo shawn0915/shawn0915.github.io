@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        星辰考古：TiDB v1.0 安装实录 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;img alt=&#34;tidb1.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/1.0-1714903421907.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;blockquote&gt;
+&lt;p&gt;1.0 版本只是个开始，是新的起点，愿我们一路相扶，不负远途。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;前言&#34;&gt;前言&lt;/h2&gt;
+&lt;p&gt;TiDB 是 PingCAP 公司自主设计、研发的开源分布式关系型数据库。&lt;/p&gt;
+&lt;p&gt;近日，TiDB v8.0.0 DMR 发布，详细发版说明戳这里：&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://docs.pingcap.com/zh/tidb/v8.0/release-8.0.0&#34;&gt;https://docs.pingcap.com/zh/tidb/v8.0/release-8.0.0&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;之前的文章提到过，我们从 v1.0 开始接触 TiDB，那时还没有好用的工具，&lt;/p&gt;
+&lt;p&gt;也没有社区论坛，遇到问题基本靠猜，或者去 GitHub 提个 Issue，&lt;/p&gt;
+&lt;p&gt;远不及现在方便、好用、高效。&lt;/p&gt;
+&lt;p&gt;那时安装集群全靠手工，先进的用 Ansible playbook，一周能装起来就很快了，&lt;/p&gt;
+&lt;p&gt;当然，现在好多国产数据库仍旧如此，长期处于初级阶段。&lt;/p&gt;
+&lt;p&gt;本文主要讲解如何安装 TiDB v1.0，找寻一下“初恋”的记忆。&lt;/p&gt;
+&lt;img alt=&#34;arch.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240505-6c08e85b-858d-4905-8c07-4ff19d67c3ad.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;TiDB-v1-0-Release&#34;&gt;TiDB v1.0 Release&lt;/h2&gt;
+&lt;p&gt;TiDB v1.0 共发布了 9 个版本，从 v1.0.0 到 v1.0.8，先来回忆下当年的发版说明。&lt;/p&gt;
+&lt;p&gt;（由于内容较多，移除了错误修复的部分）&lt;/p&gt;
+&lt;h3 id=&#34;时间线&#34;&gt;时间线&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;2017 年 10 月 16 日，TiDB 1.0 正式发布！&lt;/li&gt;
+&lt;li&gt;2017 年 11 月 01 日，TiDB 1.0.1 发布&lt;/li&gt;
+&lt;li&gt;2017 年 11 月 13 日，TiDB 1.0.2 发布&lt;/li&gt;
+&lt;li&gt;2017 年 11 月 28 日，TiDB 1.0.3 发布&lt;/li&gt;
+&lt;li&gt;2017 年 12 月 11 日，TiDB 1.0.4 发布&lt;/li&gt;
+&lt;li&gt;2017 年 12 月 26 日，TiDB 1.0.5 发布&lt;/li&gt;
+&lt;li&gt;2018 年 01 月 08 日，TiDB 1.0.6 发布&lt;/li&gt;
+&lt;li&gt;2018 年 01 月 22 日，TiDB 1.0.7 发布&lt;/li&gt;
+&lt;li&gt;2018 年 02 月 11 日，TiDB 1.0.8 发布&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;TiDB-Server&#34;&gt;TiDB Server&lt;/h3&gt;
+&lt;h4 id=&#34;TiDB-v1-0-0&#34;&gt;TiDB v1.0.0&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;SQL查询优化器：
+&lt;ul&gt;
+&lt;li&gt;调整成本模型&lt;/li&gt;
+&lt;li&gt;分析下推&lt;/li&gt;
+&lt;li&gt;函数签名下推&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;优化内部数据格式，减少中间数据大小&lt;/li&gt;
+&lt;li&gt;增强 MySQL 兼容性&lt;/li&gt;
+&lt;li&gt;支持 &lt;code&gt;NO_SQL_CACHE&lt;/code&gt; 语法并限制存储引擎中的缓存使用&lt;/li&gt;
+&lt;li&gt;重构 Hash Aggregator 运算符以减少内存使用&lt;/li&gt;
+&lt;li&gt;支持 Stream Aggregator 算子&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-1&#34;&gt;TiDB v1.0.1&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;支持取消 DDL Job。&lt;/li&gt;
+&lt;li&gt;优化 IN 表达。&lt;/li&gt;
+&lt;li&gt;支持将慢查询记录到单独的日志文件中。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-2&#34;&gt;TiDB v1.0.2&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;优化索引点查询的成本估算&lt;/li&gt;
+&lt;li&gt;支持 &lt;code&gt;Alter Table Add Column (ColumnDef ColumnPosition)&lt;/code&gt; 语法&lt;/li&gt;
+&lt;li&gt;where 优化条件矛盾的查询&lt;/li&gt;
+&lt;li&gt;优化 &lt;code&gt;Add Index&lt;/code&gt; 操作纠正进度，减少重复操作&lt;/li&gt;
+&lt;li&gt;优化 &lt;code&gt;Index Look Join&lt;/code&gt; 算子，加快小数据量的查询速度&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-3&#34;&gt;TiDB v1.0.3&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;优化事务冲突场景下的性能&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;TokenLimit&lt;/code&gt; 在配置文件中添加选项&lt;/li&gt;
+&lt;li&gt;在慢查询日志中输出默认数据库&lt;/li&gt;
+&lt;li&gt;从查询持续时间指标中删除 DDL 语句&lt;/li&gt;
+&lt;li&gt;优化查询成本估算&lt;/li&gt;
+&lt;li&gt;支持将 Float 类型的表达式下推到 TiKV&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-4&#34;&gt;TiDB v1.0.4&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;加快启动时统计数据的加载速度 &lt;code&gt;tidb-server&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;show variables&lt;/code&gt; 提高语句的性能&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;Alter/Drop User&lt;/code&gt; 加速声明的有效性&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-5&#34;&gt;TiDB v1.0.5&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;在语句中添加当前 Auto_Increment ID 的最大值 &lt;code&gt;Show Create Table&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;支持将慢查询输出到单独的文件中。&lt;/li&gt;
+&lt;li&gt;TimeZone 创建新会话时从  TiKV 加载变量。&lt;/li&gt;
+&lt;li&gt;支持模式状态检查，使 &lt;code&gt;Show Create Table&lt;/code&gt; 和 &lt;code&gt;Analyze&lt;/code&gt; 语句仅处理公共表/索引。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-6&#34;&gt;TiDB v1.0.6&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;支持 &lt;code&gt;Alter Table Auto_Increment&lt;/code&gt; 语法&lt;/li&gt;
+&lt;li&gt;支持扩展语法对隐式行ID进行分片，避免单表写入热点&lt;/li&gt;
+&lt;li&gt;支持 GROUP_CONCAT 函数中的 &lt;code&gt;SEPARATOR&lt;/code&gt; 语法&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-7&#34;&gt;TiDB v1.0.7&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;优化 &lt;code&gt;FIELD_LIST&lt;/code&gt; 命令&lt;/li&gt;
+&lt;li&gt;避免将只读语句添加到历史记录中&lt;/li&gt;
+&lt;li&gt;添加 &lt;code&gt;session&lt;/code&gt; 变量控制日志查询&lt;/li&gt;
+&lt;li&gt;为http状态服务器添加架构信息API&lt;/li&gt;
+&lt;li&gt;更新 DDL 中为 false 时 RunWorker 的行为&lt;/li&gt;
+&lt;li&gt;提高统计中测试结果的稳定性&lt;/li&gt;
+&lt;li&gt;支持 &lt;code&gt;CREATE TABLE&lt;/code&gt; 语句 &lt;code&gt;PACK_KEYS&lt;/code&gt; 语法&lt;/li&gt;
+&lt;li&gt;row_id 为空下推模式添加列以优化性能&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-8&#34;&gt;TiDB v1.0.8&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;优化 &lt;code&gt;InsertIntoIgnore&lt;/code&gt; 语句的性能&lt;/li&gt;
+&lt;li&gt;为事务内的 DML 语句数量添加限制（可配置，默认值为 stmt-count-limit = 5000）&lt;/li&gt;
+&lt;li&gt;并发运行GC以加速GC进程&lt;/li&gt;
+&lt;li&gt;为 &lt;code&gt;CREATE INDEX&lt;/code&gt; 语句提供 &lt;code&gt;LOCK&lt;/code&gt; 语法支持&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;PD&#34;&gt;PD&lt;/h3&gt;
+&lt;h4 id=&#34;TiDB-v1-0-0-2&#34;&gt;TiDB v1.0.0&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;支持基于读流的平衡&lt;/li&gt;
+&lt;li&gt;支持设置存储重量和基于重量的平衡&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-2-2&#34;&gt;TiDB v1.0.2&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;提高异常情况下调度的稳定性&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-3-2&#34;&gt;TiDB v1.0.3&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;支持使用 API​​ 添加更多类型的调度器&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-7-2&#34;&gt;TiDB v1.0.7&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;增加日志&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;TiKV&#34;&gt;TiKV&lt;/h3&gt;
+&lt;h4 id=&#34;TiDB-v1-0-0-3&#34;&gt;TiDB v1.0.0&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;协处理器现在支持更多下推功能&lt;/li&gt;
+&lt;li&gt;支持下推采样操作&lt;/li&gt;
+&lt;li&gt;支持手动触发数据压缩，快速收集空间&lt;/li&gt;
+&lt;li&gt;提高性能和稳定性&lt;/li&gt;
+&lt;li&gt;添加 Debug API 进行调试&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-1-2&#34;&gt;TiDB v1.0.1&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;支持写字节的流控制。&lt;/li&gt;
+&lt;li&gt;减少 Raft 分配。&lt;/li&gt;
+&lt;li&gt;将协处理器堆栈大小增加到 10MB。&lt;/li&gt;
+&lt;li&gt;从协处理器中删除无用的日志。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-2-3&#34;&gt;TiDB v1.0.2&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;支持分表，确保一个 Region 不包含多个表的数据&lt;/li&gt;
+&lt;li&gt;限制密钥长度不超过 4 KB&lt;/li&gt;
+&lt;li&gt;更准确的读流量统计&lt;/li&gt;
+&lt;li&gt;对协处理器堆栈实施深度保护&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-5-2&#34;&gt;TiDB v1.0.5&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;支持 &lt;code&gt;dynamic-level-bytes&lt;/code&gt; 参数改善空间收集情况。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-7-3&#34;&gt;TiDB v1.0.7&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;支持 &lt;code&gt;Table Scan&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;tikv-ctl 支持远程模式&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-8-2&#34;&gt;TiDB v1.0.8&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;用 &lt;code&gt;DeleteFilesInRanges&lt;/code&gt; 清除陈旧数据，提高 TiKV 启动速度&lt;/li&gt;
+&lt;li&gt;强制同步接收到的 Snapshot 的元数据，保证其安全&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;TiDB-v1-0-极简版&#34;&gt;TiDB v1.0 极简版&lt;/h2&gt;
+&lt;p&gt;极简形态启动 TiDB 数据库，准备一个 PD，一个 TiKV 和一个 TiDB Server。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;./pd-server&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;./tikv-server --pd-endpoints 127.0.0.1:2379&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;./tidb-server -store tikv --path 127.0.0.1:2379&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;连接 4000 端口到 TiDB Server，并查看一些基础信息。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;41&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;42&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;43&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;44&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;45&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;46&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;47&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;48&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;49&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;50&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;51&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;52&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;53&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;54&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;55&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;56&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;57&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;58&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;59&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;60&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;61&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;62&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;63&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;65&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;66&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;67&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;68&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;69&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;70&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;71&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;72&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;73&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;74&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;75&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;76&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;77&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;78&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;79&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;80&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;81&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;82&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;83&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;84&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;85&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;86&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;87&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;88&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;89&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~]# mysql -uroot -P4000 -h127.1 --default-character-set=utf8 --prompt=&amp;#x27;tidb&amp;gt; &amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Welcome to the MySQL monitor.  Commands end with ; or \g.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Your MySQL connection id is 5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Server version: 5.7.1-TiDB-v1.0.8-1-gaacba4a MySQL Community Server (Apache License 2.0)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copyright (c) 2000, 2024, Oracle and/or its affiliates.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Oracle is a registered trademark of Oracle Corporation and/or its&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;affiliates. Other names may be trademarks of their respective&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;owners.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;#x27;help;&amp;#x27; or &amp;#x27;\h&amp;#x27; for help. Type &amp;#x27;\c&amp;#x27; to clear the current input statement.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;tidb&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;\s&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql  Ver 8.4.0 for Linux on x86_64 (MySQL Community Server - GPL)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Connection id:		5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Current database:	&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Current user:		root@127.0.0.1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SSL:			Not in use&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Current pager:		stdout&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Using outfile:		&amp;#x27;&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Using delimiter:	;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Server version:		5.7.1-TiDB-v1.0.8-1-gaacba4a MySQL Community Server (Apache License 2.0)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Protocol version:	10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Connection:		127.1 via TCP/IP&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Server characterset:	latin1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Db     characterset:	latin1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Client characterset:	utf8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Conn.  characterset:	utf8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;TCP port:		4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Binary data as:		Hexadecimal&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;tidb&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; version();&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| version()                    |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| 5.7.1-TiDB-v1.0.8-1-gaacba4a |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;tidb&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; tidb_version()\G&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tidb_version(): Release Version: v1.0.8-1-gaacba4a&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Git Commit Hash: aacba4a427f6c1dd64cd581e1f888e00aa64e948&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Git Branch: release-1.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;UTC Build Time: 2018-02-11 12:21:59&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.01 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;tidb&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; * from mysql.tidb;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------------+-------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| VARIABLE_NAME         | VARIABLE_VALUE                                                                            | COMMENT                                                                                |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------------+-------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| bootstrapped          | True                                                                                      | Bootstrap flag. Do not delete.                                                         |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tidb_server_version   | 15                                                                                        | Bootstrap version. Do not delete.                                                      |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tikv_gc_leader_uuid   | 63d1e883d100006                                                                           | Current GC worker leader UUID. (DO NOT EDIT)                                           |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tikv_gc_leader_desc   | host:shawnyan, pid:22873, start at 2024-05-05 15:22:34.205171361 +0800 CST m=+1.715160561 | Host name and pid of current GC leader. (DO NOT EDIT)                                  |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tikv_gc_leader_lease  | 20240505-15:36:34 +0800 CST                                                               | Current GC worker leader lease. (DO NOT EDIT)                                          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tikv_gc_run_interval  | 10m0s                                                                                     | GC run interval, at least 10m, in Go format.                                           |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tikv_gc_life_time     | 10m0s                                                                                     | All versions within life time will not be collected by GC, at least 10m, in Go format. |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tikv_gc_last_run_time | 20240505-15:32:34 +0800 CST                                                               | The time when last GC starts. (DO NOT EDIT)                                            |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tikv_gc_safe_point    | 20240505-15:22:34 +0800 CST                                                               | All versions after safe point can be accessed. (DO NOT EDIT)                           |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tikv_gc_concurrency   | 1                                                                                         | How many go routines used to do GC parallel, [1, 128], default 1                       |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------------+-------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10 rows in set (0.01 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;tidb&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; count(*) from mysql.GLOBAL_VARIABLES;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| count(*) |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;|      498 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;tidb&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; * from mysql.GLOBAL_VARIABLES &lt;span class=&#34;built_in&#34;&gt;where&lt;/span&gt; VARIABLE_NAME like &lt;span class=&#34;string&#34;&gt;&amp;#x27;tidb%&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------------+----------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| VARIABLE_NAME                      | VARIABLE_VALUE |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------------+----------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tidb_max_row_count_for_inlj        | 128            |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tidb_index_lookup_size             | 20000          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tidb_distsql_scan_concurrency      | 10             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tidb_index_join_batch_size         | 25000          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tidb_index_serial_scan_concurrency | 1              |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tidb_skip_utf8_check               | 0              |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tidb_index_lookup_concurrency      | 4              |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------------+----------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7 rows in set (0.01 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看 PD 中的配置：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan bin]# echo &amp;quot;config show&amp;quot; | ./pd-ctl &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &amp;quot;max-snapshot-count&amp;quot;: 3,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &amp;quot;max-store-down-time&amp;quot;: &amp;quot;1h0m0s&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &amp;quot;leader-schedule-limit&amp;quot;: 64,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &amp;quot;region-schedule-limit&amp;quot;: 12,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &amp;quot;replica-schedule-limit&amp;quot;: 16,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &amp;quot;schedulers-v2&amp;quot;: [&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      &amp;quot;type&amp;quot;: &amp;quot;balance-region&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      &amp;quot;args&amp;quot;: null&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &amp;#125;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      &amp;quot;type&amp;quot;: &amp;quot;balance-leader&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      &amp;quot;args&amp;quot;: null&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &amp;#125;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      &amp;quot;type&amp;quot;: &amp;quot;hot-region&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      &amp;quot;args&amp;quot;: null&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  ]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#125;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;hr&gt;
+&lt;p&gt;本期考古活动告一段落，咱们下期再见！&lt;/p&gt;
+&lt;p&gt;– END –&lt;/p&gt;
+&lt;img alt=&#34;foot.png&#34; src=&#34;https://files.mdnice.com/user/54598/23af4bef-b6ac-4f59-9456-19114dfe6dd7.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;如果这篇文章为你带来了灵感或启发，就请帮忙点『赞』or『在看』or『转发』吧，感谢！(๑˃̵ᴗ˂̵)&lt;/p&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="星辰考古：TiDB v1.0 安装实录">
+    <meta property="og:url" content="https://shawnyan.cn/2024/tidb/tidb-1-0-release/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;img alt=&#34;tidb1.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/1.0-1714903421907.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;blockquote&gt;
+&lt;p&gt;1.0 版本只是个开始，是新的起点，愿我们一路相扶，不负远途。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;前言&#34;&gt;前言&lt;/h2&gt;
+&lt;p&gt;TiDB 是 PingCAP 公司自主设计、研发的开源分布式关系型数据库。&lt;/p&gt;
+&lt;p&gt;近日，TiDB v8.0.0 DMR 发布，详细发版说明戳这里：&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://docs.pingcap.com/zh/tidb/v8.0/release-8.0.0&#34;&gt;https://docs.pingcap.com/zh/tidb/v8.0/release-8.0.0&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;之前的文章提到过，我们从 v1.0 开始接触 TiDB，那时还没有好用的工具，&lt;/p&gt;
+&lt;p&gt;也没有社区论坛，遇到问题基本靠猜，或者去 GitHub 提个 Issue，&lt;/p&gt;
+&lt;p&gt;远不及现在方便、好用、高效。&lt;/p&gt;
+&lt;p&gt;那时安装集群全靠手工，先进的用 Ansible playbook，一周能装起来就很快了，&lt;/p&gt;
+&lt;p&gt;当然，现在好多国产数据库仍旧如此，长期处于初级阶段。&lt;/p&gt;
+&lt;p&gt;本文主要讲解如何安装 TiDB v1.0，找寻一下“初恋”的记忆。&lt;/p&gt;
+&lt;img alt=&#34;arch.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240505-6c08e85b-858d-4905-8c07-4ff19d67c3ad.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;TiDB-v1-0-Release&#34;&gt;TiDB v1.0 Release&lt;/h2&gt;
+&lt;p&gt;TiDB v1.0 共发布了 9 个版本，从 v1.0.0 到 v1.0.8，先来回忆下当年的发版说明。&lt;/p&gt;
+&lt;p&gt;（由于内容较多，移除了错误修复的部分）&lt;/p&gt;
+&lt;h3 id=&#34;时间线&#34;&gt;时间线&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;2017 年 10 月 16 日，TiDB 1.0 正式发布！&lt;/li&gt;
+&lt;li&gt;2017 年 11 月 01 日，TiDB 1.0.1 发布&lt;/li&gt;
+&lt;li&gt;2017 年 11 月 13 日，TiDB 1.0.2 发布&lt;/li&gt;
+&lt;li&gt;2017 年 11 月 28 日，TiDB 1.0.3 发布&lt;/li&gt;
+&lt;li&gt;2017 年 12 月 11 日，TiDB 1.0.4 发布&lt;/li&gt;
+&lt;li&gt;2017 年 12 月 26 日，TiDB 1.0.5 发布&lt;/li&gt;
+&lt;li&gt;2018 年 01 月 08 日，TiDB 1.0.6 发布&lt;/li&gt;
+&lt;li&gt;2018 年 01 月 22 日，TiDB 1.0.7 发布&lt;/li&gt;
+&lt;li&gt;2018 年 02 月 11 日，TiDB 1.0.8 发布&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;TiDB-Server&#34;&gt;TiDB Server&lt;/h3&gt;
+&lt;h4 id=&#34;TiDB-v1-0-0&#34;&gt;TiDB v1.0.0&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;SQL查询优化器：
+&lt;ul&gt;
+&lt;li&gt;调整成本模型&lt;/li&gt;
+&lt;li&gt;分析下推&lt;/li&gt;
+&lt;li&gt;函数签名下推&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;优化内部数据格式，减少中间数据大小&lt;/li&gt;
+&lt;li&gt;增强 MySQL 兼容性&lt;/li&gt;
+&lt;li&gt;支持 &lt;code&gt;NO_SQL_CACHE&lt;/code&gt; 语法并限制存储引擎中的缓存使用&lt;/li&gt;
+&lt;li&gt;重构 Hash Aggregator 运算符以减少内存使用&lt;/li&gt;
+&lt;li&gt;支持 Stream Aggregator 算子&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-1&#34;&gt;TiDB v1.0.1&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;支持取消 DDL Job。&lt;/li&gt;
+&lt;li&gt;优化 IN 表达。&lt;/li&gt;
+&lt;li&gt;支持将慢查询记录到单独的日志文件中。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-2&#34;&gt;TiDB v1.0.2&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;优化索引点查询的成本估算&lt;/li&gt;
+&lt;li&gt;支持 &lt;code&gt;Alter Table Add Column (ColumnDef ColumnPosition)&lt;/code&gt; 语法&lt;/li&gt;
+&lt;li&gt;where 优化条件矛盾的查询&lt;/li&gt;
+&lt;li&gt;优化 &lt;code&gt;Add Index&lt;/code&gt; 操作纠正进度，减少重复操作&lt;/li&gt;
+&lt;li&gt;优化 &lt;code&gt;Index Look Join&lt;/code&gt; 算子，加快小数据量的查询速度&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-3&#34;&gt;TiDB v1.0.3&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;优化事务冲突场景下的性能&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;TokenLimit&lt;/code&gt; 在配置文件中添加选项&lt;/li&gt;
+&lt;li&gt;在慢查询日志中输出默认数据库&lt;/li&gt;
+&lt;li&gt;从查询持续时间指标中删除 DDL 语句&lt;/li&gt;
+&lt;li&gt;优化查询成本估算&lt;/li&gt;
+&lt;li&gt;支持将 Float 类型的表达式下推到 TiKV&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-4&#34;&gt;TiDB v1.0.4&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;加快启动时统计数据的加载速度 &lt;code&gt;tidb-server&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;show variables&lt;/code&gt; 提高语句的性能&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;Alter/Drop User&lt;/code&gt; 加速声明的有效性&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-5&#34;&gt;TiDB v1.0.5&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;在语句中添加当前 Auto_Increment ID 的最大值 &lt;code&gt;Show Create Table&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;支持将慢查询输出到单独的文件中。&lt;/li&gt;
+&lt;li&gt;TimeZone 创建新会话时从  TiKV 加载变量。&lt;/li&gt;
+&lt;li&gt;支持模式状态检查，使 &lt;code&gt;Show Create Table&lt;/code&gt; 和 &lt;code&gt;Analyze&lt;/code&gt; 语句仅处理公共表/索引。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-6&#34;&gt;TiDB v1.0.6&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;支持 &lt;code&gt;Alter Table Auto_Increment&lt;/code&gt; 语法&lt;/li&gt;
+&lt;li&gt;支持扩展语法对隐式行ID进行分片，避免单表写入热点&lt;/li&gt;
+&lt;li&gt;支持 GROUP_CONCAT 函数中的 &lt;code&gt;SEPARATOR&lt;/code&gt; 语法&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-7&#34;&gt;TiDB v1.0.7&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;优化 &lt;code&gt;FIELD_LIST&lt;/code&gt; 命令&lt;/li&gt;
+&lt;li&gt;避免将只读语句添加到历史记录中&lt;/li&gt;
+&lt;li&gt;添加 &lt;code&gt;session&lt;/code&gt; 变量控制日志查询&lt;/li&gt;
+&lt;li&gt;为http状态服务器添加架构信息API&lt;/li&gt;
+&lt;li&gt;更新 DDL 中为 false 时 RunWorker 的行为&lt;/li&gt;
+&lt;li&gt;提高统计中测试结果的稳定性&lt;/li&gt;
+&lt;li&gt;支持 &lt;code&gt;CREATE TABLE&lt;/code&gt; 语句 &lt;code&gt;PACK_KEYS&lt;/code&gt; 语法&lt;/li&gt;
+&lt;li&gt;row_id 为空下推模式添加列以优化性能&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-8&#34;&gt;TiDB v1.0.8&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;优化 &lt;code&gt;InsertIntoIgnore&lt;/code&gt; 语句的性能&lt;/li&gt;
+&lt;li&gt;为事务内的 DML 语句数量添加限制（可配置，默认值为 stmt-count-limit = 5000）&lt;/li&gt;
+&lt;li&gt;并发运行GC以加速GC进程&lt;/li&gt;
+&lt;li&gt;为 &lt;code&gt;CREATE INDEX&lt;/code&gt; 语句提供 &lt;code&gt;LOCK&lt;/code&gt; 语法支持&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;PD&#34;&gt;PD&lt;/h3&gt;
+&lt;h4 id=&#34;TiDB-v1-0-0-2&#34;&gt;TiDB v1.0.0&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;支持基于读流的平衡&lt;/li&gt;
+&lt;li&gt;支持设置存储重量和基于重量的平衡&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-2-2&#34;&gt;TiDB v1.0.2&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;提高异常情况下调度的稳定性&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-3-2&#34;&gt;TiDB v1.0.3&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;支持使用 API​​ 添加更多类型的调度器&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-7-2&#34;&gt;TiDB v1.0.7&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;增加日志&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;TiKV&#34;&gt;TiKV&lt;/h3&gt;
+&lt;h4 id=&#34;TiDB-v1-0-0-3&#34;&gt;TiDB v1.0.0&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;协处理器现在支持更多下推功能&lt;/li&gt;
+&lt;li&gt;支持下推采样操作&lt;/li&gt;
+&lt;li&gt;支持手动触发数据压缩，快速收集空间&lt;/li&gt;
+&lt;li&gt;提高性能和稳定性&lt;/li&gt;
+&lt;li&gt;添加 Debug API 进行调试&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-1-2&#34;&gt;TiDB v1.0.1&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;支持写字节的流控制。&lt;/li&gt;
+&lt;li&gt;减少 Raft 分配。&lt;/li&gt;
+&lt;li&gt;将协处理器堆栈大小增加到 10MB。&lt;/li&gt;
+&lt;li&gt;从协处理器中删除无用的日志。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-2-3&#34;&gt;TiDB v1.0.2&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;支持分表，确保一个 Region 不包含多个表的数据&lt;/li&gt;
+&lt;li&gt;限制密钥长度不超过 4 KB&lt;/li&gt;
+&lt;li&gt;更准确的读流量统计&lt;/li&gt;
+&lt;li&gt;对协处理器堆栈实施深度保护&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-5-2&#34;&gt;TiDB v1.0.5&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;支持 &lt;code&gt;dynamic-level-bytes&lt;/code&gt; 参数改善空间收集情况。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-7-3&#34;&gt;TiDB v1.0.7&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;支持 &lt;code&gt;Table Scan&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;tikv-ctl 支持远程模式&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;TiDB-v1-0-8-2&#34;&gt;TiDB v1.0.8&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;用 &lt;code&gt;DeleteFilesInRanges&lt;/code&gt; 清除陈旧数据，提高 TiKV 启动速度&lt;/li&gt;
+&lt;li&gt;强制同步接收到的 Snapshot 的元数据，保证其安全&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;TiDB-v1-0-极简版&#34;&gt;TiDB v1.0 极简版&lt;/h2&gt;
+&lt;p&gt;极简形态启动 TiDB 数据库，准备一个 PD，一个 TiKV 和一个 TiDB Server。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;./pd-server&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;./tikv-server --pd-endpoints 127.0.0.1:2379&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;./tidb-server -store tikv --path 127.0.0.1:2379&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;连接 4000 端口到 TiDB Server，并查看一些基础信息。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;41&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;42&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;43&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;44&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;45&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;46&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;47&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;48&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;49&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;50&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;51&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;52&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;53&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;54&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;55&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;56&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;57&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;58&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;59&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;60&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;61&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;62&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;63&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;65&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;66&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;67&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;68&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;69&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;70&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;71&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;72&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;73&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;74&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;75&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;76&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;77&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;78&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;79&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;80&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;81&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;82&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;83&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;84&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;85&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;86&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;87&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;88&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;89&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~]# mysql -uroot -P4000 -h127.1 --default-character-set=utf8 --prompt=&amp;#x27;tidb&amp;gt; &amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Welcome to the MySQL monitor.  Commands end with ; or \g.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Your MySQL connection id is 5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Server version: 5.7.1-TiDB-v1.0.8-1-gaacba4a MySQL Community Server (Apache License 2.0)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copyright (c) 2000, 2024, Oracle and/or its affiliates.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Oracle is a registered trademark of Oracle Corporation and/or its&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;affiliates. Other names may be trademarks of their respective&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;owners.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;#x27;help;&amp;#x27; or &amp;#x27;\h&amp;#x27; for help. Type &amp;#x27;\c&amp;#x27; to clear the current input statement.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;tidb&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;\s&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql  Ver 8.4.0 for Linux on x86_64 (MySQL Community Server - GPL)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Connection id:		5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Current database:	&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Current user:		root@127.0.0.1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SSL:			Not in use&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Current pager:		stdout&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Using outfile:		&amp;#x27;&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Using delimiter:	;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Server version:		5.7.1-TiDB-v1.0.8-1-gaacba4a MySQL Community Server (Apache License 2.0)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Protocol version:	10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Connection:		127.1 via TCP/IP&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Server characterset:	latin1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Db     characterset:	latin1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Client characterset:	utf8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Conn.  characterset:	utf8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;TCP port:		4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Binary data as:		Hexadecimal&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;tidb&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; version();&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| version()                    |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| 5.7.1-TiDB-v1.0.8-1-gaacba4a |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;tidb&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; tidb_version()\G&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tidb_version(): Release Version: v1.0.8-1-gaacba4a&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Git Commit Hash: aacba4a427f6c1dd64cd581e1f888e00aa64e948&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Git Branch: release-1.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;UTC Build Time: 2018-02-11 12:21:59&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.01 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;tidb&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; * from mysql.tidb;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------------+-------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| VARIABLE_NAME         | VARIABLE_VALUE                                                                            | COMMENT                                                                                |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------------+-------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| bootstrapped          | True                                                                                      | Bootstrap flag. Do not delete.                                                         |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tidb_server_version   | 15                                                                                        | Bootstrap version. Do not delete.                                                      |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tikv_gc_leader_uuid   | 63d1e883d100006                                                                           | Current GC worker leader UUID. (DO NOT EDIT)                                           |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tikv_gc_leader_desc   | host:shawnyan, pid:22873, start at 2024-05-05 15:22:34.205171361 +0800 CST m=+1.715160561 | Host name and pid of current GC leader. (DO NOT EDIT)                                  |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tikv_gc_leader_lease  | 20240505-15:36:34 +0800 CST                                                               | Current GC worker leader lease. (DO NOT EDIT)                                          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tikv_gc_run_interval  | 10m0s                                                                                     | GC run interval, at least 10m, in Go format.                                           |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tikv_gc_life_time     | 10m0s                                                                                     | All versions within life time will not be collected by GC, at least 10m, in Go format. |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tikv_gc_last_run_time | 20240505-15:32:34 +0800 CST                                                               | The time when last GC starts. (DO NOT EDIT)                                            |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tikv_gc_safe_point    | 20240505-15:22:34 +0800 CST                                                               | All versions after safe point can be accessed. (DO NOT EDIT)                           |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tikv_gc_concurrency   | 1                                                                                         | How many go routines used to do GC parallel, [1, 128], default 1                       |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------------+-------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10 rows in set (0.01 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;tidb&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; count(*) from mysql.GLOBAL_VARIABLES;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| count(*) |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;|      498 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;tidb&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; * from mysql.GLOBAL_VARIABLES &lt;span class=&#34;built_in&#34;&gt;where&lt;/span&gt; VARIABLE_NAME like &lt;span class=&#34;string&#34;&gt;&amp;#x27;tidb%&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------------+----------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| VARIABLE_NAME                      | VARIABLE_VALUE |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------------+----------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tidb_max_row_count_for_inlj        | 128            |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tidb_index_lookup_size             | 20000          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tidb_distsql_scan_concurrency      | 10             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tidb_index_join_batch_size         | 25000          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tidb_index_serial_scan_concurrency | 1              |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tidb_skip_utf8_check               | 0              |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| tidb_index_lookup_concurrency      | 4              |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------------+----------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7 rows in set (0.01 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看 PD 中的配置：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan bin]# echo &amp;quot;config show&amp;quot; | ./pd-ctl &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &amp;quot;max-snapshot-count&amp;quot;: 3,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &amp;quot;max-store-down-time&amp;quot;: &amp;quot;1h0m0s&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &amp;quot;leader-schedule-limit&amp;quot;: 64,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &amp;quot;region-schedule-limit&amp;quot;: 12,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &amp;quot;replica-schedule-limit&amp;quot;: 16,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &amp;quot;schedulers-v2&amp;quot;: [&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      &amp;quot;type&amp;quot;: &amp;quot;balance-region&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      &amp;quot;args&amp;quot;: null&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &amp;#125;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      &amp;quot;type&amp;quot;: &amp;quot;balance-leader&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      &amp;quot;args&amp;quot;: null&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &amp;#125;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      &amp;quot;type&amp;quot;: &amp;quot;hot-region&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      &amp;quot;args&amp;quot;: null&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  ]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#125;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;hr&gt;
+&lt;p&gt;本期考古活动告一段落，咱们下期再见！&lt;/p&gt;
+&lt;p&gt;– END –&lt;/p&gt;
+&lt;img alt=&#34;foot.png&#34; src=&#34;https://files.mdnice.com/user/54598/23af4bef-b6ac-4f59-9456-19114dfe6dd7.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;如果这篇文章为你带来了灵感或启发，就请帮忙点『赞』or『在看』or『转发』吧，感谢！(๑˃̵ᴗ˂̵)&lt;/p&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/tidb/" class="category-badge">
+                                    TiDB
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">星辰考古：TiDB v1.0 安装实录</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2024-05-05
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                1.9k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                8 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <img alt="tidb1.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/1.0-1714903421907.jpg" referrerpolicy="no-referrer"/>
+<blockquote>
+<p>1.0 版本只是个开始，是新的起点，愿我们一路相扶，不负远途。</p>
+</blockquote>
+<h2 id="前言">前言</h2>
+<p>TiDB 是 PingCAP 公司自主设计、研发的开源分布式关系型数据库。</p>
+<p>近日，TiDB v8.0.0 DMR 发布，详细发版说明戳这里：</p>
+<p><a target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/v8.0/release-8.0.0">https://docs.pingcap.com/zh/tidb/v8.0/release-8.0.0</a></p>
+<p>之前的文章提到过，我们从 v1.0 开始接触 TiDB，那时还没有好用的工具，</p>
+<p>也没有社区论坛，遇到问题基本靠猜，或者去 GitHub 提个 Issue，</p>
+<p>远不及现在方便、好用、高效。</p>
+<p>那时安装集群全靠手工，先进的用 Ansible playbook，一周能装起来就很快了，</p>
+<p>当然，现在好多国产数据库仍旧如此，长期处于初级阶段。</p>
+<p>本文主要讲解如何安装 TiDB v1.0，找寻一下“初恋”的记忆。</p>
+<img alt="arch.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20240505-6c08e85b-858d-4905-8c07-4ff19d67c3ad.png" referrerpolicy="no-referrer"/>
+<h2 id="TiDB-v1-0-Release">TiDB v1.0 Release</h2>
+<p>TiDB v1.0 共发布了 9 个版本，从 v1.0.0 到 v1.0.8，先来回忆下当年的发版说明。</p>
+<p>（由于内容较多，移除了错误修复的部分）</p>
+<h3 id="时间线">时间线</h3>
+<ul>
+<li>2017 年 10 月 16 日，TiDB 1.0 正式发布！</li>
+<li>2017 年 11 月 01 日，TiDB 1.0.1 发布</li>
+<li>2017 年 11 月 13 日，TiDB 1.0.2 发布</li>
+<li>2017 年 11 月 28 日，TiDB 1.0.3 发布</li>
+<li>2017 年 12 月 11 日，TiDB 1.0.4 发布</li>
+<li>2017 年 12 月 26 日，TiDB 1.0.5 发布</li>
+<li>2018 年 01 月 08 日，TiDB 1.0.6 发布</li>
+<li>2018 年 01 月 22 日，TiDB 1.0.7 发布</li>
+<li>2018 年 02 月 11 日，TiDB 1.0.8 发布</li>
+</ul>
+<h3 id="TiDB-Server">TiDB Server</h3>
+<h4 id="TiDB-v1-0-0">TiDB v1.0.0</h4>
+<ul>
+<li>SQL查询优化器：
+<ul>
+<li>调整成本模型</li>
+<li>分析下推</li>
+<li>函数签名下推</li>
+</ul>
+</li>
+<li>优化内部数据格式，减少中间数据大小</li>
+<li>增强 MySQL 兼容性</li>
+<li>支持 <code>NO_SQL_CACHE</code> 语法并限制存储引擎中的缓存使用</li>
+<li>重构 Hash Aggregator 运算符以减少内存使用</li>
+<li>支持 Stream Aggregator 算子</li>
+</ul>
+<h4 id="TiDB-v1-0-1">TiDB v1.0.1</h4>
+<ul>
+<li>支持取消 DDL Job。</li>
+<li>优化 IN 表达。</li>
+<li>支持将慢查询记录到单独的日志文件中。</li>
+</ul>
+<h4 id="TiDB-v1-0-2">TiDB v1.0.2</h4>
+<ul>
+<li>优化索引点查询的成本估算</li>
+<li>支持 <code>Alter Table Add Column (ColumnDef ColumnPosition)</code> 语法</li>
+<li>where 优化条件矛盾的查询</li>
+<li>优化 <code>Add Index</code> 操作纠正进度，减少重复操作</li>
+<li>优化 <code>Index Look Join</code> 算子，加快小数据量的查询速度</li>
+</ul>
+<h4 id="TiDB-v1-0-3">TiDB v1.0.3</h4>
+<ul>
+<li>优化事务冲突场景下的性能</li>
+<li><code>TokenLimit</code> 在配置文件中添加选项</li>
+<li>在慢查询日志中输出默认数据库</li>
+<li>从查询持续时间指标中删除 DDL 语句</li>
+<li>优化查询成本估算</li>
+<li>支持将 Float 类型的表达式下推到 TiKV</li>
+</ul>
+<h4 id="TiDB-v1-0-4">TiDB v1.0.4</h4>
+<ul>
+<li>加快启动时统计数据的加载速度 <code>tidb-server</code></li>
+<li><code>show variables</code> 提高语句的性能</li>
+<li><code>Alter/Drop User</code> 加速声明的有效性</li>
+</ul>
+<h4 id="TiDB-v1-0-5">TiDB v1.0.5</h4>
+<ul>
+<li>在语句中添加当前 Auto_Increment ID 的最大值 <code>Show Create Table</code>。</li>
+<li>支持将慢查询输出到单独的文件中。</li>
+<li>TimeZone 创建新会话时从  TiKV 加载变量。</li>
+<li>支持模式状态检查，使 <code>Show Create Table</code> 和 <code>Analyze</code> 语句仅处理公共表/索引。</li>
+</ul>
+<h4 id="TiDB-v1-0-6">TiDB v1.0.6</h4>
+<ul>
+<li>支持 <code>Alter Table Auto_Increment</code> 语法</li>
+<li>支持扩展语法对隐式行ID进行分片，避免单表写入热点</li>
+<li>支持 GROUP_CONCAT 函数中的 <code>SEPARATOR</code> 语法</li>
+</ul>
+<h4 id="TiDB-v1-0-7">TiDB v1.0.7</h4>
+<ul>
+<li>优化 <code>FIELD_LIST</code> 命令</li>
+<li>避免将只读语句添加到历史记录中</li>
+<li>添加 <code>session</code> 变量控制日志查询</li>
+<li>为http状态服务器添加架构信息API</li>
+<li>更新 DDL 中为 false 时 RunWorker 的行为</li>
+<li>提高统计中测试结果的稳定性</li>
+<li>支持 <code>CREATE TABLE</code> 语句 <code>PACK_KEYS</code> 语法</li>
+<li>row_id 为空下推模式添加列以优化性能</li>
+</ul>
+<h4 id="TiDB-v1-0-8">TiDB v1.0.8</h4>
+<ul>
+<li>优化 <code>InsertIntoIgnore</code> 语句的性能</li>
+<li>为事务内的 DML 语句数量添加限制（可配置，默认值为 stmt-count-limit = 5000）</li>
+<li>并发运行GC以加速GC进程</li>
+<li>为 <code>CREATE INDEX</code> 语句提供 <code>LOCK</code> 语法支持</li>
+</ul>
+<h3 id="PD">PD</h3>
+<h4 id="TiDB-v1-0-0-2">TiDB v1.0.0</h4>
+<ul>
+<li>支持基于读流的平衡</li>
+<li>支持设置存储重量和基于重量的平衡</li>
+</ul>
+<h4 id="TiDB-v1-0-2-2">TiDB v1.0.2</h4>
+<ul>
+<li>提高异常情况下调度的稳定性</li>
+</ul>
+<h4 id="TiDB-v1-0-3-2">TiDB v1.0.3</h4>
+<ul>
+<li>支持使用 API​​ 添加更多类型的调度器</li>
+</ul>
+<h4 id="TiDB-v1-0-7-2">TiDB v1.0.7</h4>
+<ul>
+<li>增加日志</li>
+</ul>
+<h3 id="TiKV">TiKV</h3>
+<h4 id="TiDB-v1-0-0-3">TiDB v1.0.0</h4>
+<ul>
+<li>协处理器现在支持更多下推功能</li>
+<li>支持下推采样操作</li>
+<li>支持手动触发数据压缩，快速收集空间</li>
+<li>提高性能和稳定性</li>
+<li>添加 Debug API 进行调试</li>
+</ul>
+<h4 id="TiDB-v1-0-1-2">TiDB v1.0.1</h4>
+<ul>
+<li>支持写字节的流控制。</li>
+<li>减少 Raft 分配。</li>
+<li>将协处理器堆栈大小增加到 10MB。</li>
+<li>从协处理器中删除无用的日志。</li>
+</ul>
+<h4 id="TiDB-v1-0-2-3">TiDB v1.0.2</h4>
+<ul>
+<li>支持分表，确保一个 Region 不包含多个表的数据</li>
+<li>限制密钥长度不超过 4 KB</li>
+<li>更准确的读流量统计</li>
+<li>对协处理器堆栈实施深度保护</li>
+</ul>
+<h4 id="TiDB-v1-0-5-2">TiDB v1.0.5</h4>
+<ul>
+<li>支持 <code>dynamic-level-bytes</code> 参数改善空间收集情况。</li>
+</ul>
+<h4 id="TiDB-v1-0-7-3">TiDB v1.0.7</h4>
+<ul>
+<li>支持 <code>Table Scan</code></li>
+<li>tikv-ctl 支持远程模式</li>
+</ul>
+<h4 id="TiDB-v1-0-8-2">TiDB v1.0.8</h4>
+<ul>
+<li>用 <code>DeleteFilesInRanges</code> 清除陈旧数据，提高 TiKV 启动速度</li>
+<li>强制同步接收到的 Snapshot 的元数据，保证其安全</li>
+</ul>
+<h2 id="TiDB-v1-0-极简版">TiDB v1.0 极简版</h2>
+<p>极简形态启动 TiDB 数据库，准备一个 PD，一个 TiKV 和一个 TiDB Server。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">./pd-server</span><br><span class="line">./tikv-server --pd-endpoints 127.0.0.1:2379</span><br><span class="line">./tidb-server -store tikv --path 127.0.0.1:2379</span><br></pre></td></tr></table></figure>
+<p>连接 4000 端口到 TiDB Server，并查看一些基础信息。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~]# mysql -uroot -P4000 -h127.1 --default-character-set=utf8 --prompt=&#x27;tidb&gt; &#x27;</span><br><span class="line">Welcome to the MySQL monitor.  Commands end with ; or \g.</span><br><span class="line">Your MySQL connection id is 5</span><br><span class="line">Server version: 5.7.1-TiDB-v1.0.8-1-gaacba4a MySQL Community Server (Apache License 2.0)</span><br><span class="line"></span><br><span class="line">Copyright (c) 2000, 2024, Oracle and/or its affiliates.</span><br><span class="line"></span><br><span class="line">Oracle is a registered trademark of Oracle Corporation and/or its</span><br><span class="line">affiliates. Other names may be trademarks of their respective</span><br><span class="line">owners.</span><br><span class="line"></span><br><span class="line">Type &#x27;help;&#x27; or &#x27;\h&#x27; for help. Type &#x27;\c&#x27; to clear the current input statement.</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_">tidb&gt; </span><span class="language-bash">\s</span></span><br><span class="line">--------------</span><br><span class="line">mysql  Ver 8.4.0 for Linux on x86_64 (MySQL Community Server - GPL)</span><br><span class="line"></span><br><span class="line">Connection id:		5</span><br><span class="line">Current database:	</span><br><span class="line">Current user:		root@127.0.0.1</span><br><span class="line">SSL:			Not in use</span><br><span class="line">Current pager:		stdout</span><br><span class="line">Using outfile:		&#x27;&#x27;</span><br><span class="line">Using delimiter:	;</span><br><span class="line">Server version:		5.7.1-TiDB-v1.0.8-1-gaacba4a MySQL Community Server (Apache License 2.0)</span><br><span class="line">Protocol version:	10</span><br><span class="line">Connection:		127.1 via TCP/IP</span><br><span class="line">Server characterset:	latin1</span><br><span class="line">Db     characterset:	latin1</span><br><span class="line">Client characterset:	utf8</span><br><span class="line">Conn.  characterset:	utf8</span><br><span class="line">TCP port:		4000</span><br><span class="line">Binary data as:		Hexadecimal</span><br><span class="line">--------------</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_">tidb&gt; </span><span class="language-bash"><span class="keyword">select</span> version();</span></span><br><span class="line">+------------------------------+</span><br><span class="line">| version()                    |</span><br><span class="line">+------------------------------+</span><br><span class="line">| 5.7.1-TiDB-v1.0.8-1-gaacba4a |</span><br><span class="line">+------------------------------+</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_">tidb&gt; </span><span class="language-bash"><span class="keyword">select</span> tidb_version()\G</span></span><br><span class="line">*************************** 1. row ***************************</span><br><span class="line">tidb_version(): Release Version: v1.0.8-1-gaacba4a</span><br><span class="line">Git Commit Hash: aacba4a427f6c1dd64cd581e1f888e00aa64e948</span><br><span class="line">Git Branch: release-1.0</span><br><span class="line">UTC Build Time: 2018-02-11 12:21:59</span><br><span class="line">1 row in set (0.01 sec)</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_">tidb&gt; </span><span class="language-bash"><span class="keyword">select</span> * from mysql.tidb;</span></span><br><span class="line">+-----------------------+-------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------+</span><br><span class="line">| VARIABLE_NAME         | VARIABLE_VALUE                                                                            | COMMENT                                                                                |</span><br><span class="line">+-----------------------+-------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------+</span><br><span class="line">| bootstrapped          | True                                                                                      | Bootstrap flag. Do not delete.                                                         |</span><br><span class="line">| tidb_server_version   | 15                                                                                        | Bootstrap version. Do not delete.                                                      |</span><br><span class="line">| tikv_gc_leader_uuid   | 63d1e883d100006                                                                           | Current GC worker leader UUID. (DO NOT EDIT)                                           |</span><br><span class="line">| tikv_gc_leader_desc   | host:shawnyan, pid:22873, start at 2024-05-05 15:22:34.205171361 +0800 CST m=+1.715160561 | Host name and pid of current GC leader. (DO NOT EDIT)                                  |</span><br><span class="line">| tikv_gc_leader_lease  | 20240505-15:36:34 +0800 CST                                                               | Current GC worker leader lease. (DO NOT EDIT)                                          |</span><br><span class="line">| tikv_gc_run_interval  | 10m0s                                                                                     | GC run interval, at least 10m, in Go format.                                           |</span><br><span class="line">| tikv_gc_life_time     | 10m0s                                                                                     | All versions within life time will not be collected by GC, at least 10m, in Go format. |</span><br><span class="line">| tikv_gc_last_run_time | 20240505-15:32:34 +0800 CST                                                               | The time when last GC starts. (DO NOT EDIT)                                            |</span><br><span class="line">| tikv_gc_safe_point    | 20240505-15:22:34 +0800 CST                                                               | All versions after safe point can be accessed. (DO NOT EDIT)                           |</span><br><span class="line">| tikv_gc_concurrency   | 1                                                                                         | How many go routines used to do GC parallel, [1, 128], default 1                       |</span><br><span class="line">+-----------------------+-------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------+</span><br><span class="line">10 rows in set (0.01 sec)</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_">tidb&gt; </span><span class="language-bash"><span class="keyword">select</span> count(*) from mysql.GLOBAL_VARIABLES;</span></span><br><span class="line">+----------+</span><br><span class="line">| count(*) |</span><br><span class="line">+----------+</span><br><span class="line">|      498 |</span><br><span class="line">+----------+</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_">tidb&gt; </span><span class="language-bash"><span class="keyword">select</span> * from mysql.GLOBAL_VARIABLES <span class="built_in">where</span> VARIABLE_NAME like <span class="string">&#x27;tidb%&#x27;</span>;</span></span><br><span class="line">+------------------------------------+----------------+</span><br><span class="line">| VARIABLE_NAME                      | VARIABLE_VALUE |</span><br><span class="line">+------------------------------------+----------------+</span><br><span class="line">| tidb_max_row_count_for_inlj        | 128            |</span><br><span class="line">| tidb_index_lookup_size             | 20000          |</span><br><span class="line">| tidb_distsql_scan_concurrency      | 10             |</span><br><span class="line">| tidb_index_join_batch_size         | 25000          |</span><br><span class="line">| tidb_index_serial_scan_concurrency | 1              |</span><br><span class="line">| tidb_skip_utf8_check               | 0              |</span><br><span class="line">| tidb_index_lookup_concurrency      | 4              |</span><br><span class="line">+------------------------------------+----------------+</span><br><span class="line">7 rows in set (0.01 sec)</span><br></pre></td></tr></table></figure>
+<p>查看 PD 中的配置：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan bin]# echo &quot;config show&quot; | ./pd-ctl </span><br><span class="line">&#123;</span><br><span class="line">  &quot;max-snapshot-count&quot;: 3,</span><br><span class="line">  &quot;max-store-down-time&quot;: &quot;1h0m0s&quot;,</span><br><span class="line">  &quot;leader-schedule-limit&quot;: 64,</span><br><span class="line">  &quot;region-schedule-limit&quot;: 12,</span><br><span class="line">  &quot;replica-schedule-limit&quot;: 16,</span><br><span class="line">  &quot;schedulers-v2&quot;: [</span><br><span class="line">    &#123;</span><br><span class="line">      &quot;type&quot;: &quot;balance-region&quot;,</span><br><span class="line">      &quot;args&quot;: null</span><br><span class="line">    &#125;,</span><br><span class="line">    &#123;</span><br><span class="line">      &quot;type&quot;: &quot;balance-leader&quot;,</span><br><span class="line">      &quot;args&quot;: null</span><br><span class="line">    &#125;,</span><br><span class="line">    &#123;</span><br><span class="line">      &quot;type&quot;: &quot;hot-region&quot;,</span><br><span class="line">      &quot;args&quot;: null</span><br><span class="line">    &#125;</span><br><span class="line">  ]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<hr>
+<p>本期考古活动告一段落，咱们下期再见！</p>
+<p>– END –</p>
+<img alt="foot.png" src="https://files.mdnice.com/user/54598/23af4bef-b6ac-4f59-9456-19114dfe6dd7.png" referrerpolicy="no-referrer"/>
+<p>如果这篇文章为你带来了灵感或启发，就请帮忙点『赞』or『在看』or『转发』吧，感谢！(๑˃̵ᴗ˂̵)</p>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/tidb/" class="tag-link">
+                                tidb
+                            </a>
+                        
+                            <a href="/tags/tidb-1-x/" class="tag-link">
+                                tidb 1.x
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2024/tidb/tidb-1-0-release/index.html">https://shawnyan.cn/2024/tidb/tidb-1-0-release/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2024/oracle/oracle-23ai-vector-intro/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">一文带你了解 Oracle 23ai 新特性 Vector 的基础用法</span>
+        </a>
+    
+
+    
+        <a href="/2024/oracle/oracle-23ai-coming-en/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">Oracle Database 23ai is coming</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#TiDB-v1-0-Release"><span class="toc-text">TiDB v1.0 Release</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%97%B6%E9%97%B4%E7%BA%BF"><span class="toc-text">时间线</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#TiDB-Server"><span class="toc-text">TiDB Server</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#PD"><span class="toc-text">PD</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#TiKV"><span class="toc-text">TiKV</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#TiDB-v1-0-%E6%9E%81%E7%AE%80%E7%89%88"><span class="toc-text">TiDB v1.0 极简版</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

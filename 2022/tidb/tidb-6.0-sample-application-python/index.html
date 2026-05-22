@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        TiDB 6.0 Book Rush | TiDB 和 Python 的 CRUD 应用开发实践 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;p&gt;本文将介绍如何使用 Python 对 TiDB 进行应用开发，并做简单的 CRUD 演示。&lt;br&gt;
+对应 &lt;a href=&#34;https://asktug.com/t/topic/663914&#34;&gt;TiDB 6.0 Book Rush&lt;/a&gt; 的&lt;a href=&#34;https://tidb.net/book/book-rush/developer-guide/&#34;&gt;第二章&lt;/a&gt; 。&lt;/p&gt;
+&lt;img alt=&#34;IMG_2005.JPG&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/IMG_2005-1652257515326.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;测试环境&#34;&gt;测试环境&lt;/h2&gt;
+&lt;p&gt;为了便于演示应用开发，本文将使用 TiDB 6.0 本地测试集群，以及 MariaDB Connector/Python，具体环境版本信息如下。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;TiDB 6.0&lt;br&gt;
+Python 3.6.8&lt;br&gt;
+MariaDB Connector/Python 1.0.11&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;部署本地测试集群&#34;&gt;部署本地测试集群&lt;/h2&gt;
+&lt;p&gt;快速启动本地测试集群，具体方法请参考 &lt;a href=&#34;https://docs.pingcap.com/zh/tidb/stable/quick-start-with-tidb#Linux&#34;&gt;官方文档–部署本地测试集群&lt;/a&gt; 和文章 &lt;a href=&#34;https://shawnyan.cn/2022/tidb/tiup-intro/&#34;&gt;《TiUP：TiDBAer 必备利器》&lt;/a&gt; 。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;本文使用的测试环境启动命令为：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight yaml&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;tiup&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;playground&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;v6.0.0&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;--host&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;192.168&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.8&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.101&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;--tag&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;classroom&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;--pd&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;--kv&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;--db&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;--tiflash&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;运行结果为：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;CLUSTER START SUCCESSFULLY, Enjoy it ^-^&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;To connect TiDB: mysql --comments --host 192.168.8.101 --port 4000 -u root -p (no password)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;To view the dashboard: http://192.168.8.101:2379/dashboard&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;PD client endpoints: [192.168.8.101:2379 192.168.8.101:2382 192.168.8.101:2384]&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;Python-连接器&#34;&gt;Python 连接器&lt;/h2&gt;
+&lt;h3 id=&#34;介绍几种常见的-Python-连接器&#34;&gt;介绍几种常见的 Python 连接器&lt;/h3&gt;
+&lt;p&gt;TiDB 高度兼容 MySQL 5.7 协议，理论上只要是支持 MySQL 及其分支版本的 Python 连接器都可以连接 TiDB，但仍需要具体测试。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;MySQL 官方提供的连接器为 &lt;a href=&#34;https://dev.mysql.com/doc/relnotes/connector-python/en/&#34;&gt;MySQL Connector/Python&lt;/a&gt; 。最新GA版本 8.0.29，官方文档推荐升级到最新版本，并声明此版本可用于 MySQL Server 8.0 和 5.7。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;MariaDB 提供的连接器为 &lt;a href=&#34;https://mariadb.com/kb/en/mariadb-connector-python/&#34;&gt;MariaDB Connector/Python&lt;/a&gt; 。最新GA版本为 1.0.11，可用于访问 MariaDB 和 MySQL，使用的 API 与 &lt;a href=&#34;https://peps.python.org/pep-0249/&#34;&gt;Python DB API Spec 2.0 (PEP 249)&lt;/a&gt; 兼容。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;除这两种官方连接器之外，还有两种常见的客户端，分别是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;Python 2 下使用的 &lt;a href=&#34;https://pypi.org/project/MySQL-python/&#34;&gt;MySQL-python&lt;/a&gt; ，该包已停止维护，不推荐使用。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Python 3 下使用的 &lt;a href=&#34;https://pypi.org/project/PyMySQL/&#34;&gt;pyMySQL&lt;/a&gt; ，该包持续更新，且遵从 &lt;a href=&#34;https://en.wikipedia.org/wiki/MIT_License&#34;&gt;MIT 协议&lt;/a&gt; ，可放心使用。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;本文使用的是 MariaDB Connector/Python，下面将做具体演示。&lt;/p&gt;
+&lt;h3 id=&#34;安装-Python-连接器&#34;&gt;安装 Python 连接器&lt;/h3&gt;
+&lt;h4 id=&#34;CentOS-7-环境&#34;&gt;CentOS 7 环境&lt;/h4&gt;
+&lt;p&gt;由于 MariaDB Connector/Python 使用 Python 3 编写，且依赖 MariaDB Connector/C，所以需要先安装依赖包。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;安装必要的依赖：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;sudo yum install -y MariaDB-devel gcc python3-devel&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;安装完成后，检查已安装的包：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;shawnyan@centos7:~$ rpm -q MariaDB-devel gcc python3-devel&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;MariaDB-devel-10.6.7-1.el7.centos.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;gcc-4.8.5-44.el7.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;python3-devel-3.6.8-18.el7.x86_64&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;通过 pip 安装连接器：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;python3 -m pip install mariadb --user&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;运行结果为：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;shawnyan@centos7:~$ python3 -m pip install mariadb --user&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Installing collected packages: mariadb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    Running setup.py install for mariadb ... done&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Successfully installed mariadb-1.0.11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;安装步骤支持幂等性，二次执行命令结果如下：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;shawnyan@centos7:~$ python3 -m pip install mariadb --user&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Requirement already satisfied: mariadb in /home/shawnyan/.local/lib/python3.6/site-packages (1.0.11)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;安装完成后，检查已安装的包：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;shawnyan@centos7:~$ python3 -m pip show mariadb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Name: mariadb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Version: 1.0.11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Summary: Python MariaDB extension&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Home-page: https://www.github.com/mariadb-corporation/mariadb-connector-python&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Author: Georg Richter&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Author-email:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;License: LGPL 2.1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Location: /home/shawnyan/.local/lib/python3.6/site-packages&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Requires:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Required-by:&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;到此，安装完成！&lt;/p&gt;
+&lt;h4 id=&#34;Windows-环境&#34;&gt;Windows 环境&lt;/h4&gt;
+&lt;p&gt;与 CentOS 环境类似，需要安装 MariaDB Connector/C，下载页面为 &lt;a href=&#34;https://mariadb.com/downloads/connectors/&#34;&gt;Connectors&lt;/a&gt;。&lt;/p&gt;
+&lt;p&gt;此外，还需要安装 Microsoft Visual C++ 14.0，下载页面为 &lt;a href=&#34;https://visualstudio.microsoft.com/downloads/&#34;&gt;Microsoft Visual C++ Build Tools&lt;/a&gt;。&lt;/p&gt;
+&lt;p&gt;本文示例代码是在 PyCharm 中开发的，所以在安装完成依赖后，直接在 PyCharm 中安装 MariaDB Connector/Python。&lt;/p&gt;
+&lt;p&gt;安装路径为：&lt;code&gt;File &amp;gt; Settings &amp;gt; Project &amp;gt; Available Packages&lt;/code&gt;。&lt;/p&gt;
+&lt;img alt=&#34;1.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220513-396fa102-15a2-4d0a-84f6-da12f6c5a81b.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;图-安装mariadb包&lt;/p&gt;
+&lt;p&gt;到此，安装完成！&lt;/p&gt;
+&lt;h2 id=&#34;CURD-实践&#34;&gt;CURD 实践&lt;/h2&gt;
+&lt;h3 id=&#34;基础数据&#34;&gt;基础数据&lt;/h3&gt;
+&lt;p&gt;通过 &lt;code&gt;tiup demo&lt;/code&gt; 创建基础数据，会自动在 TiDB 中创建库 &lt;a href=&#34;https://docs.pingcap.com/zh/tidb/dev/bookshop-schema-design&#34;&gt;&lt;code&gt;bookshop&lt;/code&gt;&lt;/a&gt; 以及 6 张表，并导入基础数据。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Bookshop 是一个虚拟的在线书店应用，你可以在 Bookshop 当中便捷地购买到各种类别的书，也可以对你看过的书进行点评。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;ul&gt;
+&lt;li&gt;执行如下命令，生成基础数据：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;tiup demo bookshop prepare -H 192.168.8.101&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;运行结果为：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;shawnyan@centos7:~$ tiup demo bookshop prepare -H 192.168.8.101&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tiup is checking updates for component demo ...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component `demo`: /home/shawnyan/.tiup/components/demo/v0.0.8/tidb-dataset /home/shawnyan/.tiup/components/demo/v0.0.8/tidb-dataset bookshop prepare -H 192.168.8.101&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0000] Creating the tables if not existed....        dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0000] Creating table books.                         dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0000] Creating table users.                         dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0000] Creating table authors.                       dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0000] Creating table book_authors.                  dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0001] Creating table orders.                        dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0001] Creating table ratings.                       dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0001] Finished creating tables!                     dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0001] Clearing the old data....                     dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0002] Loading users data...                         dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0004] Loading books data...                         dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0006] Loading authors data...                       dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0008] Loading book authors data...                  dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0009] Loading book orders data...                   dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0039] Loading book ratings data...                  dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0071] Finished!                                     dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;查看新建库 &lt;code&gt;bookshop&lt;/code&gt; 表数据量：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; CONCAT(table_schema,&lt;span class=&#34;string&#34;&gt;&amp;#x27;.&amp;#x27;&lt;/span&gt;,table_name) &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;Table Name&amp;#x27;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; table_rows &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;Number of Rows&amp;#x27;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; information_schema.TABLES&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;WHERE&lt;/span&gt; table_schema &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;bookshop&amp;#x27;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;ORDER&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;BY&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;运行结果为：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------------------+----------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Table&lt;/span&gt; Name            &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Number &lt;span class=&#34;keyword&#34;&gt;of&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Rows&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------------------+----------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; bookshop.authors      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;          &lt;span class=&#34;number&#34;&gt;20000&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; bookshop.book_authors &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;          &lt;span class=&#34;number&#34;&gt;20000&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; bookshop.books        &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;          &lt;span class=&#34;number&#34;&gt;20000&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; bookshop.orders       &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;         &lt;span class=&#34;number&#34;&gt;300000&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; bookshop.ratings      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;         &lt;span class=&#34;number&#34;&gt;300000&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; bookshop.users        &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;           &lt;span class=&#34;number&#34;&gt;9985&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------------------+----------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;6&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.018&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;使用-Python-连接器创建连接&#34;&gt;使用 Python 连接器创建连接&lt;/h3&gt;
+&lt;p&gt;需要配置连接信息，默认为不自动提交：&lt;/p&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;conn_params = &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;user&amp;quot;&lt;/span&gt;: &lt;span class=&#34;string&#34;&gt;&amp;quot;root&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;password&amp;quot;&lt;/span&gt;: &lt;span class=&#34;string&#34;&gt;&amp;quot;&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;host&amp;quot;&lt;/span&gt;: &lt;span class=&#34;string&#34;&gt;&amp;quot;192.168.8.101&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;port&amp;quot;&lt;/span&gt;: &lt;span class=&#34;number&#34;&gt;4000&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;database&amp;quot;&lt;/span&gt;: &lt;span class=&#34;string&#34;&gt;&amp;quot;bookshop&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;autocommit&amp;quot;&lt;/span&gt;: &lt;span class=&#34;literal&#34;&gt;False&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#125;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;检查基本连接信息&#34;&gt;检查基本连接信息&lt;/h3&gt;
+&lt;p&gt;可调用连接器内置方法，直接查看数据库版本和会话的字符集。发送查询语句，查看自动提交的参数值。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;示例代码如下：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# 2. Check Conn Info (Server Version, Charset)&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;print&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;quot;Server Version:&amp;quot;&lt;/span&gt;, conn.server_info)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;print&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;quot;Connection Charset:&amp;quot;&lt;/span&gt;, conn.character_set, conn.collation)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# 3. Check Server Variables&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cursor.execute(&lt;span class=&#34;string&#34;&gt;&amp;quot;SHOW VARIABLES LIKE &amp;#x27;autocommit&amp;#x27;&amp;quot;&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;resAutoCommit = cursor.fetchone()&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;print&lt;/span&gt;(resAutoCommit)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;运行结果如下：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;Server Version: 5.7.25-TiDB-v6.0.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Connection Charset: utf8mb4 utf8mb4_general_ci&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&amp;#x27;autocommit&amp;#x27;, &amp;#x27;OFF&amp;#x27;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;blockquote&gt;
+&lt;p&gt;注：&lt;br&gt;
+使用 MariaDB Connector/Python 连接数据库，会总是使用 &lt;code&gt;utf8mb4&lt;/code&gt;。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;单值写入&#34;&gt;单值写入&lt;/h3&gt;
+&lt;p&gt;下面将分单值写入、多值写入、单值查询，以及多值查询四种情况分别做演示。&lt;/p&gt;
+&lt;p&gt;向 &lt;code&gt;books&lt;/code&gt; 表中插入一条数据，并在之后手动提交：&lt;/p&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# 4. Insert One Row&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sqlInsertOne = &lt;span class=&#34;string&#34;&gt;&amp;quot;REPLACE INTO books (id, title, published_at) VALUES (1, &amp;#x27;tidb-monthly&amp;#x27;, &amp;#x27;2022-05-09&amp;#x27;)&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cursor.execute(sqlInsertOne)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;conn.commit()&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;如果 TiDB Server 已开启 General 日志，则可以在日志文件中看到：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[2022/05/12 22:26:05.103 +08:00] [INFO] [session.go:3264] [GENERAL_LOG] [conn=467] [user=root@%] [schemaVersion=144] [txnStartTS=0] [forUpdateTS=0] [isReadConsistency=false] [current_db=bookshop] [txn_mode=PESSIMISTIC] [sql=&amp;quot;REPLACE INTO books (id, title, published_at) VALUES (1, &amp;#x27;tidb-monthly&amp;#x27;, &amp;#x27;2022-05-09&amp;#x27;)&amp;quot;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2022/05/12 22:26:05.120 +08:00] [INFO] [session.go:3264] [GENERAL_LOG] [conn=467] [user=root@%] [schemaVersion=144] [txnStartTS=433157718689710084] [forUpdateTS=433157718689710084] [isReadConsistency=false] [current_db=bookshop] [txn_mode=PESSIMISTIC] [sql=COMMIT]&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;多值写入&#34;&gt;多值写入&lt;/h3&gt;
+&lt;p&gt;也可将多组值包装到一个字典中，然后传递给执行器，此时就用到了 &lt;code&gt;executemany&lt;/code&gt;，可一次性执行多条语句，并将其封装在一个事务内，以保证写入数据的完整性。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;演示代码如下：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# 5. Insert Multi Rows&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;data = [&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    (&lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;TiDB Book Rush&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;2022-05-10&amp;#x27;&lt;/span&gt;),&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    (&lt;span class=&#34;number&#34;&gt;11&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;TiDB Blog&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;2022-05-11&amp;#x27;&lt;/span&gt;),&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    (&lt;span class=&#34;number&#34;&gt;12&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;TiDB 6.0 Release&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;2022-05-12&amp;#x27;&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sqlInsertMulti = &lt;span class=&#34;string&#34;&gt;&amp;quot;REPLACE INTO books (id, title, published_at) VALUES (?, ?, ?)&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cursor.executemany(sqlInsertMulti, data)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;TiDB Server 的 General 日志打印如下：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[2022/05/12 22:26:05.131 +08:00] [INFO] [session.go:3264] [GENERAL_LOG] [conn=467] [user=root@%] [schemaVersion=144] [txnStartTS=0] [forUpdateTS=0] [isReadConsistency=false] [current_db=bookshop] [txn_mode=PESSIMISTIC] [sql=BEGIN]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2022/05/12 22:26:05.154 +08:00] [INFO] [session.go:3264] [GENERAL_LOG] [conn=467] [user=root@%] [schemaVersion=144] [txnStartTS=433157718702817281] [forUpdateTS=433157718702817281] [isReadConsistency=false] [current_db=bookshop] [txn_mode=PESSIMISTIC] [sql=&amp;quot;REPLACE INTO books (id, title, published_at) VALUES (?, ?, ?) [arguments: (10, \&amp;quot;TiDB Book Rush\&amp;quot;, \&amp;quot;2022-05-10\&amp;quot;)]&amp;quot;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2022/05/12 22:26:05.162 +08:00] [INFO] [session.go:3264] [GENERAL_LOG] [conn=467] [user=root@%] [schemaVersion=144] [txnStartTS=433157718702817281] [forUpdateTS=433157718702817281] [isReadConsistency=false] [current_db=bookshop] [txn_mode=PESSIMISTIC] [sql=&amp;quot;REPLACE INTO books (id, title, published_at) VALUES (?, ?, ?) [arguments: (11, \&amp;quot;TiDB Blog\&amp;quot;, \&amp;quot;2022-05-11\&amp;quot;)]&amp;quot;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2022/05/12 22:26:05.168 +08:00] [INFO] [session.go:3264] [GENERAL_LOG] [conn=467] [user=root@%] [schemaVersion=144] [txnStartTS=433157718702817281] [forUpdateTS=433157718702817281] [isReadConsistency=false] [current_db=bookshop] [txn_mode=PESSIMISTIC] [sql=&amp;quot;REPLACE INTO books (id, title, published_at) VALUES (?, ?, ?) [arguments: (12, \&amp;quot;TiDB 6.0 Release\&amp;quot;, \&amp;quot;2022-05-12\&amp;quot;)]&amp;quot;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2022/05/12 22:26:05.178 +08:00] [INFO] [session.go:3264] [GENERAL_LOG] [conn=467] [user=root@%] [schemaVersion=144] [txnStartTS=433157718702817281] [forUpdateTS=433157718702817281] [isReadConsistency=false] [current_db=bookshop] [txn_mode=PESSIMISTIC] [sql=COMMIT]&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;单值读取&#34;&gt;单值读取&lt;/h3&gt;
+&lt;p&gt;因为 TiDB 使用 &lt;code&gt;utf8_bin&lt;/code&gt; 做为默认校验规则，所以查询条件会区分大小写，这里使用内置函数 &lt;code&gt;lower()&lt;/code&gt; 将所有字符转成小写，来消除大小写区分的影响。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;使用 &lt;code&gt;fetchone()&lt;/code&gt; 方法查询一条结果，并用 &lt;code&gt;|&lt;/code&gt; 作为分隔符将结果打印。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# 6. Query Data -- One Row&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cursor.execute(&lt;span class=&#34;string&#34;&gt;&amp;quot;SELECT * FROM books where lower(title) like &amp;#x27;tidb%&amp;#x27;&amp;quot;&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;row = cursor.fetchone()&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;print&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;quot;Select One Row:&amp;quot;&lt;/span&gt;, *row, sep=&lt;span class=&#34;string&#34;&gt;&amp;#x27;|&amp;#x27;&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;控制台打印结果为：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;Select One Row:|1|tidb-monthly|Magazine|2022-05-09 00:00:00|0|0.00&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;多值读取&#34;&gt;多值读取&lt;/h3&gt;
+&lt;p&gt;对于多值读取的情况，可使用 &lt;code&gt;fetchmany(size: int)&lt;/code&gt; 方法，传入欲获取的行数后执行，即可得到需要的结果集。&lt;br&gt;
+本例中，因为上文只写入4条数据，所以也只能查到4条，代码如下。&lt;/p&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# 7. Query Data -- Many&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cursor.execute(&lt;span class=&#34;string&#34;&gt;&amp;quot;SELECT * FROM books where lower(title) like &amp;#x27;tidb%&amp;#x27;&amp;quot;&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;row = cursor.fetchmany(&lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;print&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;quot;rows_affected:&amp;quot;&lt;/span&gt;, cursor.rowcount)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;res = []&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; i &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; row:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    res.append(&amp;#123;&lt;span class=&#34;string&#34;&gt;&amp;quot;id&amp;quot;&lt;/span&gt;: i[&lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;], &lt;span class=&#34;string&#34;&gt;&amp;quot;book&amp;quot;&lt;/span&gt;: i[&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;], &lt;span class=&#34;string&#34;&gt;&amp;quot;published&amp;quot;&lt;/span&gt;: &lt;span class=&#34;string&#34;&gt;&amp;quot;&amp;#123;:%Y-%m-%d&amp;#125;&amp;quot;&lt;/span&gt;.&lt;span class=&#34;built_in&#34;&gt;format&lt;/span&gt;(i[&lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;])&amp;#125;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;print&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;quot;Select Many Rows:&amp;quot;&lt;/span&gt;, res)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;控制台输出结果：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;rows_affected: 4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Select Many Rows: [&amp;#123;&amp;#x27;id&amp;#x27;: 1, &amp;#x27;book&amp;#x27;: &amp;#x27;tidb-monthly&amp;#x27;, &amp;#x27;published&amp;#x27;: &amp;#x27;2022-05-09&amp;#x27;&amp;#125;, &amp;#123;&amp;#x27;id&amp;#x27;: 10, &amp;#x27;book&amp;#x27;: &amp;#x27;TiDB Book Rush&amp;#x27;, &amp;#x27;published&amp;#x27;: &amp;#x27;2022-05-10&amp;#x27;&amp;#125;, &amp;#123;&amp;#x27;id&amp;#x27;: 11, &amp;#x27;book&amp;#x27;: &amp;#x27;TiDB Blog&amp;#x27;, &amp;#x27;published&amp;#x27;: &amp;#x27;2022-05-11&amp;#x27;&amp;#125;, &amp;#123;&amp;#x27;id&amp;#x27;: 12, &amp;#x27;book&amp;#x27;: &amp;#x27;TiDB 6.0 Release&amp;#x27;, &amp;#x27;published&amp;#x27;: &amp;#x27;2022-05-12&amp;#x27;&amp;#125;]&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;小结&#34;&gt;小结&lt;/h2&gt;
+&lt;p&gt;到此，以上四种情况已全部演示完毕。&lt;br&gt;
+最后，以一个完整示例作为本文结尾。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;示例：查询 &lt;code&gt;Books&lt;/code&gt; 表所在的 TiKV 节点的版本和地址，并输出结果。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;#!/bin/python3&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# -*- coding: utf-8 -*-&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# Author: @ShawnYan&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;import&lt;/span&gt; mariadb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# 1. Connecting&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;conn_params = &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;user&amp;quot;&lt;/span&gt;: &lt;span class=&#34;string&#34;&gt;&amp;quot;root&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;password&amp;quot;&lt;/span&gt;: &lt;span class=&#34;string&#34;&gt;&amp;quot;&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;host&amp;quot;&lt;/span&gt;: &lt;span class=&#34;string&#34;&gt;&amp;quot;192.168.8.101&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;port&amp;quot;&lt;/span&gt;: &lt;span class=&#34;number&#34;&gt;4000&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;database&amp;quot;&lt;/span&gt;: &lt;span class=&#34;string&#34;&gt;&amp;quot;bookshop&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;autocommit&amp;quot;&lt;/span&gt;: &lt;span class=&#34;literal&#34;&gt;False&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;conn = mariadb.connect(**conn_params)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cursor = conn.cursor(buffered=&lt;span class=&#34;literal&#34;&gt;True&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# 2. Check Conn Info (Server Version, Charset)&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;print&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;quot;Server Version:&amp;quot;&lt;/span&gt;, conn.server_info)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;print&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;quot;Connection Charset:&amp;quot;&lt;/span&gt;, conn.character_set, conn.collation)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# 7. Query Data -- Many&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cursor.execute(&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;SELECT DISTINCT t1.DB_NAME,t1.TABLE_NAME, t1.REGION_ID, t3.ADDRESS, t3.version &amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;FROM information_schema.tikv_region_status t1 INNER JOIN information_schema.tikv_region_peers t2 &amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;ON t1.REGION_ID = t2.region_id INNER JOIN information_schema.TIKV_STORE_STATUS t3 ON t2.STORE_ID = t3.STORE_ID &amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;WHERE t1.DB_NAME = &amp;#x27;bookshop&amp;#x27; AND t1.TABLE_NAME = &amp;#x27;books&amp;#x27;&amp;quot;&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;row = cursor.fetchall()&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;res = []&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; i &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; row:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    res.append(&amp;#123;&lt;span class=&#34;string&#34;&gt;&amp;quot;DB&amp;quot;&lt;/span&gt;: i[&lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;], &lt;span class=&#34;string&#34;&gt;&amp;quot;TABLE&amp;quot;&lt;/span&gt;: i[&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;], &lt;span class=&#34;string&#34;&gt;&amp;quot;REGION_ID&amp;quot;&lt;/span&gt;: i[&lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;], &lt;span class=&#34;string&#34;&gt;&amp;quot;TIKV_ADDR&amp;quot;&lt;/span&gt;: i[&lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;], &lt;span class=&#34;string&#34;&gt;&amp;quot;TIKV_VERSION&amp;quot;&lt;/span&gt;: i[&lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;]&amp;#125;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;print&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;quot;Select Many Rows:&amp;quot;&lt;/span&gt;, res)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# free resources&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cursor.close()&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;conn.close()&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;输出结果为：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;Server Version: 5.7.25-TiDB-v6.0.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Connection Charset: utf8mb4 utf8mb4_general_ci&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Select Many Rows: [&amp;#123;&amp;#x27;DB&amp;#x27;: &amp;#x27;bookshop&amp;#x27;, &amp;#x27;TABLE&amp;#x27;: &amp;#x27;books&amp;#x27;, &amp;#x27;REGION_ID&amp;#x27;: 4028065, &amp;#x27;TIKV_ADDR&amp;#x27;: &amp;#x27;192.168.8.101:20161&amp;#x27;, &amp;#x27;TIKV_VERSION&amp;#x27;: &amp;#x27;6.0.0&amp;#x27;&amp;#125;]&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;以上就是本文的全部内容，其他开发语言的开发实践，请参考官方文档，或扩展阅读。&lt;/p&gt;
+&lt;h2 id=&#34;扩展阅读&#34;&gt;扩展阅读&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;来自 PingCAP Education 原厂，适合 &lt;a href=&#34;https://pingcap.com/zh/courses-catalog/back-end-developer&#34;&gt;开发人员的课程&lt;/a&gt; ：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://learn.pingcap.com/learner/course/600003&#34;&gt;DEV COURSE 1：TiDB 的架构与特点&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://learn.pingcap.com/learner/course/1050001&#34;&gt;DEV COURSE 2：在 TiDB 上学习 SQL 语句&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://learn.pingcap.com/learner/course/750002&#34;&gt;DEV COURSE 3：TiDB 特有功能与事务控制&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://learn.pingcap.com/learner/course/840002&#34;&gt;DEV COURSE 4：使用 Connector/J&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://learn.pingcap.com/learner/course/780002&#34;&gt;DEV COURSE 5：在 TiDB 上开发应用的最佳实践&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&#34;https://asktug.com/t/topic/664974&#34;&gt;TiDB 应用开发专区&amp;amp;开发者手册&amp;amp;干货合集&lt;/a&gt; @&lt;a href=&#34;https://asktug.com/u/billmay/summary&#34;&gt;Billmay&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&#34;https://asktug.com/t/topic/663914&#34;&gt;TiDB 6.0 Book Rush！一起来分布式创作 6.0 的使用手册吧！&lt;/a&gt; @&lt;a href=&#34;https://asktug.com/u/luzizhuo/summary&#34;&gt;luzizhuo&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;p&gt;&lt;a href=&#34;https://www.modb.pro/db/403262&#34;&gt;https://www.modb.pro/db/403262&lt;/a&gt;&lt;br&gt;
+&lt;a href=&#34;https://tidb.net/blog/ef4c1f65?shareId=2923d1b6&#34;&gt;https://tidb.net/blog/ef4c1f65?shareId=2923d1b6&lt;/a&gt;&lt;br&gt;
+&lt;a href=&#34;https://tidb.net/book/book-rush/developer-guide/simple-crud/sample-application-python&#34;&gt;https://tidb.net/book/book-rush/developer-guide/simple-crud/sample-application-python&lt;/a&gt;&lt;/p&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="TiDB 6.0 Book Rush | TiDB 和 Python 的 CRUD 应用开发实践">
+    <meta property="og:url" content="https://shawnyan.cn/2022/tidb/tidb-6.0-sample-application-python/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;p&gt;本文将介绍如何使用 Python 对 TiDB 进行应用开发，并做简单的 CRUD 演示。&lt;br&gt;
+对应 &lt;a href=&#34;https://asktug.com/t/topic/663914&#34;&gt;TiDB 6.0 Book Rush&lt;/a&gt; 的&lt;a href=&#34;https://tidb.net/book/book-rush/developer-guide/&#34;&gt;第二章&lt;/a&gt; 。&lt;/p&gt;
+&lt;img alt=&#34;IMG_2005.JPG&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/IMG_2005-1652257515326.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;测试环境&#34;&gt;测试环境&lt;/h2&gt;
+&lt;p&gt;为了便于演示应用开发，本文将使用 TiDB 6.0 本地测试集群，以及 MariaDB Connector/Python，具体环境版本信息如下。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;TiDB 6.0&lt;br&gt;
+Python 3.6.8&lt;br&gt;
+MariaDB Connector/Python 1.0.11&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;部署本地测试集群&#34;&gt;部署本地测试集群&lt;/h2&gt;
+&lt;p&gt;快速启动本地测试集群，具体方法请参考 &lt;a href=&#34;https://docs.pingcap.com/zh/tidb/stable/quick-start-with-tidb#Linux&#34;&gt;官方文档–部署本地测试集群&lt;/a&gt; 和文章 &lt;a href=&#34;https://shawnyan.cn/2022/tidb/tiup-intro/&#34;&gt;《TiUP：TiDBAer 必备利器》&lt;/a&gt; 。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;本文使用的测试环境启动命令为：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight yaml&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;tiup&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;playground&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;v6.0.0&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;--host&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;192.168&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.8&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.101&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;--tag&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;classroom&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;--pd&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;--kv&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;--db&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;--tiflash&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;运行结果为：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;CLUSTER START SUCCESSFULLY, Enjoy it ^-^&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;To connect TiDB: mysql --comments --host 192.168.8.101 --port 4000 -u root -p (no password)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;To view the dashboard: http://192.168.8.101:2379/dashboard&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;PD client endpoints: [192.168.8.101:2379 192.168.8.101:2382 192.168.8.101:2384]&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;Python-连接器&#34;&gt;Python 连接器&lt;/h2&gt;
+&lt;h3 id=&#34;介绍几种常见的-Python-连接器&#34;&gt;介绍几种常见的 Python 连接器&lt;/h3&gt;
+&lt;p&gt;TiDB 高度兼容 MySQL 5.7 协议，理论上只要是支持 MySQL 及其分支版本的 Python 连接器都可以连接 TiDB，但仍需要具体测试。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;MySQL 官方提供的连接器为 &lt;a href=&#34;https://dev.mysql.com/doc/relnotes/connector-python/en/&#34;&gt;MySQL Connector/Python&lt;/a&gt; 。最新GA版本 8.0.29，官方文档推荐升级到最新版本，并声明此版本可用于 MySQL Server 8.0 和 5.7。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;MariaDB 提供的连接器为 &lt;a href=&#34;https://mariadb.com/kb/en/mariadb-connector-python/&#34;&gt;MariaDB Connector/Python&lt;/a&gt; 。最新GA版本为 1.0.11，可用于访问 MariaDB 和 MySQL，使用的 API 与 &lt;a href=&#34;https://peps.python.org/pep-0249/&#34;&gt;Python DB API Spec 2.0 (PEP 249)&lt;/a&gt; 兼容。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;除这两种官方连接器之外，还有两种常见的客户端，分别是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;Python 2 下使用的 &lt;a href=&#34;https://pypi.org/project/MySQL-python/&#34;&gt;MySQL-python&lt;/a&gt; ，该包已停止维护，不推荐使用。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Python 3 下使用的 &lt;a href=&#34;https://pypi.org/project/PyMySQL/&#34;&gt;pyMySQL&lt;/a&gt; ，该包持续更新，且遵从 &lt;a href=&#34;https://en.wikipedia.org/wiki/MIT_License&#34;&gt;MIT 协议&lt;/a&gt; ，可放心使用。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;本文使用的是 MariaDB Connector/Python，下面将做具体演示。&lt;/p&gt;
+&lt;h3 id=&#34;安装-Python-连接器&#34;&gt;安装 Python 连接器&lt;/h3&gt;
+&lt;h4 id=&#34;CentOS-7-环境&#34;&gt;CentOS 7 环境&lt;/h4&gt;
+&lt;p&gt;由于 MariaDB Connector/Python 使用 Python 3 编写，且依赖 MariaDB Connector/C，所以需要先安装依赖包。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;安装必要的依赖：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;sudo yum install -y MariaDB-devel gcc python3-devel&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;安装完成后，检查已安装的包：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;shawnyan@centos7:~$ rpm -q MariaDB-devel gcc python3-devel&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;MariaDB-devel-10.6.7-1.el7.centos.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;gcc-4.8.5-44.el7.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;python3-devel-3.6.8-18.el7.x86_64&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;通过 pip 安装连接器：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;python3 -m pip install mariadb --user&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;运行结果为：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;shawnyan@centos7:~$ python3 -m pip install mariadb --user&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Installing collected packages: mariadb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    Running setup.py install for mariadb ... done&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Successfully installed mariadb-1.0.11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;安装步骤支持幂等性，二次执行命令结果如下：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;shawnyan@centos7:~$ python3 -m pip install mariadb --user&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Requirement already satisfied: mariadb in /home/shawnyan/.local/lib/python3.6/site-packages (1.0.11)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;安装完成后，检查已安装的包：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;shawnyan@centos7:~$ python3 -m pip show mariadb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Name: mariadb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Version: 1.0.11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Summary: Python MariaDB extension&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Home-page: https://www.github.com/mariadb-corporation/mariadb-connector-python&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Author: Georg Richter&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Author-email:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;License: LGPL 2.1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Location: /home/shawnyan/.local/lib/python3.6/site-packages&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Requires:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Required-by:&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;到此，安装完成！&lt;/p&gt;
+&lt;h4 id=&#34;Windows-环境&#34;&gt;Windows 环境&lt;/h4&gt;
+&lt;p&gt;与 CentOS 环境类似，需要安装 MariaDB Connector/C，下载页面为 &lt;a href=&#34;https://mariadb.com/downloads/connectors/&#34;&gt;Connectors&lt;/a&gt;。&lt;/p&gt;
+&lt;p&gt;此外，还需要安装 Microsoft Visual C++ 14.0，下载页面为 &lt;a href=&#34;https://visualstudio.microsoft.com/downloads/&#34;&gt;Microsoft Visual C++ Build Tools&lt;/a&gt;。&lt;/p&gt;
+&lt;p&gt;本文示例代码是在 PyCharm 中开发的，所以在安装完成依赖后，直接在 PyCharm 中安装 MariaDB Connector/Python。&lt;/p&gt;
+&lt;p&gt;安装路径为：&lt;code&gt;File &amp;gt; Settings &amp;gt; Project &amp;gt; Available Packages&lt;/code&gt;。&lt;/p&gt;
+&lt;img alt=&#34;1.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220513-396fa102-15a2-4d0a-84f6-da12f6c5a81b.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;图-安装mariadb包&lt;/p&gt;
+&lt;p&gt;到此，安装完成！&lt;/p&gt;
+&lt;h2 id=&#34;CURD-实践&#34;&gt;CURD 实践&lt;/h2&gt;
+&lt;h3 id=&#34;基础数据&#34;&gt;基础数据&lt;/h3&gt;
+&lt;p&gt;通过 &lt;code&gt;tiup demo&lt;/code&gt; 创建基础数据，会自动在 TiDB 中创建库 &lt;a href=&#34;https://docs.pingcap.com/zh/tidb/dev/bookshop-schema-design&#34;&gt;&lt;code&gt;bookshop&lt;/code&gt;&lt;/a&gt; 以及 6 张表，并导入基础数据。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Bookshop 是一个虚拟的在线书店应用，你可以在 Bookshop 当中便捷地购买到各种类别的书，也可以对你看过的书进行点评。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;ul&gt;
+&lt;li&gt;执行如下命令，生成基础数据：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;tiup demo bookshop prepare -H 192.168.8.101&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;运行结果为：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;shawnyan@centos7:~$ tiup demo bookshop prepare -H 192.168.8.101&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tiup is checking updates for component demo ...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component `demo`: /home/shawnyan/.tiup/components/demo/v0.0.8/tidb-dataset /home/shawnyan/.tiup/components/demo/v0.0.8/tidb-dataset bookshop prepare -H 192.168.8.101&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0000] Creating the tables if not existed....        dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0000] Creating table books.                         dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0000] Creating table users.                         dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0000] Creating table authors.                       dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0000] Creating table book_authors.                  dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0001] Creating table orders.                        dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0001] Creating table ratings.                       dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0001] Finished creating tables!                     dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0001] Clearing the old data....                     dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0002] Loading users data...                         dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0004] Loading books data...                         dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0006] Loading authors data...                       dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0008] Loading book authors data...                  dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0009] Loading book orders data...                   dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0039] Loading book ratings data...                  dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;INFO[0071] Finished!                                     dataset=bookshop&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;查看新建库 &lt;code&gt;bookshop&lt;/code&gt; 表数据量：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; CONCAT(table_schema,&lt;span class=&#34;string&#34;&gt;&amp;#x27;.&amp;#x27;&lt;/span&gt;,table_name) &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;Table Name&amp;#x27;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; table_rows &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;Number of Rows&amp;#x27;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; information_schema.TABLES&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;WHERE&lt;/span&gt; table_schema &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;bookshop&amp;#x27;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;ORDER&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;BY&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;运行结果为：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------------------+----------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Table&lt;/span&gt; Name            &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Number &lt;span class=&#34;keyword&#34;&gt;of&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Rows&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------------------+----------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; bookshop.authors      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;          &lt;span class=&#34;number&#34;&gt;20000&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; bookshop.book_authors &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;          &lt;span class=&#34;number&#34;&gt;20000&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; bookshop.books        &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;          &lt;span class=&#34;number&#34;&gt;20000&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; bookshop.orders       &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;         &lt;span class=&#34;number&#34;&gt;300000&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; bookshop.ratings      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;         &lt;span class=&#34;number&#34;&gt;300000&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; bookshop.users        &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;           &lt;span class=&#34;number&#34;&gt;9985&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------------------+----------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;6&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.018&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;使用-Python-连接器创建连接&#34;&gt;使用 Python 连接器创建连接&lt;/h3&gt;
+&lt;p&gt;需要配置连接信息，默认为不自动提交：&lt;/p&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;conn_params = &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;user&amp;quot;&lt;/span&gt;: &lt;span class=&#34;string&#34;&gt;&amp;quot;root&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;password&amp;quot;&lt;/span&gt;: &lt;span class=&#34;string&#34;&gt;&amp;quot;&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;host&amp;quot;&lt;/span&gt;: &lt;span class=&#34;string&#34;&gt;&amp;quot;192.168.8.101&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;port&amp;quot;&lt;/span&gt;: &lt;span class=&#34;number&#34;&gt;4000&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;database&amp;quot;&lt;/span&gt;: &lt;span class=&#34;string&#34;&gt;&amp;quot;bookshop&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;autocommit&amp;quot;&lt;/span&gt;: &lt;span class=&#34;literal&#34;&gt;False&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#125;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;检查基本连接信息&#34;&gt;检查基本连接信息&lt;/h3&gt;
+&lt;p&gt;可调用连接器内置方法，直接查看数据库版本和会话的字符集。发送查询语句，查看自动提交的参数值。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;示例代码如下：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# 2. Check Conn Info (Server Version, Charset)&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;print&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;quot;Server Version:&amp;quot;&lt;/span&gt;, conn.server_info)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;print&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;quot;Connection Charset:&amp;quot;&lt;/span&gt;, conn.character_set, conn.collation)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# 3. Check Server Variables&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cursor.execute(&lt;span class=&#34;string&#34;&gt;&amp;quot;SHOW VARIABLES LIKE &amp;#x27;autocommit&amp;#x27;&amp;quot;&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;resAutoCommit = cursor.fetchone()&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;print&lt;/span&gt;(resAutoCommit)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;运行结果如下：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;Server Version: 5.7.25-TiDB-v6.0.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Connection Charset: utf8mb4 utf8mb4_general_ci&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&amp;#x27;autocommit&amp;#x27;, &amp;#x27;OFF&amp;#x27;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;blockquote&gt;
+&lt;p&gt;注：&lt;br&gt;
+使用 MariaDB Connector/Python 连接数据库，会总是使用 &lt;code&gt;utf8mb4&lt;/code&gt;。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;单值写入&#34;&gt;单值写入&lt;/h3&gt;
+&lt;p&gt;下面将分单值写入、多值写入、单值查询，以及多值查询四种情况分别做演示。&lt;/p&gt;
+&lt;p&gt;向 &lt;code&gt;books&lt;/code&gt; 表中插入一条数据，并在之后手动提交：&lt;/p&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# 4. Insert One Row&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sqlInsertOne = &lt;span class=&#34;string&#34;&gt;&amp;quot;REPLACE INTO books (id, title, published_at) VALUES (1, &amp;#x27;tidb-monthly&amp;#x27;, &amp;#x27;2022-05-09&amp;#x27;)&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cursor.execute(sqlInsertOne)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;conn.commit()&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;如果 TiDB Server 已开启 General 日志，则可以在日志文件中看到：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[2022/05/12 22:26:05.103 +08:00] [INFO] [session.go:3264] [GENERAL_LOG] [conn=467] [user=root@%] [schemaVersion=144] [txnStartTS=0] [forUpdateTS=0] [isReadConsistency=false] [current_db=bookshop] [txn_mode=PESSIMISTIC] [sql=&amp;quot;REPLACE INTO books (id, title, published_at) VALUES (1, &amp;#x27;tidb-monthly&amp;#x27;, &amp;#x27;2022-05-09&amp;#x27;)&amp;quot;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2022/05/12 22:26:05.120 +08:00] [INFO] [session.go:3264] [GENERAL_LOG] [conn=467] [user=root@%] [schemaVersion=144] [txnStartTS=433157718689710084] [forUpdateTS=433157718689710084] [isReadConsistency=false] [current_db=bookshop] [txn_mode=PESSIMISTIC] [sql=COMMIT]&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;多值写入&#34;&gt;多值写入&lt;/h3&gt;
+&lt;p&gt;也可将多组值包装到一个字典中，然后传递给执行器，此时就用到了 &lt;code&gt;executemany&lt;/code&gt;，可一次性执行多条语句，并将其封装在一个事务内，以保证写入数据的完整性。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;演示代码如下：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# 5. Insert Multi Rows&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;data = [&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    (&lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;TiDB Book Rush&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;2022-05-10&amp;#x27;&lt;/span&gt;),&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    (&lt;span class=&#34;number&#34;&gt;11&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;TiDB Blog&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;2022-05-11&amp;#x27;&lt;/span&gt;),&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    (&lt;span class=&#34;number&#34;&gt;12&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;TiDB 6.0 Release&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;2022-05-12&amp;#x27;&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sqlInsertMulti = &lt;span class=&#34;string&#34;&gt;&amp;quot;REPLACE INTO books (id, title, published_at) VALUES (?, ?, ?)&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cursor.executemany(sqlInsertMulti, data)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;TiDB Server 的 General 日志打印如下：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[2022/05/12 22:26:05.131 +08:00] [INFO] [session.go:3264] [GENERAL_LOG] [conn=467] [user=root@%] [schemaVersion=144] [txnStartTS=0] [forUpdateTS=0] [isReadConsistency=false] [current_db=bookshop] [txn_mode=PESSIMISTIC] [sql=BEGIN]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2022/05/12 22:26:05.154 +08:00] [INFO] [session.go:3264] [GENERAL_LOG] [conn=467] [user=root@%] [schemaVersion=144] [txnStartTS=433157718702817281] [forUpdateTS=433157718702817281] [isReadConsistency=false] [current_db=bookshop] [txn_mode=PESSIMISTIC] [sql=&amp;quot;REPLACE INTO books (id, title, published_at) VALUES (?, ?, ?) [arguments: (10, \&amp;quot;TiDB Book Rush\&amp;quot;, \&amp;quot;2022-05-10\&amp;quot;)]&amp;quot;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2022/05/12 22:26:05.162 +08:00] [INFO] [session.go:3264] [GENERAL_LOG] [conn=467] [user=root@%] [schemaVersion=144] [txnStartTS=433157718702817281] [forUpdateTS=433157718702817281] [isReadConsistency=false] [current_db=bookshop] [txn_mode=PESSIMISTIC] [sql=&amp;quot;REPLACE INTO books (id, title, published_at) VALUES (?, ?, ?) [arguments: (11, \&amp;quot;TiDB Blog\&amp;quot;, \&amp;quot;2022-05-11\&amp;quot;)]&amp;quot;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2022/05/12 22:26:05.168 +08:00] [INFO] [session.go:3264] [GENERAL_LOG] [conn=467] [user=root@%] [schemaVersion=144] [txnStartTS=433157718702817281] [forUpdateTS=433157718702817281] [isReadConsistency=false] [current_db=bookshop] [txn_mode=PESSIMISTIC] [sql=&amp;quot;REPLACE INTO books (id, title, published_at) VALUES (?, ?, ?) [arguments: (12, \&amp;quot;TiDB 6.0 Release\&amp;quot;, \&amp;quot;2022-05-12\&amp;quot;)]&amp;quot;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2022/05/12 22:26:05.178 +08:00] [INFO] [session.go:3264] [GENERAL_LOG] [conn=467] [user=root@%] [schemaVersion=144] [txnStartTS=433157718702817281] [forUpdateTS=433157718702817281] [isReadConsistency=false] [current_db=bookshop] [txn_mode=PESSIMISTIC] [sql=COMMIT]&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;单值读取&#34;&gt;单值读取&lt;/h3&gt;
+&lt;p&gt;因为 TiDB 使用 &lt;code&gt;utf8_bin&lt;/code&gt; 做为默认校验规则，所以查询条件会区分大小写，这里使用内置函数 &lt;code&gt;lower()&lt;/code&gt; 将所有字符转成小写，来消除大小写区分的影响。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;使用 &lt;code&gt;fetchone()&lt;/code&gt; 方法查询一条结果，并用 &lt;code&gt;|&lt;/code&gt; 作为分隔符将结果打印。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# 6. Query Data -- One Row&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cursor.execute(&lt;span class=&#34;string&#34;&gt;&amp;quot;SELECT * FROM books where lower(title) like &amp;#x27;tidb%&amp;#x27;&amp;quot;&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;row = cursor.fetchone()&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;print&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;quot;Select One Row:&amp;quot;&lt;/span&gt;, *row, sep=&lt;span class=&#34;string&#34;&gt;&amp;#x27;|&amp;#x27;&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;控制台打印结果为：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;Select One Row:|1|tidb-monthly|Magazine|2022-05-09 00:00:00|0|0.00&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;多值读取&#34;&gt;多值读取&lt;/h3&gt;
+&lt;p&gt;对于多值读取的情况，可使用 &lt;code&gt;fetchmany(size: int)&lt;/code&gt; 方法，传入欲获取的行数后执行，即可得到需要的结果集。&lt;br&gt;
+本例中，因为上文只写入4条数据，所以也只能查到4条，代码如下。&lt;/p&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# 7. Query Data -- Many&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cursor.execute(&lt;span class=&#34;string&#34;&gt;&amp;quot;SELECT * FROM books where lower(title) like &amp;#x27;tidb%&amp;#x27;&amp;quot;&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;row = cursor.fetchmany(&lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;print&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;quot;rows_affected:&amp;quot;&lt;/span&gt;, cursor.rowcount)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;res = []&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; i &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; row:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    res.append(&amp;#123;&lt;span class=&#34;string&#34;&gt;&amp;quot;id&amp;quot;&lt;/span&gt;: i[&lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;], &lt;span class=&#34;string&#34;&gt;&amp;quot;book&amp;quot;&lt;/span&gt;: i[&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;], &lt;span class=&#34;string&#34;&gt;&amp;quot;published&amp;quot;&lt;/span&gt;: &lt;span class=&#34;string&#34;&gt;&amp;quot;&amp;#123;:%Y-%m-%d&amp;#125;&amp;quot;&lt;/span&gt;.&lt;span class=&#34;built_in&#34;&gt;format&lt;/span&gt;(i[&lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;])&amp;#125;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;print&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;quot;Select Many Rows:&amp;quot;&lt;/span&gt;, res)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;控制台输出结果：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;rows_affected: 4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Select Many Rows: [&amp;#123;&amp;#x27;id&amp;#x27;: 1, &amp;#x27;book&amp;#x27;: &amp;#x27;tidb-monthly&amp;#x27;, &amp;#x27;published&amp;#x27;: &amp;#x27;2022-05-09&amp;#x27;&amp;#125;, &amp;#123;&amp;#x27;id&amp;#x27;: 10, &amp;#x27;book&amp;#x27;: &amp;#x27;TiDB Book Rush&amp;#x27;, &amp;#x27;published&amp;#x27;: &amp;#x27;2022-05-10&amp;#x27;&amp;#125;, &amp;#123;&amp;#x27;id&amp;#x27;: 11, &amp;#x27;book&amp;#x27;: &amp;#x27;TiDB Blog&amp;#x27;, &amp;#x27;published&amp;#x27;: &amp;#x27;2022-05-11&amp;#x27;&amp;#125;, &amp;#123;&amp;#x27;id&amp;#x27;: 12, &amp;#x27;book&amp;#x27;: &amp;#x27;TiDB 6.0 Release&amp;#x27;, &amp;#x27;published&amp;#x27;: &amp;#x27;2022-05-12&amp;#x27;&amp;#125;]&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;小结&#34;&gt;小结&lt;/h2&gt;
+&lt;p&gt;到此，以上四种情况已全部演示完毕。&lt;br&gt;
+最后，以一个完整示例作为本文结尾。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;示例：查询 &lt;code&gt;Books&lt;/code&gt; 表所在的 TiKV 节点的版本和地址，并输出结果。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;#!/bin/python3&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# -*- coding: utf-8 -*-&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# Author: @ShawnYan&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;import&lt;/span&gt; mariadb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# 1. Connecting&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;conn_params = &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;user&amp;quot;&lt;/span&gt;: &lt;span class=&#34;string&#34;&gt;&amp;quot;root&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;password&amp;quot;&lt;/span&gt;: &lt;span class=&#34;string&#34;&gt;&amp;quot;&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;host&amp;quot;&lt;/span&gt;: &lt;span class=&#34;string&#34;&gt;&amp;quot;192.168.8.101&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;port&amp;quot;&lt;/span&gt;: &lt;span class=&#34;number&#34;&gt;4000&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;database&amp;quot;&lt;/span&gt;: &lt;span class=&#34;string&#34;&gt;&amp;quot;bookshop&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;autocommit&amp;quot;&lt;/span&gt;: &lt;span class=&#34;literal&#34;&gt;False&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;conn = mariadb.connect(**conn_params)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cursor = conn.cursor(buffered=&lt;span class=&#34;literal&#34;&gt;True&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# 2. Check Conn Info (Server Version, Charset)&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;print&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;quot;Server Version:&amp;quot;&lt;/span&gt;, conn.server_info)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;print&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;quot;Connection Charset:&amp;quot;&lt;/span&gt;, conn.character_set, conn.collation)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# 7. Query Data -- Many&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cursor.execute(&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;SELECT DISTINCT t1.DB_NAME,t1.TABLE_NAME, t1.REGION_ID, t3.ADDRESS, t3.version &amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;FROM information_schema.tikv_region_status t1 INNER JOIN information_schema.tikv_region_peers t2 &amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;ON t1.REGION_ID = t2.region_id INNER JOIN information_schema.TIKV_STORE_STATUS t3 ON t2.STORE_ID = t3.STORE_ID &amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;WHERE t1.DB_NAME = &amp;#x27;bookshop&amp;#x27; AND t1.TABLE_NAME = &amp;#x27;books&amp;#x27;&amp;quot;&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;row = cursor.fetchall()&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;res = []&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; i &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; row:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    res.append(&amp;#123;&lt;span class=&#34;string&#34;&gt;&amp;quot;DB&amp;quot;&lt;/span&gt;: i[&lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;], &lt;span class=&#34;string&#34;&gt;&amp;quot;TABLE&amp;quot;&lt;/span&gt;: i[&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;], &lt;span class=&#34;string&#34;&gt;&amp;quot;REGION_ID&amp;quot;&lt;/span&gt;: i[&lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;], &lt;span class=&#34;string&#34;&gt;&amp;quot;TIKV_ADDR&amp;quot;&lt;/span&gt;: i[&lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;], &lt;span class=&#34;string&#34;&gt;&amp;quot;TIKV_VERSION&amp;quot;&lt;/span&gt;: i[&lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;]&amp;#125;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;print&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;quot;Select Many Rows:&amp;quot;&lt;/span&gt;, res)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# free resources&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cursor.close()&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;conn.close()&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;输出结果为：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;Server Version: 5.7.25-TiDB-v6.0.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Connection Charset: utf8mb4 utf8mb4_general_ci&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Select Many Rows: [&amp;#123;&amp;#x27;DB&amp;#x27;: &amp;#x27;bookshop&amp;#x27;, &amp;#x27;TABLE&amp;#x27;: &amp;#x27;books&amp;#x27;, &amp;#x27;REGION_ID&amp;#x27;: 4028065, &amp;#x27;TIKV_ADDR&amp;#x27;: &amp;#x27;192.168.8.101:20161&amp;#x27;, &amp;#x27;TIKV_VERSION&amp;#x27;: &amp;#x27;6.0.0&amp;#x27;&amp;#125;]&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;以上就是本文的全部内容，其他开发语言的开发实践，请参考官方文档，或扩展阅读。&lt;/p&gt;
+&lt;h2 id=&#34;扩展阅读&#34;&gt;扩展阅读&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;来自 PingCAP Education 原厂，适合 &lt;a href=&#34;https://pingcap.com/zh/courses-catalog/back-end-developer&#34;&gt;开发人员的课程&lt;/a&gt; ：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://learn.pingcap.com/learner/course/600003&#34;&gt;DEV COURSE 1：TiDB 的架构与特点&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://learn.pingcap.com/learner/course/1050001&#34;&gt;DEV COURSE 2：在 TiDB 上学习 SQL 语句&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://learn.pingcap.com/learner/course/750002&#34;&gt;DEV COURSE 3：TiDB 特有功能与事务控制&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://learn.pingcap.com/learner/course/840002&#34;&gt;DEV COURSE 4：使用 Connector/J&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://learn.pingcap.com/learner/course/780002&#34;&gt;DEV COURSE 5：在 TiDB 上开发应用的最佳实践&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&#34;https://asktug.com/t/topic/664974&#34;&gt;TiDB 应用开发专区&amp;amp;开发者手册&amp;amp;干货合集&lt;/a&gt; @&lt;a href=&#34;https://asktug.com/u/billmay/summary&#34;&gt;Billmay&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&#34;https://asktug.com/t/topic/663914&#34;&gt;TiDB 6.0 Book Rush！一起来分布式创作 6.0 的使用手册吧！&lt;/a&gt; @&lt;a href=&#34;https://asktug.com/u/luzizhuo/summary&#34;&gt;luzizhuo&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;p&gt;&lt;a href=&#34;https://www.modb.pro/db/403262&#34;&gt;https://www.modb.pro/db/403262&lt;/a&gt;&lt;br&gt;
+&lt;a href=&#34;https://tidb.net/blog/ef4c1f65?shareId=2923d1b6&#34;&gt;https://tidb.net/blog/ef4c1f65?shareId=2923d1b6&lt;/a&gt;&lt;br&gt;
+&lt;a href=&#34;https://tidb.net/book/book-rush/developer-guide/simple-crud/sample-application-python&#34;&gt;https://tidb.net/book/book-rush/developer-guide/simple-crud/sample-application-python&lt;/a&gt;&lt;/p&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/tidb/" class="category-badge">
+                                    TiDB
+                                </a>
+                            
+                                <a href="/categories/tidb/tidb-6-x/" class="category-badge">
+                                    TiDB 6.x
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">TiDB 6.0 Book Rush | TiDB 和 Python 的 CRUD 应用开发实践</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2022-05-14
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                2.7k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                13 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <p>本文将介绍如何使用 Python 对 TiDB 进行应用开发，并做简单的 CRUD 演示。<br>
+对应 <a target="_blank" rel="noopener" href="https://asktug.com/t/topic/663914">TiDB 6.0 Book Rush</a> 的<a target="_blank" rel="noopener" href="https://tidb.net/book/book-rush/developer-guide/">第二章</a> 。</p>
+<img alt="IMG_2005.JPG" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/IMG_2005-1652257515326.jpg" referrerpolicy="no-referrer"/>
+<h2 id="测试环境">测试环境</h2>
+<p>为了便于演示应用开发，本文将使用 TiDB 6.0 本地测试集群，以及 MariaDB Connector/Python，具体环境版本信息如下。</p>
+<blockquote>
+<p>TiDB 6.0<br>
+Python 3.6.8<br>
+MariaDB Connector/Python 1.0.11</p>
+</blockquote>
+<h2 id="部署本地测试集群">部署本地测试集群</h2>
+<p>快速启动本地测试集群，具体方法请参考 <a target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/quick-start-with-tidb#Linux">官方文档–部署本地测试集群</a> 和文章 <a href="https://shawnyan.cn/2022/tidb/tiup-intro/">《TiUP：TiDBAer 必备利器》</a> 。</p>
+<ul>
+<li>本文使用的测试环境启动命令为：</li>
+</ul>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">tiup</span> <span class="string">playground</span> <span class="string">v6.0.0</span> <span class="string">--host</span> <span class="number">192.168</span><span class="number">.8</span><span class="number">.101</span> <span class="string">--tag</span> <span class="string">classroom</span> <span class="string">--pd</span> <span class="number">3</span> <span class="string">--kv</span> <span class="number">2</span> <span class="string">--db</span> <span class="number">1</span> <span class="string">--tiflash</span> <span class="number">1</span></span><br></pre></td></tr></table></figure>
+<ul>
+<li>运行结果为：</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">CLUSTER START SUCCESSFULLY, Enjoy it ^-^</span><br><span class="line">To connect TiDB: mysql --comments --host 192.168.8.101 --port 4000 -u root -p (no password)</span><br><span class="line">To view the dashboard: http://192.168.8.101:2379/dashboard</span><br><span class="line">PD client endpoints: [192.168.8.101:2379 192.168.8.101:2382 192.168.8.101:2384]</span><br></pre></td></tr></table></figure>
+<h2 id="Python-连接器">Python 连接器</h2>
+<h3 id="介绍几种常见的-Python-连接器">介绍几种常见的 Python 连接器</h3>
+<p>TiDB 高度兼容 MySQL 5.7 协议，理论上只要是支持 MySQL 及其分支版本的 Python 连接器都可以连接 TiDB，但仍需要具体测试。</p>
+<ul>
+<li>
+<p>MySQL 官方提供的连接器为 <a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/relnotes/connector-python/en/">MySQL Connector/Python</a> 。最新GA版本 8.0.29，官方文档推荐升级到最新版本，并声明此版本可用于 MySQL Server 8.0 和 5.7。</p>
+</li>
+<li>
+<p>MariaDB 提供的连接器为 <a target="_blank" rel="noopener" href="https://mariadb.com/kb/en/mariadb-connector-python/">MariaDB Connector/Python</a> 。最新GA版本为 1.0.11，可用于访问 MariaDB 和 MySQL，使用的 API 与 <a target="_blank" rel="noopener" href="https://peps.python.org/pep-0249/">Python DB API Spec 2.0 (PEP 249)</a> 兼容。</p>
+</li>
+</ul>
+<p>除这两种官方连接器之外，还有两种常见的客户端，分别是：</p>
+<ul>
+<li>
+<p>Python 2 下使用的 <a target="_blank" rel="noopener" href="https://pypi.org/project/MySQL-python/">MySQL-python</a> ，该包已停止维护，不推荐使用。</p>
+</li>
+<li>
+<p>Python 3 下使用的 <a target="_blank" rel="noopener" href="https://pypi.org/project/PyMySQL/">pyMySQL</a> ，该包持续更新，且遵从 <a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/MIT_License">MIT 协议</a> ，可放心使用。</p>
+</li>
+</ul>
+<p>本文使用的是 MariaDB Connector/Python，下面将做具体演示。</p>
+<h3 id="安装-Python-连接器">安装 Python 连接器</h3>
+<h4 id="CentOS-7-环境">CentOS 7 环境</h4>
+<p>由于 MariaDB Connector/Python 使用 Python 3 编写，且依赖 MariaDB Connector/C，所以需要先安装依赖包。</p>
+<ul>
+<li>安装必要的依赖：</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo yum install -y MariaDB-devel gcc python3-devel</span><br></pre></td></tr></table></figure>
+<ul>
+<li>安装完成后，检查已安装的包：</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">shawnyan@centos7:~$ rpm -q MariaDB-devel gcc python3-devel</span><br><span class="line">MariaDB-devel-10.6.7-1.el7.centos.x86_64</span><br><span class="line">gcc-4.8.5-44.el7.x86_64</span><br><span class="line">python3-devel-3.6.8-18.el7.x86_64</span><br></pre></td></tr></table></figure>
+<ul>
+<li>通过 pip 安装连接器：</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">python3 -m pip install mariadb --user</span><br></pre></td></tr></table></figure>
+<ul>
+<li>运行结果为：</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">shawnyan@centos7:~$ python3 -m pip install mariadb --user</span><br><span class="line">Installing collected packages: mariadb</span><br><span class="line">    Running setup.py install for mariadb ... done</span><br><span class="line">Successfully installed mariadb-1.0.11</span><br></pre></td></tr></table></figure>
+<ul>
+<li>安装步骤支持幂等性，二次执行命令结果如下：</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">shawnyan@centos7:~$ python3 -m pip install mariadb --user</span><br><span class="line">Requirement already satisfied: mariadb in /home/shawnyan/.local/lib/python3.6/site-packages (1.0.11)</span><br></pre></td></tr></table></figure>
+<ul>
+<li>安装完成后，检查已安装的包：</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">shawnyan@centos7:~$ python3 -m pip show mariadb</span><br><span class="line">Name: mariadb</span><br><span class="line">Version: 1.0.11</span><br><span class="line">Summary: Python MariaDB extension</span><br><span class="line">Home-page: https://www.github.com/mariadb-corporation/mariadb-connector-python</span><br><span class="line">Author: Georg Richter</span><br><span class="line">Author-email:</span><br><span class="line">License: LGPL 2.1</span><br><span class="line">Location: /home/shawnyan/.local/lib/python3.6/site-packages</span><br><span class="line">Requires:</span><br><span class="line">Required-by:</span><br></pre></td></tr></table></figure>
+<p>到此，安装完成！</p>
+<h4 id="Windows-环境">Windows 环境</h4>
+<p>与 CentOS 环境类似，需要安装 MariaDB Connector/C，下载页面为 <a target="_blank" rel="noopener" href="https://mariadb.com/downloads/connectors/">Connectors</a>。</p>
+<p>此外，还需要安装 Microsoft Visual C++ 14.0，下载页面为 <a target="_blank" rel="noopener" href="https://visualstudio.microsoft.com/downloads/">Microsoft Visual C++ Build Tools</a>。</p>
+<p>本文示例代码是在 PyCharm 中开发的，所以在安装完成依赖后，直接在 PyCharm 中安装 MariaDB Connector/Python。</p>
+<p>安装路径为：<code>File &gt; Settings &gt; Project &gt; Available Packages</code>。</p>
+<img alt="1.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20220513-396fa102-15a2-4d0a-84f6-da12f6c5a81b.jpg" referrerpolicy="no-referrer"/>
+<p>图-安装mariadb包</p>
+<p>到此，安装完成！</p>
+<h2 id="CURD-实践">CURD 实践</h2>
+<h3 id="基础数据">基础数据</h3>
+<p>通过 <code>tiup demo</code> 创建基础数据，会自动在 TiDB 中创建库 <a target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/dev/bookshop-schema-design"><code>bookshop</code></a> 以及 6 张表，并导入基础数据。</p>
+<blockquote>
+<p>Bookshop 是一个虚拟的在线书店应用，你可以在 Bookshop 当中便捷地购买到各种类别的书，也可以对你看过的书进行点评。</p>
+</blockquote>
+<ul>
+<li>执行如下命令，生成基础数据：</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tiup demo bookshop prepare -H 192.168.8.101</span><br></pre></td></tr></table></figure>
+<ul>
+<li>运行结果为：</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">shawnyan@centos7:~$ tiup demo bookshop prepare -H 192.168.8.101</span><br><span class="line">tiup is checking updates for component demo ...</span><br><span class="line">Starting component `demo`: /home/shawnyan/.tiup/components/demo/v0.0.8/tidb-dataset /home/shawnyan/.tiup/components/demo/v0.0.8/tidb-dataset bookshop prepare -H 192.168.8.101</span><br><span class="line">INFO[0000] Creating the tables if not existed....        dataset=bookshop</span><br><span class="line">INFO[0000] Creating table books.                         dataset=bookshop</span><br><span class="line">INFO[0000] Creating table users.                         dataset=bookshop</span><br><span class="line">INFO[0000] Creating table authors.                       dataset=bookshop</span><br><span class="line">INFO[0000] Creating table book_authors.                  dataset=bookshop</span><br><span class="line">INFO[0001] Creating table orders.                        dataset=bookshop</span><br><span class="line">INFO[0001] Creating table ratings.                       dataset=bookshop</span><br><span class="line">INFO[0001] Finished creating tables!                     dataset=bookshop</span><br><span class="line">INFO[0001] Clearing the old data....                     dataset=bookshop</span><br><span class="line">INFO[0002] Loading users data...                         dataset=bookshop</span><br><span class="line">INFO[0004] Loading books data...                         dataset=bookshop</span><br><span class="line">INFO[0006] Loading authors data...                       dataset=bookshop</span><br><span class="line">INFO[0008] Loading book authors data...                  dataset=bookshop</span><br><span class="line">INFO[0009] Loading book orders data...                   dataset=bookshop</span><br><span class="line">INFO[0039] Loading book ratings data...                  dataset=bookshop</span><br><span class="line">INFO[0071] Finished!                                     dataset=bookshop</span><br></pre></td></tr></table></figure>
+<ul>
+<li>查看新建库 <code>bookshop</code> 表数据量：</li>
+</ul>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span></span><br><span class="line"> CONCAT(table_schema,<span class="string">&#x27;.&#x27;</span>,table_name) <span class="keyword">AS</span> <span class="string">&#x27;Table Name&#x27;</span>,</span><br><span class="line"> table_rows <span class="keyword">AS</span> <span class="string">&#x27;Number of Rows&#x27;</span></span><br><span class="line"><span class="keyword">FROM</span></span><br><span class="line"> information_schema.TABLES</span><br><span class="line"><span class="keyword">WHERE</span> table_schema <span class="operator">=</span> <span class="string">&#x27;bookshop&#x27;</span></span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> <span class="number">1</span>;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>运行结果为：</li>
+</ul>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="operator">+</span><span class="comment">-----------------------+----------------+</span></span><br><span class="line"><span class="operator">|</span> <span class="keyword">Table</span> Name            <span class="operator">|</span> Number <span class="keyword">of</span> <span class="keyword">Rows</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-----------------------+----------------+</span></span><br><span class="line"><span class="operator">|</span> bookshop.authors      <span class="operator">|</span>          <span class="number">20000</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> bookshop.book_authors <span class="operator">|</span>          <span class="number">20000</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> bookshop.books        <span class="operator">|</span>          <span class="number">20000</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> bookshop.orders       <span class="operator">|</span>         <span class="number">300000</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> bookshop.ratings      <span class="operator">|</span>         <span class="number">300000</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> bookshop.users        <span class="operator">|</span>           <span class="number">9985</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-----------------------+----------------+</span></span><br><span class="line"><span class="number">6</span> <span class="keyword">rows</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.018</span> sec)</span><br></pre></td></tr></table></figure>
+<h3 id="使用-Python-连接器创建连接">使用 Python 连接器创建连接</h3>
+<p>需要配置连接信息，默认为不自动提交：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">conn_params = &#123;</span><br><span class="line">    <span class="string">&quot;user&quot;</span>: <span class="string">&quot;root&quot;</span>,</span><br><span class="line">    <span class="string">&quot;password&quot;</span>: <span class="string">&quot;&quot;</span>,</span><br><span class="line">    <span class="string">&quot;host&quot;</span>: <span class="string">&quot;192.168.8.101&quot;</span>,</span><br><span class="line">    <span class="string">&quot;port&quot;</span>: <span class="number">4000</span>,</span><br><span class="line">    <span class="string">&quot;database&quot;</span>: <span class="string">&quot;bookshop&quot;</span>,</span><br><span class="line">    <span class="string">&quot;autocommit&quot;</span>: <span class="literal">False</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="检查基本连接信息">检查基本连接信息</h3>
+<p>可调用连接器内置方法，直接查看数据库版本和会话的字符集。发送查询语句，查看自动提交的参数值。</p>
+<ul>
+<li>示例代码如下：</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 2. Check Conn Info (Server Version, Charset)</span></span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;Server Version:&quot;</span>, conn.server_info)</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;Connection Charset:&quot;</span>, conn.character_set, conn.collation)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 3. Check Server Variables</span></span><br><span class="line">cursor.execute(<span class="string">&quot;SHOW VARIABLES LIKE &#x27;autocommit&#x27;&quot;</span>)</span><br><span class="line">resAutoCommit = cursor.fetchone()</span><br><span class="line"><span class="built_in">print</span>(resAutoCommit)</span><br></pre></td></tr></table></figure>
+<ul>
+<li>运行结果如下：</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Server Version: 5.7.25-TiDB-v6.0.0</span><br><span class="line">Connection Charset: utf8mb4 utf8mb4_general_ci</span><br><span class="line">(&#x27;autocommit&#x27;, &#x27;OFF&#x27;)</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>注：<br>
+使用 MariaDB Connector/Python 连接数据库，会总是使用 <code>utf8mb4</code>。</p>
+</blockquote>
+<h3 id="单值写入">单值写入</h3>
+<p>下面将分单值写入、多值写入、单值查询，以及多值查询四种情况分别做演示。</p>
+<p>向 <code>books</code> 表中插入一条数据，并在之后手动提交：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 4. Insert One Row</span></span><br><span class="line">sqlInsertOne = <span class="string">&quot;REPLACE INTO books (id, title, published_at) VALUES (1, &#x27;tidb-monthly&#x27;, &#x27;2022-05-09&#x27;)&quot;</span></span><br><span class="line">cursor.execute(sqlInsertOne)</span><br><span class="line">conn.commit()</span><br></pre></td></tr></table></figure>
+<p>如果 TiDB Server 已开启 General 日志，则可以在日志文件中看到：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[2022/05/12 22:26:05.103 +08:00] [INFO] [session.go:3264] [GENERAL_LOG] [conn=467] [user=root@%] [schemaVersion=144] [txnStartTS=0] [forUpdateTS=0] [isReadConsistency=false] [current_db=bookshop] [txn_mode=PESSIMISTIC] [sql=&quot;REPLACE INTO books (id, title, published_at) VALUES (1, &#x27;tidb-monthly&#x27;, &#x27;2022-05-09&#x27;)&quot;]</span><br><span class="line">[2022/05/12 22:26:05.120 +08:00] [INFO] [session.go:3264] [GENERAL_LOG] [conn=467] [user=root@%] [schemaVersion=144] [txnStartTS=433157718689710084] [forUpdateTS=433157718689710084] [isReadConsistency=false] [current_db=bookshop] [txn_mode=PESSIMISTIC] [sql=COMMIT]</span><br></pre></td></tr></table></figure>
+<h3 id="多值写入">多值写入</h3>
+<p>也可将多组值包装到一个字典中，然后传递给执行器，此时就用到了 <code>executemany</code>，可一次性执行多条语句，并将其封装在一个事务内，以保证写入数据的完整性。</p>
+<ul>
+<li>演示代码如下：</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 5. Insert Multi Rows</span></span><br><span class="line">data = [</span><br><span class="line">    (<span class="number">10</span>, <span class="string">&#x27;TiDB Book Rush&#x27;</span>, <span class="string">&#x27;2022-05-10&#x27;</span>),</span><br><span class="line">    (<span class="number">11</span>, <span class="string">&#x27;TiDB Blog&#x27;</span>, <span class="string">&#x27;2022-05-11&#x27;</span>),</span><br><span class="line">    (<span class="number">12</span>, <span class="string">&#x27;TiDB 6.0 Release&#x27;</span>, <span class="string">&#x27;2022-05-12&#x27;</span>)</span><br><span class="line">]</span><br><span class="line"></span><br><span class="line">sqlInsertMulti = <span class="string">&quot;REPLACE INTO books (id, title, published_at) VALUES (?, ?, ?)&quot;</span></span><br><span class="line">cursor.executemany(sqlInsertMulti, data)</span><br></pre></td></tr></table></figure>
+<ul>
+<li>TiDB Server 的 General 日志打印如下：</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[2022/05/12 22:26:05.131 +08:00] [INFO] [session.go:3264] [GENERAL_LOG] [conn=467] [user=root@%] [schemaVersion=144] [txnStartTS=0] [forUpdateTS=0] [isReadConsistency=false] [current_db=bookshop] [txn_mode=PESSIMISTIC] [sql=BEGIN]</span><br><span class="line">[2022/05/12 22:26:05.154 +08:00] [INFO] [session.go:3264] [GENERAL_LOG] [conn=467] [user=root@%] [schemaVersion=144] [txnStartTS=433157718702817281] [forUpdateTS=433157718702817281] [isReadConsistency=false] [current_db=bookshop] [txn_mode=PESSIMISTIC] [sql=&quot;REPLACE INTO books (id, title, published_at) VALUES (?, ?, ?) [arguments: (10, \&quot;TiDB Book Rush\&quot;, \&quot;2022-05-10\&quot;)]&quot;]</span><br><span class="line">[2022/05/12 22:26:05.162 +08:00] [INFO] [session.go:3264] [GENERAL_LOG] [conn=467] [user=root@%] [schemaVersion=144] [txnStartTS=433157718702817281] [forUpdateTS=433157718702817281] [isReadConsistency=false] [current_db=bookshop] [txn_mode=PESSIMISTIC] [sql=&quot;REPLACE INTO books (id, title, published_at) VALUES (?, ?, ?) [arguments: (11, \&quot;TiDB Blog\&quot;, \&quot;2022-05-11\&quot;)]&quot;]</span><br><span class="line">[2022/05/12 22:26:05.168 +08:00] [INFO] [session.go:3264] [GENERAL_LOG] [conn=467] [user=root@%] [schemaVersion=144] [txnStartTS=433157718702817281] [forUpdateTS=433157718702817281] [isReadConsistency=false] [current_db=bookshop] [txn_mode=PESSIMISTIC] [sql=&quot;REPLACE INTO books (id, title, published_at) VALUES (?, ?, ?) [arguments: (12, \&quot;TiDB 6.0 Release\&quot;, \&quot;2022-05-12\&quot;)]&quot;]</span><br><span class="line">[2022/05/12 22:26:05.178 +08:00] [INFO] [session.go:3264] [GENERAL_LOG] [conn=467] [user=root@%] [schemaVersion=144] [txnStartTS=433157718702817281] [forUpdateTS=433157718702817281] [isReadConsistency=false] [current_db=bookshop] [txn_mode=PESSIMISTIC] [sql=COMMIT]</span><br></pre></td></tr></table></figure>
+<h3 id="单值读取">单值读取</h3>
+<p>因为 TiDB 使用 <code>utf8_bin</code> 做为默认校验规则，所以查询条件会区分大小写，这里使用内置函数 <code>lower()</code> 将所有字符转成小写，来消除大小写区分的影响。</p>
+<ul>
+<li>使用 <code>fetchone()</code> 方法查询一条结果，并用 <code>|</code> 作为分隔符将结果打印。</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 6. Query Data -- One Row</span></span><br><span class="line">cursor.execute(<span class="string">&quot;SELECT * FROM books where lower(title) like &#x27;tidb%&#x27;&quot;</span>)</span><br><span class="line">row = cursor.fetchone()</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;Select One Row:&quot;</span>, *row, sep=<span class="string">&#x27;|&#x27;</span>)</span><br></pre></td></tr></table></figure>
+<ul>
+<li>控制台打印结果为：</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Select One Row:|1|tidb-monthly|Magazine|2022-05-09 00:00:00|0|0.00</span><br></pre></td></tr></table></figure>
+<h3 id="多值读取">多值读取</h3>
+<p>对于多值读取的情况，可使用 <code>fetchmany(size: int)</code> 方法，传入欲获取的行数后执行，即可得到需要的结果集。<br>
+本例中，因为上文只写入4条数据，所以也只能查到4条，代码如下。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 7. Query Data -- Many</span></span><br><span class="line">cursor.execute(<span class="string">&quot;SELECT * FROM books where lower(title) like &#x27;tidb%&#x27;&quot;</span>)</span><br><span class="line">row = cursor.fetchmany(<span class="number">10</span>)</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;rows_affected:&quot;</span>, cursor.rowcount)</span><br><span class="line"></span><br><span class="line">res = []</span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> row:</span><br><span class="line">    res.append(&#123;<span class="string">&quot;id&quot;</span>: i[<span class="number">0</span>], <span class="string">&quot;book&quot;</span>: i[<span class="number">1</span>], <span class="string">&quot;published&quot;</span>: <span class="string">&quot;&#123;:%Y-%m-%d&#125;&quot;</span>.<span class="built_in">format</span>(i[<span class="number">3</span>])&#125;)</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;Select Many Rows:&quot;</span>, res)</span><br></pre></td></tr></table></figure>
+<ul>
+<li>控制台输出结果：</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">rows_affected: 4</span><br><span class="line">Select Many Rows: [&#123;&#x27;id&#x27;: 1, &#x27;book&#x27;: &#x27;tidb-monthly&#x27;, &#x27;published&#x27;: &#x27;2022-05-09&#x27;&#125;, &#123;&#x27;id&#x27;: 10, &#x27;book&#x27;: &#x27;TiDB Book Rush&#x27;, &#x27;published&#x27;: &#x27;2022-05-10&#x27;&#125;, &#123;&#x27;id&#x27;: 11, &#x27;book&#x27;: &#x27;TiDB Blog&#x27;, &#x27;published&#x27;: &#x27;2022-05-11&#x27;&#125;, &#123;&#x27;id&#x27;: 12, &#x27;book&#x27;: &#x27;TiDB 6.0 Release&#x27;, &#x27;published&#x27;: &#x27;2022-05-12&#x27;&#125;]</span><br></pre></td></tr></table></figure>
+<h2 id="小结">小结</h2>
+<p>到此，以上四种情况已全部演示完毕。<br>
+最后，以一个完整示例作为本文结尾。</p>
+<ul>
+<li>示例：查询 <code>Books</code> 表所在的 TiKV 节点的版本和地址，并输出结果。</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#!/bin/python3</span></span><br><span class="line"><span class="comment"># -*- coding: utf-8 -*-</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Author: @ShawnYan</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> mariadb</span><br><span class="line"></span><br><span class="line"><span class="comment"># 1. Connecting</span></span><br><span class="line">conn_params = &#123;</span><br><span class="line">    <span class="string">&quot;user&quot;</span>: <span class="string">&quot;root&quot;</span>,</span><br><span class="line">    <span class="string">&quot;password&quot;</span>: <span class="string">&quot;&quot;</span>,</span><br><span class="line">    <span class="string">&quot;host&quot;</span>: <span class="string">&quot;192.168.8.101&quot;</span>,</span><br><span class="line">    <span class="string">&quot;port&quot;</span>: <span class="number">4000</span>,</span><br><span class="line">    <span class="string">&quot;database&quot;</span>: <span class="string">&quot;bookshop&quot;</span>,</span><br><span class="line">    <span class="string">&quot;autocommit&quot;</span>: <span class="literal">False</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">conn = mariadb.connect(**conn_params)</span><br><span class="line">cursor = conn.cursor(buffered=<span class="literal">True</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. Check Conn Info (Server Version, Charset)</span></span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;Server Version:&quot;</span>, conn.server_info)</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;Connection Charset:&quot;</span>, conn.character_set, conn.collation)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 7. Query Data -- Many</span></span><br><span class="line">cursor.execute(</span><br><span class="line">    <span class="string">&quot;SELECT DISTINCT t1.DB_NAME,t1.TABLE_NAME, t1.REGION_ID, t3.ADDRESS, t3.version &quot;</span></span><br><span class="line">    <span class="string">&quot;FROM information_schema.tikv_region_status t1 INNER JOIN information_schema.tikv_region_peers t2 &quot;</span></span><br><span class="line">    <span class="string">&quot;ON t1.REGION_ID = t2.region_id INNER JOIN information_schema.TIKV_STORE_STATUS t3 ON t2.STORE_ID = t3.STORE_ID &quot;</span></span><br><span class="line">    <span class="string">&quot;WHERE t1.DB_NAME = &#x27;bookshop&#x27; AND t1.TABLE_NAME = &#x27;books&#x27;&quot;</span>)</span><br><span class="line">row = cursor.fetchall()</span><br><span class="line"></span><br><span class="line">res = []</span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> row:</span><br><span class="line">    res.append(&#123;<span class="string">&quot;DB&quot;</span>: i[<span class="number">0</span>], <span class="string">&quot;TABLE&quot;</span>: i[<span class="number">1</span>], <span class="string">&quot;REGION_ID&quot;</span>: i[<span class="number">2</span>], <span class="string">&quot;TIKV_ADDR&quot;</span>: i[<span class="number">3</span>], <span class="string">&quot;TIKV_VERSION&quot;</span>: i[<span class="number">4</span>]&#125;)</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;Select Many Rows:&quot;</span>, res)</span><br><span class="line"></span><br><span class="line"><span class="comment"># free resources</span></span><br><span class="line">cursor.close()</span><br><span class="line">conn.close()</span><br></pre></td></tr></table></figure>
+<p>输出结果为：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Server Version: 5.7.25-TiDB-v6.0.0</span><br><span class="line">Connection Charset: utf8mb4 utf8mb4_general_ci</span><br><span class="line">Select Many Rows: [&#123;&#x27;DB&#x27;: &#x27;bookshop&#x27;, &#x27;TABLE&#x27;: &#x27;books&#x27;, &#x27;REGION_ID&#x27;: 4028065, &#x27;TIKV_ADDR&#x27;: &#x27;192.168.8.101:20161&#x27;, &#x27;TIKV_VERSION&#x27;: &#x27;6.0.0&#x27;&#125;]</span><br></pre></td></tr></table></figure>
+<p>以上就是本文的全部内容，其他开发语言的开发实践，请参考官方文档，或扩展阅读。</p>
+<h2 id="扩展阅读">扩展阅读</h2>
+<ul>
+<li>
+<p>来自 PingCAP Education 原厂，适合 <a target="_blank" rel="noopener" href="https://pingcap.com/zh/courses-catalog/back-end-developer">开发人员的课程</a> ：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://learn.pingcap.com/learner/course/600003">DEV COURSE 1：TiDB 的架构与特点</a></li>
+<li><a target="_blank" rel="noopener" href="https://learn.pingcap.com/learner/course/1050001">DEV COURSE 2：在 TiDB 上学习 SQL 语句</a></li>
+<li><a target="_blank" rel="noopener" href="https://learn.pingcap.com/learner/course/750002">DEV COURSE 3：TiDB 特有功能与事务控制</a></li>
+<li><a target="_blank" rel="noopener" href="https://learn.pingcap.com/learner/course/840002">DEV COURSE 4：使用 Connector/J</a></li>
+<li><a target="_blank" rel="noopener" href="https://learn.pingcap.com/learner/course/780002">DEV COURSE 5：在 TiDB 上开发应用的最佳实践</a></li>
+</ul>
+</li>
+<li>
+<p><a target="_blank" rel="noopener" href="https://asktug.com/t/topic/664974">TiDB 应用开发专区&amp;开发者手册&amp;干货合集</a> @<a target="_blank" rel="noopener" href="https://asktug.com/u/billmay/summary">Billmay</a></p>
+</li>
+<li>
+<p><a target="_blank" rel="noopener" href="https://asktug.com/t/topic/663914">TiDB 6.0 Book Rush！一起来分布式创作 6.0 的使用手册吧！</a> @<a target="_blank" rel="noopener" href="https://asktug.com/u/luzizhuo/summary">luzizhuo</a></p>
+</li>
+</ul>
+<hr>
+<p><a target="_blank" rel="noopener" href="https://www.modb.pro/db/403262">https://www.modb.pro/db/403262</a><br>
+<a target="_blank" rel="noopener" href="https://tidb.net/blog/ef4c1f65?shareId=2923d1b6">https://tidb.net/blog/ef4c1f65?shareId=2923d1b6</a><br>
+<a target="_blank" rel="noopener" href="https://tidb.net/book/book-rush/developer-guide/simple-crud/sample-application-python">https://tidb.net/book/book-rush/developer-guide/simple-crud/sample-application-python</a></p>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/python/" class="tag-link">
+                                python
+                            </a>
+                        
+                            <a href="/tags/mysql/" class="tag-link">
+                                mysql
+                            </a>
+                        
+                            <a href="/tags/tidb/" class="tag-link">
+                                tidb
+                            </a>
+                        
+                            <a href="/tags/pingcap/" class="tag-link">
+                                pingcap
+                            </a>
+                        
+                            <a href="/tags/tidb-6-x/" class="tag-link">
+                                tidb 6.x
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2022/tidb/tidb-6.0-sample-application-python/index.html">https://shawnyan.cn/2022/tidb/tidb-6.0-sample-application-python/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2022/tidb/tidb-6.0-tispark-guide/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">TiSpark v2.5 开发入门实践及 TiSpark v3.0.0 新功能解读</span>
+        </a>
+    
+
+    
+        <a href="/2022/tidb/tidb-6.0-offline-package/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">TiDB 6.x 新特性解读 | 离线包变更</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95%E7%8E%AF%E5%A2%83"><span class="toc-text">测试环境</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%83%A8%E7%BD%B2%E6%9C%AC%E5%9C%B0%E6%B5%8B%E8%AF%95%E9%9B%86%E7%BE%A4"><span class="toc-text">部署本地测试集群</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Python-%E8%BF%9E%E6%8E%A5%E5%99%A8"><span class="toc-text">Python 连接器</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%8B%E7%BB%8D%E5%87%A0%E7%A7%8D%E5%B8%B8%E8%A7%81%E7%9A%84-Python-%E8%BF%9E%E6%8E%A5%E5%99%A8"><span class="toc-text">介绍几种常见的 Python 连接器</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%89%E8%A3%85-Python-%E8%BF%9E%E6%8E%A5%E5%99%A8"><span class="toc-text">安装 Python 连接器</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#CURD-%E5%AE%9E%E8%B7%B5"><span class="toc-text">CURD 实践</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9F%BA%E7%A1%80%E6%95%B0%E6%8D%AE"><span class="toc-text">基础数据</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8-Python-%E8%BF%9E%E6%8E%A5%E5%99%A8%E5%88%9B%E5%BB%BA%E8%BF%9E%E6%8E%A5"><span class="toc-text">使用 Python 连接器创建连接</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A3%80%E6%9F%A5%E5%9F%BA%E6%9C%AC%E8%BF%9E%E6%8E%A5%E4%BF%A1%E6%81%AF"><span class="toc-text">检查基本连接信息</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8D%95%E5%80%BC%E5%86%99%E5%85%A5"><span class="toc-text">单值写入</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A4%9A%E5%80%BC%E5%86%99%E5%85%A5"><span class="toc-text">多值写入</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8D%95%E5%80%BC%E8%AF%BB%E5%8F%96"><span class="toc-text">单值读取</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A4%9A%E5%80%BC%E8%AF%BB%E5%8F%96"><span class="toc-text">多值读取</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B0%8F%E7%BB%93"><span class="toc-text">小结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%89%A9%E5%B1%95%E9%98%85%E8%AF%BB"><span class="toc-text">扩展阅读</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

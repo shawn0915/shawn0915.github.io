@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        浅尝在 Rocky 9 下自助生成 PDF 格式的 TiDB 文档 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;img alt=&#34;img1.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240108-dfb9b292-6804-4902-a0b4-55ffede33402.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;blockquote&gt;
+&lt;p&gt;图片选自: &lt;a href=&#34;https://asktug.com/t/topic/1020117&#34;&gt;https://asktug.com/t/topic/1020117&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;TL-DR&#34;&gt;TL;DR&lt;/h2&gt;
+&lt;p&gt;&lt;a href=&#34;https://asktug.com&#34;&gt;Asktug.com&lt;/a&gt; 论坛里偶有小伙伴询问如何自助生成 PDF 格式的 TiDB 文档，或是 PDF 太长，经常查阅的只是其中一部分，如何只生成那一部分的 TiDB 文档。本文将介绍如何在 Rocky Linux 9 上自助生成 PDF 格式的 TiDB 文档。&lt;/p&gt;
+&lt;p&gt;没听过十年二手玫瑰，是不会轻易做这种尝试的，对于 LaTaX 新手来说，积累本文素材的过程极为痛苦。不建议各位看官实操本文的第二种方法，还是推荐使用第一种方法，基本按照官方推荐的、经过测试的方法来，便捷、有效、易用。&lt;/p&gt;
+&lt;h2 id=&#34;环境准备&#34;&gt;环境准备&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;操作系统：Rocky Linux 9.3&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ &lt;span class=&#34;built_in&#34;&gt;cat&lt;/span&gt; /etc/redhat-release &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Rocky Linux release 9.3 (Blue Onyx)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ &lt;span class=&#34;built_in&#34;&gt;uname&lt;/span&gt; -rsm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Linux 5.14.0-362.13.1.el9_3.x86_64 x86_64&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;前置安装：git, podman&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ git --version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;git version 2.39.3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ podman --version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;podman version 4.6.1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;注：OS 和相关软件不是本文重点，遂一笔带过。&lt;/p&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;拉取 &lt;code&gt;pandoc/latex&lt;/code&gt; 镜像&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;使用 podman 拉取 pandoc 镜像：&lt;/p&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;podman pull pandoc/latex&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]&lt;span class=&#34;comment&#34;&gt;# podman pull pandoc/latex&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;✔ docker.io/pandoc/latex:latest&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Trying to pull docker.io/pandoc/latex:latest...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Getting image &lt;span class=&#34;built_in&#34;&gt;source&lt;/span&gt; signatures&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copying blob 13d63ff5f1df &lt;span class=&#34;keyword&#34;&gt;done&lt;/span&gt;  &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copying config 11172c3435 &lt;span class=&#34;keyword&#34;&gt;done&lt;/span&gt;  &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Writing manifest to image destination&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11172c3435762783d582093f4eae6cf80548ff4443a26532e35f36dac8b2ec77&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看镜像信息：&lt;/p&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]&lt;span class=&#34;comment&#34;&gt;# podman images | grep pandoc&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;docker.io/pandoc/latex            latest      11172c343576  9 months ago   550 MB&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;4&#34;&gt;
+&lt;li&gt;克隆 TiDB 文档库代码&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这里以 TiDB 中文文档为例，克隆文档：&lt;/p&gt;
+&lt;p&gt;（为加速下载，也避免网路问题，这里选择从 gitee 克隆代码）&lt;/p&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;git &lt;span class=&#34;built_in&#34;&gt;clone&lt;/span&gt; https://gitee.com/shawnyan/docs-cn.git --depth=1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ git &lt;span class=&#34;built_in&#34;&gt;clone&lt;/span&gt; https://gitee.com/shawnyan/docs-cn.git --depth=1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cloning into &lt;span class=&#34;string&#34;&gt;&amp;#x27;docs-cn&amp;#x27;&lt;/span&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;remote: Enumerating objects: 2472, &lt;span class=&#34;keyword&#34;&gt;done&lt;/span&gt;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;remote: Counting objects: 100% (2472/2472), &lt;span class=&#34;keyword&#34;&gt;done&lt;/span&gt;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;remote: Compressing objects: 100% (2392/2392), &lt;span class=&#34;keyword&#34;&gt;done&lt;/span&gt;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;remote: Total 2472 (delta 122), reused 1622 (delta 80), pack-reused 0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Receiving objects: 100% (2472/2472), 160.93 MiB | 8.04 MiB/s, &lt;span class=&#34;keyword&#34;&gt;done&lt;/span&gt;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Resolving deltas: 100% (122/122), &lt;span class=&#34;keyword&#34;&gt;done&lt;/span&gt;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Updating files: 100% (2440/2440), &lt;span class=&#34;keyword&#34;&gt;done&lt;/span&gt;.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;克隆完成后，查看版本，确认当前文档源码为最新版。&lt;/p&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 docs-cn]$ git lg&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;* a19b956 - (grafted, HEAD -&amp;gt; master, origin/master, origin/HEAD) upgrade TiDB: check DDL and backup status before checking cluster health (&lt;span class=&#34;comment&#34;&gt;#15936) (2 days ago) &amp;lt;Aolin&amp;gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;方法一：使用-pandoc-latex-镜像生成-PDF-文档&#34;&gt;方法一：使用 &lt;code&gt;pandoc/latex&lt;/code&gt; 镜像生成 PDF 文档&lt;/h2&gt;
+&lt;p&gt;在 TiDB 中文文档代码库的 &lt;a href=&#34;https://github.com/pingcap/docs-cn#tidb-%E6%96%87%E6%A1%A3&#34;&gt;README&lt;/a&gt; 中有这样一段介绍，并给出了相关教程。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;如果你想在本地定制输出符合特定场景需求的 PDF 格式的 TiDB 文档，例如对 TiDB 文档目录进行自由排序和删减，请参考自助生成 TiDB 文档 PDF 教程。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;只是教程中介绍的是 Windows 和 macOS 环境，下面将介绍在 Linux 环境下的相关操作流程，推荐有需求的同学使用这种方法。&lt;/p&gt;
+&lt;p&gt;TiDB 文档目录在 &lt;code&gt;TOC.md&lt;/code&gt; 文件中，编辑此文件按需进行调整、删减。&lt;/p&gt;
+&lt;p&gt;例如，在本例中，为便于演示，只保留部分内容。&lt;/p&gt;
+&lt;figure class=&#34;highlight markdown&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&amp;lt;!-- markdownlint-disable MD007 --&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;lt;!-- markdownlint-disable MD041 --&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;bullet&#34;&gt;-&lt;/span&gt; [&lt;span class=&#34;string&#34;&gt;文档中心&lt;/span&gt;](&lt;span class=&#34;link&#34;&gt;https://docs.pingcap.com/zh&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;bullet&#34;&gt;-&lt;/span&gt; 关于 TiDB&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;bullet&#34;&gt;  -&lt;/span&gt; [&lt;span class=&#34;string&#34;&gt;TiDB 简介&lt;/span&gt;](&lt;span class=&#34;link&#34;&gt;/overview.md&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;bullet&#34;&gt;  -&lt;/span&gt; [&lt;span class=&#34;string&#34;&gt;TiDB 7.5 Release Notes&lt;/span&gt;](&lt;span class=&#34;link&#34;&gt;/releases/release-7.5.0.md&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;将所有 Markdown 文档文件按照 &lt;code&gt;TOC.md&lt;/code&gt; 整合到一个 &lt;code&gt;doc.md&lt;/code&gt; 文件中。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;cd docs-cn&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;python scripts/merge_by_toc.py&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;运行 &lt;code&gt;andelf/doc-build&lt;/code&gt; 容器，在本例中，文档源码目录为 &lt;code&gt;/root/docs-cn&lt;/code&gt; 。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;podman run -it -v /root/docs-cn:/opt/data:rw --privileged=true andelf/doc-build:0.1.9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;在容器中运行生产 PDF 的脚本。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;cd /opt/data&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;bash scripts/generate_pdf.sh&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;预期输出：将在宿主机上的文档源码目录下生成一个 &lt;code&gt;output.pdf&lt;/code&gt; 文件。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 docs-cn]# ls output.pdf &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;output.pdf&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;//img&lt;/p&gt;
+&lt;p&gt;到此，演示结束，只是在 PDF 文档属性中还发现一处小问题，PDF 文件文档属性中的标题和作者在生成过程中未填充，需要在 &lt;code&gt;generate_pdf.sh&lt;/code&gt; 文件中补充两行内容。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;-V title-meta=&amp;quot;TiDB 中文手册&amp;quot; \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-V author-meta=&amp;quot;PingCAP Inc.&amp;quot; \&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;//img&lt;/p&gt;
+&lt;p&gt;补充后，效果如图：&lt;/p&gt;
+&lt;p&gt;//img&lt;/p&gt;
+&lt;h2 id=&#34;方法二：直接安装-pandoc-texlive-软件并生成-PDF-文档&#34;&gt;方法二：直接安装 pandoc,texlive 软件并生成 PDF 文档&lt;/h2&gt;
+&lt;p&gt;这种方法过程极为复杂繁琐，好处是可以使用最新版本的 pandoc 和 texlive。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;安装一些依赖包。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;dnf install curl wget git bzr mercurial openssl-client subversion procps&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;dnf install autoconf automake bzip2 dpkg-dev file g++ gcc imagemagick&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;dnf install tcl tcl-devel tk tk-devel python3 libbz2-dev libc6-dev&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;安装 pandoc。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;dnf install pandoc&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 ~]# pandoc --version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;pandoc 2.14.0.3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Compiled with pandoc-types 1.22.1, texmath 0.12.3.3, skylighting 0.10.5.2,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;citeproc 0.4.0.1, ipynb 0.1.0.1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;User data directory: /root/.local/share/pandoc&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copyright (C) 2006-2021 John MacFarlane. Web:  https://pandoc.org&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;This is free software; see the source for copying conditions. There is no&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;warranty, not even for merchantability or fitness for a particular purpose.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 ~]# &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;安装 texlive。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;wget https://mirror.ctan.org/systems/texlive/tlnet/install-tl-unx.tar.gz&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tar zxf install-tl-unx.tar.gz&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cd install-tl-20240101/&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;perl ./install-tl&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;4&#34;&gt;
+&lt;li&gt;安装中文字体，官方使用的是 文泉驛（WenQuanYi），或是其他中文字体。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;$ &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;fc-list :lang-zh | grep -i wenq&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/usr/share/fonts/truetype/wqy/wqy-microhei.ttc: WenQuanYi Micro Hei,文泉驛微米黑,文泉驿微米黑:style=Regular&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/usr/share/fonts/truetype/wqy/wqy-microhei.ttc: WenQuanYi Micro Hei Mono,文泉驛等寬微米黑,文泉驿等宽微米黑:style=Regular&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;5&#34;&gt;
+&lt;li&gt;生成 PDF 文档。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;由于 pandoc 版本升级更新，原有的参数发生变化，比如 &lt;code&gt;--latex-engine&lt;/code&gt; 不再支持，需要替换为 &lt;code&gt;--pdf-engine&lt;/code&gt;。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;MAINFONT=&amp;quot;Microsoft YaHei&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;MONOFONT=&amp;quot;Microsoft YaHei&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;pandoc --pdf-engine=xelatex doc.md -o output2.pdf --toc -s \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-V title=&amp;quot;TiDB 文档（节选）&amp;quot; \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-V author=&amp;quot;ShawnYan&amp;quot; \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-V title-meta=&amp;quot;TiDB 文档（节选）&amp;quot; \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-V author-meta=&amp;quot;ShawnYan&amp;quot; \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-V CJKmainfont=&amp;quot;$&amp;#123;MAINFONT&amp;#125;&amp;quot; \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-V mainfont=&amp;quot;$&amp;#123;MAINFONT&amp;#125;&amp;quot; \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-V sansfont=&amp;quot;$&amp;#123;MAINFONT&amp;#125;&amp;quot; \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-V monofont=&amp;quot;$&amp;#123;MONOFONT&amp;#125;&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;对于模板文件，直接用新版 pandoc 调用会报错，需要做些调整，如下图。&lt;/p&gt;
+&lt;img alt=&#34;img2.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240108-97c591c9-387f-4ea9-8214-112a9397262a.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;小结&#34;&gt;小结&lt;/h2&gt;
+&lt;p&gt;方法一足够简单、实用，推荐有需求的同学使用，方法二只是其他途径探索，不做推荐。&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="浅尝在 Rocky 9 下自助生成 PDF 格式的 TiDB 文档">
+    <meta property="og:url" content="https://shawnyan.cn/2024/tidb/tidb-docs-gen-pdf/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;img alt=&#34;img1.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240108-dfb9b292-6804-4902-a0b4-55ffede33402.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;blockquote&gt;
+&lt;p&gt;图片选自: &lt;a href=&#34;https://asktug.com/t/topic/1020117&#34;&gt;https://asktug.com/t/topic/1020117&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;TL-DR&#34;&gt;TL;DR&lt;/h2&gt;
+&lt;p&gt;&lt;a href=&#34;https://asktug.com&#34;&gt;Asktug.com&lt;/a&gt; 论坛里偶有小伙伴询问如何自助生成 PDF 格式的 TiDB 文档，或是 PDF 太长，经常查阅的只是其中一部分，如何只生成那一部分的 TiDB 文档。本文将介绍如何在 Rocky Linux 9 上自助生成 PDF 格式的 TiDB 文档。&lt;/p&gt;
+&lt;p&gt;没听过十年二手玫瑰，是不会轻易做这种尝试的，对于 LaTaX 新手来说，积累本文素材的过程极为痛苦。不建议各位看官实操本文的第二种方法，还是推荐使用第一种方法，基本按照官方推荐的、经过测试的方法来，便捷、有效、易用。&lt;/p&gt;
+&lt;h2 id=&#34;环境准备&#34;&gt;环境准备&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;操作系统：Rocky Linux 9.3&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ &lt;span class=&#34;built_in&#34;&gt;cat&lt;/span&gt; /etc/redhat-release &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Rocky Linux release 9.3 (Blue Onyx)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ &lt;span class=&#34;built_in&#34;&gt;uname&lt;/span&gt; -rsm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Linux 5.14.0-362.13.1.el9_3.x86_64 x86_64&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;前置安装：git, podman&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ git --version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;git version 2.39.3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ podman --version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;podman version 4.6.1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;注：OS 和相关软件不是本文重点，遂一笔带过。&lt;/p&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;拉取 &lt;code&gt;pandoc/latex&lt;/code&gt; 镜像&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;使用 podman 拉取 pandoc 镜像：&lt;/p&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;podman pull pandoc/latex&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]&lt;span class=&#34;comment&#34;&gt;# podman pull pandoc/latex&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;✔ docker.io/pandoc/latex:latest&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Trying to pull docker.io/pandoc/latex:latest...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Getting image &lt;span class=&#34;built_in&#34;&gt;source&lt;/span&gt; signatures&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copying blob 13d63ff5f1df &lt;span class=&#34;keyword&#34;&gt;done&lt;/span&gt;  &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copying config 11172c3435 &lt;span class=&#34;keyword&#34;&gt;done&lt;/span&gt;  &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Writing manifest to image destination&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11172c3435762783d582093f4eae6cf80548ff4443a26532e35f36dac8b2ec77&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看镜像信息：&lt;/p&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]&lt;span class=&#34;comment&#34;&gt;# podman images | grep pandoc&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;docker.io/pandoc/latex            latest      11172c343576  9 months ago   550 MB&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;4&#34;&gt;
+&lt;li&gt;克隆 TiDB 文档库代码&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这里以 TiDB 中文文档为例，克隆文档：&lt;/p&gt;
+&lt;p&gt;（为加速下载，也避免网路问题，这里选择从 gitee 克隆代码）&lt;/p&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;git &lt;span class=&#34;built_in&#34;&gt;clone&lt;/span&gt; https://gitee.com/shawnyan/docs-cn.git --depth=1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ git &lt;span class=&#34;built_in&#34;&gt;clone&lt;/span&gt; https://gitee.com/shawnyan/docs-cn.git --depth=1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cloning into &lt;span class=&#34;string&#34;&gt;&amp;#x27;docs-cn&amp;#x27;&lt;/span&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;remote: Enumerating objects: 2472, &lt;span class=&#34;keyword&#34;&gt;done&lt;/span&gt;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;remote: Counting objects: 100% (2472/2472), &lt;span class=&#34;keyword&#34;&gt;done&lt;/span&gt;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;remote: Compressing objects: 100% (2392/2392), &lt;span class=&#34;keyword&#34;&gt;done&lt;/span&gt;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;remote: Total 2472 (delta 122), reused 1622 (delta 80), pack-reused 0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Receiving objects: 100% (2472/2472), 160.93 MiB | 8.04 MiB/s, &lt;span class=&#34;keyword&#34;&gt;done&lt;/span&gt;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Resolving deltas: 100% (122/122), &lt;span class=&#34;keyword&#34;&gt;done&lt;/span&gt;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Updating files: 100% (2440/2440), &lt;span class=&#34;keyword&#34;&gt;done&lt;/span&gt;.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;克隆完成后，查看版本，确认当前文档源码为最新版。&lt;/p&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 docs-cn]$ git lg&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;* a19b956 - (grafted, HEAD -&amp;gt; master, origin/master, origin/HEAD) upgrade TiDB: check DDL and backup status before checking cluster health (&lt;span class=&#34;comment&#34;&gt;#15936) (2 days ago) &amp;lt;Aolin&amp;gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;方法一：使用-pandoc-latex-镜像生成-PDF-文档&#34;&gt;方法一：使用 &lt;code&gt;pandoc/latex&lt;/code&gt; 镜像生成 PDF 文档&lt;/h2&gt;
+&lt;p&gt;在 TiDB 中文文档代码库的 &lt;a href=&#34;https://github.com/pingcap/docs-cn#tidb-%E6%96%87%E6%A1%A3&#34;&gt;README&lt;/a&gt; 中有这样一段介绍，并给出了相关教程。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;如果你想在本地定制输出符合特定场景需求的 PDF 格式的 TiDB 文档，例如对 TiDB 文档目录进行自由排序和删减，请参考自助生成 TiDB 文档 PDF 教程。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;只是教程中介绍的是 Windows 和 macOS 环境，下面将介绍在 Linux 环境下的相关操作流程，推荐有需求的同学使用这种方法。&lt;/p&gt;
+&lt;p&gt;TiDB 文档目录在 &lt;code&gt;TOC.md&lt;/code&gt; 文件中，编辑此文件按需进行调整、删减。&lt;/p&gt;
+&lt;p&gt;例如，在本例中，为便于演示，只保留部分内容。&lt;/p&gt;
+&lt;figure class=&#34;highlight markdown&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&amp;lt;!-- markdownlint-disable MD007 --&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;lt;!-- markdownlint-disable MD041 --&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;bullet&#34;&gt;-&lt;/span&gt; [&lt;span class=&#34;string&#34;&gt;文档中心&lt;/span&gt;](&lt;span class=&#34;link&#34;&gt;https://docs.pingcap.com/zh&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;bullet&#34;&gt;-&lt;/span&gt; 关于 TiDB&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;bullet&#34;&gt;  -&lt;/span&gt; [&lt;span class=&#34;string&#34;&gt;TiDB 简介&lt;/span&gt;](&lt;span class=&#34;link&#34;&gt;/overview.md&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;bullet&#34;&gt;  -&lt;/span&gt; [&lt;span class=&#34;string&#34;&gt;TiDB 7.5 Release Notes&lt;/span&gt;](&lt;span class=&#34;link&#34;&gt;/releases/release-7.5.0.md&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;将所有 Markdown 文档文件按照 &lt;code&gt;TOC.md&lt;/code&gt; 整合到一个 &lt;code&gt;doc.md&lt;/code&gt; 文件中。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;cd docs-cn&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;python scripts/merge_by_toc.py&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;运行 &lt;code&gt;andelf/doc-build&lt;/code&gt; 容器，在本例中，文档源码目录为 &lt;code&gt;/root/docs-cn&lt;/code&gt; 。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;podman run -it -v /root/docs-cn:/opt/data:rw --privileged=true andelf/doc-build:0.1.9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;在容器中运行生产 PDF 的脚本。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;cd /opt/data&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;bash scripts/generate_pdf.sh&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;预期输出：将在宿主机上的文档源码目录下生成一个 &lt;code&gt;output.pdf&lt;/code&gt; 文件。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 docs-cn]# ls output.pdf &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;output.pdf&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;//img&lt;/p&gt;
+&lt;p&gt;到此，演示结束，只是在 PDF 文档属性中还发现一处小问题，PDF 文件文档属性中的标题和作者在生成过程中未填充，需要在 &lt;code&gt;generate_pdf.sh&lt;/code&gt; 文件中补充两行内容。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;-V title-meta=&amp;quot;TiDB 中文手册&amp;quot; \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-V author-meta=&amp;quot;PingCAP Inc.&amp;quot; \&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;//img&lt;/p&gt;
+&lt;p&gt;补充后，效果如图：&lt;/p&gt;
+&lt;p&gt;//img&lt;/p&gt;
+&lt;h2 id=&#34;方法二：直接安装-pandoc-texlive-软件并生成-PDF-文档&#34;&gt;方法二：直接安装 pandoc,texlive 软件并生成 PDF 文档&lt;/h2&gt;
+&lt;p&gt;这种方法过程极为复杂繁琐，好处是可以使用最新版本的 pandoc 和 texlive。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;安装一些依赖包。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;dnf install curl wget git bzr mercurial openssl-client subversion procps&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;dnf install autoconf automake bzip2 dpkg-dev file g++ gcc imagemagick&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;dnf install tcl tcl-devel tk tk-devel python3 libbz2-dev libc6-dev&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;安装 pandoc。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;dnf install pandoc&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 ~]# pandoc --version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;pandoc 2.14.0.3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Compiled with pandoc-types 1.22.1, texmath 0.12.3.3, skylighting 0.10.5.2,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;citeproc 0.4.0.1, ipynb 0.1.0.1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;User data directory: /root/.local/share/pandoc&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copyright (C) 2006-2021 John MacFarlane. Web:  https://pandoc.org&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;This is free software; see the source for copying conditions. There is no&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;warranty, not even for merchantability or fitness for a particular purpose.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@rocky9 ~]# &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;安装 texlive。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;wget https://mirror.ctan.org/systems/texlive/tlnet/install-tl-unx.tar.gz&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tar zxf install-tl-unx.tar.gz&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cd install-tl-20240101/&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;perl ./install-tl&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;4&#34;&gt;
+&lt;li&gt;安装中文字体，官方使用的是 文泉驛（WenQuanYi），或是其他中文字体。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;$ &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;fc-list :lang-zh | grep -i wenq&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/usr/share/fonts/truetype/wqy/wqy-microhei.ttc: WenQuanYi Micro Hei,文泉驛微米黑,文泉驿微米黑:style=Regular&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/usr/share/fonts/truetype/wqy/wqy-microhei.ttc: WenQuanYi Micro Hei Mono,文泉驛等寬微米黑,文泉驿等宽微米黑:style=Regular&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;5&#34;&gt;
+&lt;li&gt;生成 PDF 文档。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;由于 pandoc 版本升级更新，原有的参数发生变化，比如 &lt;code&gt;--latex-engine&lt;/code&gt; 不再支持，需要替换为 &lt;code&gt;--pdf-engine&lt;/code&gt;。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;MAINFONT=&amp;quot;Microsoft YaHei&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;MONOFONT=&amp;quot;Microsoft YaHei&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;pandoc --pdf-engine=xelatex doc.md -o output2.pdf --toc -s \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-V title=&amp;quot;TiDB 文档（节选）&amp;quot; \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-V author=&amp;quot;ShawnYan&amp;quot; \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-V title-meta=&amp;quot;TiDB 文档（节选）&amp;quot; \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-V author-meta=&amp;quot;ShawnYan&amp;quot; \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-V CJKmainfont=&amp;quot;$&amp;#123;MAINFONT&amp;#125;&amp;quot; \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-V mainfont=&amp;quot;$&amp;#123;MAINFONT&amp;#125;&amp;quot; \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-V sansfont=&amp;quot;$&amp;#123;MAINFONT&amp;#125;&amp;quot; \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-V monofont=&amp;quot;$&amp;#123;MONOFONT&amp;#125;&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;对于模板文件，直接用新版 pandoc 调用会报错，需要做些调整，如下图。&lt;/p&gt;
+&lt;img alt=&#34;img2.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240108-97c591c9-387f-4ea9-8214-112a9397262a.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;小结&#34;&gt;小结&lt;/h2&gt;
+&lt;p&gt;方法一足够简单、实用，推荐有需求的同学使用，方法二只是其他途径探索，不做推荐。&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/tidb/" class="category-badge">
+                                    TiDB
+                                </a>
+                            
+                                <a href="/categories/tidb/tidb-docs/" class="category-badge">
+                                    TiDB Docs
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">浅尝在 Rocky 9 下自助生成 PDF 格式的 TiDB 文档</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2024-01-07
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                1.4k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                6 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <img alt="img1.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20240108-dfb9b292-6804-4902-a0b4-55ffede33402.png" referrerpolicy="no-referrer"/>
+<blockquote>
+<p>图片选自: <a target="_blank" rel="noopener" href="https://asktug.com/t/topic/1020117">https://asktug.com/t/topic/1020117</a></p>
+</blockquote>
+<h2 id="TL-DR">TL;DR</h2>
+<p><a target="_blank" rel="noopener" href="https://asktug.com">Asktug.com</a> 论坛里偶有小伙伴询问如何自助生成 PDF 格式的 TiDB 文档，或是 PDF 太长，经常查阅的只是其中一部分，如何只生成那一部分的 TiDB 文档。本文将介绍如何在 Rocky Linux 9 上自助生成 PDF 格式的 TiDB 文档。</p>
+<p>没听过十年二手玫瑰，是不会轻易做这种尝试的，对于 LaTaX 新手来说，积累本文素材的过程极为痛苦。不建议各位看官实操本文的第二种方法，还是推荐使用第一种方法，基本按照官方推荐的、经过测试的方法来，便捷、有效、易用。</p>
+<h2 id="环境准备">环境准备</h2>
+<ol>
+<li>操作系统：Rocky Linux 9.3</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ <span class="built_in">cat</span> /etc/redhat-release </span><br><span class="line">Rocky Linux release 9.3 (Blue Onyx)</span><br><span class="line">[shawnyan@rocky9 ~]$ <span class="built_in">uname</span> -rsm</span><br><span class="line">Linux 5.14.0-362.13.1.el9_3.x86_64 x86_64</span><br></pre></td></tr></table></figure>
+<ol start="2">
+<li>前置安装：git, podman</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ git --version</span><br><span class="line">git version 2.39.3</span><br><span class="line">[shawnyan@rocky9 ~]$ </span><br><span class="line">[shawnyan@rocky9 ~]$ podman --version</span><br><span class="line">podman version 4.6.1</span><br></pre></td></tr></table></figure>
+<p>注：OS 和相关软件不是本文重点，遂一笔带过。</p>
+<ol start="3">
+<li>拉取 <code>pandoc/latex</code> 镜像</li>
+</ol>
+<p>使用 podman 拉取 pandoc 镜像：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">podman pull pandoc/latex</span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]<span class="comment"># podman pull pandoc/latex</span></span><br><span class="line">✔ docker.io/pandoc/latex:latest</span><br><span class="line">Trying to pull docker.io/pandoc/latex:latest...</span><br><span class="line">Getting image <span class="built_in">source</span> signatures</span><br><span class="line">Copying blob 13d63ff5f1df <span class="keyword">done</span>  </span><br><span class="line">...</span><br><span class="line">Copying config 11172c3435 <span class="keyword">done</span>  </span><br><span class="line">Writing manifest to image destination</span><br><span class="line">11172c3435762783d582093f4eae6cf80548ff4443a26532e35f36dac8b2ec77</span><br></pre></td></tr></table></figure>
+<p>查看镜像信息：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]<span class="comment"># podman images | grep pandoc</span></span><br><span class="line">docker.io/pandoc/latex            latest      11172c343576  9 months ago   550 MB</span><br></pre></td></tr></table></figure>
+<ol start="4">
+<li>克隆 TiDB 文档库代码</li>
+</ol>
+<p>这里以 TiDB 中文文档为例，克隆文档：</p>
+<p>（为加速下载，也避免网路问题，这里选择从 gitee 克隆代码）</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git <span class="built_in">clone</span> https://gitee.com/shawnyan/docs-cn.git --depth=1</span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ git <span class="built_in">clone</span> https://gitee.com/shawnyan/docs-cn.git --depth=1</span><br><span class="line">Cloning into <span class="string">&#x27;docs-cn&#x27;</span>...</span><br><span class="line">remote: Enumerating objects: 2472, <span class="keyword">done</span>.</span><br><span class="line">remote: Counting objects: 100% (2472/2472), <span class="keyword">done</span>.</span><br><span class="line">remote: Compressing objects: 100% (2392/2392), <span class="keyword">done</span>.</span><br><span class="line">remote: Total 2472 (delta 122), reused 1622 (delta 80), pack-reused 0</span><br><span class="line">Receiving objects: 100% (2472/2472), 160.93 MiB | 8.04 MiB/s, <span class="keyword">done</span>.</span><br><span class="line">Resolving deltas: 100% (122/122), <span class="keyword">done</span>.</span><br><span class="line">Updating files: 100% (2440/2440), <span class="keyword">done</span>.</span><br></pre></td></tr></table></figure>
+<p>克隆完成后，查看版本，确认当前文档源码为最新版。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 docs-cn]$ git lg</span><br><span class="line">* a19b956 - (grafted, HEAD -&gt; master, origin/master, origin/HEAD) upgrade TiDB: check DDL and backup status before checking cluster health (<span class="comment">#15936) (2 days ago) &lt;Aolin&gt;</span></span><br></pre></td></tr></table></figure>
+<h2 id="方法一：使用-pandoc-latex-镜像生成-PDF-文档">方法一：使用 <code>pandoc/latex</code> 镜像生成 PDF 文档</h2>
+<p>在 TiDB 中文文档代码库的 <a target="_blank" rel="noopener" href="https://github.com/pingcap/docs-cn#tidb-%E6%96%87%E6%A1%A3">README</a> 中有这样一段介绍，并给出了相关教程。</p>
+<blockquote>
+<p>如果你想在本地定制输出符合特定场景需求的 PDF 格式的 TiDB 文档，例如对 TiDB 文档目录进行自由排序和删减，请参考自助生成 TiDB 文档 PDF 教程。</p>
+</blockquote>
+<p>只是教程中介绍的是 Windows 和 macOS 环境，下面将介绍在 Linux 环境下的相关操作流程，推荐有需求的同学使用这种方法。</p>
+<p>TiDB 文档目录在 <code>TOC.md</code> 文件中，编辑此文件按需进行调整、删减。</p>
+<p>例如，在本例中，为便于演示，只保留部分内容。</p>
+<figure class="highlight markdown"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&lt;!-- markdownlint-disable MD007 --&gt;</span><br><span class="line">&lt;!-- markdownlint-disable MD041 --&gt;</span><br><span class="line"></span><br><span class="line"><span class="bullet">-</span> [<span class="string">文档中心</span>](<span class="link">https://docs.pingcap.com/zh</span>)</span><br><span class="line"><span class="bullet">-</span> 关于 TiDB</span><br><span class="line"><span class="bullet">  -</span> [<span class="string">TiDB 简介</span>](<span class="link">/overview.md</span>)</span><br><span class="line"><span class="bullet">  -</span> [<span class="string">TiDB 7.5 Release Notes</span>](<span class="link">/releases/release-7.5.0.md</span>)</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+<p>将所有 Markdown 文档文件按照 <code>TOC.md</code> 整合到一个 <code>doc.md</code> 文件中。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">cd docs-cn</span><br><span class="line">python scripts/merge_by_toc.py</span><br></pre></td></tr></table></figure>
+<p>运行 <code>andelf/doc-build</code> 容器，在本例中，文档源码目录为 <code>/root/docs-cn</code> 。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">podman run -it -v /root/docs-cn:/opt/data:rw --privileged=true andelf/doc-build:0.1.9</span><br></pre></td></tr></table></figure>
+<p>在容器中运行生产 PDF 的脚本。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">cd /opt/data</span><br><span class="line">bash scripts/generate_pdf.sh</span><br></pre></td></tr></table></figure>
+<p>预期输出：将在宿主机上的文档源码目录下生成一个 <code>output.pdf</code> 文件。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@rocky9 docs-cn]# ls output.pdf </span><br><span class="line">output.pdf</span><br></pre></td></tr></table></figure>
+<p>//img</p>
+<p>到此，演示结束，只是在 PDF 文档属性中还发现一处小问题，PDF 文件文档属性中的标题和作者在生成过程中未填充，需要在 <code>generate_pdf.sh</code> 文件中补充两行内容。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">-V title-meta=&quot;TiDB 中文手册&quot; \</span><br><span class="line">-V author-meta=&quot;PingCAP Inc.&quot; \</span><br></pre></td></tr></table></figure>
+<p>//img</p>
+<p>补充后，效果如图：</p>
+<p>//img</p>
+<h2 id="方法二：直接安装-pandoc-texlive-软件并生成-PDF-文档">方法二：直接安装 pandoc,texlive 软件并生成 PDF 文档</h2>
+<p>这种方法过程极为复杂繁琐，好处是可以使用最新版本的 pandoc 和 texlive。</p>
+<ol>
+<li>安装一些依赖包。</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">dnf install curl wget git bzr mercurial openssl-client subversion procps</span><br><span class="line">dnf install autoconf automake bzip2 dpkg-dev file g++ gcc imagemagick</span><br><span class="line">dnf install tcl tcl-devel tk tk-devel python3 libbz2-dev libc6-dev</span><br></pre></td></tr></table></figure>
+<ol start="2">
+<li>安装 pandoc。</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dnf install pandoc</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">[root@rocky9 ~]# pandoc --version</span><br><span class="line">pandoc 2.14.0.3</span><br><span class="line">Compiled with pandoc-types 1.22.1, texmath 0.12.3.3, skylighting 0.10.5.2,</span><br><span class="line">citeproc 0.4.0.1, ipynb 0.1.0.1</span><br><span class="line">User data directory: /root/.local/share/pandoc</span><br><span class="line">Copyright (C) 2006-2021 John MacFarlane. Web:  https://pandoc.org</span><br><span class="line">This is free software; see the source for copying conditions. There is no</span><br><span class="line">warranty, not even for merchantability or fitness for a particular purpose.</span><br><span class="line">[root@rocky9 ~]# </span><br></pre></td></tr></table></figure>
+<ol start="3">
+<li>安装 texlive。</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">wget https://mirror.ctan.org/systems/texlive/tlnet/install-tl-unx.tar.gz</span><br><span class="line">tar zxf install-tl-unx.tar.gz</span><br><span class="line">cd install-tl-20240101/</span><br><span class="line">perl ./install-tl</span><br></pre></td></tr></table></figure>
+<ol start="4">
+<li>安装中文字体，官方使用的是 文泉驛（WenQuanYi），或是其他中文字体。</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">fc-list :lang-zh | grep -i wenq</span></span><br><span class="line">/usr/share/fonts/truetype/wqy/wqy-microhei.ttc: WenQuanYi Micro Hei,文泉驛微米黑,文泉驿微米黑:style=Regular</span><br><span class="line">/usr/share/fonts/truetype/wqy/wqy-microhei.ttc: WenQuanYi Micro Hei Mono,文泉驛等寬微米黑,文泉驿等宽微米黑:style=Regular</span><br></pre></td></tr></table></figure>
+<ol start="5">
+<li>生成 PDF 文档。</li>
+</ol>
+<p>由于 pandoc 版本升级更新，原有的参数发生变化，比如 <code>--latex-engine</code> 不再支持，需要替换为 <code>--pdf-engine</code>。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">MAINFONT=&quot;Microsoft YaHei&quot;</span><br><span class="line">MONOFONT=&quot;Microsoft YaHei&quot;</span><br><span class="line"></span><br><span class="line">pandoc --pdf-engine=xelatex doc.md -o output2.pdf --toc -s \</span><br><span class="line">-V title=&quot;TiDB 文档（节选）&quot; \</span><br><span class="line">-V author=&quot;ShawnYan&quot; \</span><br><span class="line">-V title-meta=&quot;TiDB 文档（节选）&quot; \</span><br><span class="line">-V author-meta=&quot;ShawnYan&quot; \</span><br><span class="line">-V CJKmainfont=&quot;$&#123;MAINFONT&#125;&quot; \</span><br><span class="line">-V mainfont=&quot;$&#123;MAINFONT&#125;&quot; \</span><br><span class="line">-V sansfont=&quot;$&#123;MAINFONT&#125;&quot; \</span><br><span class="line">-V monofont=&quot;$&#123;MONOFONT&#125;&quot;</span><br></pre></td></tr></table></figure>
+<p>对于模板文件，直接用新版 pandoc 调用会报错，需要做些调整，如下图。</p>
+<img alt="img2.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20240108-97c591c9-387f-4ea9-8214-112a9397262a.png" referrerpolicy="no-referrer"/>
+<h2 id="小结">小结</h2>
+<p>方法一足够简单、实用，推荐有需求的同学使用，方法二只是其他途径探索，不做推荐。</p>
+<img alt="logo.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg" referrerpolicy="no-referrer"/>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/tidb/" class="tag-link">
+                                tidb
+                            </a>
+                        
+                            <a href="/tags/tidb-7-x/" class="tag-link">
+                                tidb 7.x
+                            </a>
+                        
+                            <a href="/tags/tidb-docs/" class="tag-link">
+                                tidb docs
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2024/tidb/tidb-docs-gen-pdf/index.html">https://shawnyan.cn/2024/tidb/tidb-docs-gen-pdf/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2024/ivorysql/ivorysql-3.1-released/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">🎉好消息！IvorySQL 库回归啦~</span>
+        </a>
+    
+
+    
+        <a href="/2024/mysql/mysql-articles-23-24/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">【合集】2023 &amp; 2024 年 MySQL 文章清单</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#TL-DR"><span class="toc-text">TL;DR</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%8E%AF%E5%A2%83%E5%87%86%E5%A4%87"><span class="toc-text">环境准备</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%96%B9%E6%B3%95%E4%B8%80%EF%BC%9A%E4%BD%BF%E7%94%A8-pandoc-latex-%E9%95%9C%E5%83%8F%E7%94%9F%E6%88%90-PDF-%E6%96%87%E6%A1%A3"><span class="toc-text">方法一：使用 pandoc&#x2F;latex 镜像生成 PDF 文档</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%96%B9%E6%B3%95%E4%BA%8C%EF%BC%9A%E7%9B%B4%E6%8E%A5%E5%AE%89%E8%A3%85-pandoc-texlive-%E8%BD%AF%E4%BB%B6%E5%B9%B6%E7%94%9F%E6%88%90-PDF-%E6%96%87%E6%A1%A3"><span class="toc-text">方法二：直接安装 pandoc,texlive 软件并生成 PDF 文档</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B0%8F%E7%BB%93"><span class="toc-text">小结</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

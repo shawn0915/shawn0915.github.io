@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        PG 开源社区喜迎 IvorySQL 3.2 版本 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;p&gt;IvorySQL 3.2 于 4 月 11 日发版，这是 IvorySQL 3.x 系列的第三个版本。&lt;/p&gt;
+&lt;p&gt;先来简单回忆下之前的版本。&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://mp.weixin.qq.com/mp/appmsgalbum?__biz=MzU5NzQ0ODU2Ng==&amp;amp;action=getalbum&amp;amp;album_id=3309828142362083340&amp;amp;scene=173&amp;amp;subscene=91&amp;amp;sessionid=1712386204&amp;amp;enterid=1712386222&amp;amp;from_msgid=2247484229&amp;amp;from_itemidx=1&amp;amp;count=3&amp;amp;nolastread=1#wechat_redirect&#34;&gt;IvorySQL 合集&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id=&#34;编译安装-IvorySQL-3-2&#34;&gt;编译安装 IvorySQL 3.2&lt;/h2&gt;
+&lt;p&gt;与之前版本略有不同，这里推荐在默认配置参数上增加 &lt;code&gt;--with-libxml&lt;/code&gt; 选项，以支持 XML 函数。&lt;/p&gt;
+&lt;p&gt;具体步骤略，启动数据库后，查看版本信息。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# select version();&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                                             version                                                             &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;---------------------------------------------------------------------------------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; PostgreSQL 16.2-ShawnYan (IvorySQL 3.2) on x86_64-pc-linux-gnu, compiled by gcc (GCC) 4.8.5 20150623 (Red Hat 4.8.5-44), 64-bit&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;可以看到 IvorySQL 3.2 基于 PostgreSQL 16.2，也是目前 PG 最新的版本。&lt;/p&gt;
+&lt;p&gt;题外话，&lt;/p&gt;
+&lt;p&gt;PostgreSQL 17 已在开发中，估计 IvorySQL 4 也在低调推进中。&lt;/p&gt;
+&lt;p&gt;不知会有哪些新特性呢？&lt;/p&gt;
+&lt;h2 id=&#34;IvorySQL-3-2-新增支持的-XML-函数&#34;&gt;IvorySQL 3.2 新增支持的 XML 函数&lt;/h2&gt;
+&lt;p&gt;在 Oracle 数据库中，提供了一系列的 XML 函数，用于处理和操作 XML 数据。&lt;/p&gt;
+&lt;p&gt;IvorySQL 3.2 新增支持了几个 XML 函数，用于兼容 Oracle 的这一特性。&lt;/p&gt;
+&lt;p&gt;接下来，我们逐一解析。&lt;/p&gt;
+&lt;h3 id=&#34;0-查看-XML-函数&#34;&gt;0. 查看 XML 函数&lt;/h3&gt;
+&lt;p&gt;连接到 IvorySQL 的 Oracle 模式:&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql@shawnyan /data/ivorysql 12:03:34]$ psql -p1521&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;psql (16.2-ShawnYan)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;quot;help&amp;quot; for help.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# show ivorysql.compatible_mode ;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.compatible_mode &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; oracle&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看下 IvorySQL 支持哪些 XML 函数。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;            Name            |       Internal name        | Result data type |        Argument data types         &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;----------------------------+----------------------------+------------------+------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; appendchildxml             | ivy_appendchildxml         | xmltype          | xmltype, text, xmltype&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; appendchildxml             | ivy_appendchildxml2        | xmltype          | xmltype, text, xmltype, text&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; deletexml                  | ivy_deletexml              | xmltype          | xmltype, text&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; deletexml                  | ivy_deletexml2             | xmltype          | xmltype, text, text&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; existsnode                 | ivy_existsnode             | pg_catalog.int4  | xmltype, text&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; existsnode                 | ivy_existsnode2            | pg_catalog.int4  | xmltype, text, text&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;1-APPENDCHILDXML&#34;&gt;1. APPENDCHILDXML&lt;/h3&gt;
+&lt;p&gt;这个函数用于将一个 XML 片段作为子元素添加到指定的 XML 文档或元素中。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;p&gt;将值 &lt;code&gt;&#39;&amp;lt;val&amp;gt;ora&amp;lt;/val&amp;gt;&#39;&lt;/code&gt; 作为 &lt;code&gt;&#39;/root&#39;&lt;/code&gt; 的子节点，追加到 &lt;code&gt;&#39;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&#39;&lt;/code&gt; 中。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT APPENDCHILDXML(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root&amp;#x27;,&amp;#x27;&amp;lt;val&amp;gt;ora&amp;lt;/val&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT APPENDCHILDXML(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root&amp;#x27;,&amp;#x27;&amp;lt;val&amp;gt;ora&amp;lt;/val&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  appendchildxml  &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;root&amp;gt;          +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;    +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;val&amp;gt;ora&amp;lt;/val&amp;gt;+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;/root&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;扩展：&lt;/p&gt;
+&lt;p&gt;该函数在 Oracle 中已经废弃，依旧作为兼容性支持，Oracle 推荐使用 XQuery Update 来代替。&lt;/p&gt;
+&lt;h3 id=&#34;2-DELETEXML&#34;&gt;2. DELETEXML&lt;/h3&gt;
+&lt;p&gt;这个函数用于从 XML 文档中删除指定的节点或元素。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;p&gt;将 &lt;code&gt;id&lt;/code&gt; 节点删除。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT DELETEXML(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root/id&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT DELETEXML(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root/id&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; deletexml &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-----------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;root/&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;3-EXISTSNODE&#34;&gt;3. EXISTSNODE&lt;/h3&gt;
+&lt;p&gt;这个函数用于检查 XML 文档中是否存在满足特定条件的节点。&lt;/p&gt;
+&lt;p&gt;如果满足条件，函数返回 1，否则返回 0。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;p&gt;检查是否存在 &lt;code&gt;/root&lt;/code&gt; 节点。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT EXISTSNODE(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT EXISTSNODE(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; existsnode &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;检查是否存在 &lt;code&gt;/root/id2&lt;/code&gt; 节点。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT EXISTSNODE(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root/id2&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT EXISTSNODE(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root/id2&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; existsnode &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;4-EXTRACT-XML&#34;&gt;4. EXTRACT (XML)&lt;/h3&gt;
+&lt;p&gt;这个函数用于提取 XML 文档的一部分或整个文档，可以使用初始斜杠指定绝对路径，也可以通过省略初始斜杠指定相对路径。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT EXTRACT(xmltype(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;),&amp;#x27;/root/id&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT EXTRACT(xmltype(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;),&amp;#x27;/root/id&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  extract   &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;注意：&lt;/p&gt;
+&lt;p&gt;这个函数需要显示指定 xmltype，否则会报错。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT EXTRACT(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root/id&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ERROR:  function extract(unknown, unknown) is not unique&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;LINE 1: SELECT EXTRACT(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root/id&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;               ^&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;HINT:  Could not choose a best candidate function. You might need to add explicit type casts.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;5-EXTRACTVALUE&#34;&gt;5. EXTRACTVALUE&lt;/h3&gt;
+&lt;p&gt;这个函数用于从 XML 文档中定位和提取特定元素的值。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT EXTRACTVALUE(xmltype(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;),&amp;#x27;/root/id&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT EXTRACTVALUE(xmltype(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;),&amp;#x27;/root/id&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; extractvalue &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; 1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;6-INSERTCHILDXML&#34;&gt;6. INSERTCHILDXML&lt;/h3&gt;
+&lt;p&gt;这个函数与 APPENDCHILDXML 类似，但它允许你指定子元素的位置。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;p&gt;将节点 &lt;code&gt;id&lt;/code&gt;，值 &lt;code&gt;&#39;&amp;lt;id&amp;gt;3&amp;lt;/id&amp;gt;&#39;&lt;/code&gt; 作为 &lt;code&gt;&#39;/root&#39;&lt;/code&gt; 的子节点，插入到 XML 中。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT INSERTCHILDXML(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;, &amp;#x27;/root&amp;#x27;, &amp;#x27;id&amp;#x27;, &amp;#x27;&amp;lt;id&amp;gt;0&amp;lt;/id&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT INSERTCHILDXML(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;, &amp;#x27;/root&amp;#x27;, &amp;#x27;id&amp;#x27;, &amp;#x27;&amp;lt;id&amp;gt;0&amp;lt;/id&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; insertchildxml &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;----------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;root&amp;gt;        +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;  +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;  +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;0&amp;lt;/id&amp;gt;  +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;/root&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;7-INSERTCHILDXMLAFTER&#34;&gt;7. INSERTCHILDXMLAFTER&lt;/h3&gt;
+&lt;p&gt;这个函数用于在指定元素之后插入一个新的 XML 片段。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;p&gt;在 &lt;code&gt;&#39;/root&#39;&lt;/code&gt; 的，第一个 &lt;code&gt;id&lt;/code&gt; 子节点之后，插入 XML 片段。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT INSERTCHILDXMLAFTER(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;, &amp;#x27;/root&amp;#x27;, &amp;#x27;id[1]&amp;#x27;, &amp;#x27;&amp;lt;id&amp;gt;1.5&amp;lt;/id&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT INSERTCHILDXMLAFTER(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;, &amp;#x27;/root&amp;#x27;, &amp;#x27;id[1]&amp;#x27;, &amp;#x27;&amp;lt;id&amp;gt;1.5&amp;lt;/id&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; insertchildxmlafter &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;---------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;root&amp;gt;             +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;       +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1.5&amp;lt;/id&amp;gt;     +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;       +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;/root&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;8-INSERTCHILDXMLBEFORE&#34;&gt;8. INSERTCHILDXMLBEFORE&lt;/h3&gt;
+&lt;p&gt;与 INSERTCHILDXMLAFTER 类似，这个函数用于在指定元素之前插入一个新的 XML 片段。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;p&gt;在 &lt;code&gt;&#39;/root&#39;&lt;/code&gt; 的，第二个 &lt;code&gt;id&lt;/code&gt; 子节点之前，插入 XML 片段。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT INSERTCHILDXMLBEFORE(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;, &amp;#x27;/root&amp;#x27;, &amp;#x27;id[2]&amp;#x27;, &amp;#x27;&amp;lt;id&amp;gt;1.8&amp;lt;/id&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT INSERTCHILDXMLBEFORE(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;, &amp;#x27;/root&amp;#x27;, &amp;#x27;id[2]&amp;#x27;, &amp;#x27;&amp;lt;id&amp;gt;1.8&amp;lt;/id&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; insertchildxmlbefore &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;----------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;root&amp;gt;              +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;        +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1.8&amp;lt;/id&amp;gt;      +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;        +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;/root&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;9-INSERTXMLAFTER&#34;&gt;9. INSERTXMLAFTER&lt;/h3&gt;
+&lt;p&gt;这个函数与 INSERTCHILDXMLAFTER 类似，但 INSERTXMLAFTER 是在非属性节点的目标节点之后插入一个或多个任意类型的节点。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;p&gt;定位在 &lt;code&gt;&#39;/root/id&#39;&lt;/code&gt; 节点的，并在 &lt;code&gt;id&lt;/code&gt; 子节点之后，插入 XML 片段。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT INSERTXMLAFTER(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;, &amp;#x27;/root/id&amp;#x27;, &amp;#x27;&amp;lt;id&amp;gt;1.5&amp;lt;/id&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT INSERTXMLAFTER(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;, &amp;#x27;/root/id&amp;#x27;, &amp;#x27;&amp;lt;id&amp;gt;1.5&amp;lt;/id&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; insertxmlafter &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;----------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;root&amp;gt;        +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;  +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1.5&amp;lt;/id&amp;gt;+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;  +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1.5&amp;lt;/id&amp;gt;+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;/root&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;10-INSERTXMLBEFORE&#34;&gt;10. INSERTXMLBEFORE&lt;/h3&gt;
+&lt;p&gt;这个函数与 INSERTXMLAFTER 类似，但 INSERTXMLBEFORE 是在目标节点之前插入，而不是之后。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;p&gt;定位在 &lt;code&gt;&#39;/root/id&#39;&lt;/code&gt; 节点的，并在 &lt;code&gt;id&lt;/code&gt; 子节点之前，插入 XML 片段。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT INSERTXMLBEFORE(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;, &amp;#x27;/root/id&amp;#x27;, &amp;#x27;&amp;lt;id&amp;gt;1.5&amp;lt;/id&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT INSERTXMLBEFORE(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;, &amp;#x27;/root/id&amp;#x27;, &amp;#x27;&amp;lt;id&amp;gt;1.5&amp;lt;/id&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; insertxmlbefore &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-----------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;root&amp;gt;         +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1.5&amp;lt;/id&amp;gt; +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;   +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1.5&amp;lt;/id&amp;gt; +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;   +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;/root&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;11-UPDATEXML&#34;&gt;11. UPDATEXML&lt;/h3&gt;
+&lt;p&gt;这个函数用于更新 XML 文档中的元素或属性值。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;p&gt;将第一个 val 的属性值，更新为 &lt;code&gt;01&lt;/code&gt;。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT UPDATEXML(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;val&amp;gt;x1&amp;lt;/val&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;val&amp;gt;x2&amp;lt;/val&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root/val[1]&amp;#x27;,&amp;#x27;&amp;lt;val&amp;gt;01&amp;lt;/val&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT UPDATEXML(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;val&amp;gt;x1&amp;lt;/val&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;val&amp;gt;x2&amp;lt;/val&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root/val[1]&amp;#x27;,&amp;#x27;&amp;lt;val&amp;gt;01&amp;lt;/val&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    updatexml    &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-----------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;root&amp;gt;         +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;   +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;val&amp;gt;01&amp;lt;/val&amp;gt;+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;   +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;val&amp;gt;x2&amp;lt;/val&amp;gt;+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;/root&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;本文介绍了 IvorySQL 3.2 为兼容 Oracle 而增加的 11 个 XML 函数。&lt;/p&gt;
+&lt;p&gt;这些函数为开发者提供了强大的工具，以便高效地处理 XML 数据。&lt;/p&gt;
+&lt;p&gt;通过这些函数，可以构建、修改和查询 XML 文档，以满足各种业务需求。&lt;/p&gt;
+&lt;p&gt;– END –&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;如果这篇文章为你带来了灵感或启发，就请帮忙点『赞』or『在看』or『转发』吧，感谢！(๑˃̵ᴗ˂̵)&lt;/p&gt;
+&lt;!--
+
+./configure --prefix=/opt/ivorysql --with-extra-version=&#34;-ShawnYan&#34; --with-libxml
+
+https://github.com/IvorySQL/IvorySQL/issues/132
+Oracle xml function compatible #132
+
+SELECT 
+p.proname as &#34;Name&#34;,
+p.prosrc as &#34;Internal name&#34;,
+pg_catalog.pg_get_function_result(p.oid) as &#34;Result data type&#34;,
+pg_catalog.pg_get_function_arguments(p.oid) as &#34;Argument data types&#34;
+FROM pg_catalog.pg_proc p
+-- WHERE p.proname OPERATOR(pg_catalog.~) &#39;^(.*xml.*)$&#39; COLLATE pg_catalog.default
+WHERE p.prosrc OPERATOR(pg_catalog.~) &#39;^(.*ivy.*)$&#39; COLLATE pg_catalog.default
+  AND pg_catalog.pg_function_is_visible(p.oid)
+ORDER BY 1, 2;
+
+            Name            |       Internal name        | Result data type |        Argument data types         
+----------------------------+----------------------------+------------------+------------------------------------
+ appendchildxml             | ivy_appendchildxml         | xmltype          | xmltype, text, xmltype
+ appendchildxml             | ivy_appendchildxml2        | xmltype          | xmltype, text, xmltype, text
+ deletexml                  | ivy_deletexml              | xmltype          | xmltype, text
+ deletexml                  | ivy_deletexml2             | xmltype          | xmltype, text, text
+ existsnode                 | ivy_existsnode             | pg_catalog.int4  | xmltype, text
+ existsnode                 | ivy_existsnode2            | pg_catalog.int4  | xmltype, text, text
+ extract                    | ivy_extract                | xmltype          | xmltype, text
+ extract                    | ivy_extract2               | xmltype          | xmltype, text, text
+ extractvalue               | ivy_extractvalue           | text             | xmltype, text
+ extractvalue               | ivy_extractvalue2          | text             | xmltype, text, text
+ insertchildxml             | ivy_insertchildxml         | xmltype          | xmltype, text, text, xmltype
+ insertchildxml             | ivy_insertchildxml2        | xmltype          | xmltype, text, text, xmltype, text
+ insertchildxmlafter        | ivy_insertchildxmlafter    | xmltype          | xmltype, text, text, xmltype
+ insertchildxmlafter        | ivy_insertchildxmlafter2   | xmltype          | xmltype, text, text, xmltype, text
+ insertchildxmlbefore       | ivy_insertchildxmlbefore   | xmltype          | xmltype, text, text, xmltype
+ insertchildxmlbefore       | ivy_insertchildxmlbefore2  | xmltype          | xmltype, text, text, xmltype, text
+ insertxmlafter             | ivy_insertxmlafter         | xmltype          | xmltype, text, xmltype
+ insertxmlafter             | ivy_insertxmlafter2        | xmltype          | xmltype, text, xmltype, text
+ insertxmlbefore            | ivy_insertxmlbefore        | xmltype          | xmltype, text, xmltype
+ insertxmlbefore            | ivy_insertxmlbefore2       | xmltype          | xmltype, text, xmltype, text
+ ivy_get_plisql_functiondef | ivy_get_plisql_functiondef | text             | oid
+ xmltype_in                 | ivy_xmltype_in             | xmltype          | cstring
+ xmltype_out                | ivy_xmltype_out            | cstring          | xmltype
+(23 rows)
+
+--&gt;">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="PG 开源社区喜迎 IvorySQL 3.2 版本">
+    <meta property="og:url" content="https://shawnyan.cn/2024/ivorysql/ivorysql-3.2-xml/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;p&gt;IvorySQL 3.2 于 4 月 11 日发版，这是 IvorySQL 3.x 系列的第三个版本。&lt;/p&gt;
+&lt;p&gt;先来简单回忆下之前的版本。&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://mp.weixin.qq.com/mp/appmsgalbum?__biz=MzU5NzQ0ODU2Ng==&amp;amp;action=getalbum&amp;amp;album_id=3309828142362083340&amp;amp;scene=173&amp;amp;subscene=91&amp;amp;sessionid=1712386204&amp;amp;enterid=1712386222&amp;amp;from_msgid=2247484229&amp;amp;from_itemidx=1&amp;amp;count=3&amp;amp;nolastread=1#wechat_redirect&#34;&gt;IvorySQL 合集&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id=&#34;编译安装-IvorySQL-3-2&#34;&gt;编译安装 IvorySQL 3.2&lt;/h2&gt;
+&lt;p&gt;与之前版本略有不同，这里推荐在默认配置参数上增加 &lt;code&gt;--with-libxml&lt;/code&gt; 选项，以支持 XML 函数。&lt;/p&gt;
+&lt;p&gt;具体步骤略，启动数据库后，查看版本信息。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# select version();&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                                             version                                                             &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;---------------------------------------------------------------------------------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; PostgreSQL 16.2-ShawnYan (IvorySQL 3.2) on x86_64-pc-linux-gnu, compiled by gcc (GCC) 4.8.5 20150623 (Red Hat 4.8.5-44), 64-bit&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;可以看到 IvorySQL 3.2 基于 PostgreSQL 16.2，也是目前 PG 最新的版本。&lt;/p&gt;
+&lt;p&gt;题外话，&lt;/p&gt;
+&lt;p&gt;PostgreSQL 17 已在开发中，估计 IvorySQL 4 也在低调推进中。&lt;/p&gt;
+&lt;p&gt;不知会有哪些新特性呢？&lt;/p&gt;
+&lt;h2 id=&#34;IvorySQL-3-2-新增支持的-XML-函数&#34;&gt;IvorySQL 3.2 新增支持的 XML 函数&lt;/h2&gt;
+&lt;p&gt;在 Oracle 数据库中，提供了一系列的 XML 函数，用于处理和操作 XML 数据。&lt;/p&gt;
+&lt;p&gt;IvorySQL 3.2 新增支持了几个 XML 函数，用于兼容 Oracle 的这一特性。&lt;/p&gt;
+&lt;p&gt;接下来，我们逐一解析。&lt;/p&gt;
+&lt;h3 id=&#34;0-查看-XML-函数&#34;&gt;0. 查看 XML 函数&lt;/h3&gt;
+&lt;p&gt;连接到 IvorySQL 的 Oracle 模式:&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql@shawnyan /data/ivorysql 12:03:34]$ psql -p1521&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;psql (16.2-ShawnYan)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;quot;help&amp;quot; for help.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# show ivorysql.compatible_mode ;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.compatible_mode &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; oracle&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看下 IvorySQL 支持哪些 XML 函数。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;            Name            |       Internal name        | Result data type |        Argument data types         &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;----------------------------+----------------------------+------------------+------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; appendchildxml             | ivy_appendchildxml         | xmltype          | xmltype, text, xmltype&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; appendchildxml             | ivy_appendchildxml2        | xmltype          | xmltype, text, xmltype, text&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; deletexml                  | ivy_deletexml              | xmltype          | xmltype, text&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; deletexml                  | ivy_deletexml2             | xmltype          | xmltype, text, text&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; existsnode                 | ivy_existsnode             | pg_catalog.int4  | xmltype, text&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; existsnode                 | ivy_existsnode2            | pg_catalog.int4  | xmltype, text, text&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;1-APPENDCHILDXML&#34;&gt;1. APPENDCHILDXML&lt;/h3&gt;
+&lt;p&gt;这个函数用于将一个 XML 片段作为子元素添加到指定的 XML 文档或元素中。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;p&gt;将值 &lt;code&gt;&#39;&amp;lt;val&amp;gt;ora&amp;lt;/val&amp;gt;&#39;&lt;/code&gt; 作为 &lt;code&gt;&#39;/root&#39;&lt;/code&gt; 的子节点，追加到 &lt;code&gt;&#39;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&#39;&lt;/code&gt; 中。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT APPENDCHILDXML(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root&amp;#x27;,&amp;#x27;&amp;lt;val&amp;gt;ora&amp;lt;/val&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT APPENDCHILDXML(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root&amp;#x27;,&amp;#x27;&amp;lt;val&amp;gt;ora&amp;lt;/val&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  appendchildxml  &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;root&amp;gt;          +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;    +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;val&amp;gt;ora&amp;lt;/val&amp;gt;+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;/root&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;扩展：&lt;/p&gt;
+&lt;p&gt;该函数在 Oracle 中已经废弃，依旧作为兼容性支持，Oracle 推荐使用 XQuery Update 来代替。&lt;/p&gt;
+&lt;h3 id=&#34;2-DELETEXML&#34;&gt;2. DELETEXML&lt;/h3&gt;
+&lt;p&gt;这个函数用于从 XML 文档中删除指定的节点或元素。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;p&gt;将 &lt;code&gt;id&lt;/code&gt; 节点删除。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT DELETEXML(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root/id&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT DELETEXML(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root/id&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; deletexml &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-----------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;root/&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;3-EXISTSNODE&#34;&gt;3. EXISTSNODE&lt;/h3&gt;
+&lt;p&gt;这个函数用于检查 XML 文档中是否存在满足特定条件的节点。&lt;/p&gt;
+&lt;p&gt;如果满足条件，函数返回 1，否则返回 0。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;p&gt;检查是否存在 &lt;code&gt;/root&lt;/code&gt; 节点。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT EXISTSNODE(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT EXISTSNODE(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; existsnode &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;检查是否存在 &lt;code&gt;/root/id2&lt;/code&gt; 节点。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT EXISTSNODE(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root/id2&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT EXISTSNODE(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root/id2&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; existsnode &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;4-EXTRACT-XML&#34;&gt;4. EXTRACT (XML)&lt;/h3&gt;
+&lt;p&gt;这个函数用于提取 XML 文档的一部分或整个文档，可以使用初始斜杠指定绝对路径，也可以通过省略初始斜杠指定相对路径。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT EXTRACT(xmltype(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;),&amp;#x27;/root/id&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT EXTRACT(xmltype(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;),&amp;#x27;/root/id&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  extract   &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;注意：&lt;/p&gt;
+&lt;p&gt;这个函数需要显示指定 xmltype，否则会报错。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT EXTRACT(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root/id&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ERROR:  function extract(unknown, unknown) is not unique&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;LINE 1: SELECT EXTRACT(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root/id&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;               ^&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;HINT:  Could not choose a best candidate function. You might need to add explicit type casts.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;5-EXTRACTVALUE&#34;&gt;5. EXTRACTVALUE&lt;/h3&gt;
+&lt;p&gt;这个函数用于从 XML 文档中定位和提取特定元素的值。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT EXTRACTVALUE(xmltype(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;),&amp;#x27;/root/id&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT EXTRACTVALUE(xmltype(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;),&amp;#x27;/root/id&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; extractvalue &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; 1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;6-INSERTCHILDXML&#34;&gt;6. INSERTCHILDXML&lt;/h3&gt;
+&lt;p&gt;这个函数与 APPENDCHILDXML 类似，但它允许你指定子元素的位置。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;p&gt;将节点 &lt;code&gt;id&lt;/code&gt;，值 &lt;code&gt;&#39;&amp;lt;id&amp;gt;3&amp;lt;/id&amp;gt;&#39;&lt;/code&gt; 作为 &lt;code&gt;&#39;/root&#39;&lt;/code&gt; 的子节点，插入到 XML 中。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT INSERTCHILDXML(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;, &amp;#x27;/root&amp;#x27;, &amp;#x27;id&amp;#x27;, &amp;#x27;&amp;lt;id&amp;gt;0&amp;lt;/id&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT INSERTCHILDXML(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;, &amp;#x27;/root&amp;#x27;, &amp;#x27;id&amp;#x27;, &amp;#x27;&amp;lt;id&amp;gt;0&amp;lt;/id&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; insertchildxml &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;----------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;root&amp;gt;        +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;  +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;  +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;0&amp;lt;/id&amp;gt;  +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;/root&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;7-INSERTCHILDXMLAFTER&#34;&gt;7. INSERTCHILDXMLAFTER&lt;/h3&gt;
+&lt;p&gt;这个函数用于在指定元素之后插入一个新的 XML 片段。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;p&gt;在 &lt;code&gt;&#39;/root&#39;&lt;/code&gt; 的，第一个 &lt;code&gt;id&lt;/code&gt; 子节点之后，插入 XML 片段。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT INSERTCHILDXMLAFTER(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;, &amp;#x27;/root&amp;#x27;, &amp;#x27;id[1]&amp;#x27;, &amp;#x27;&amp;lt;id&amp;gt;1.5&amp;lt;/id&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT INSERTCHILDXMLAFTER(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;, &amp;#x27;/root&amp;#x27;, &amp;#x27;id[1]&amp;#x27;, &amp;#x27;&amp;lt;id&amp;gt;1.5&amp;lt;/id&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; insertchildxmlafter &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;---------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;root&amp;gt;             +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;       +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1.5&amp;lt;/id&amp;gt;     +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;       +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;/root&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;8-INSERTCHILDXMLBEFORE&#34;&gt;8. INSERTCHILDXMLBEFORE&lt;/h3&gt;
+&lt;p&gt;与 INSERTCHILDXMLAFTER 类似，这个函数用于在指定元素之前插入一个新的 XML 片段。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;p&gt;在 &lt;code&gt;&#39;/root&#39;&lt;/code&gt; 的，第二个 &lt;code&gt;id&lt;/code&gt; 子节点之前，插入 XML 片段。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT INSERTCHILDXMLBEFORE(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;, &amp;#x27;/root&amp;#x27;, &amp;#x27;id[2]&amp;#x27;, &amp;#x27;&amp;lt;id&amp;gt;1.8&amp;lt;/id&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT INSERTCHILDXMLBEFORE(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;, &amp;#x27;/root&amp;#x27;, &amp;#x27;id[2]&amp;#x27;, &amp;#x27;&amp;lt;id&amp;gt;1.8&amp;lt;/id&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; insertchildxmlbefore &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;----------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;root&amp;gt;              +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;        +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1.8&amp;lt;/id&amp;gt;      +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;        +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;/root&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;9-INSERTXMLAFTER&#34;&gt;9. INSERTXMLAFTER&lt;/h3&gt;
+&lt;p&gt;这个函数与 INSERTCHILDXMLAFTER 类似，但 INSERTXMLAFTER 是在非属性节点的目标节点之后插入一个或多个任意类型的节点。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;p&gt;定位在 &lt;code&gt;&#39;/root/id&#39;&lt;/code&gt; 节点的，并在 &lt;code&gt;id&lt;/code&gt; 子节点之后，插入 XML 片段。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT INSERTXMLAFTER(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;, &amp;#x27;/root/id&amp;#x27;, &amp;#x27;&amp;lt;id&amp;gt;1.5&amp;lt;/id&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT INSERTXMLAFTER(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;, &amp;#x27;/root/id&amp;#x27;, &amp;#x27;&amp;lt;id&amp;gt;1.5&amp;lt;/id&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; insertxmlafter &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;----------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;root&amp;gt;        +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;  +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1.5&amp;lt;/id&amp;gt;+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;  +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1.5&amp;lt;/id&amp;gt;+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;/root&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;10-INSERTXMLBEFORE&#34;&gt;10. INSERTXMLBEFORE&lt;/h3&gt;
+&lt;p&gt;这个函数与 INSERTXMLAFTER 类似，但 INSERTXMLBEFORE 是在目标节点之前插入，而不是之后。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;p&gt;定位在 &lt;code&gt;&#39;/root/id&#39;&lt;/code&gt; 节点的，并在 &lt;code&gt;id&lt;/code&gt; 子节点之前，插入 XML 片段。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT INSERTXMLBEFORE(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;, &amp;#x27;/root/id&amp;#x27;, &amp;#x27;&amp;lt;id&amp;gt;1.5&amp;lt;/id&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT INSERTXMLBEFORE(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;, &amp;#x27;/root/id&amp;#x27;, &amp;#x27;&amp;lt;id&amp;gt;1.5&amp;lt;/id&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; insertxmlbefore &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-----------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;root&amp;gt;         +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1.5&amp;lt;/id&amp;gt; +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;   +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1.5&amp;lt;/id&amp;gt; +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;   +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;/root&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;11-UPDATEXML&#34;&gt;11. UPDATEXML&lt;/h3&gt;
+&lt;p&gt;这个函数用于更新 XML 文档中的元素或属性值。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;p&gt;将第一个 val 的属性值，更新为 &lt;code&gt;01&lt;/code&gt;。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT UPDATEXML(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;val&amp;gt;x1&amp;lt;/val&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;val&amp;gt;x2&amp;lt;/val&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root/val[1]&amp;#x27;,&amp;#x27;&amp;lt;val&amp;gt;01&amp;lt;/val&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql=# SELECT UPDATEXML(&amp;#x27;&amp;lt;root&amp;gt;&amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;&amp;lt;val&amp;gt;x1&amp;lt;/val&amp;gt;&amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;&amp;lt;val&amp;gt;x2&amp;lt;/val&amp;gt;&amp;lt;/root&amp;gt;&amp;#x27;,&amp;#x27;/root/val[1]&amp;#x27;,&amp;#x27;&amp;lt;val&amp;gt;01&amp;lt;/val&amp;gt;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    updatexml    &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-----------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;root&amp;gt;         +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;1&amp;lt;/id&amp;gt;   +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;val&amp;gt;01&amp;lt;/val&amp;gt;+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;id&amp;gt;2&amp;lt;/id&amp;gt;   +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;lt;val&amp;gt;x2&amp;lt;/val&amp;gt;+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &amp;lt;/root&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;本文介绍了 IvorySQL 3.2 为兼容 Oracle 而增加的 11 个 XML 函数。&lt;/p&gt;
+&lt;p&gt;这些函数为开发者提供了强大的工具，以便高效地处理 XML 数据。&lt;/p&gt;
+&lt;p&gt;通过这些函数，可以构建、修改和查询 XML 文档，以满足各种业务需求。&lt;/p&gt;
+&lt;p&gt;– END –&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;如果这篇文章为你带来了灵感或启发，就请帮忙点『赞』or『在看』or『转发』吧，感谢！(๑˃̵ᴗ˂̵)&lt;/p&gt;
+&lt;!--
+
+./configure --prefix=/opt/ivorysql --with-extra-version=&#34;-ShawnYan&#34; --with-libxml
+
+https://github.com/IvorySQL/IvorySQL/issues/132
+Oracle xml function compatible #132
+
+SELECT 
+p.proname as &#34;Name&#34;,
+p.prosrc as &#34;Internal name&#34;,
+pg_catalog.pg_get_function_result(p.oid) as &#34;Result data type&#34;,
+pg_catalog.pg_get_function_arguments(p.oid) as &#34;Argument data types&#34;
+FROM pg_catalog.pg_proc p
+-- WHERE p.proname OPERATOR(pg_catalog.~) &#39;^(.*xml.*)$&#39; COLLATE pg_catalog.default
+WHERE p.prosrc OPERATOR(pg_catalog.~) &#39;^(.*ivy.*)$&#39; COLLATE pg_catalog.default
+  AND pg_catalog.pg_function_is_visible(p.oid)
+ORDER BY 1, 2;
+
+            Name            |       Internal name        | Result data type |        Argument data types         
+----------------------------+----------------------------+------------------+------------------------------------
+ appendchildxml             | ivy_appendchildxml         | xmltype          | xmltype, text, xmltype
+ appendchildxml             | ivy_appendchildxml2        | xmltype          | xmltype, text, xmltype, text
+ deletexml                  | ivy_deletexml              | xmltype          | xmltype, text
+ deletexml                  | ivy_deletexml2             | xmltype          | xmltype, text, text
+ existsnode                 | ivy_existsnode             | pg_catalog.int4  | xmltype, text
+ existsnode                 | ivy_existsnode2            | pg_catalog.int4  | xmltype, text, text
+ extract                    | ivy_extract                | xmltype          | xmltype, text
+ extract                    | ivy_extract2               | xmltype          | xmltype, text, text
+ extractvalue               | ivy_extractvalue           | text             | xmltype, text
+ extractvalue               | ivy_extractvalue2          | text             | xmltype, text, text
+ insertchildxml             | ivy_insertchildxml         | xmltype          | xmltype, text, text, xmltype
+ insertchildxml             | ivy_insertchildxml2        | xmltype          | xmltype, text, text, xmltype, text
+ insertchildxmlafter        | ivy_insertchildxmlafter    | xmltype          | xmltype, text, text, xmltype
+ insertchildxmlafter        | ivy_insertchildxmlafter2   | xmltype          | xmltype, text, text, xmltype, text
+ insertchildxmlbefore       | ivy_insertchildxmlbefore   | xmltype          | xmltype, text, text, xmltype
+ insertchildxmlbefore       | ivy_insertchildxmlbefore2  | xmltype          | xmltype, text, text, xmltype, text
+ insertxmlafter             | ivy_insertxmlafter         | xmltype          | xmltype, text, xmltype
+ insertxmlafter             | ivy_insertxmlafter2        | xmltype          | xmltype, text, xmltype, text
+ insertxmlbefore            | ivy_insertxmlbefore        | xmltype          | xmltype, text, xmltype
+ insertxmlbefore            | ivy_insertxmlbefore2       | xmltype          | xmltype, text, xmltype, text
+ ivy_get_plisql_functiondef | ivy_get_plisql_functiondef | text             | oid
+ xmltype_in                 | ivy_xmltype_in             | xmltype          | cstring
+ xmltype_out                | ivy_xmltype_out            | cstring          | xmltype
+(23 rows)
+
+--&gt;">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/ivorysql/" class="category-badge">
+                                    IvorySQL
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">PG 开源社区喜迎 IvorySQL 3.2 版本</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2024-04-07
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                2.1k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                11 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <p>IvorySQL 3.2 于 4 月 11 日发版，这是 IvorySQL 3.x 系列的第三个版本。</p>
+<p>先来简单回忆下之前的版本。</p>
+<p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/mp/appmsgalbum?__biz=MzU5NzQ0ODU2Ng==&amp;action=getalbum&amp;album_id=3309828142362083340&amp;scene=173&amp;subscene=91&amp;sessionid=1712386204&amp;enterid=1712386222&amp;from_msgid=2247484229&amp;from_itemidx=1&amp;count=3&amp;nolastread=1#wechat_redirect">IvorySQL 合集</a></p>
+<h2 id="编译安装-IvorySQL-3-2">编译安装 IvorySQL 3.2</h2>
+<p>与之前版本略有不同，这里推荐在默认配置参数上增加 <code>--with-libxml</code> 选项，以支持 XML 函数。</p>
+<p>具体步骤略，启动数据库后，查看版本信息。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">ivorysql=# select version();</span><br><span class="line">                                                             version                                                             </span><br><span class="line">---------------------------------------------------------------------------------------------------------------------------------</span><br><span class="line"> PostgreSQL 16.2-ShawnYan (IvorySQL 3.2) on x86_64-pc-linux-gnu, compiled by gcc (GCC) 4.8.5 20150623 (Red Hat 4.8.5-44), 64-bit</span><br><span class="line">(1 row)</span><br></pre></td></tr></table></figure>
+<p>可以看到 IvorySQL 3.2 基于 PostgreSQL 16.2，也是目前 PG 最新的版本。</p>
+<p>题外话，</p>
+<p>PostgreSQL 17 已在开发中，估计 IvorySQL 4 也在低调推进中。</p>
+<p>不知会有哪些新特性呢？</p>
+<h2 id="IvorySQL-3-2-新增支持的-XML-函数">IvorySQL 3.2 新增支持的 XML 函数</h2>
+<p>在 Oracle 数据库中，提供了一系列的 XML 函数，用于处理和操作 XML 数据。</p>
+<p>IvorySQL 3.2 新增支持了几个 XML 函数，用于兼容 Oracle 的这一特性。</p>
+<p>接下来，我们逐一解析。</p>
+<h3 id="0-查看-XML-函数">0. 查看 XML 函数</h3>
+<p>连接到 IvorySQL 的 Oracle 模式:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">[ivorysql@shawnyan /data/ivorysql 12:03:34]$ psql -p1521</span><br><span class="line">psql (16.2-ShawnYan)</span><br><span class="line">Type &quot;help&quot; for help.</span><br><span class="line"></span><br><span class="line">ivorysql=# show ivorysql.compatible_mode ;</span><br><span class="line"> ivorysql.compatible_mode </span><br><span class="line">--------------------------</span><br><span class="line"> oracle</span><br><span class="line">(1 row)</span><br></pre></td></tr></table></figure>
+<p>查看下 IvorySQL 支持哪些 XML 函数。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">            Name            |       Internal name        | Result data type |        Argument data types         </span><br><span class="line">----------------------------+----------------------------+------------------+------------------------------------</span><br><span class="line"> appendchildxml             | ivy_appendchildxml         | xmltype          | xmltype, text, xmltype</span><br><span class="line"> appendchildxml             | ivy_appendchildxml2        | xmltype          | xmltype, text, xmltype, text</span><br><span class="line"> deletexml                  | ivy_deletexml              | xmltype          | xmltype, text</span><br><span class="line"> deletexml                  | ivy_deletexml2             | xmltype          | xmltype, text, text</span><br><span class="line"> existsnode                 | ivy_existsnode             | pg_catalog.int4  | xmltype, text</span><br><span class="line"> existsnode                 | ivy_existsnode2            | pg_catalog.int4  | xmltype, text, text</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+<h3 id="1-APPENDCHILDXML">1. APPENDCHILDXML</h3>
+<p>这个函数用于将一个 XML 片段作为子元素添加到指定的 XML 文档或元素中。</p>
+<p>示例：</p>
+<p>将值 <code>'&lt;val&gt;ora&lt;/val&gt;'</code> 作为 <code>'/root'</code> 的子节点，追加到 <code>'&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;/root&gt;'</code> 中。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SELECT APPENDCHILDXML(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;/root&gt;&#x27;,&#x27;/root&#x27;,&#x27;&lt;val&gt;ora&lt;/val&gt;&#x27;);</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">ivorysql=# SELECT APPENDCHILDXML(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;/root&gt;&#x27;,&#x27;/root&#x27;,&#x27;&lt;val&gt;ora&lt;/val&gt;&#x27;);</span><br><span class="line">  appendchildxml  </span><br><span class="line">------------------</span><br><span class="line"> &lt;root&gt;          +</span><br><span class="line">   &lt;id&gt;1&lt;/id&gt;    +</span><br><span class="line">   &lt;val&gt;ora&lt;/val&gt;+</span><br><span class="line"> &lt;/root&gt;</span><br><span class="line">(1 row)</span><br></pre></td></tr></table></figure>
+<p>扩展：</p>
+<p>该函数在 Oracle 中已经废弃，依旧作为兼容性支持，Oracle 推荐使用 XQuery Update 来代替。</p>
+<h3 id="2-DELETEXML">2. DELETEXML</h3>
+<p>这个函数用于从 XML 文档中删除指定的节点或元素。</p>
+<p>示例：</p>
+<p>将 <code>id</code> 节点删除。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SELECT DELETEXML(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;/root&gt;&#x27;,&#x27;/root/id&#x27;);</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">ivorysql=# SELECT DELETEXML(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;/root&gt;&#x27;,&#x27;/root/id&#x27;);</span><br><span class="line"> deletexml </span><br><span class="line">-----------</span><br><span class="line"> &lt;root/&gt;</span><br><span class="line">(1 row)</span><br></pre></td></tr></table></figure>
+<h3 id="3-EXISTSNODE">3. EXISTSNODE</h3>
+<p>这个函数用于检查 XML 文档中是否存在满足特定条件的节点。</p>
+<p>如果满足条件，函数返回 1，否则返回 0。</p>
+<p>示例：</p>
+<p>检查是否存在 <code>/root</code> 节点。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SELECT EXISTSNODE(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;/root&gt;&#x27;,&#x27;/root&#x27;);</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">ivorysql=# SELECT EXISTSNODE(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;/root&gt;&#x27;,&#x27;/root&#x27;);</span><br><span class="line"> existsnode </span><br><span class="line">------------</span><br><span class="line">          1</span><br><span class="line">(1 row)</span><br></pre></td></tr></table></figure>
+<p>检查是否存在 <code>/root/id2</code> 节点。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SELECT EXISTSNODE(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;/root&gt;&#x27;,&#x27;/root/id2&#x27;);</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">ivorysql=# SELECT EXISTSNODE(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;/root&gt;&#x27;,&#x27;/root/id2&#x27;);</span><br><span class="line"> existsnode </span><br><span class="line">------------</span><br><span class="line">          0</span><br><span class="line">(1 row)</span><br></pre></td></tr></table></figure>
+<h3 id="4-EXTRACT-XML">4. EXTRACT (XML)</h3>
+<p>这个函数用于提取 XML 文档的一部分或整个文档，可以使用初始斜杠指定绝对路径，也可以通过省略初始斜杠指定相对路径。</p>
+<p>示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SELECT EXTRACT(xmltype(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;/root&gt;&#x27;),&#x27;/root/id&#x27;);</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">ivorysql=# SELECT EXTRACT(xmltype(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;/root&gt;&#x27;),&#x27;/root/id&#x27;);</span><br><span class="line">  extract   </span><br><span class="line">------------</span><br><span class="line"> &lt;id&gt;1&lt;/id&gt;</span><br><span class="line">(1 row)</span><br></pre></td></tr></table></figure>
+<p>注意：</p>
+<p>这个函数需要显示指定 xmltype，否则会报错。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">ivorysql=# SELECT EXTRACT(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;/root&gt;&#x27;,&#x27;/root/id&#x27;);</span><br><span class="line">ERROR:  function extract(unknown, unknown) is not unique</span><br><span class="line">LINE 1: SELECT EXTRACT(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;/root&gt;&#x27;,&#x27;/root/id&#x27;);</span><br><span class="line">               ^</span><br><span class="line">HINT:  Could not choose a best candidate function. You might need to add explicit type casts.</span><br></pre></td></tr></table></figure>
+<h3 id="5-EXTRACTVALUE">5. EXTRACTVALUE</h3>
+<p>这个函数用于从 XML 文档中定位和提取特定元素的值。</p>
+<p>示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SELECT EXTRACTVALUE(xmltype(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;/root&gt;&#x27;),&#x27;/root/id&#x27;);</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">ivorysql=# SELECT EXTRACTVALUE(xmltype(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;/root&gt;&#x27;),&#x27;/root/id&#x27;);</span><br><span class="line"> extractvalue </span><br><span class="line">--------------</span><br><span class="line"> 1</span><br><span class="line">(1 row)</span><br></pre></td></tr></table></figure>
+<h3 id="6-INSERTCHILDXML">6. INSERTCHILDXML</h3>
+<p>这个函数与 APPENDCHILDXML 类似，但它允许你指定子元素的位置。</p>
+<p>示例：</p>
+<p>将节点 <code>id</code>，值 <code>'&lt;id&gt;3&lt;/id&gt;'</code> 作为 <code>'/root'</code> 的子节点，插入到 XML 中。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SELECT INSERTCHILDXML(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;id&gt;2&lt;/id&gt;&lt;/root&gt;&#x27;, &#x27;/root&#x27;, &#x27;id&#x27;, &#x27;&lt;id&gt;0&lt;/id&gt;&#x27;);</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">ivorysql=# SELECT INSERTCHILDXML(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;id&gt;2&lt;/id&gt;&lt;/root&gt;&#x27;, &#x27;/root&#x27;, &#x27;id&#x27;, &#x27;&lt;id&gt;0&lt;/id&gt;&#x27;);</span><br><span class="line"> insertchildxml </span><br><span class="line">----------------</span><br><span class="line"> &lt;root&gt;        +</span><br><span class="line">   &lt;id&gt;1&lt;/id&gt;  +</span><br><span class="line">   &lt;id&gt;2&lt;/id&gt;  +</span><br><span class="line">   &lt;id&gt;0&lt;/id&gt;  +</span><br><span class="line"> &lt;/root&gt;</span><br><span class="line">(1 row)</span><br></pre></td></tr></table></figure>
+<h3 id="7-INSERTCHILDXMLAFTER">7. INSERTCHILDXMLAFTER</h3>
+<p>这个函数用于在指定元素之后插入一个新的 XML 片段。</p>
+<p>示例：</p>
+<p>在 <code>'/root'</code> 的，第一个 <code>id</code> 子节点之后，插入 XML 片段。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SELECT INSERTCHILDXMLAFTER(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;id&gt;2&lt;/id&gt;&lt;/root&gt;&#x27;, &#x27;/root&#x27;, &#x27;id[1]&#x27;, &#x27;&lt;id&gt;1.5&lt;/id&gt;&#x27;);</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">ivorysql=# SELECT INSERTCHILDXMLAFTER(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;id&gt;2&lt;/id&gt;&lt;/root&gt;&#x27;, &#x27;/root&#x27;, &#x27;id[1]&#x27;, &#x27;&lt;id&gt;1.5&lt;/id&gt;&#x27;);</span><br><span class="line"> insertchildxmlafter </span><br><span class="line">---------------------</span><br><span class="line"> &lt;root&gt;             +</span><br><span class="line">   &lt;id&gt;1&lt;/id&gt;       +</span><br><span class="line">   &lt;id&gt;1.5&lt;/id&gt;     +</span><br><span class="line">   &lt;id&gt;2&lt;/id&gt;       +</span><br><span class="line"> &lt;/root&gt;</span><br><span class="line">(1 row)</span><br></pre></td></tr></table></figure>
+<h3 id="8-INSERTCHILDXMLBEFORE">8. INSERTCHILDXMLBEFORE</h3>
+<p>与 INSERTCHILDXMLAFTER 类似，这个函数用于在指定元素之前插入一个新的 XML 片段。</p>
+<p>示例：</p>
+<p>在 <code>'/root'</code> 的，第二个 <code>id</code> 子节点之前，插入 XML 片段。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SELECT INSERTCHILDXMLBEFORE(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;id&gt;2&lt;/id&gt;&lt;/root&gt;&#x27;, &#x27;/root&#x27;, &#x27;id[2]&#x27;, &#x27;&lt;id&gt;1.8&lt;/id&gt;&#x27;);</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">ivorysql=# SELECT INSERTCHILDXMLBEFORE(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;id&gt;2&lt;/id&gt;&lt;/root&gt;&#x27;, &#x27;/root&#x27;, &#x27;id[2]&#x27;, &#x27;&lt;id&gt;1.8&lt;/id&gt;&#x27;);</span><br><span class="line"> insertchildxmlbefore </span><br><span class="line">----------------------</span><br><span class="line"> &lt;root&gt;              +</span><br><span class="line">   &lt;id&gt;1&lt;/id&gt;        +</span><br><span class="line">   &lt;id&gt;1.8&lt;/id&gt;      +</span><br><span class="line">   &lt;id&gt;2&lt;/id&gt;        +</span><br><span class="line"> &lt;/root&gt;</span><br><span class="line">(1 row)</span><br></pre></td></tr></table></figure>
+<h3 id="9-INSERTXMLAFTER">9. INSERTXMLAFTER</h3>
+<p>这个函数与 INSERTCHILDXMLAFTER 类似，但 INSERTXMLAFTER 是在非属性节点的目标节点之后插入一个或多个任意类型的节点。</p>
+<p>示例：</p>
+<p>定位在 <code>'/root/id'</code> 节点的，并在 <code>id</code> 子节点之后，插入 XML 片段。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SELECT INSERTXMLAFTER(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;id&gt;2&lt;/id&gt;&lt;/root&gt;&#x27;, &#x27;/root/id&#x27;, &#x27;&lt;id&gt;1.5&lt;/id&gt;&#x27;);</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">ivorysql=# SELECT INSERTXMLAFTER(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;id&gt;2&lt;/id&gt;&lt;/root&gt;&#x27;, &#x27;/root/id&#x27;, &#x27;&lt;id&gt;1.5&lt;/id&gt;&#x27;);</span><br><span class="line"> insertxmlafter </span><br><span class="line">----------------</span><br><span class="line"> &lt;root&gt;        +</span><br><span class="line">   &lt;id&gt;1&lt;/id&gt;  +</span><br><span class="line">   &lt;id&gt;1.5&lt;/id&gt;+</span><br><span class="line">   &lt;id&gt;2&lt;/id&gt;  +</span><br><span class="line">   &lt;id&gt;1.5&lt;/id&gt;+</span><br><span class="line"> &lt;/root&gt;</span><br><span class="line">(1 row)</span><br></pre></td></tr></table></figure>
+<h3 id="10-INSERTXMLBEFORE">10. INSERTXMLBEFORE</h3>
+<p>这个函数与 INSERTXMLAFTER 类似，但 INSERTXMLBEFORE 是在目标节点之前插入，而不是之后。</p>
+<p>示例：</p>
+<p>定位在 <code>'/root/id'</code> 节点的，并在 <code>id</code> 子节点之前，插入 XML 片段。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SELECT INSERTXMLBEFORE(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;id&gt;2&lt;/id&gt;&lt;/root&gt;&#x27;, &#x27;/root/id&#x27;, &#x27;&lt;id&gt;1.5&lt;/id&gt;&#x27;);</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">ivorysql=# SELECT INSERTXMLBEFORE(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;id&gt;2&lt;/id&gt;&lt;/root&gt;&#x27;, &#x27;/root/id&#x27;, &#x27;&lt;id&gt;1.5&lt;/id&gt;&#x27;);</span><br><span class="line"> insertxmlbefore </span><br><span class="line">-----------------</span><br><span class="line"> &lt;root&gt;         +</span><br><span class="line">   &lt;id&gt;1.5&lt;/id&gt; +</span><br><span class="line">   &lt;id&gt;1&lt;/id&gt;   +</span><br><span class="line">   &lt;id&gt;1.5&lt;/id&gt; +</span><br><span class="line">   &lt;id&gt;2&lt;/id&gt;   +</span><br><span class="line"> &lt;/root&gt;</span><br><span class="line">(1 row)</span><br></pre></td></tr></table></figure>
+<h3 id="11-UPDATEXML">11. UPDATEXML</h3>
+<p>这个函数用于更新 XML 文档中的元素或属性值。</p>
+<p>示例：</p>
+<p>将第一个 val 的属性值，更新为 <code>01</code>。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SELECT UPDATEXML(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;val&gt;x1&lt;/val&gt;&lt;id&gt;2&lt;/id&gt;&lt;val&gt;x2&lt;/val&gt;&lt;/root&gt;&#x27;,&#x27;/root/val[1]&#x27;,&#x27;&lt;val&gt;01&lt;/val&gt;&#x27;);</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">ivorysql=# SELECT UPDATEXML(&#x27;&lt;root&gt;&lt;id&gt;1&lt;/id&gt;&lt;val&gt;x1&lt;/val&gt;&lt;id&gt;2&lt;/id&gt;&lt;val&gt;x2&lt;/val&gt;&lt;/root&gt;&#x27;,&#x27;/root/val[1]&#x27;,&#x27;&lt;val&gt;01&lt;/val&gt;&#x27;);</span><br><span class="line">    updatexml    </span><br><span class="line">-----------------</span><br><span class="line"> &lt;root&gt;         +</span><br><span class="line">   &lt;id&gt;1&lt;/id&gt;   +</span><br><span class="line">   &lt;val&gt;01&lt;/val&gt;+</span><br><span class="line">   &lt;id&gt;2&lt;/id&gt;   +</span><br><span class="line">   &lt;val&gt;x2&lt;/val&gt;+</span><br><span class="line"> &lt;/root&gt;</span><br><span class="line">(1 row)</span><br></pre></td></tr></table></figure>
+<h2 id="总结">总结</h2>
+<p>本文介绍了 IvorySQL 3.2 为兼容 Oracle 而增加的 11 个 XML 函数。</p>
+<p>这些函数为开发者提供了强大的工具，以便高效地处理 XML 数据。</p>
+<p>通过这些函数，可以构建、修改和查询 XML 文档，以满足各种业务需求。</p>
+<p>– END –</p>
+<img alt="logo.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg" referrerpolicy="no-referrer"/>
+<p>如果这篇文章为你带来了灵感或启发，就请帮忙点『赞』or『在看』or『转发』吧，感谢！(๑˃̵ᴗ˂̵)</p>
+<!--
+
+./configure --prefix=/opt/ivorysql --with-extra-version="-ShawnYan" --with-libxml
+
+https://github.com/IvorySQL/IvorySQL/issues/132
+Oracle xml function compatible #132
+
+SELECT 
+p.proname as "Name",
+p.prosrc as "Internal name",
+pg_catalog.pg_get_function_result(p.oid) as "Result data type",
+pg_catalog.pg_get_function_arguments(p.oid) as "Argument data types"
+FROM pg_catalog.pg_proc p
+-- WHERE p.proname OPERATOR(pg_catalog.~) '^(.*xml.*)$' COLLATE pg_catalog.default
+WHERE p.prosrc OPERATOR(pg_catalog.~) '^(.*ivy.*)$' COLLATE pg_catalog.default
+  AND pg_catalog.pg_function_is_visible(p.oid)
+ORDER BY 1, 2;
+
+            Name            |       Internal name        | Result data type |        Argument data types         
+----------------------------+----------------------------+------------------+------------------------------------
+ appendchildxml             | ivy_appendchildxml         | xmltype          | xmltype, text, xmltype
+ appendchildxml             | ivy_appendchildxml2        | xmltype          | xmltype, text, xmltype, text
+ deletexml                  | ivy_deletexml              | xmltype          | xmltype, text
+ deletexml                  | ivy_deletexml2             | xmltype          | xmltype, text, text
+ existsnode                 | ivy_existsnode             | pg_catalog.int4  | xmltype, text
+ existsnode                 | ivy_existsnode2            | pg_catalog.int4  | xmltype, text, text
+ extract                    | ivy_extract                | xmltype          | xmltype, text
+ extract                    | ivy_extract2               | xmltype          | xmltype, text, text
+ extractvalue               | ivy_extractvalue           | text             | xmltype, text
+ extractvalue               | ivy_extractvalue2          | text             | xmltype, text, text
+ insertchildxml             | ivy_insertchildxml         | xmltype          | xmltype, text, text, xmltype
+ insertchildxml             | ivy_insertchildxml2        | xmltype          | xmltype, text, text, xmltype, text
+ insertchildxmlafter        | ivy_insertchildxmlafter    | xmltype          | xmltype, text, text, xmltype
+ insertchildxmlafter        | ivy_insertchildxmlafter2   | xmltype          | xmltype, text, text, xmltype, text
+ insertchildxmlbefore       | ivy_insertchildxmlbefore   | xmltype          | xmltype, text, text, xmltype
+ insertchildxmlbefore       | ivy_insertchildxmlbefore2  | xmltype          | xmltype, text, text, xmltype, text
+ insertxmlafter             | ivy_insertxmlafter         | xmltype          | xmltype, text, xmltype
+ insertxmlafter             | ivy_insertxmlafter2        | xmltype          | xmltype, text, xmltype, text
+ insertxmlbefore            | ivy_insertxmlbefore        | xmltype          | xmltype, text, xmltype
+ insertxmlbefore            | ivy_insertxmlbefore2       | xmltype          | xmltype, text, xmltype, text
+ ivy_get_plisql_functiondef | ivy_get_plisql_functiondef | text             | oid
+ xmltype_in                 | ivy_xmltype_in             | xmltype          | cstring
+ xmltype_out                | ivy_xmltype_out            | cstring          | xmltype
+(23 rows)
+
+-->
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/ivorysql/" class="tag-link">
+                                ivorysql
+                            </a>
+                        
+                            <a href="/tags/highgo/" class="tag-link">
+                                highgo
+                            </a>
+                        
+                            <a href="/tags/postgresql/" class="tag-link">
+                                postgresql
+                            </a>
+                        
+                            <a href="/tags/postgresql-16/" class="tag-link">
+                                postgresql 16
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2024/ivorysql/ivorysql-3.2-xml/index.html">https://shawnyan.cn/2024/ivorysql/ivorysql-3.2-xml/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2024/oracle/oracle-23ai-go-ora-demo/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">使用 Go-Ora 连接到 Oracle 23ai 数据库</span>
+        </a>
+    
+
+    
+        <a href="/2024/oracle/oracle-tool-sqldev-for-vscode/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">Oracle 必备工具：Oracle SQL Developer Extension for VSCode</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BC%96%E8%AF%91%E5%AE%89%E8%A3%85-IvorySQL-3-2"><span class="toc-text">编译安装 IvorySQL 3.2</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#IvorySQL-3-2-%E6%96%B0%E5%A2%9E%E6%94%AF%E6%8C%81%E7%9A%84-XML-%E5%87%BD%E6%95%B0"><span class="toc-text">IvorySQL 3.2 新增支持的 XML 函数</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#0-%E6%9F%A5%E7%9C%8B-XML-%E5%87%BD%E6%95%B0"><span class="toc-text">0. 查看 XML 函数</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-APPENDCHILDXML"><span class="toc-text">1. APPENDCHILDXML</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-DELETEXML"><span class="toc-text">2. DELETEXML</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-EXISTSNODE"><span class="toc-text">3. EXISTSNODE</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-EXTRACT-XML"><span class="toc-text">4. EXTRACT (XML)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-EXTRACTVALUE"><span class="toc-text">5. EXTRACTVALUE</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-INSERTCHILDXML"><span class="toc-text">6. INSERTCHILDXML</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#7-INSERTCHILDXMLAFTER"><span class="toc-text">7. INSERTCHILDXMLAFTER</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#8-INSERTCHILDXMLBEFORE"><span class="toc-text">8. INSERTCHILDXMLBEFORE</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#9-INSERTXMLAFTER"><span class="toc-text">9. INSERTXMLAFTER</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#10-INSERTXMLBEFORE"><span class="toc-text">10. INSERTXMLBEFORE</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#11-UPDATEXML"><span class="toc-text">11. UPDATEXML</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

@@ -1,0 +1,1512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        MySQL 8.4.0 LTS 变更解析：MySQL 的复制与组复制 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;p&gt;&lt;a href=&#34;https://mp.weixin.qq.com/s/9uq0ICx076DGn45xoK0k_g&#34;&gt;MySQL 8.4.0 LTS 已经发布&lt;/a&gt; ，作为发版模型变更后的第一个长期支持版本，注定要承担未来生产环境的重任，那么这个版本都有哪些新特性、变更，接下来少安将带大家一起来 get 新知识点。&lt;/p&gt;
+&lt;h2 id=&#34;环境准备&#34;&gt;环境准备&lt;/h2&gt;
+&lt;p&gt;本节内容继续沿用前文的环境，不同的是在前文的基础之上搭建了主从复制。&lt;/p&gt;
+&lt;p&gt;这里启动两个DB服务来验证复制的相关变更，分别监听3306和3316端口。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[mysql@shawnyan build]$ ./bin/mysql -uroot -h127.1 -P3306 -e &amp;#x27;select @@server_id&amp;#x27; -E&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;@@server_id: 10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[mysql@shawnyan build]$ ./bin/mysql -uroot -h127.1 -P3316 -e &amp;#x27;select @@server_id&amp;#x27; -E&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;@@server_id: 11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol&gt;
+&lt;li&gt;创建复制用户&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;USER&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;replica&amp;#x27;&lt;/span&gt; IDENTIFIED &lt;span class=&#34;keyword&#34;&gt;BY&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;replica&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;GRANT&lt;/span&gt; REPLICATION SLAVE &lt;span class=&#34;keyword&#34;&gt;ON&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;.&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TO&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;replica&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;FLUSH PRIVILEGES;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;配置复制源&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;CHANGE REPLICATION SOURCE &lt;span class=&#34;keyword&#34;&gt;TO&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SOURCE_HOST &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;127.0.0.1&amp;#x27;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SOURCE_PORT &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;3306&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SOURCE_SSL &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SOURCE_AUTO_POSITION &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;启动复制&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这里为了安全考虑，不推荐将 user/password 信息配置在创建复制源语句，而是在启动复制语句中设定。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;START&lt;/span&gt; REPLICA &lt;span class=&#34;keyword&#34;&gt;USER&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;replica&amp;#x27;&lt;/span&gt; PASSWORD &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;replica&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;4&#34;&gt;
+&lt;li&gt;查看复制状态&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;41&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;42&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;43&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;44&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;45&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;46&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;47&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;48&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;49&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;50&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;51&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;52&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;53&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;54&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;55&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;56&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;57&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;58&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;59&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;60&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;61&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;62&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;63&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; replica status\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1.&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;             Replica_IO_State: Waiting &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; source &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; send event&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  Source_Host: &lt;span class=&#34;number&#34;&gt;127.0&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.0&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  Source_User: replica&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  Source_Port: &lt;span class=&#34;number&#34;&gt;3306&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                Connect_Retry: &lt;span class=&#34;number&#34;&gt;60&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              Source_Log_File: binlog&lt;span class=&#34;number&#34;&gt;.000001&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          Read_Source_Log_Pos: &lt;span class=&#34;number&#34;&gt;432&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;               Relay_Log_File: bitdlniu05021&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;relay&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;bin&lt;span class=&#34;number&#34;&gt;.000003&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                Relay_Log_Pos: &lt;span class=&#34;number&#34;&gt;643&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        Relay_Source_Log_File: binlog&lt;span class=&#34;number&#34;&gt;.000001&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           Replica_IO_Running: Yes&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          Replica_SQL_Running: Yes&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              Replicate_Do_DB:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          Replicate_Ignore_DB:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           Replicate_Do_Table:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;       Replicate_Ignore_Table:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      Replicate_Wild_Do_Table:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  Replicate_Wild_Ignore_Table:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                   Last_Errno: &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                   Last_Error:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                 Skip_Counter: &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          Exec_Source_Log_Pos: &lt;span class=&#34;number&#34;&gt;432&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              Relay_Log_Space: &lt;span class=&#34;number&#34;&gt;1043&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              Until_Condition: &lt;span class=&#34;keyword&#34;&gt;None&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;               Until_Log_File:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                Until_Log_Pos: &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           Source_SSL_Allowed: Yes&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           Source_SSL_CA_File:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           Source_SSL_CA_Path:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              Source_SSL_Cert:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;            Source_SSL_Cipher:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;               Source_SSL_Key:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        Seconds_Behind_Source: &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Source_SSL_Verify_Server_Cert: &lt;span class=&#34;keyword&#34;&gt;No&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                Last_IO_Errno: &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                Last_IO_Error:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;               Last_SQL_Errno: &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;               Last_SQL_Error:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  Replicate_Ignore_Server_Ids:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;             Source_Server_Id: &lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  Source_UUID: &lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;db16b24&lt;span class=&#34;number&#34;&gt;-1268&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;ef&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;bc66&lt;span class=&#34;number&#34;&gt;-00155&lt;/span&gt;d098dce&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;             Source_Info_File: mysql.slave_master_info&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                    SQL_Delay: &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          SQL_Remaining_Delay: &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    Replica_SQL_Running_State: Replica has read &lt;span class=&#34;keyword&#34;&gt;all&lt;/span&gt; relay log; waiting &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; more updates&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           Source_Retry_Count: &lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  Source_Bind:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      Last_IO_Error_Timestamp:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;     Last_SQL_Error_Timestamp:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;               Source_SSL_Crl:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           Source_SSL_Crlpath:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           Retrieved_Gtid_Set: &lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;db16b24&lt;span class=&#34;number&#34;&gt;-1268&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;ef&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;bc66&lt;span class=&#34;number&#34;&gt;-00155&lt;/span&gt;d098dce:&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;            Executed_Gtid_Set: &lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;db16b24&lt;span class=&#34;number&#34;&gt;-1268&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;ef&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;bc66&lt;span class=&#34;number&#34;&gt;-00155&lt;/span&gt;d098dce:&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                Auto_Position: &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;         Replicate_Rewrite_DB:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                 Channel_Name:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           Source_TLS_Version:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;       Source_public_key_path:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        Get_Source_public_key: &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;            Network_Namespace:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.00&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;从 MySQL 8.4.0 LTS 开始，master/slave 见上帝去了，以后都将与 replica 伴舞。&lt;/p&gt;
+&lt;h2 id=&#34;复制-SQL-语句&#34;&gt;复制 SQL 语句&lt;/h2&gt;
+&lt;p&gt;之前版本的 MySQL 中已弃用的与 MySQL 复制相关的许多功能的语法现已删除，具体清单如下。&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Removed&lt;/th&gt;
+&lt;th&gt;Replacements&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;START SLAVE&lt;/td&gt;
+&lt;td&gt;START REPLICA&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;STOP SLAVE&lt;/td&gt;
+&lt;td&gt;STOP REPLICA&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;SHOW SLAVE STATUS&lt;/td&gt;
+&lt;td&gt;SHOW REPLICA STATUS&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;SHOW SLAVE HOSTS&lt;/td&gt;
+&lt;td&gt;SHOW REPLICAS&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;RESET SLAVE&lt;/td&gt;
+&lt;td&gt;RESET REPLICA&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;CHANGE MASTER TO&lt;/td&gt;
+&lt;td&gt;CHANGE REPLICATION SOURCE TO&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;RESET MASTER&lt;/td&gt;
+&lt;td&gt;RESET BINARY LOGS AND GTIDS&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;SHOW MASTER STATUS&lt;/td&gt;
+&lt;td&gt;SHOW BINARY LOG STATUS&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;PURGE MASTER LOGS&lt;/td&gt;
+&lt;td&gt;PURGE BINARY LOGS&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;SHOW MASTER LOGS&lt;/td&gt;
+&lt;td&gt;SHOW BINARY LOGS&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;如果继续沿用之前的语法，会直接抛出错误。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;start&lt;/span&gt; slave;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ERROR &lt;span class=&#34;number&#34;&gt;1064&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;42000&lt;/span&gt;): You have an error &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; your &lt;span class=&#34;keyword&#34;&gt;SQL&lt;/span&gt; syntax; &lt;span class=&#34;keyword&#34;&gt;check&lt;/span&gt; the manual that corresponds &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; your MySQL server version &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; the &lt;span class=&#34;keyword&#34;&gt;right&lt;/span&gt; syntax &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; use near &lt;span class=&#34;string&#34;&gt;&amp;#x27;slave&amp;#x27;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;at&lt;/span&gt; line &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;SQL-语句选项&#34;&gt;SQL 语句选项&lt;/h2&gt;
+&lt;p&gt;&lt;code&gt;CHANGE REPLICATION SOURCE TO&lt;/code&gt; 语句的选项，发生了移除、替换变更，清单如下：&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Removed&lt;/th&gt;
+&lt;th&gt;Replacements&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_AUTO_POSITION&lt;/td&gt;
+&lt;td&gt;SOURCE_AUTO_POSITION&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_HOST&lt;/td&gt;
+&lt;td&gt;SOURCE_HOST&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_BIND&lt;/td&gt;
+&lt;td&gt;SOURCE_BIND&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_USER&lt;/td&gt;
+&lt;td&gt;SOURCE_USER&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_PASSWORD&lt;/td&gt;
+&lt;td&gt;SOURCE_PASSWORD&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_PORT&lt;/td&gt;
+&lt;td&gt;SOURCE_PORT&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_CONNECT_RETRY&lt;/td&gt;
+&lt;td&gt;SOURCE_CONNECT_RETRY&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_RETRY_COUNT&lt;/td&gt;
+&lt;td&gt;SOURCE_RETRY_COUNT&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_DELAY&lt;/td&gt;
+&lt;td&gt;SOURCE_DELAY&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_SSL&lt;/td&gt;
+&lt;td&gt;SOURCE_SSL&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_SSL_CA&lt;/td&gt;
+&lt;td&gt;SOURCE_SSL_CA&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_SSL_CAPATH&lt;/td&gt;
+&lt;td&gt;SOURCE_SSL_CAPATH&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_SSL_CIPHER&lt;/td&gt;
+&lt;td&gt;SOURCE_SSL_CIPHER&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_SSL_CRL&lt;/td&gt;
+&lt;td&gt;SOURCE_SSL_CRL&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_SSL_CRLPATH&lt;/td&gt;
+&lt;td&gt;SOURCE_SSL_CRLPATH&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_SSL_KEY&lt;/td&gt;
+&lt;td&gt;SOURCE_SSL_KEY&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_SSL_VERIFY_SERVER_CERT&lt;/td&gt;
+&lt;td&gt;SOURCE_SSL_VERIFY_SERVER_CERT&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_TLS_VERSION&lt;/td&gt;
+&lt;td&gt;SOURCE_TLS_VERSION&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_TLS_CIPHERSUITES&lt;/td&gt;
+&lt;td&gt;SOURCE_TLS_CIPHERSUITES&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_SSL_CERT&lt;/td&gt;
+&lt;td&gt;SOURCE_SSL_CERT&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_PUBLIC_KEY_PATH&lt;/td&gt;
+&lt;td&gt;SOURCE_PUBLIC_KEY_PATH&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;GET_MASTER_PUBLIC_KEY&lt;/td&gt;
+&lt;td&gt;GET_SOURCE_PUBLIC_KEY&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_HEARTBEAT_PERIOD&lt;/td&gt;
+&lt;td&gt;SOURCE_HEARTBEAT_PERIOD&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_COMPRESSION_ALGORITHMS&lt;/td&gt;
+&lt;td&gt;SOURCE_COMPRESSION_ALGORITHMS&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_ZSTD_COMPRESSION_LEVEL&lt;/td&gt;
+&lt;td&gt;SOURCE_ZSTD_COMPRESSION_LEVEL&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_LOG_FILE&lt;/td&gt;
+&lt;td&gt;SOURCE_LOG_FILE&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_LOG_POS&lt;/td&gt;
+&lt;td&gt;SOURCE_LOG_POS&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;系统状态变量&#34;&gt;系统状态变量&lt;/h2&gt;
+&lt;p&gt;MySQL 服务器中的多个系统状态变量也发生了变更，具体清单如下。&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Removed&lt;/th&gt;
+&lt;th&gt;Replacements&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;Com_slave_start&lt;/td&gt;
+&lt;td&gt;Com_replica_start&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Com_slave_stop&lt;/td&gt;
+&lt;td&gt;Com_replica_stop&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Com_show_slave_status&lt;/td&gt;
+&lt;td&gt;Com_show_replica_status&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Com_show_slave_hosts&lt;/td&gt;
+&lt;td&gt;Com_show_replicas&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Com_show_master_status&lt;/td&gt;
+&lt;td&gt;Com_show_binary_log_status&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Com_change_master&lt;/td&gt;
+&lt;td&gt;Com_change_replication_source&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;组复制&#34;&gt;组复制&lt;/h2&gt;
+&lt;h3 id=&#34;1-group-replication-allow-local-lower-version-join-系统变量弃用&#34;&gt;1. group_replication_allow_local_lower_version_join 系统变量弃用&lt;/h3&gt;
+&lt;p&gt;group_replication_allow_local_lower_version_join 是 5.7.17 引入的系统变量，表示当前服务器的插件版本比组的插件版本低时也允许加入组。&lt;/p&gt;
+&lt;p&gt;从 8.4.0 开始被弃用，如果更改值将会抛出如下警告。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;global&lt;/span&gt; group_replication_allow_local_lower_version_join &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt; affected, &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; warning (&lt;span class=&#34;number&#34;&gt;0.00&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Warning (Code &lt;span class=&#34;number&#34;&gt;1681&lt;/span&gt;): &lt;span class=&#34;string&#34;&gt;&amp;#x27;group_replication_allow_local_lower_version_join&amp;#x27;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;is&lt;/span&gt; deprecated &lt;span class=&#34;keyword&#34;&gt;and&lt;/span&gt; will be removed &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; a future release.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;2-group-replication-recovery-complete-at-系统变量被移除&#34;&gt;2. group_replication_recovery_complete_at 系统变量被移除&lt;/h3&gt;
+&lt;p&gt;group_replication_allow_local_lower_version_join 是 5.7.17 引入的系统变量，表示状态传输后处理缓存中的事务时的恢复策略。在 8.0.34 中被废弃。&lt;/p&gt;
+&lt;p&gt;从此版本开始，分布式恢复过程中应用的策略始终是仅在新成员收到、认证并应用其加入组之前发生的所有事务后才将其标记为在线； 这相当于在以前版本的 MySQL 中将 group_replication_recovery_complete_at 设置为 TRANSACTIONS_APPLIED。&lt;/p&gt;
+&lt;h3 id=&#34;3-系统变量默认值变更&#34;&gt;3. 系统变量默认值变更&lt;/h3&gt;
+&lt;ol&gt;
+&lt;li&gt;group_replication_consistency 系统变量的默认值现在是 BEFORE_ON_PRIMARY_FAILOVER ； 以前是 EVENTUAL 。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;在组复制单主模式下，设定为 BEFORE_ON_PRIMARY_FAILOVER 时，新主有未应用的backlog时，客户端的请求会等到，直到应用为止，以此确保事务一致性。&lt;/p&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;group_replication_exit_state_action 系统变量的默认值现在是 OFFLINE_MODE 。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;该变量在 8.0.16 及以上版本的默认值为 READ_ONLY，从 8.0.18 增加 OFFLINE_MODE 选项。&lt;/p&gt;
+&lt;p&gt;如果成员无意中退出组或用尽自动重新加入尝试，实例会将 MySQL 切换到离线模式。在此模式下，已连接的客户端用户在下一个请求时将断开连接，并且不再接受连接，具有 CONNECTION_ADMIN 权限（或已弃用的 SUPER 权限）的客户端用户除外。&lt;/p&gt;
+&lt;h2 id=&#34;版本升级&#34;&gt;版本升级&lt;/h2&gt;
+&lt;p&gt;这里有几点升级的注意事项或建议，以供参考。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;MySQL 5.7 不支持直接升级到 MySQL 8.4，需要先升级到 MySQL 8.0 再过渡到 8.4。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;MySQL 8.4 移除了对 8.0 早期版本的一些特殊处理，建议在升级到 8.4 之前，先升级到 8.0 最新版本。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;当前 MySQL 8.0 系列的最新版本为 MySQL 8.0.37&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;本章节我们介绍了编译 MySQL 8.4.0 LTS 源码需要注意几点变更，以及连接数据库时认证插件发生的变化。&lt;/p&gt;
+&lt;p&gt;下一节我们继续介绍其他新特性，欢迎关注本专栏。&lt;/p&gt;
+&lt;h2 id=&#34;往期精彩&#34;&gt;往期精彩&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://mp.weixin.qq.com/s/9uq0ICx076DGn45xoK0k_g&#34;&gt;MySQL 8.4.0 LTS 发布 (MySQL 第一个长期支持版本)&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://mp.weixin.qq.com/s/clsSyzgA16NmSGRgUHogvg&#34;&gt;Oracle 数据库全面升级为 23ai&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://mp.weixin.qq.com/s/kJrh6hntYjTzLaUcCavr-g&#34;&gt;一文带你了解 Oracle 23ai 新特性 Vector 的基础用法&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://www.modb.pro/db/1788456775410323456&#34;&gt;SOP for Oracle 23ai：Python 连接 Oracle 的两种方法&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;– END –&lt;/p&gt;
+&lt;img alt=&#34;foot.png&#34; src=&#34;https://files.mdnice.com/user/54598/23af4bef-b6ac-4f59-9456-19114dfe6dd7.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;如果这篇文章为你带来了灵感或启发，就请帮忙点『赞』or『在看』or『转发』吧，感谢！(๑˃̵ᴗ˂̵)&lt;/p&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="MySQL 8.4.0 LTS 变更解析：MySQL 的复制与组复制">
+    <meta property="og:url" content="https://shawnyan.cn/2024/mysql/mysql-8-4-0-lts-change-replica/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;p&gt;&lt;a href=&#34;https://mp.weixin.qq.com/s/9uq0ICx076DGn45xoK0k_g&#34;&gt;MySQL 8.4.0 LTS 已经发布&lt;/a&gt; ，作为发版模型变更后的第一个长期支持版本，注定要承担未来生产环境的重任，那么这个版本都有哪些新特性、变更，接下来少安将带大家一起来 get 新知识点。&lt;/p&gt;
+&lt;h2 id=&#34;环境准备&#34;&gt;环境准备&lt;/h2&gt;
+&lt;p&gt;本节内容继续沿用前文的环境，不同的是在前文的基础之上搭建了主从复制。&lt;/p&gt;
+&lt;p&gt;这里启动两个DB服务来验证复制的相关变更，分别监听3306和3316端口。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[mysql@shawnyan build]$ ./bin/mysql -uroot -h127.1 -P3306 -e &amp;#x27;select @@server_id&amp;#x27; -E&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;@@server_id: 10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[mysql@shawnyan build]$ ./bin/mysql -uroot -h127.1 -P3316 -e &amp;#x27;select @@server_id&amp;#x27; -E&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;@@server_id: 11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol&gt;
+&lt;li&gt;创建复制用户&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;USER&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;replica&amp;#x27;&lt;/span&gt; IDENTIFIED &lt;span class=&#34;keyword&#34;&gt;BY&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;replica&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;GRANT&lt;/span&gt; REPLICATION SLAVE &lt;span class=&#34;keyword&#34;&gt;ON&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;.&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TO&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;replica&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;FLUSH PRIVILEGES;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;配置复制源&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;CHANGE REPLICATION SOURCE &lt;span class=&#34;keyword&#34;&gt;TO&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SOURCE_HOST &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;127.0.0.1&amp;#x27;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SOURCE_PORT &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;3306&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SOURCE_SSL &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SOURCE_AUTO_POSITION &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;启动复制&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这里为了安全考虑，不推荐将 user/password 信息配置在创建复制源语句，而是在启动复制语句中设定。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;START&lt;/span&gt; REPLICA &lt;span class=&#34;keyword&#34;&gt;USER&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;replica&amp;#x27;&lt;/span&gt; PASSWORD &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;replica&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;4&#34;&gt;
+&lt;li&gt;查看复制状态&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;41&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;42&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;43&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;44&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;45&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;46&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;47&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;48&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;49&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;50&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;51&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;52&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;53&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;54&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;55&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;56&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;57&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;58&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;59&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;60&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;61&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;62&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;63&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; replica status\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1.&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;             Replica_IO_State: Waiting &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; source &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; send event&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  Source_Host: &lt;span class=&#34;number&#34;&gt;127.0&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.0&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  Source_User: replica&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  Source_Port: &lt;span class=&#34;number&#34;&gt;3306&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                Connect_Retry: &lt;span class=&#34;number&#34;&gt;60&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              Source_Log_File: binlog&lt;span class=&#34;number&#34;&gt;.000001&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          Read_Source_Log_Pos: &lt;span class=&#34;number&#34;&gt;432&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;               Relay_Log_File: bitdlniu05021&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;relay&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;bin&lt;span class=&#34;number&#34;&gt;.000003&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                Relay_Log_Pos: &lt;span class=&#34;number&#34;&gt;643&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        Relay_Source_Log_File: binlog&lt;span class=&#34;number&#34;&gt;.000001&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           Replica_IO_Running: Yes&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          Replica_SQL_Running: Yes&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              Replicate_Do_DB:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          Replicate_Ignore_DB:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           Replicate_Do_Table:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;       Replicate_Ignore_Table:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      Replicate_Wild_Do_Table:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  Replicate_Wild_Ignore_Table:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                   Last_Errno: &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                   Last_Error:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                 Skip_Counter: &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          Exec_Source_Log_Pos: &lt;span class=&#34;number&#34;&gt;432&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              Relay_Log_Space: &lt;span class=&#34;number&#34;&gt;1043&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              Until_Condition: &lt;span class=&#34;keyword&#34;&gt;None&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;               Until_Log_File:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                Until_Log_Pos: &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           Source_SSL_Allowed: Yes&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           Source_SSL_CA_File:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           Source_SSL_CA_Path:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              Source_SSL_Cert:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;            Source_SSL_Cipher:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;               Source_SSL_Key:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        Seconds_Behind_Source: &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Source_SSL_Verify_Server_Cert: &lt;span class=&#34;keyword&#34;&gt;No&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                Last_IO_Errno: &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                Last_IO_Error:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;               Last_SQL_Errno: &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;               Last_SQL_Error:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  Replicate_Ignore_Server_Ids:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;             Source_Server_Id: &lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  Source_UUID: &lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;db16b24&lt;span class=&#34;number&#34;&gt;-1268&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;ef&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;bc66&lt;span class=&#34;number&#34;&gt;-00155&lt;/span&gt;d098dce&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;             Source_Info_File: mysql.slave_master_info&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                    SQL_Delay: &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          SQL_Remaining_Delay: &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    Replica_SQL_Running_State: Replica has read &lt;span class=&#34;keyword&#34;&gt;all&lt;/span&gt; relay log; waiting &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; more updates&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           Source_Retry_Count: &lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  Source_Bind:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      Last_IO_Error_Timestamp:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;     Last_SQL_Error_Timestamp:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;               Source_SSL_Crl:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           Source_SSL_Crlpath:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           Retrieved_Gtid_Set: &lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;db16b24&lt;span class=&#34;number&#34;&gt;-1268&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;ef&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;bc66&lt;span class=&#34;number&#34;&gt;-00155&lt;/span&gt;d098dce:&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;            Executed_Gtid_Set: &lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;db16b24&lt;span class=&#34;number&#34;&gt;-1268&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;ef&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;bc66&lt;span class=&#34;number&#34;&gt;-00155&lt;/span&gt;d098dce:&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                Auto_Position: &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;         Replicate_Rewrite_DB:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                 Channel_Name:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           Source_TLS_Version:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;       Source_public_key_path:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        Get_Source_public_key: &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;            Network_Namespace:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.00&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;从 MySQL 8.4.0 LTS 开始，master/slave 见上帝去了，以后都将与 replica 伴舞。&lt;/p&gt;
+&lt;h2 id=&#34;复制-SQL-语句&#34;&gt;复制 SQL 语句&lt;/h2&gt;
+&lt;p&gt;之前版本的 MySQL 中已弃用的与 MySQL 复制相关的许多功能的语法现已删除，具体清单如下。&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Removed&lt;/th&gt;
+&lt;th&gt;Replacements&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;START SLAVE&lt;/td&gt;
+&lt;td&gt;START REPLICA&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;STOP SLAVE&lt;/td&gt;
+&lt;td&gt;STOP REPLICA&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;SHOW SLAVE STATUS&lt;/td&gt;
+&lt;td&gt;SHOW REPLICA STATUS&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;SHOW SLAVE HOSTS&lt;/td&gt;
+&lt;td&gt;SHOW REPLICAS&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;RESET SLAVE&lt;/td&gt;
+&lt;td&gt;RESET REPLICA&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;CHANGE MASTER TO&lt;/td&gt;
+&lt;td&gt;CHANGE REPLICATION SOURCE TO&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;RESET MASTER&lt;/td&gt;
+&lt;td&gt;RESET BINARY LOGS AND GTIDS&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;SHOW MASTER STATUS&lt;/td&gt;
+&lt;td&gt;SHOW BINARY LOG STATUS&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;PURGE MASTER LOGS&lt;/td&gt;
+&lt;td&gt;PURGE BINARY LOGS&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;SHOW MASTER LOGS&lt;/td&gt;
+&lt;td&gt;SHOW BINARY LOGS&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;如果继续沿用之前的语法，会直接抛出错误。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;start&lt;/span&gt; slave;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ERROR &lt;span class=&#34;number&#34;&gt;1064&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;42000&lt;/span&gt;): You have an error &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; your &lt;span class=&#34;keyword&#34;&gt;SQL&lt;/span&gt; syntax; &lt;span class=&#34;keyword&#34;&gt;check&lt;/span&gt; the manual that corresponds &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; your MySQL server version &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; the &lt;span class=&#34;keyword&#34;&gt;right&lt;/span&gt; syntax &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; use near &lt;span class=&#34;string&#34;&gt;&amp;#x27;slave&amp;#x27;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;at&lt;/span&gt; line &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;SQL-语句选项&#34;&gt;SQL 语句选项&lt;/h2&gt;
+&lt;p&gt;&lt;code&gt;CHANGE REPLICATION SOURCE TO&lt;/code&gt; 语句的选项，发生了移除、替换变更，清单如下：&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Removed&lt;/th&gt;
+&lt;th&gt;Replacements&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_AUTO_POSITION&lt;/td&gt;
+&lt;td&gt;SOURCE_AUTO_POSITION&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_HOST&lt;/td&gt;
+&lt;td&gt;SOURCE_HOST&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_BIND&lt;/td&gt;
+&lt;td&gt;SOURCE_BIND&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_USER&lt;/td&gt;
+&lt;td&gt;SOURCE_USER&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_PASSWORD&lt;/td&gt;
+&lt;td&gt;SOURCE_PASSWORD&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_PORT&lt;/td&gt;
+&lt;td&gt;SOURCE_PORT&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_CONNECT_RETRY&lt;/td&gt;
+&lt;td&gt;SOURCE_CONNECT_RETRY&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_RETRY_COUNT&lt;/td&gt;
+&lt;td&gt;SOURCE_RETRY_COUNT&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_DELAY&lt;/td&gt;
+&lt;td&gt;SOURCE_DELAY&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_SSL&lt;/td&gt;
+&lt;td&gt;SOURCE_SSL&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_SSL_CA&lt;/td&gt;
+&lt;td&gt;SOURCE_SSL_CA&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_SSL_CAPATH&lt;/td&gt;
+&lt;td&gt;SOURCE_SSL_CAPATH&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_SSL_CIPHER&lt;/td&gt;
+&lt;td&gt;SOURCE_SSL_CIPHER&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_SSL_CRL&lt;/td&gt;
+&lt;td&gt;SOURCE_SSL_CRL&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_SSL_CRLPATH&lt;/td&gt;
+&lt;td&gt;SOURCE_SSL_CRLPATH&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_SSL_KEY&lt;/td&gt;
+&lt;td&gt;SOURCE_SSL_KEY&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_SSL_VERIFY_SERVER_CERT&lt;/td&gt;
+&lt;td&gt;SOURCE_SSL_VERIFY_SERVER_CERT&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_TLS_VERSION&lt;/td&gt;
+&lt;td&gt;SOURCE_TLS_VERSION&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_TLS_CIPHERSUITES&lt;/td&gt;
+&lt;td&gt;SOURCE_TLS_CIPHERSUITES&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_SSL_CERT&lt;/td&gt;
+&lt;td&gt;SOURCE_SSL_CERT&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_PUBLIC_KEY_PATH&lt;/td&gt;
+&lt;td&gt;SOURCE_PUBLIC_KEY_PATH&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;GET_MASTER_PUBLIC_KEY&lt;/td&gt;
+&lt;td&gt;GET_SOURCE_PUBLIC_KEY&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_HEARTBEAT_PERIOD&lt;/td&gt;
+&lt;td&gt;SOURCE_HEARTBEAT_PERIOD&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_COMPRESSION_ALGORITHMS&lt;/td&gt;
+&lt;td&gt;SOURCE_COMPRESSION_ALGORITHMS&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_ZSTD_COMPRESSION_LEVEL&lt;/td&gt;
+&lt;td&gt;SOURCE_ZSTD_COMPRESSION_LEVEL&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_LOG_FILE&lt;/td&gt;
+&lt;td&gt;SOURCE_LOG_FILE&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MASTER_LOG_POS&lt;/td&gt;
+&lt;td&gt;SOURCE_LOG_POS&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;系统状态变量&#34;&gt;系统状态变量&lt;/h2&gt;
+&lt;p&gt;MySQL 服务器中的多个系统状态变量也发生了变更，具体清单如下。&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Removed&lt;/th&gt;
+&lt;th&gt;Replacements&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;Com_slave_start&lt;/td&gt;
+&lt;td&gt;Com_replica_start&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Com_slave_stop&lt;/td&gt;
+&lt;td&gt;Com_replica_stop&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Com_show_slave_status&lt;/td&gt;
+&lt;td&gt;Com_show_replica_status&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Com_show_slave_hosts&lt;/td&gt;
+&lt;td&gt;Com_show_replicas&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Com_show_master_status&lt;/td&gt;
+&lt;td&gt;Com_show_binary_log_status&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Com_change_master&lt;/td&gt;
+&lt;td&gt;Com_change_replication_source&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;组复制&#34;&gt;组复制&lt;/h2&gt;
+&lt;h3 id=&#34;1-group-replication-allow-local-lower-version-join-系统变量弃用&#34;&gt;1. group_replication_allow_local_lower_version_join 系统变量弃用&lt;/h3&gt;
+&lt;p&gt;group_replication_allow_local_lower_version_join 是 5.7.17 引入的系统变量，表示当前服务器的插件版本比组的插件版本低时也允许加入组。&lt;/p&gt;
+&lt;p&gt;从 8.4.0 开始被弃用，如果更改值将会抛出如下警告。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;global&lt;/span&gt; group_replication_allow_local_lower_version_join &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt; affected, &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; warning (&lt;span class=&#34;number&#34;&gt;0.00&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Warning (Code &lt;span class=&#34;number&#34;&gt;1681&lt;/span&gt;): &lt;span class=&#34;string&#34;&gt;&amp;#x27;group_replication_allow_local_lower_version_join&amp;#x27;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;is&lt;/span&gt; deprecated &lt;span class=&#34;keyword&#34;&gt;and&lt;/span&gt; will be removed &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; a future release.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;2-group-replication-recovery-complete-at-系统变量被移除&#34;&gt;2. group_replication_recovery_complete_at 系统变量被移除&lt;/h3&gt;
+&lt;p&gt;group_replication_allow_local_lower_version_join 是 5.7.17 引入的系统变量，表示状态传输后处理缓存中的事务时的恢复策略。在 8.0.34 中被废弃。&lt;/p&gt;
+&lt;p&gt;从此版本开始，分布式恢复过程中应用的策略始终是仅在新成员收到、认证并应用其加入组之前发生的所有事务后才将其标记为在线； 这相当于在以前版本的 MySQL 中将 group_replication_recovery_complete_at 设置为 TRANSACTIONS_APPLIED。&lt;/p&gt;
+&lt;h3 id=&#34;3-系统变量默认值变更&#34;&gt;3. 系统变量默认值变更&lt;/h3&gt;
+&lt;ol&gt;
+&lt;li&gt;group_replication_consistency 系统变量的默认值现在是 BEFORE_ON_PRIMARY_FAILOVER ； 以前是 EVENTUAL 。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;在组复制单主模式下，设定为 BEFORE_ON_PRIMARY_FAILOVER 时，新主有未应用的backlog时，客户端的请求会等到，直到应用为止，以此确保事务一致性。&lt;/p&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;group_replication_exit_state_action 系统变量的默认值现在是 OFFLINE_MODE 。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;该变量在 8.0.16 及以上版本的默认值为 READ_ONLY，从 8.0.18 增加 OFFLINE_MODE 选项。&lt;/p&gt;
+&lt;p&gt;如果成员无意中退出组或用尽自动重新加入尝试，实例会将 MySQL 切换到离线模式。在此模式下，已连接的客户端用户在下一个请求时将断开连接，并且不再接受连接，具有 CONNECTION_ADMIN 权限（或已弃用的 SUPER 权限）的客户端用户除外。&lt;/p&gt;
+&lt;h2 id=&#34;版本升级&#34;&gt;版本升级&lt;/h2&gt;
+&lt;p&gt;这里有几点升级的注意事项或建议，以供参考。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;MySQL 5.7 不支持直接升级到 MySQL 8.4，需要先升级到 MySQL 8.0 再过渡到 8.4。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;MySQL 8.4 移除了对 8.0 早期版本的一些特殊处理，建议在升级到 8.4 之前，先升级到 8.0 最新版本。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;当前 MySQL 8.0 系列的最新版本为 MySQL 8.0.37&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;本章节我们介绍了编译 MySQL 8.4.0 LTS 源码需要注意几点变更，以及连接数据库时认证插件发生的变化。&lt;/p&gt;
+&lt;p&gt;下一节我们继续介绍其他新特性，欢迎关注本专栏。&lt;/p&gt;
+&lt;h2 id=&#34;往期精彩&#34;&gt;往期精彩&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://mp.weixin.qq.com/s/9uq0ICx076DGn45xoK0k_g&#34;&gt;MySQL 8.4.0 LTS 发布 (MySQL 第一个长期支持版本)&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://mp.weixin.qq.com/s/clsSyzgA16NmSGRgUHogvg&#34;&gt;Oracle 数据库全面升级为 23ai&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://mp.weixin.qq.com/s/kJrh6hntYjTzLaUcCavr-g&#34;&gt;一文带你了解 Oracle 23ai 新特性 Vector 的基础用法&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://www.modb.pro/db/1788456775410323456&#34;&gt;SOP for Oracle 23ai：Python 连接 Oracle 的两种方法&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;– END –&lt;/p&gt;
+&lt;img alt=&#34;foot.png&#34; src=&#34;https://files.mdnice.com/user/54598/23af4bef-b6ac-4f59-9456-19114dfe6dd7.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;如果这篇文章为你带来了灵感或启发，就请帮忙点『赞』or『在看』or『转发』吧，感谢！(๑˃̵ᴗ˂̵)&lt;/p&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/mysql/" class="category-badge">
+                                    MySQL
+                                </a>
+                            
+                                <a href="/categories/mysql/mysql-8-x/" class="category-badge">
+                                    MySQL 8.x
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">MySQL 8.4.0 LTS 变更解析：MySQL 的复制与组复制</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2024-05-16
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                1.4k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                6 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/9uq0ICx076DGn45xoK0k_g">MySQL 8.4.0 LTS 已经发布</a> ，作为发版模型变更后的第一个长期支持版本，注定要承担未来生产环境的重任，那么这个版本都有哪些新特性、变更，接下来少安将带大家一起来 get 新知识点。</p>
+<h2 id="环境准备">环境准备</h2>
+<p>本节内容继续沿用前文的环境，不同的是在前文的基础之上搭建了主从复制。</p>
+<p>这里启动两个DB服务来验证复制的相关变更，分别监听3306和3316端口。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[mysql@shawnyan build]$ ./bin/mysql -uroot -h127.1 -P3306 -e &#x27;select @@server_id&#x27; -E</span><br><span class="line">*************************** 1. row ***************************</span><br><span class="line">@@server_id: 10</span><br><span class="line">[mysql@shawnyan build]$ ./bin/mysql -uroot -h127.1 -P3316 -e &#x27;select @@server_id&#x27; -E</span><br><span class="line">*************************** 1. row ***************************</span><br><span class="line">@@server_id: 11</span><br></pre></td></tr></table></figure>
+<ol>
+<li>创建复制用户</li>
+</ol>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">USER</span> <span class="string">&#x27;replica&#x27;</span> IDENTIFIED <span class="keyword">BY</span> <span class="string">&#x27;replica&#x27;</span>;</span><br><span class="line"><span class="keyword">GRANT</span> REPLICATION SLAVE <span class="keyword">ON</span> <span class="operator">*</span>.<span class="operator">*</span> <span class="keyword">TO</span> <span class="string">&#x27;replica&#x27;</span>;</span><br><span class="line">FLUSH PRIVILEGES;</span><br></pre></td></tr></table></figure>
+<ol start="2">
+<li>配置复制源</li>
+</ol>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">CHANGE REPLICATION SOURCE <span class="keyword">TO</span></span><br><span class="line">SOURCE_HOST <span class="operator">=</span> <span class="string">&#x27;127.0.0.1&#x27;</span>,</span><br><span class="line">SOURCE_PORT <span class="operator">=</span> <span class="number">3306</span>,</span><br><span class="line">SOURCE_SSL <span class="operator">=</span> <span class="number">1</span>,</span><br><span class="line">SOURCE_AUTO_POSITION <span class="operator">=</span> <span class="number">1</span>;</span><br></pre></td></tr></table></figure>
+<ol start="3">
+<li>启动复制</li>
+</ol>
+<p>这里为了安全考虑，不推荐将 user/password 信息配置在创建复制源语句，而是在启动复制语句中设定。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">START</span> REPLICA <span class="keyword">USER</span> <span class="operator">=</span> <span class="string">&#x27;replica&#x27;</span> PASSWORD <span class="operator">=</span> <span class="string">&#x27;replica&#x27;</span>;</span><br></pre></td></tr></table></figure>
+<ol start="4">
+<li>查看复制状态</li>
+</ol>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">show</span> replica status\G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">             Replica_IO_State: Waiting <span class="keyword">for</span> source <span class="keyword">to</span> send event</span><br><span class="line">                  Source_Host: <span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span></span><br><span class="line">                  Source_User: replica</span><br><span class="line">                  Source_Port: <span class="number">3306</span></span><br><span class="line">                Connect_Retry: <span class="number">60</span></span><br><span class="line">              Source_Log_File: binlog<span class="number">.000001</span></span><br><span class="line">          Read_Source_Log_Pos: <span class="number">432</span></span><br><span class="line">               Relay_Log_File: bitdlniu05021<span class="operator">-</span>relay<span class="operator">-</span>bin<span class="number">.000003</span></span><br><span class="line">                Relay_Log_Pos: <span class="number">643</span></span><br><span class="line">        Relay_Source_Log_File: binlog<span class="number">.000001</span></span><br><span class="line">           Replica_IO_Running: Yes</span><br><span class="line">          Replica_SQL_Running: Yes</span><br><span class="line">              Replicate_Do_DB:</span><br><span class="line">          Replicate_Ignore_DB:</span><br><span class="line">           Replicate_Do_Table:</span><br><span class="line">       Replicate_Ignore_Table:</span><br><span class="line">      Replicate_Wild_Do_Table:</span><br><span class="line">  Replicate_Wild_Ignore_Table:</span><br><span class="line">                   Last_Errno: <span class="number">0</span></span><br><span class="line">                   Last_Error:</span><br><span class="line">                 Skip_Counter: <span class="number">0</span></span><br><span class="line">          Exec_Source_Log_Pos: <span class="number">432</span></span><br><span class="line">              Relay_Log_Space: <span class="number">1043</span></span><br><span class="line">              Until_Condition: <span class="keyword">None</span></span><br><span class="line">               Until_Log_File:</span><br><span class="line">                Until_Log_Pos: <span class="number">0</span></span><br><span class="line">           Source_SSL_Allowed: Yes</span><br><span class="line">           Source_SSL_CA_File:</span><br><span class="line">           Source_SSL_CA_Path:</span><br><span class="line">              Source_SSL_Cert:</span><br><span class="line">            Source_SSL_Cipher:</span><br><span class="line">               Source_SSL_Key:</span><br><span class="line">        Seconds_Behind_Source: <span class="number">0</span></span><br><span class="line">Source_SSL_Verify_Server_Cert: <span class="keyword">No</span></span><br><span class="line">                Last_IO_Errno: <span class="number">0</span></span><br><span class="line">                Last_IO_Error:</span><br><span class="line">               Last_SQL_Errno: <span class="number">0</span></span><br><span class="line">               Last_SQL_Error:</span><br><span class="line">  Replicate_Ignore_Server_Ids:</span><br><span class="line">             Source_Server_Id: <span class="number">10</span></span><br><span class="line">                  Source_UUID: <span class="number">4</span>db16b24<span class="number">-1268</span><span class="number">-11</span>ef<span class="operator">-</span>bc66<span class="number">-00155</span>d098dce</span><br><span class="line">             Source_Info_File: mysql.slave_master_info</span><br><span class="line">                    SQL_Delay: <span class="number">0</span></span><br><span class="line">          SQL_Remaining_Delay: <span class="keyword">NULL</span></span><br><span class="line">    Replica_SQL_Running_State: Replica has read <span class="keyword">all</span> relay log; waiting <span class="keyword">for</span> more updates</span><br><span class="line">           Source_Retry_Count: <span class="number">10</span></span><br><span class="line">                  Source_Bind:</span><br><span class="line">      Last_IO_Error_Timestamp:</span><br><span class="line">     Last_SQL_Error_Timestamp:</span><br><span class="line">               Source_SSL_Crl:</span><br><span class="line">           Source_SSL_Crlpath:</span><br><span class="line">           Retrieved_Gtid_Set: <span class="number">4</span>db16b24<span class="number">-1268</span><span class="number">-11</span>ef<span class="operator">-</span>bc66<span class="number">-00155</span>d098dce:<span class="number">1</span></span><br><span class="line">            Executed_Gtid_Set: <span class="number">4</span>db16b24<span class="number">-1268</span><span class="number">-11</span>ef<span class="operator">-</span>bc66<span class="number">-00155</span>d098dce:<span class="number">1</span></span><br><span class="line">                Auto_Position: <span class="number">1</span></span><br><span class="line">         Replicate_Rewrite_DB:</span><br><span class="line">                 Channel_Name:</span><br><span class="line">           Source_TLS_Version:</span><br><span class="line">       Source_public_key_path:</span><br><span class="line">        Get_Source_public_key: <span class="number">0</span></span><br><span class="line">            Network_Namespace:</span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure>
+<p>从 MySQL 8.4.0 LTS 开始，master/slave 见上帝去了，以后都将与 replica 伴舞。</p>
+<h2 id="复制-SQL-语句">复制 SQL 语句</h2>
+<p>之前版本的 MySQL 中已弃用的与 MySQL 复制相关的许多功能的语法现已删除，具体清单如下。</p>
+<table>
+<thead>
+<tr>
+<th>Removed</th>
+<th>Replacements</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>START SLAVE</td>
+<td>START REPLICA</td>
+</tr>
+<tr>
+<td>STOP SLAVE</td>
+<td>STOP REPLICA</td>
+</tr>
+<tr>
+<td>SHOW SLAVE STATUS</td>
+<td>SHOW REPLICA STATUS</td>
+</tr>
+<tr>
+<td>SHOW SLAVE HOSTS</td>
+<td>SHOW REPLICAS</td>
+</tr>
+<tr>
+<td>RESET SLAVE</td>
+<td>RESET REPLICA</td>
+</tr>
+<tr>
+<td>CHANGE MASTER TO</td>
+<td>CHANGE REPLICATION SOURCE TO</td>
+</tr>
+<tr>
+<td>RESET MASTER</td>
+<td>RESET BINARY LOGS AND GTIDS</td>
+</tr>
+<tr>
+<td>SHOW MASTER STATUS</td>
+<td>SHOW BINARY LOG STATUS</td>
+</tr>
+<tr>
+<td>PURGE MASTER LOGS</td>
+<td>PURGE BINARY LOGS</td>
+</tr>
+<tr>
+<td>SHOW MASTER LOGS</td>
+<td>SHOW BINARY LOGS</td>
+</tr>
+</tbody>
+</table>
+<p>如果继续沿用之前的语法，会直接抛出错误。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">start</span> slave;</span><br><span class="line">ERROR <span class="number">1064</span> (<span class="number">42000</span>): You have an error <span class="keyword">in</span> your <span class="keyword">SQL</span> syntax; <span class="keyword">check</span> the manual that corresponds <span class="keyword">to</span> your MySQL server version <span class="keyword">for</span> the <span class="keyword">right</span> syntax <span class="keyword">to</span> use near <span class="string">&#x27;slave&#x27;</span> <span class="keyword">at</span> line <span class="number">1</span></span><br></pre></td></tr></table></figure>
+<h2 id="SQL-语句选项">SQL 语句选项</h2>
+<p><code>CHANGE REPLICATION SOURCE TO</code> 语句的选项，发生了移除、替换变更，清单如下：</p>
+<table>
+<thead>
+<tr>
+<th>Removed</th>
+<th>Replacements</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MASTER_AUTO_POSITION</td>
+<td>SOURCE_AUTO_POSITION</td>
+</tr>
+<tr>
+<td>MASTER_HOST</td>
+<td>SOURCE_HOST</td>
+</tr>
+<tr>
+<td>MASTER_BIND</td>
+<td>SOURCE_BIND</td>
+</tr>
+<tr>
+<td>MASTER_USER</td>
+<td>SOURCE_USER</td>
+</tr>
+<tr>
+<td>MASTER_PASSWORD</td>
+<td>SOURCE_PASSWORD</td>
+</tr>
+<tr>
+<td>MASTER_PORT</td>
+<td>SOURCE_PORT</td>
+</tr>
+<tr>
+<td>MASTER_CONNECT_RETRY</td>
+<td>SOURCE_CONNECT_RETRY</td>
+</tr>
+<tr>
+<td>MASTER_RETRY_COUNT</td>
+<td>SOURCE_RETRY_COUNT</td>
+</tr>
+<tr>
+<td>MASTER_DELAY</td>
+<td>SOURCE_DELAY</td>
+</tr>
+<tr>
+<td>MASTER_SSL</td>
+<td>SOURCE_SSL</td>
+</tr>
+<tr>
+<td>MASTER_SSL_CA</td>
+<td>SOURCE_SSL_CA</td>
+</tr>
+<tr>
+<td>MASTER_SSL_CAPATH</td>
+<td>SOURCE_SSL_CAPATH</td>
+</tr>
+<tr>
+<td>MASTER_SSL_CIPHER</td>
+<td>SOURCE_SSL_CIPHER</td>
+</tr>
+<tr>
+<td>MASTER_SSL_CRL</td>
+<td>SOURCE_SSL_CRL</td>
+</tr>
+<tr>
+<td>MASTER_SSL_CRLPATH</td>
+<td>SOURCE_SSL_CRLPATH</td>
+</tr>
+<tr>
+<td>MASTER_SSL_KEY</td>
+<td>SOURCE_SSL_KEY</td>
+</tr>
+<tr>
+<td>MASTER_SSL_VERIFY_SERVER_CERT</td>
+<td>SOURCE_SSL_VERIFY_SERVER_CERT</td>
+</tr>
+<tr>
+<td>MASTER_TLS_VERSION</td>
+<td>SOURCE_TLS_VERSION</td>
+</tr>
+<tr>
+<td>MASTER_TLS_CIPHERSUITES</td>
+<td>SOURCE_TLS_CIPHERSUITES</td>
+</tr>
+<tr>
+<td>MASTER_SSL_CERT</td>
+<td>SOURCE_SSL_CERT</td>
+</tr>
+<tr>
+<td>MASTER_PUBLIC_KEY_PATH</td>
+<td>SOURCE_PUBLIC_KEY_PATH</td>
+</tr>
+<tr>
+<td>GET_MASTER_PUBLIC_KEY</td>
+<td>GET_SOURCE_PUBLIC_KEY</td>
+</tr>
+<tr>
+<td>MASTER_HEARTBEAT_PERIOD</td>
+<td>SOURCE_HEARTBEAT_PERIOD</td>
+</tr>
+<tr>
+<td>MASTER_COMPRESSION_ALGORITHMS</td>
+<td>SOURCE_COMPRESSION_ALGORITHMS</td>
+</tr>
+<tr>
+<td>MASTER_ZSTD_COMPRESSION_LEVEL</td>
+<td>SOURCE_ZSTD_COMPRESSION_LEVEL</td>
+</tr>
+<tr>
+<td>MASTER_LOG_FILE</td>
+<td>SOURCE_LOG_FILE</td>
+</tr>
+<tr>
+<td>MASTER_LOG_POS</td>
+<td>SOURCE_LOG_POS</td>
+</tr>
+</tbody>
+</table>
+<h2 id="系统状态变量">系统状态变量</h2>
+<p>MySQL 服务器中的多个系统状态变量也发生了变更，具体清单如下。</p>
+<table>
+<thead>
+<tr>
+<th>Removed</th>
+<th>Replacements</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Com_slave_start</td>
+<td>Com_replica_start</td>
+</tr>
+<tr>
+<td>Com_slave_stop</td>
+<td>Com_replica_stop</td>
+</tr>
+<tr>
+<td>Com_show_slave_status</td>
+<td>Com_show_replica_status</td>
+</tr>
+<tr>
+<td>Com_show_slave_hosts</td>
+<td>Com_show_replicas</td>
+</tr>
+<tr>
+<td>Com_show_master_status</td>
+<td>Com_show_binary_log_status</td>
+</tr>
+<tr>
+<td>Com_change_master</td>
+<td>Com_change_replication_source</td>
+</tr>
+</tbody>
+</table>
+<h2 id="组复制">组复制</h2>
+<h3 id="1-group-replication-allow-local-lower-version-join-系统变量弃用">1. group_replication_allow_local_lower_version_join 系统变量弃用</h3>
+<p>group_replication_allow_local_lower_version_join 是 5.7.17 引入的系统变量，表示当前服务器的插件版本比组的插件版本低时也允许加入组。</p>
+<p>从 8.4.0 开始被弃用，如果更改值将会抛出如下警告。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">set</span> <span class="keyword">global</span> group_replication_allow_local_lower_version_join <span class="operator">=</span> <span class="number">1</span>;</span><br><span class="line">Query OK, <span class="number">0</span> <span class="keyword">rows</span> affected, <span class="number">1</span> warning (<span class="number">0.00</span> sec)</span><br><span class="line"></span><br><span class="line">Warning (Code <span class="number">1681</span>): <span class="string">&#x27;group_replication_allow_local_lower_version_join&#x27;</span> <span class="keyword">is</span> deprecated <span class="keyword">and</span> will be removed <span class="keyword">in</span> a future release.</span><br></pre></td></tr></table></figure>
+<h3 id="2-group-replication-recovery-complete-at-系统变量被移除">2. group_replication_recovery_complete_at 系统变量被移除</h3>
+<p>group_replication_allow_local_lower_version_join 是 5.7.17 引入的系统变量，表示状态传输后处理缓存中的事务时的恢复策略。在 8.0.34 中被废弃。</p>
+<p>从此版本开始，分布式恢复过程中应用的策略始终是仅在新成员收到、认证并应用其加入组之前发生的所有事务后才将其标记为在线； 这相当于在以前版本的 MySQL 中将 group_replication_recovery_complete_at 设置为 TRANSACTIONS_APPLIED。</p>
+<h3 id="3-系统变量默认值变更">3. 系统变量默认值变更</h3>
+<ol>
+<li>group_replication_consistency 系统变量的默认值现在是 BEFORE_ON_PRIMARY_FAILOVER ； 以前是 EVENTUAL 。</li>
+</ol>
+<p>在组复制单主模式下，设定为 BEFORE_ON_PRIMARY_FAILOVER 时，新主有未应用的backlog时，客户端的请求会等到，直到应用为止，以此确保事务一致性。</p>
+<ol start="2">
+<li>group_replication_exit_state_action 系统变量的默认值现在是 OFFLINE_MODE 。</li>
+</ol>
+<p>该变量在 8.0.16 及以上版本的默认值为 READ_ONLY，从 8.0.18 增加 OFFLINE_MODE 选项。</p>
+<p>如果成员无意中退出组或用尽自动重新加入尝试，实例会将 MySQL 切换到离线模式。在此模式下，已连接的客户端用户在下一个请求时将断开连接，并且不再接受连接，具有 CONNECTION_ADMIN 权限（或已弃用的 SUPER 权限）的客户端用户除外。</p>
+<h2 id="版本升级">版本升级</h2>
+<p>这里有几点升级的注意事项或建议，以供参考。</p>
+<ol>
+<li>
+<p>MySQL 5.7 不支持直接升级到 MySQL 8.4，需要先升级到 MySQL 8.0 再过渡到 8.4。</p>
+</li>
+<li>
+<p>MySQL 8.4 移除了对 8.0 早期版本的一些特殊处理，建议在升级到 8.4 之前，先升级到 8.0 最新版本。</p>
+</li>
+<li>
+<p>当前 MySQL 8.0 系列的最新版本为 MySQL 8.0.37</p>
+</li>
+</ol>
+<h2 id="总结">总结</h2>
+<p>本章节我们介绍了编译 MySQL 8.4.0 LTS 源码需要注意几点变更，以及连接数据库时认证插件发生的变化。</p>
+<p>下一节我们继续介绍其他新特性，欢迎关注本专栏。</p>
+<h2 id="往期精彩">往期精彩</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/9uq0ICx076DGn45xoK0k_g">MySQL 8.4.0 LTS 发布 (MySQL 第一个长期支持版本)</a></li>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/clsSyzgA16NmSGRgUHogvg">Oracle 数据库全面升级为 23ai</a></li>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/kJrh6hntYjTzLaUcCavr-g">一文带你了解 Oracle 23ai 新特性 Vector 的基础用法</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.modb.pro/db/1788456775410323456">SOP for Oracle 23ai：Python 连接 Oracle 的两种方法</a></li>
+</ul>
+<p>– END –</p>
+<img alt="foot.png" src="https://files.mdnice.com/user/54598/23af4bef-b6ac-4f59-9456-19114dfe6dd7.png" referrerpolicy="no-referrer"/>
+<p>如果这篇文章为你带来了灵感或启发，就请帮忙点『赞』or『在看』or『转发』吧，感谢！(๑˃̵ᴗ˂̵)</p>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/mysql/" class="tag-link">
+                                mysql
+                            </a>
+                        
+                            <a href="/tags/mysql-8-x/" class="tag-link">
+                                mysql 8.x
+                            </a>
+                        
+                            <a href="/tags/replica/" class="tag-link">
+                                replica
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2024/mysql/mysql-8-4-0-lts-change-replica/index.html">https://shawnyan.cn/2024/mysql/mysql-8-4-0-lts-change-replica/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2024/mysql/mysql-8-4-0-lts-change-innodb-default-value/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">MySQL 8.4.0 LTS 变更解析：InnoDB 参数默认值变化</span>
+        </a>
+    
+
+    
+        <a href="/2024/java/jdk-intro/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">哪种JDK才是程序猿/媛心中的最爱呢？</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%8E%AF%E5%A2%83%E5%87%86%E5%A4%87"><span class="toc-text">环境准备</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A4%8D%E5%88%B6-SQL-%E8%AF%AD%E5%8F%A5"><span class="toc-text">复制 SQL 语句</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#SQL-%E8%AF%AD%E5%8F%A5%E9%80%89%E9%A1%B9"><span class="toc-text">SQL 语句选项</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%B3%BB%E7%BB%9F%E7%8A%B6%E6%80%81%E5%8F%98%E9%87%8F"><span class="toc-text">系统状态变量</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%84%E5%A4%8D%E5%88%B6"><span class="toc-text">组复制</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-group-replication-allow-local-lower-version-join-%E7%B3%BB%E7%BB%9F%E5%8F%98%E9%87%8F%E5%BC%83%E7%94%A8"><span class="toc-text">1. group_replication_allow_local_lower_version_join 系统变量弃用</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-group-replication-recovery-complete-at-%E7%B3%BB%E7%BB%9F%E5%8F%98%E9%87%8F%E8%A2%AB%E7%A7%BB%E9%99%A4"><span class="toc-text">2. group_replication_recovery_complete_at 系统变量被移除</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E7%B3%BB%E7%BB%9F%E5%8F%98%E9%87%8F%E9%BB%98%E8%AE%A4%E5%80%BC%E5%8F%98%E6%9B%B4"><span class="toc-text">3. 系统变量默认值变更</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%89%88%E6%9C%AC%E5%8D%87%E7%BA%A7"><span class="toc-text">版本升级</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BE%80%E6%9C%9F%E7%B2%BE%E5%BD%A9"><span class="toc-text">往期精彩</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        CentOS 7 下安装 MySQL 5.7 的三种方案 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;p&gt;MySQL是时下最流行的开源关系型数据库之一，下面来简要介绍三种安装MySQL Database的方案。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;方案一：连接Yum仓库安装MySQL&lt;/li&gt;
+&lt;li&gt;方案二：安装MySQL的Linux二进制包&lt;/li&gt;
+&lt;li&gt;方案三：编译MySQL源码进行安装&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;实验环境&#34;&gt;实验环境&lt;/h2&gt;
+&lt;blockquote&gt;
+&lt;p&gt;CentOS 7.4&lt;/p&gt;
+&lt;p&gt;Linux 3.10.0-693.17.1.el7.x86_64&lt;/p&gt;
+&lt;p&gt;MySQL Community Server 5.7.21&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;方案一：连接Yum仓库安装MySQL&#34;&gt;方案一：连接Yum仓库安装MySQL&lt;/h2&gt;
+&lt;p&gt;此方案适用于有公网环境的服务器或者实验环境。&lt;br&gt;
+当然，此方案还可变换为连接内网的yum仓库进行安装，或者下载RPM包，再上传至服务器进行安装。&lt;br&gt;
+下面演示连接MySQL官方的Yum仓库进行安装。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Step1. 检查既存的安装包&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;sudo yum list installed mariadb*&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sudo yum list installed mysql*&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sudo yum list installed percona*&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;由于CentOS推荐使用MariaDB，所以系统预装了&lt;code&gt;mariadb-libs.x86_64&lt;/code&gt;，我们将之卸载并安装&lt;code&gt;mysql-community-libs&lt;/code&gt;。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Step2. 下载并安装Yum源&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;下载地址: &lt;code&gt;https://dev.mysql.com/downloads/repo/yum/&lt;/code&gt;&lt;/p&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# Install yum repository&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sudo yum install -y mysql57-community-release-el7-9.noarch.rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# Enable yum mysql57-community&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sudo yum-config-manager --&lt;span class=&#34;built_in&#34;&gt;enable&lt;/span&gt; mysql57-community&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# List available package&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sudo yum --disablerepo=\* --enablerepo=mysql57-community list available&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;&lt;img src=&#34;/2018/mysql/how-to-install-mysql-on-centos/a2-img-01.png&#34; alt=&#34;&#34; loading=&#34;lazy&#34;&gt;&lt;br&gt;
+&lt;img src=&#34;/2018/mysql/how-to-install-mysql-on-centos/a2-img-02.png&#34; alt=&#34;&#34; loading=&#34;lazy&#34;&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Step3. 安装mysql-community-server&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;在安装MySQL Server的同时，需要安装&lt;code&gt;mysql-community-libs/mysql-community-common/mysql-community-client&lt;/code&gt;。&lt;/p&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# Install MySQL Server&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sudo yum install -y mysql-community-server.x86_64 mysql-community-libs.x86_64 mysql-community-common.x86_64 mysql-community-client.x86_64&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;&lt;img src=&#34;/2018/mysql/how-to-install-mysql-on-centos/a2-img-03.png&#34; alt=&#34;&#34; loading=&#34;lazy&#34;&gt;&lt;/p&gt;
+&lt;p&gt;此时，MySQL Server已安装完成，且使用systemd进行管理。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Step4. 启动MySQL&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;查看状态，并启动MySQL服务。&lt;/p&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# check status&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sudo systemctl status mysqld&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# start mysqld&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sudo systemctl start mysqld&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;&lt;img src=&#34;/2018/mysql/how-to-install-mysql-on-centos/a2-img-04.png&#34; alt=&#34;&#34; loading=&#34;lazy&#34;&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Step5. 登录数据库&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql -uroot -p&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;&lt;img src=&#34;/2018/mysql/how-to-install-mysql-on-centos/a2-img-05.png&#34; alt=&#34;&#34; loading=&#34;lazy&#34;&gt;&lt;/p&gt;
+&lt;h2 id=&#34;方案二：安装MySQL的Linux二进制包&#34;&gt;方案二：安装MySQL的Linux二进制包&lt;/h2&gt;
+&lt;p&gt;本方案满足大部分Linux发行版，并不局限于某个发行版的某个版本，只要依赖包满足要求即可。&lt;/p&gt;
+&lt;p&gt;实验步骤如下。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Step1. 安装依赖&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# Remove mariadb-libs.x86_64&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;rpm -qa | grep mariadb | xargs rpm -e --nodeps&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# Install mysql dependence&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sudo yum install -y gcc.x86_64 gcc-c++.x86_64 cmake ncurses-devel perl perl-Data-Dumper glibc.x86_64 libaio&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;Step2. 安装二进制包&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;groupadd mysql&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# useradd -r -g mysql -s /bin/false mysql&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;useradd -r -g mysql mysql&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;cd&lt;/span&gt; /usr/local&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tar zxvf /path/to/mysql-VERSION-OS.tar.gz&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;ln&lt;/span&gt; -s full-path-to-mysql-VERSION-OS mysql&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;cd&lt;/span&gt; mysql&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;chown&lt;/span&gt; -R mysql .&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;chgrp&lt;/span&gt; -R mysql .&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;scripts/mysql_install_db --user=mysql --basedir=/usr/local/mysql --datadir=/usr/local/mysql/data&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;chown&lt;/span&gt; -R root .&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;chown&lt;/span&gt; -R mysql data&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;cp&lt;/span&gt; support-files/my-small.cnf /etc/my.cnf&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;bin/mysqld_safe --user=mysql &amp;amp;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;方案三：编译MySQL源码进行安装&#34;&gt;方案三：编译MySQL源码进行安装&lt;/h2&gt;
+&lt;p&gt;此种方案较为复杂，且非常耗时，但却较为灵活、可配置多项调试、定制参数。&lt;/p&gt;
+&lt;p&gt;实验步骤如下。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Step1. 安装依赖&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# same as plan two&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sudo yum install -y gcc.x86_64 gcc-c++.x86_64 cmake ncurses-devel perl perl-Data-Dumper glibc.x86_64 libaio&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# add dependency&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sudo yum install -y perl time libaio-devel numactl-devel openssl-devel zlib-devel cyrus-sasl-devel perl-Env rpm-build&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;Step2. 编译源码&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;rpmbuild --rebuild --clean mysql-community-5.7.21-1.el7.src.rpm&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;Step3. 安装编译好的RPM包&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;之后实验步骤参考方案一(Step3)。&lt;/p&gt;
+&lt;h2 id=&#34;Summary&#34;&gt;Summary&lt;/h2&gt;
+&lt;p&gt;以上三种方案中，通过RPM包的形式安装最为简单、实用、普遍，此方案对于日后的升级维护也很有助力。如果对数据库的安装要求较高，或是需要进行调试，则方案三是首选。&lt;/p&gt;
+&lt;p&gt;除此之外，还有其他的安装方案可以选择，比如docker。&lt;/p&gt;
+&lt;p&gt;再补充一点，MySQL的重要分支MariaDB和Percona Server同样可以按照类似的方式进行安装。&lt;/p&gt;
+&lt;h2 id=&#34;Reference&#34;&gt;Reference&lt;/h2&gt;
+&lt;p&gt;About download and install.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://dev.mysql.com/downloads/mysql/&#34;&gt;download&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://dev.mysql.com/doc/refman/5.7/en/installing.html&#34;&gt;refman-install&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://dev.mysql.com/doc/refman/5.7/en/binary-installation.html&#34;&gt;refman-install-binary&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://dev.mysql.com/doc/refman/5.7/en/installing-source-distribution.html&#34;&gt;refman-install-source&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://dev.mysql.com/doc/refman/5.7/en/windows-installation.html&#34;&gt;refman-install-windowns&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://dev.mysql.com/doc/refman/5.7/en/source-configuration-options.html&#34;&gt;source-configuration-options&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="CentOS 7 下安装 MySQL 5.7 的三种方案">
+    <meta property="og:url" content="https://shawnyan.cn/2018/mysql/how-to-install-mysql-on-centos/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;p&gt;MySQL是时下最流行的开源关系型数据库之一，下面来简要介绍三种安装MySQL Database的方案。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;方案一：连接Yum仓库安装MySQL&lt;/li&gt;
+&lt;li&gt;方案二：安装MySQL的Linux二进制包&lt;/li&gt;
+&lt;li&gt;方案三：编译MySQL源码进行安装&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;实验环境&#34;&gt;实验环境&lt;/h2&gt;
+&lt;blockquote&gt;
+&lt;p&gt;CentOS 7.4&lt;/p&gt;
+&lt;p&gt;Linux 3.10.0-693.17.1.el7.x86_64&lt;/p&gt;
+&lt;p&gt;MySQL Community Server 5.7.21&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;方案一：连接Yum仓库安装MySQL&#34;&gt;方案一：连接Yum仓库安装MySQL&lt;/h2&gt;
+&lt;p&gt;此方案适用于有公网环境的服务器或者实验环境。&lt;br&gt;
+当然，此方案还可变换为连接内网的yum仓库进行安装，或者下载RPM包，再上传至服务器进行安装。&lt;br&gt;
+下面演示连接MySQL官方的Yum仓库进行安装。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Step1. 检查既存的安装包&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;sudo yum list installed mariadb*&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sudo yum list installed mysql*&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sudo yum list installed percona*&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;由于CentOS推荐使用MariaDB，所以系统预装了&lt;code&gt;mariadb-libs.x86_64&lt;/code&gt;，我们将之卸载并安装&lt;code&gt;mysql-community-libs&lt;/code&gt;。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Step2. 下载并安装Yum源&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;下载地址: &lt;code&gt;https://dev.mysql.com/downloads/repo/yum/&lt;/code&gt;&lt;/p&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# Install yum repository&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sudo yum install -y mysql57-community-release-el7-9.noarch.rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# Enable yum mysql57-community&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sudo yum-config-manager --&lt;span class=&#34;built_in&#34;&gt;enable&lt;/span&gt; mysql57-community&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# List available package&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sudo yum --disablerepo=\* --enablerepo=mysql57-community list available&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;&lt;img src=&#34;/2018/mysql/how-to-install-mysql-on-centos/a2-img-01.png&#34; alt=&#34;&#34; loading=&#34;lazy&#34;&gt;&lt;br&gt;
+&lt;img src=&#34;/2018/mysql/how-to-install-mysql-on-centos/a2-img-02.png&#34; alt=&#34;&#34; loading=&#34;lazy&#34;&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Step3. 安装mysql-community-server&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;在安装MySQL Server的同时，需要安装&lt;code&gt;mysql-community-libs/mysql-community-common/mysql-community-client&lt;/code&gt;。&lt;/p&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# Install MySQL Server&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sudo yum install -y mysql-community-server.x86_64 mysql-community-libs.x86_64 mysql-community-common.x86_64 mysql-community-client.x86_64&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;&lt;img src=&#34;/2018/mysql/how-to-install-mysql-on-centos/a2-img-03.png&#34; alt=&#34;&#34; loading=&#34;lazy&#34;&gt;&lt;/p&gt;
+&lt;p&gt;此时，MySQL Server已安装完成，且使用systemd进行管理。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Step4. 启动MySQL&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;查看状态，并启动MySQL服务。&lt;/p&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# check status&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sudo systemctl status mysqld&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# start mysqld&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sudo systemctl start mysqld&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;&lt;img src=&#34;/2018/mysql/how-to-install-mysql-on-centos/a2-img-04.png&#34; alt=&#34;&#34; loading=&#34;lazy&#34;&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Step5. 登录数据库&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql -uroot -p&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;&lt;img src=&#34;/2018/mysql/how-to-install-mysql-on-centos/a2-img-05.png&#34; alt=&#34;&#34; loading=&#34;lazy&#34;&gt;&lt;/p&gt;
+&lt;h2 id=&#34;方案二：安装MySQL的Linux二进制包&#34;&gt;方案二：安装MySQL的Linux二进制包&lt;/h2&gt;
+&lt;p&gt;本方案满足大部分Linux发行版，并不局限于某个发行版的某个版本，只要依赖包满足要求即可。&lt;/p&gt;
+&lt;p&gt;实验步骤如下。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Step1. 安装依赖&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# Remove mariadb-libs.x86_64&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;rpm -qa | grep mariadb | xargs rpm -e --nodeps&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# Install mysql dependence&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sudo yum install -y gcc.x86_64 gcc-c++.x86_64 cmake ncurses-devel perl perl-Data-Dumper glibc.x86_64 libaio&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;Step2. 安装二进制包&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;groupadd mysql&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# useradd -r -g mysql -s /bin/false mysql&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;useradd -r -g mysql mysql&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;cd&lt;/span&gt; /usr/local&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tar zxvf /path/to/mysql-VERSION-OS.tar.gz&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;ln&lt;/span&gt; -s full-path-to-mysql-VERSION-OS mysql&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;cd&lt;/span&gt; mysql&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;chown&lt;/span&gt; -R mysql .&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;chgrp&lt;/span&gt; -R mysql .&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;scripts/mysql_install_db --user=mysql --basedir=/usr/local/mysql --datadir=/usr/local/mysql/data&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;chown&lt;/span&gt; -R root .&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;chown&lt;/span&gt; -R mysql data&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;cp&lt;/span&gt; support-files/my-small.cnf /etc/my.cnf&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;bin/mysqld_safe --user=mysql &amp;amp;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;方案三：编译MySQL源码进行安装&#34;&gt;方案三：编译MySQL源码进行安装&lt;/h2&gt;
+&lt;p&gt;此种方案较为复杂，且非常耗时，但却较为灵活、可配置多项调试、定制参数。&lt;/p&gt;
+&lt;p&gt;实验步骤如下。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Step1. 安装依赖&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# same as plan two&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sudo yum install -y gcc.x86_64 gcc-c++.x86_64 cmake ncurses-devel perl perl-Data-Dumper glibc.x86_64 libaio&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# add dependency&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sudo yum install -y perl time libaio-devel numactl-devel openssl-devel zlib-devel cyrus-sasl-devel perl-Env rpm-build&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;Step2. 编译源码&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;rpmbuild --rebuild --clean mysql-community-5.7.21-1.el7.src.rpm&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;Step3. 安装编译好的RPM包&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;之后实验步骤参考方案一(Step3)。&lt;/p&gt;
+&lt;h2 id=&#34;Summary&#34;&gt;Summary&lt;/h2&gt;
+&lt;p&gt;以上三种方案中，通过RPM包的形式安装最为简单、实用、普遍，此方案对于日后的升级维护也很有助力。如果对数据库的安装要求较高，或是需要进行调试，则方案三是首选。&lt;/p&gt;
+&lt;p&gt;除此之外，还有其他的安装方案可以选择，比如docker。&lt;/p&gt;
+&lt;p&gt;再补充一点，MySQL的重要分支MariaDB和Percona Server同样可以按照类似的方式进行安装。&lt;/p&gt;
+&lt;h2 id=&#34;Reference&#34;&gt;Reference&lt;/h2&gt;
+&lt;p&gt;About download and install.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://dev.mysql.com/downloads/mysql/&#34;&gt;download&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://dev.mysql.com/doc/refman/5.7/en/installing.html&#34;&gt;refman-install&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://dev.mysql.com/doc/refman/5.7/en/binary-installation.html&#34;&gt;refman-install-binary&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://dev.mysql.com/doc/refman/5.7/en/installing-source-distribution.html&#34;&gt;refman-install-source&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://dev.mysql.com/doc/refman/5.7/en/windows-installation.html&#34;&gt;refman-install-windowns&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://dev.mysql.com/doc/refman/5.7/en/source-configuration-options.html&#34;&gt;source-configuration-options&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/mysql/" class="category-badge">
+                                    MySQL
+                                </a>
+                            
+                                <a href="/categories/mysql/mysql-5-7/" class="category-badge">
+                                    MySQL 5.7
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">CentOS 7 下安装 MySQL 5.7 的三种方案</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2018-02-04
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                825 words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                3 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <p>MySQL是时下最流行的开源关系型数据库之一，下面来简要介绍三种安装MySQL Database的方案。</p>
+<ul>
+<li>方案一：连接Yum仓库安装MySQL</li>
+<li>方案二：安装MySQL的Linux二进制包</li>
+<li>方案三：编译MySQL源码进行安装</li>
+</ul>
+<h2 id="实验环境">实验环境</h2>
+<blockquote>
+<p>CentOS 7.4</p>
+<p>Linux 3.10.0-693.17.1.el7.x86_64</p>
+<p>MySQL Community Server 5.7.21</p>
+</blockquote>
+<h2 id="方案一：连接Yum仓库安装MySQL">方案一：连接Yum仓库安装MySQL</h2>
+<p>此方案适用于有公网环境的服务器或者实验环境。<br>
+当然，此方案还可变换为连接内网的yum仓库进行安装，或者下载RPM包，再上传至服务器进行安装。<br>
+下面演示连接MySQL官方的Yum仓库进行安装。</p>
+<ul>
+<li>Step1. 检查既存的安装包</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">sudo yum list installed mariadb*</span><br><span class="line">sudo yum list installed mysql*</span><br><span class="line">sudo yum list installed percona*</span><br></pre></td></tr></table></figure>
+<p>由于CentOS推荐使用MariaDB，所以系统预装了<code>mariadb-libs.x86_64</code>，我们将之卸载并安装<code>mysql-community-libs</code>。</p>
+<ul>
+<li>Step2. 下载并安装Yum源</li>
+</ul>
+<p>下载地址: <code>https://dev.mysql.com/downloads/repo/yum/</code></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Install yum repository</span></span><br><span class="line">sudo yum install -y mysql57-community-release-el7-9.noarch.rpm</span><br><span class="line"><span class="comment"># Enable yum mysql57-community</span></span><br><span class="line">sudo yum-config-manager --<span class="built_in">enable</span> mysql57-community</span><br><span class="line"><span class="comment"># List available package</span></span><br><span class="line">sudo yum --disablerepo=\* --enablerepo=mysql57-community list available</span><br></pre></td></tr></table></figure>
+<p><img src="/2018/mysql/how-to-install-mysql-on-centos/a2-img-01.png" alt="" loading="lazy"><br>
+<img src="/2018/mysql/how-to-install-mysql-on-centos/a2-img-02.png" alt="" loading="lazy"></p>
+<ul>
+<li>Step3. 安装mysql-community-server</li>
+</ul>
+<p>在安装MySQL Server的同时，需要安装<code>mysql-community-libs/mysql-community-common/mysql-community-client</code>。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Install MySQL Server</span></span><br><span class="line">sudo yum install -y mysql-community-server.x86_64 mysql-community-libs.x86_64 mysql-community-common.x86_64 mysql-community-client.x86_64</span><br></pre></td></tr></table></figure>
+<p><img src="/2018/mysql/how-to-install-mysql-on-centos/a2-img-03.png" alt="" loading="lazy"></p>
+<p>此时，MySQL Server已安装完成，且使用systemd进行管理。</p>
+<ul>
+<li>Step4. 启动MySQL</li>
+</ul>
+<p>查看状态，并启动MySQL服务。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># check status</span></span><br><span class="line">sudo systemctl status mysqld</span><br><span class="line"><span class="comment"># start mysqld</span></span><br><span class="line">sudo systemctl start mysqld</span><br></pre></td></tr></table></figure>
+<p><img src="/2018/mysql/how-to-install-mysql-on-centos/a2-img-04.png" alt="" loading="lazy"></p>
+<ul>
+<li>Step5. 登录数据库</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysql -uroot -p</span><br></pre></td></tr></table></figure>
+<p><img src="/2018/mysql/how-to-install-mysql-on-centos/a2-img-05.png" alt="" loading="lazy"></p>
+<h2 id="方案二：安装MySQL的Linux二进制包">方案二：安装MySQL的Linux二进制包</h2>
+<p>本方案满足大部分Linux发行版，并不局限于某个发行版的某个版本，只要依赖包满足要求即可。</p>
+<p>实验步骤如下。</p>
+<ul>
+<li>Step1. 安装依赖</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Remove mariadb-libs.x86_64</span></span><br><span class="line">rpm -qa | grep mariadb | xargs rpm -e --nodeps</span><br><span class="line"></span><br><span class="line"><span class="comment"># Install mysql dependence</span></span><br><span class="line">sudo yum install -y gcc.x86_64 gcc-c++.x86_64 cmake ncurses-devel perl perl-Data-Dumper glibc.x86_64 libaio</span><br></pre></td></tr></table></figure>
+<ul>
+<li>Step2. 安装二进制包</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">groupadd mysql</span><br><span class="line"><span class="comment"># useradd -r -g mysql -s /bin/false mysql</span></span><br><span class="line">useradd -r -g mysql mysql</span><br><span class="line"><span class="built_in">cd</span> /usr/local</span><br><span class="line">tar zxvf /path/to/mysql-VERSION-OS.tar.gz</span><br><span class="line"><span class="built_in">ln</span> -s full-path-to-mysql-VERSION-OS mysql</span><br><span class="line"><span class="built_in">cd</span> mysql</span><br><span class="line"><span class="built_in">chown</span> -R mysql .</span><br><span class="line"><span class="built_in">chgrp</span> -R mysql .</span><br><span class="line">scripts/mysql_install_db --user=mysql --basedir=/usr/local/mysql --datadir=/usr/local/mysql/data</span><br><span class="line"><span class="built_in">chown</span> -R root .</span><br><span class="line"><span class="built_in">chown</span> -R mysql data</span><br><span class="line"></span><br><span class="line"><span class="built_in">cp</span> support-files/my-small.cnf /etc/my.cnf</span><br><span class="line">bin/mysqld_safe --user=mysql &amp;</span><br></pre></td></tr></table></figure>
+<h2 id="方案三：编译MySQL源码进行安装">方案三：编译MySQL源码进行安装</h2>
+<p>此种方案较为复杂，且非常耗时，但却较为灵活、可配置多项调试、定制参数。</p>
+<p>实验步骤如下。</p>
+<ul>
+<li>Step1. 安装依赖</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># same as plan two</span></span><br><span class="line">sudo yum install -y gcc.x86_64 gcc-c++.x86_64 cmake ncurses-devel perl perl-Data-Dumper glibc.x86_64 libaio</span><br><span class="line"><span class="comment"># add dependency</span></span><br><span class="line">sudo yum install -y perl time libaio-devel numactl-devel openssl-devel zlib-devel cyrus-sasl-devel perl-Env rpm-build</span><br></pre></td></tr></table></figure>
+<ul>
+<li>Step2. 编译源码</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">rpmbuild --rebuild --clean mysql-community-5.7.21-1.el7.src.rpm</span><br></pre></td></tr></table></figure>
+<ul>
+<li>Step3. 安装编译好的RPM包</li>
+</ul>
+<p>之后实验步骤参考方案一(Step3)。</p>
+<h2 id="Summary">Summary</h2>
+<p>以上三种方案中，通过RPM包的形式安装最为简单、实用、普遍，此方案对于日后的升级维护也很有助力。如果对数据库的安装要求较高，或是需要进行调试，则方案三是首选。</p>
+<p>除此之外，还有其他的安装方案可以选择，比如docker。</p>
+<p>再补充一点，MySQL的重要分支MariaDB和Percona Server同样可以按照类似的方式进行安装。</p>
+<h2 id="Reference">Reference</h2>
+<p>About download and install.</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://dev.mysql.com/downloads/mysql/">download</a></li>
+<li><a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/5.7/en/installing.html">refman-install</a></li>
+<li><a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/5.7/en/binary-installation.html">refman-install-binary</a></li>
+<li><a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/5.7/en/installing-source-distribution.html">refman-install-source</a></li>
+<li><a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/5.7/en/windows-installation.html">refman-install-windowns</a></li>
+<li><a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/5.7/en/source-configuration-options.html">source-configuration-options</a></li>
+</ul>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/centos/" class="tag-link">
+                                centos
+                            </a>
+                        
+                            <a href="/tags/mysql/" class="tag-link">
+                                mysql
+                            </a>
+                        
+                            <a href="/tags/mysql-5-7/" class="tag-link">
+                                mysql 5.7
+                            </a>
+                        
+                            <a href="/tags/install/" class="tag-link">
+                                install
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2018/mysql/how-to-install-mysql-on-centos/index.html">https://shawnyan.cn/2018/mysql/how-to-install-mysql-on-centos/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2018/mysql/mysql-book-list/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">MySQL书单推荐</span>
+        </a>
+    
+
+    
+        <a href="/2018/centos/centos-7-kernel-upgrade/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">升级 CentOS 7.4 内核版本的三种方案</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%9E%E9%AA%8C%E7%8E%AF%E5%A2%83"><span class="toc-text">实验环境</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%96%B9%E6%A1%88%E4%B8%80%EF%BC%9A%E8%BF%9E%E6%8E%A5Yum%E4%BB%93%E5%BA%93%E5%AE%89%E8%A3%85MySQL"><span class="toc-text">方案一：连接Yum仓库安装MySQL</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%96%B9%E6%A1%88%E4%BA%8C%EF%BC%9A%E5%AE%89%E8%A3%85MySQL%E7%9A%84Linux%E4%BA%8C%E8%BF%9B%E5%88%B6%E5%8C%85"><span class="toc-text">方案二：安装MySQL的Linux二进制包</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%96%B9%E6%A1%88%E4%B8%89%EF%BC%9A%E7%BC%96%E8%AF%91MySQL%E6%BA%90%E7%A0%81%E8%BF%9B%E8%A1%8C%E5%AE%89%E8%A3%85"><span class="toc-text">方案三：编译MySQL源码进行安装</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Summary"><span class="toc-text">Summary</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Reference"><span class="toc-text">Reference</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

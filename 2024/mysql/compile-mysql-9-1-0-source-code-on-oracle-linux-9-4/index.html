@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        在 Oracle Linux 9.4 上编译 MySQL 9.1.0 源码 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;p&gt;10月15日，MySQL 9.1.0 创新版本发布，带来了一系列创新特性，更新内容参考：&lt;a href=&#34;https://mp.weixin.qq.com/s/5a4CL5gPlQaCnlDUy8-fZA&#34;&gt;MySQL 9.1.0 创新版发布！MySQL 8.0.40,8.4.3 小版本迭代&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;本文将详细介绍如何在 Oracle Linux 9.4 操作系统（以下简称 OL）编译安装 MySQL 9.1.0 数据库。&lt;/p&gt;
+&lt;h2 id=&#34;Oracle-Linux&#34;&gt;Oracle Linux&lt;/h2&gt;
+&lt;p&gt;实验环境已安装 Oracle Linux 9.4，并更新内核至最新版本。以下是升级前后的系统信息对比。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;升级前：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 ~]$ hostname&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ol9.shawnyan.cn&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 ~]$ cat /etc/oracle-release&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Oracle Linux Server release 9.4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 ~]$ uname -r&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5.15.0-205.149.5.1.el9uek.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 ~]$ uname -v&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;#2 SMP Fri Apr 5 11:29:36 PDT 2024&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;升级后：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 ~]$ uname -r&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5.15.0-301.163.5.2.el9uek.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 ~]$ uname -v&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;#2 SMP Wed Oct 16 18:55:42 PDT 2024&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;安装依赖&#34;&gt;安装依赖&lt;/h2&gt;
+&lt;p&gt;MySQL 源码编译需要安装一些基础依赖包：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;dnf install -y cmake \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  gcc-toolset-13-gcc gcc-toolset-13-gcc-c++ gcc-toolset-13-annobin-annocheck gcc-toolset-13-annobin-plugin-gcc \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  libcurl-devel zlib-devel lz4-devel protobuf ncurses-devel libaio-devel \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  libtirpc-devel rpcgen&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;根据 MySQL 9.1.0 的 Release Notes 确认 &lt;code&gt;cmake&lt;/code&gt; 的最低版本要求。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;将 CMAKE_MINIMUM_REQUIRED 与正确的必需 CMake 版本 ( 3.14.6) 以及 MySQL 使用的第三方库的 CMake 策略保持一致。（Bug #36978193）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 ~]$ cmake --version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cmake version 3.26.5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;编译源码&#34;&gt;编译源码&lt;/h2&gt;
+&lt;p&gt;MySQL 9 的源码编译过程与之前版本类似，步骤简洁明了。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;下载通用源码包。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;https://dev.mysql.com/get/Downloads/MySQL-9.1/mysql-9.1.0.tar.gz&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;校验 MD5 指纹。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 ~]$ md5sum mysql-9.1.0.tar.gz&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;eb2c6bbd20569d2690bc7e34312f5210  mysql-9.1.0.tar.gz&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;解压缩源码包，并进行编译。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 ~]$ tar zxf mysql-9.1.0.tar.gz&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 ~]$ cd mysql-9.1.0/&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 mysql-9.1.0]$ mkdir build&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 mysql-9.1.0]$ cd build/&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 build]$ cmake .. -DEXTRA_VERSION=&amp;quot;-ShawnYan&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 build]$ make&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;到此，MySQL 源码已编译完成，下面进行安装并运行 MySQL 服务器。&lt;/p&gt;
+&lt;h2 id=&#34;安装、运行-MySQL&#34;&gt;安装、运行 MySQL&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;安装 MySQL 到指定目录。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 build]$ sudo make install DESTDIR=&amp;quot;/opt/mysql&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;创建 &lt;code&gt;mysql&lt;/code&gt; 用户，并赋权。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;groupadd mysql&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;useradd -g mysql mysql&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;chmod 750 /opt/mysql&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;chown -R mysql:mysql /opt/mysql&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;初始化数据文件，并启动 MySQL 服务器。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysqld --initialize --user=mysql&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysqld --user=mysql&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;4&#34;&gt;
+&lt;li&gt;连接到 MySQL 数据库，并查看服务器状态。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[mysql@ol9 mysql]$ ./bin/mysql -uroot -p&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enter password:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Welcome to the MySQL monitor.  Commands end with ; or \g.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Your MySQL connection id is 9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Server version: 9.1.0-ShawnYan Source distribution&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copyright (c) 2000, 2024, Oracle and/or its affiliates.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Oracle is a registered trademark of Oracle Corporation and/or its&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;affiliates. Other names may be trademarks of their respective&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;owners.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;#x27;help;&amp;#x27; or &amp;#x27;\h&amp;#x27; for help. Type &amp;#x27;\c&amp;#x27; to clear the current input statement.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; \s&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;./bin/mysql  Ver 9.1.0-ShawnYan for Linux on x86_64 (Source distribution)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Connection id:          9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Current database:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Current user:           root@localhost&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SSL:                    Not in use&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Current pager:          stdout&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Using outfile:          &amp;#x27;&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Using delimiter:        ;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Server version:         9.1.0-ShawnYan Source distribution&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Protocol version:       10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Connection:             Localhost via UNIX socket&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Server characterset:    utf8mb4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Db     characterset:    utf8mb4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Client characterset:    utf8mb4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Conn.  characterset:    utf8mb4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;UNIX socket:            /tmp/mysql.sock&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Binary data as:         Hexadecimal&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Uptime:                 2 min 56 sec&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Threads: 2  Questions: 13  Slow queries: 0  Opens: 147  Flush tables: 3  Open tables: 63  Queries per second avg: 0.073&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;附：使用源码包构建-RPM-包&#34;&gt;附：使用源码包构建 RPM 包&lt;/h2&gt;
+&lt;p&gt;除了直接从源码编译之外，MySQL 官网还提供了 RPM 格式的源码包，方便构建整套 MySQL Server 社区版 RPM 包。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;下载 RPM 源码包。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;https://dev.mysql.com/get/Downloads/MySQL-9.1/mysql-community-9.1.0-1.el9.src.rpm&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;补充安装一些依赖。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;dnf install -y cyrus-sasl-devel \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;gcc-toolset-12-annobin-annocheck gcc-toolset-12-annobin-plugin-gcc gcc-toolset-12-binutils \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;gcc-toolset-12-dwz gcc-toolset-12-gcc gcc-toolset-12-gcc-c++ \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;gcc-toolset-13-dwz \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;krb5-devel numactl-devel openldap-devel \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;perl &amp;#x27;perl(English)&amp;#x27; &amp;#x27;perl(Env)&amp;#x27; &amp;#x27;perl(JSON)&amp;#x27; &amp;#x27;perl(Memoize)&amp;#x27; &amp;#x27;perl(Sys::Hostname)&amp;#x27; &amp;#x27;perl(Time::HiRes)&amp;#x27; &amp;#x27;perl(Time::localtime)&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;从 RPM 源码包构建 MySQL Server。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;rpmbuild --rebuild mysql-community-debugsource-9.1.0-1.el9.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;4&#34;&gt;
+&lt;li&gt;构建完成后，可以使用如下命令查找生成的 RPM 包。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;find ~/rpmbuild/RPMS -name &amp;quot;*.rpm&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;后记&#34;&gt;后记&lt;/h2&gt;
+&lt;p&gt;在编译过程中，你还可以根据需要添加一些定制化选项。例如，在 MySQL 9.1.0 中添加了 &lt;code&gt;DISABLE_PERFSCHEMA&lt;/code&gt; 构建选项，启用后将所有 &lt;code&gt;DISABLE_PSI_*&lt;/code&gt; 选项设置为 &lt;code&gt;ON&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;Have a nice day ~&lt;/p&gt;
+&lt;p&gt;– / END / –&lt;/p&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="在 Oracle Linux 9.4 上编译 MySQL 9.1.0 源码">
+    <meta property="og:url" content="https://shawnyan.cn/2024/mysql/compile-mysql-9-1-0-source-code-on-oracle-linux-9-4/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;p&gt;10月15日，MySQL 9.1.0 创新版本发布，带来了一系列创新特性，更新内容参考：&lt;a href=&#34;https://mp.weixin.qq.com/s/5a4CL5gPlQaCnlDUy8-fZA&#34;&gt;MySQL 9.1.0 创新版发布！MySQL 8.0.40,8.4.3 小版本迭代&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;本文将详细介绍如何在 Oracle Linux 9.4 操作系统（以下简称 OL）编译安装 MySQL 9.1.0 数据库。&lt;/p&gt;
+&lt;h2 id=&#34;Oracle-Linux&#34;&gt;Oracle Linux&lt;/h2&gt;
+&lt;p&gt;实验环境已安装 Oracle Linux 9.4，并更新内核至最新版本。以下是升级前后的系统信息对比。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;升级前：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 ~]$ hostname&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ol9.shawnyan.cn&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 ~]$ cat /etc/oracle-release&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Oracle Linux Server release 9.4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 ~]$ uname -r&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5.15.0-205.149.5.1.el9uek.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 ~]$ uname -v&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;#2 SMP Fri Apr 5 11:29:36 PDT 2024&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;升级后：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 ~]$ uname -r&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5.15.0-301.163.5.2.el9uek.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 ~]$ uname -v&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;#2 SMP Wed Oct 16 18:55:42 PDT 2024&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;安装依赖&#34;&gt;安装依赖&lt;/h2&gt;
+&lt;p&gt;MySQL 源码编译需要安装一些基础依赖包：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;dnf install -y cmake \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  gcc-toolset-13-gcc gcc-toolset-13-gcc-c++ gcc-toolset-13-annobin-annocheck gcc-toolset-13-annobin-plugin-gcc \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  libcurl-devel zlib-devel lz4-devel protobuf ncurses-devel libaio-devel \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  libtirpc-devel rpcgen&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;根据 MySQL 9.1.0 的 Release Notes 确认 &lt;code&gt;cmake&lt;/code&gt; 的最低版本要求。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;将 CMAKE_MINIMUM_REQUIRED 与正确的必需 CMake 版本 ( 3.14.6) 以及 MySQL 使用的第三方库的 CMake 策略保持一致。（Bug #36978193）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 ~]$ cmake --version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cmake version 3.26.5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;编译源码&#34;&gt;编译源码&lt;/h2&gt;
+&lt;p&gt;MySQL 9 的源码编译过程与之前版本类似，步骤简洁明了。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;下载通用源码包。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;https://dev.mysql.com/get/Downloads/MySQL-9.1/mysql-9.1.0.tar.gz&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;校验 MD5 指纹。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 ~]$ md5sum mysql-9.1.0.tar.gz&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;eb2c6bbd20569d2690bc7e34312f5210  mysql-9.1.0.tar.gz&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;解压缩源码包，并进行编译。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 ~]$ tar zxf mysql-9.1.0.tar.gz&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 ~]$ cd mysql-9.1.0/&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 mysql-9.1.0]$ mkdir build&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 mysql-9.1.0]$ cd build/&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 build]$ cmake .. -DEXTRA_VERSION=&amp;quot;-ShawnYan&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 build]$ make&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;到此，MySQL 源码已编译完成，下面进行安装并运行 MySQL 服务器。&lt;/p&gt;
+&lt;h2 id=&#34;安装、运行-MySQL&#34;&gt;安装、运行 MySQL&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;安装 MySQL 到指定目录。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@ol9 build]$ sudo make install DESTDIR=&amp;quot;/opt/mysql&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;创建 &lt;code&gt;mysql&lt;/code&gt; 用户，并赋权。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;groupadd mysql&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;useradd -g mysql mysql&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;chmod 750 /opt/mysql&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;chown -R mysql:mysql /opt/mysql&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;初始化数据文件，并启动 MySQL 服务器。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysqld --initialize --user=mysql&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysqld --user=mysql&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;4&#34;&gt;
+&lt;li&gt;连接到 MySQL 数据库，并查看服务器状态。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[mysql@ol9 mysql]$ ./bin/mysql -uroot -p&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enter password:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Welcome to the MySQL monitor.  Commands end with ; or \g.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Your MySQL connection id is 9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Server version: 9.1.0-ShawnYan Source distribution&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copyright (c) 2000, 2024, Oracle and/or its affiliates.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Oracle is a registered trademark of Oracle Corporation and/or its&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;affiliates. Other names may be trademarks of their respective&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;owners.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;#x27;help;&amp;#x27; or &amp;#x27;\h&amp;#x27; for help. Type &amp;#x27;\c&amp;#x27; to clear the current input statement.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; \s&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;./bin/mysql  Ver 9.1.0-ShawnYan for Linux on x86_64 (Source distribution)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Connection id:          9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Current database:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Current user:           root@localhost&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SSL:                    Not in use&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Current pager:          stdout&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Using outfile:          &amp;#x27;&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Using delimiter:        ;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Server version:         9.1.0-ShawnYan Source distribution&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Protocol version:       10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Connection:             Localhost via UNIX socket&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Server characterset:    utf8mb4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Db     characterset:    utf8mb4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Client characterset:    utf8mb4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Conn.  characterset:    utf8mb4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;UNIX socket:            /tmp/mysql.sock&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Binary data as:         Hexadecimal&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Uptime:                 2 min 56 sec&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Threads: 2  Questions: 13  Slow queries: 0  Opens: 147  Flush tables: 3  Open tables: 63  Queries per second avg: 0.073&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;附：使用源码包构建-RPM-包&#34;&gt;附：使用源码包构建 RPM 包&lt;/h2&gt;
+&lt;p&gt;除了直接从源码编译之外，MySQL 官网还提供了 RPM 格式的源码包，方便构建整套 MySQL Server 社区版 RPM 包。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;下载 RPM 源码包。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;https://dev.mysql.com/get/Downloads/MySQL-9.1/mysql-community-9.1.0-1.el9.src.rpm&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;补充安装一些依赖。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;dnf install -y cyrus-sasl-devel \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;gcc-toolset-12-annobin-annocheck gcc-toolset-12-annobin-plugin-gcc gcc-toolset-12-binutils \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;gcc-toolset-12-dwz gcc-toolset-12-gcc gcc-toolset-12-gcc-c++ \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;gcc-toolset-13-dwz \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;krb5-devel numactl-devel openldap-devel \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;perl &amp;#x27;perl(English)&amp;#x27; &amp;#x27;perl(Env)&amp;#x27; &amp;#x27;perl(JSON)&amp;#x27; &amp;#x27;perl(Memoize)&amp;#x27; &amp;#x27;perl(Sys::Hostname)&amp;#x27; &amp;#x27;perl(Time::HiRes)&amp;#x27; &amp;#x27;perl(Time::localtime)&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;从 RPM 源码包构建 MySQL Server。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;rpmbuild --rebuild mysql-community-debugsource-9.1.0-1.el9.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;4&#34;&gt;
+&lt;li&gt;构建完成后，可以使用如下命令查找生成的 RPM 包。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;find ~/rpmbuild/RPMS -name &amp;quot;*.rpm&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;后记&#34;&gt;后记&lt;/h2&gt;
+&lt;p&gt;在编译过程中，你还可以根据需要添加一些定制化选项。例如，在 MySQL 9.1.0 中添加了 &lt;code&gt;DISABLE_PERFSCHEMA&lt;/code&gt; 构建选项，启用后将所有 &lt;code&gt;DISABLE_PSI_*&lt;/code&gt; 选项设置为 &lt;code&gt;ON&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;Have a nice day ~&lt;/p&gt;
+&lt;p&gt;– / END / –&lt;/p&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/mysql/" class="category-badge">
+                                    MySQL
+                                </a>
+                            
+                                <a href="/categories/mysql/mysql-9-x/" class="category-badge">
+                                    MySQL 9.x
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">在 Oracle Linux 9.4 上编译 MySQL 9.1.0 源码</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2024-11-04
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                978 words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                4 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <p>10月15日，MySQL 9.1.0 创新版本发布，带来了一系列创新特性，更新内容参考：<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/5a4CL5gPlQaCnlDUy8-fZA">MySQL 9.1.0 创新版发布！MySQL 8.0.40,8.4.3 小版本迭代</a></p>
+<p>本文将详细介绍如何在 Oracle Linux 9.4 操作系统（以下简称 OL）编译安装 MySQL 9.1.0 数据库。</p>
+<h2 id="Oracle-Linux">Oracle Linux</h2>
+<p>实验环境已安装 Oracle Linux 9.4，并更新内核至最新版本。以下是升级前后的系统信息对比。</p>
+<ul>
+<li>升级前：</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@ol9 ~]$ hostname</span><br><span class="line">ol9.shawnyan.cn</span><br><span class="line">[shawnyan@ol9 ~]$ cat /etc/oracle-release</span><br><span class="line">Oracle Linux Server release 9.4</span><br><span class="line">[shawnyan@ol9 ~]$ uname -r</span><br><span class="line">5.15.0-205.149.5.1.el9uek.x86_64</span><br><span class="line">[shawnyan@ol9 ~]$ uname -v</span><br><span class="line">#2 SMP Fri Apr 5 11:29:36 PDT 2024</span><br></pre></td></tr></table></figure>
+<ul>
+<li>升级后：</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@ol9 ~]$ uname -r</span><br><span class="line">5.15.0-301.163.5.2.el9uek.x86_64</span><br><span class="line">[shawnyan@ol9 ~]$ uname -v</span><br><span class="line">#2 SMP Wed Oct 16 18:55:42 PDT 2024</span><br></pre></td></tr></table></figure>
+<h2 id="安装依赖">安装依赖</h2>
+<p>MySQL 源码编译需要安装一些基础依赖包：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">dnf install -y cmake \</span><br><span class="line">  gcc-toolset-13-gcc gcc-toolset-13-gcc-c++ gcc-toolset-13-annobin-annocheck gcc-toolset-13-annobin-plugin-gcc \</span><br><span class="line">  libcurl-devel zlib-devel lz4-devel protobuf ncurses-devel libaio-devel \</span><br><span class="line">  libtirpc-devel rpcgen</span><br></pre></td></tr></table></figure>
+<p>根据 MySQL 9.1.0 的 Release Notes 确认 <code>cmake</code> 的最低版本要求。</p>
+<blockquote>
+<p>将 CMAKE_MINIMUM_REQUIRED 与正确的必需 CMake 版本 ( 3.14.6) 以及 MySQL 使用的第三方库的 CMake 策略保持一致。（Bug #36978193）</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@ol9 ~]$ cmake --version</span><br><span class="line">cmake version 3.26.5</span><br></pre></td></tr></table></figure>
+<h2 id="编译源码">编译源码</h2>
+<p>MySQL 9 的源码编译过程与之前版本类似，步骤简洁明了。</p>
+<ol>
+<li>下载通用源码包。</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">https://dev.mysql.com/get/Downloads/MySQL-9.1/mysql-9.1.0.tar.gz</span><br></pre></td></tr></table></figure>
+<ol start="2">
+<li>校验 MD5 指纹。</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@ol9 ~]$ md5sum mysql-9.1.0.tar.gz</span><br><span class="line">eb2c6bbd20569d2690bc7e34312f5210  mysql-9.1.0.tar.gz</span><br></pre></td></tr></table></figure>
+<ol start="3">
+<li>解压缩源码包，并进行编译。</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@ol9 ~]$ tar zxf mysql-9.1.0.tar.gz</span><br><span class="line">[shawnyan@ol9 ~]$ cd mysql-9.1.0/</span><br><span class="line">[shawnyan@ol9 mysql-9.1.0]$ mkdir build</span><br><span class="line">[shawnyan@ol9 mysql-9.1.0]$ cd build/</span><br><span class="line">[shawnyan@ol9 build]$ cmake .. -DEXTRA_VERSION=&quot;-ShawnYan&quot;</span><br><span class="line">[shawnyan@ol9 build]$ make</span><br></pre></td></tr></table></figure>
+<p>到此，MySQL 源码已编译完成，下面进行安装并运行 MySQL 服务器。</p>
+<h2 id="安装、运行-MySQL">安装、运行 MySQL</h2>
+<ol>
+<li>安装 MySQL 到指定目录。</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@ol9 build]$ sudo make install DESTDIR=&quot;/opt/mysql&quot;</span><br></pre></td></tr></table></figure>
+<ol start="2">
+<li>创建 <code>mysql</code> 用户，并赋权。</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">groupadd mysql</span><br><span class="line">useradd -g mysql mysql</span><br><span class="line">chmod 750 /opt/mysql</span><br><span class="line">chown -R mysql:mysql /opt/mysql</span><br></pre></td></tr></table></figure>
+<ol start="3">
+<li>初始化数据文件，并启动 MySQL 服务器。</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mysqld --initialize --user=mysql</span><br><span class="line">mysqld --user=mysql</span><br></pre></td></tr></table></figure>
+<ol start="4">
+<li>连接到 MySQL 数据库，并查看服务器状态。</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line">[mysql@ol9 mysql]$ ./bin/mysql -uroot -p</span><br><span class="line">Enter password:</span><br><span class="line">Welcome to the MySQL monitor.  Commands end with ; or \g.</span><br><span class="line">Your MySQL connection id is 9</span><br><span class="line">Server version: 9.1.0-ShawnYan Source distribution</span><br><span class="line"></span><br><span class="line">Copyright (c) 2000, 2024, Oracle and/or its affiliates.</span><br><span class="line"></span><br><span class="line">Oracle is a registered trademark of Oracle Corporation and/or its</span><br><span class="line">affiliates. Other names may be trademarks of their respective</span><br><span class="line">owners.</span><br><span class="line"></span><br><span class="line">Type &#x27;help;&#x27; or &#x27;\h&#x27; for help. Type &#x27;\c&#x27; to clear the current input statement.</span><br><span class="line"></span><br><span class="line">mysql&gt; \s</span><br><span class="line">--------------</span><br><span class="line">./bin/mysql  Ver 9.1.0-ShawnYan for Linux on x86_64 (Source distribution)</span><br><span class="line"></span><br><span class="line">Connection id:          9</span><br><span class="line">Current database:</span><br><span class="line">Current user:           root@localhost</span><br><span class="line">SSL:                    Not in use</span><br><span class="line">Current pager:          stdout</span><br><span class="line">Using outfile:          &#x27;&#x27;</span><br><span class="line">Using delimiter:        ;</span><br><span class="line">Server version:         9.1.0-ShawnYan Source distribution</span><br><span class="line">Protocol version:       10</span><br><span class="line">Connection:             Localhost via UNIX socket</span><br><span class="line">Server characterset:    utf8mb4</span><br><span class="line">Db     characterset:    utf8mb4</span><br><span class="line">Client characterset:    utf8mb4</span><br><span class="line">Conn.  characterset:    utf8mb4</span><br><span class="line">UNIX socket:            /tmp/mysql.sock</span><br><span class="line">Binary data as:         Hexadecimal</span><br><span class="line">Uptime:                 2 min 56 sec</span><br><span class="line"></span><br><span class="line">Threads: 2  Questions: 13  Slow queries: 0  Opens: 147  Flush tables: 3  Open tables: 63  Queries per second avg: 0.073</span><br><span class="line">--------------</span><br><span class="line"></span><br><span class="line">mysql&gt; </span><br></pre></td></tr></table></figure>
+<h2 id="附：使用源码包构建-RPM-包">附：使用源码包构建 RPM 包</h2>
+<p>除了直接从源码编译之外，MySQL 官网还提供了 RPM 格式的源码包，方便构建整套 MySQL Server 社区版 RPM 包。</p>
+<ol>
+<li>下载 RPM 源码包。</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">https://dev.mysql.com/get/Downloads/MySQL-9.1/mysql-community-9.1.0-1.el9.src.rpm</span><br></pre></td></tr></table></figure>
+<ol start="2">
+<li>补充安装一些依赖。</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">dnf install -y cyrus-sasl-devel \</span><br><span class="line">gcc-toolset-12-annobin-annocheck gcc-toolset-12-annobin-plugin-gcc gcc-toolset-12-binutils \</span><br><span class="line">gcc-toolset-12-dwz gcc-toolset-12-gcc gcc-toolset-12-gcc-c++ \</span><br><span class="line">gcc-toolset-13-dwz \</span><br><span class="line">krb5-devel numactl-devel openldap-devel \</span><br><span class="line">perl &#x27;perl(English)&#x27; &#x27;perl(Env)&#x27; &#x27;perl(JSON)&#x27; &#x27;perl(Memoize)&#x27; &#x27;perl(Sys::Hostname)&#x27; &#x27;perl(Time::HiRes)&#x27; &#x27;perl(Time::localtime)&#x27;</span><br></pre></td></tr></table></figure>
+<ol start="3">
+<li>从 RPM 源码包构建 MySQL Server。</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">rpmbuild --rebuild mysql-community-debugsource-9.1.0-1.el9.x86_64.rpm</span><br></pre></td></tr></table></figure>
+<ol start="4">
+<li>构建完成后，可以使用如下命令查找生成的 RPM 包。</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">find ~/rpmbuild/RPMS -name &quot;*.rpm&quot;</span><br></pre></td></tr></table></figure>
+<h2 id="后记">后记</h2>
+<p>在编译过程中，你还可以根据需要添加一些定制化选项。例如，在 MySQL 9.1.0 中添加了 <code>DISABLE_PERFSCHEMA</code> 构建选项，启用后将所有 <code>DISABLE_PSI_*</code> 选项设置为 <code>ON</code>。</p>
+<p>Have a nice day ~</p>
+<p>– / END / –</p>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/oracle-linux/" class="tag-link">
+                                oracle linux
+                            </a>
+                        
+                            <a href="/tags/mysql/" class="tag-link">
+                                mysql
+                            </a>
+                        
+                            <a href="/tags/mysql-9-x/" class="tag-link">
+                                mysql 9.x
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2024/mysql/compile-mysql-9-1-0-source-code-on-oracle-linux-9-4/index.html">https://shawnyan.cn/2024/mysql/compile-mysql-9-1-0-source-code-on-oracle-linux-9-4/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2024/mysql/mysql-9-1-0-change-sys-vars/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">MySQL 9.1.0 新特性与系统变量变化</span>
+        </a>
+    
+
+    
+        <a href="/2024/linux/oracle-linux-9-dnf-does-not-work/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">故障案例：Oracle Linux 9.4 无法正常使用 dnf</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Oracle-Linux"><span class="toc-text">Oracle Linux</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%89%E8%A3%85%E4%BE%9D%E8%B5%96"><span class="toc-text">安装依赖</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BC%96%E8%AF%91%E6%BA%90%E7%A0%81"><span class="toc-text">编译源码</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%89%E8%A3%85%E3%80%81%E8%BF%90%E8%A1%8C-MySQL"><span class="toc-text">安装、运行 MySQL</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%99%84%EF%BC%9A%E4%BD%BF%E7%94%A8%E6%BA%90%E7%A0%81%E5%8C%85%E6%9E%84%E5%BB%BA-RPM-%E5%8C%85"><span class="toc-text">附：使用源码包构建 RPM 包</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%90%8E%E8%AE%B0"><span class="toc-text">后记</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

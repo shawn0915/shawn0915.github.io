@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        MySQL 升级：使用 mysql_upgrade 注意事项（再见 mysql_upgrade） | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;p&gt;在数据库管理的世界里，随着技术的不断进步和业务的不断发展，数据库的版本升级成为了一个不可避免的过程。&lt;/p&gt;
+&lt;p&gt;MySQL 作为业界领先的开源关系型数据库管理系统，其版本迭代与功能优化同样不容忽视。&lt;/p&gt;
+&lt;p&gt;而在这个过程中，升级工具就显得尤为重要，比如 &lt;code&gt;mysql_upgrade&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;但是，&lt;code&gt;mysql_upgrade&lt;/code&gt; 已经成为过去式，且来往下看。&lt;/p&gt;
+&lt;h2 id=&#34;mysql-upgrade-介绍&#34;&gt;mysql_upgrade 介绍&lt;/h2&gt;
+&lt;p&gt;mysql_upgrade 是 MySQL 提供的一个用于升级 MySQL 服务器的实用程序。&lt;/p&gt;
+&lt;p&gt;它检查服务器上的所有数据库，查看是否需要任何更改以利用新版本的 MySQL 服务器提供的特性。&lt;/p&gt;
+&lt;p&gt;mysql_upgrade 还会升级系统表，以使用当前 MySQL 版本提供的任何新特性。&lt;/p&gt;
+&lt;p&gt;简而言之，mysql_upgrade 就是一个帮助用户平滑过渡到新版本 MySQL 的桥梁。&lt;/p&gt;
+&lt;p&gt;使用 mysql_upgrade 的过程相对简单。&lt;/p&gt;
+&lt;p&gt;首先，停止旧版本的 MySQL 服务，建议用户备份整个数据库，以防万一升级过程中出现问题。&lt;/p&gt;
+&lt;p&gt;然后，安装新版本的 MySQL 服务器软件，并启动新版本的 MySQL 服务。&lt;/p&gt;
+&lt;p&gt;最后，运行 mysql_upgrade 命令，它会检查数据库中的表，并根据需要进行升级。&lt;/p&gt;
+&lt;p&gt;通常只需向几个表添加新字段，或者修改字段长度，或者补充修订数据。&lt;/p&gt;
+&lt;p&gt;也可能会出现罕见的情况，比如系统表的存储引擎发生变更，比如由 MyISAM 变更为 InnoDB。&lt;/p&gt;
+&lt;h2 id=&#34;mysql-upgrade-使用示例&#34;&gt;mysql_upgrade 使用示例&lt;/h2&gt;
+&lt;p&gt;举个栗子，&lt;/p&gt;
+&lt;p&gt;从 MySQL 5.7.18 升级到 MySQL 5.7.19，会增加一个 &lt;code&gt;&#39;mysql.session&#39;@&#39;localhost&#39;&lt;/code&gt; 保留账户。&lt;/p&gt;
+&lt;p&gt;该帐户由插件在内部使用来访问服务器。 它被锁定，因此不能用于客户端连接。&lt;/p&gt;
+&lt;p&gt;具体案例如下：&lt;/p&gt;
+&lt;p&gt;现在，我们有一个 MySQL 5.7.18 服务器正在运行。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; select version();&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| version() |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| 5.7.18    |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看用户列表。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; select user from mysql.user;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| user      |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mysql.sys |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| root      |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2 rows in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;我们来停止旧版本的 MySQL 服务。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;systemctl stop mysqld&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;接下来，准备升级到 MySQL 5.7.19，RPM 包已经准备好。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;$ ls m*rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql-community-client-5.7.19-1.el7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql-community-common-5.7.19-1.el7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql-community-devel-5.7.19-1.el7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql-community-embedded-5.7.19-1.el7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql-community-embedded-compat-5.7.19-1.el7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql-community-embedded-devel-5.7.19-1.el7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql-community-libs-5.7.19-1.el7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql-community-libs-compat-5.7.19-1.el7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql-community-server-5.7.19-1.el7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;使用 yum 命令进行升级。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;yum update mysql-community-*&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;Updated:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  mysql-community-client.x86_64 0:5.7.19-1.el7                             &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  mysql-community-common.x86_64 0:5.7.19-1.el7                             &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  mysql-community-devel.x86_64 0:5.7.19-1.el7                              &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  mysql-community-embedded.x86_64 0:5.7.19-1.el7                           &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  mysql-community-embedded-compat.x86_64 0:5.7.19-1.el7                    &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  mysql-community-embedded-devel.x86_64 0:5.7.19-1.el7                     &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  mysql-community-libs.x86_64 0:5.7.19-1.el7                               &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  mysql-community-libs-compat.x86_64 0:5.7.19-1.el7                        &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  mysql-community-server.x86_64 0:5.7.19-1.el7                             &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Complete!&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;安装完成，启动新版本的 MySQL 服务。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;systemctl start mysqld&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;登陆数据库，查看用户列表。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; select user from mysql.user;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| user      |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mysql.sys |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| root      |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2 rows in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;可以看到，&lt;code&gt;mysql.session&lt;/code&gt; 用户尚未被添加到数据库中。&lt;/p&gt;
+&lt;p&gt;这里我们开启 general 日志，来观察升级命令都执行了哪些 SQL。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; show variables like &amp;#x27;%gen%&amp;#x27;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------+-----------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| Variable_name    | Value                       |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------+-----------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| general_log      | ON                          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| general_log_file | /var/lib/mysql/shawnyan.log |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------+-----------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2 rows in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;下一步，运行 mysql_upgrade 命令。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql_upgrade&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;41&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 07:42:50]$ mysql_upgrade -uroot -p&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Checking if update is needed.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Checking server version.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Running queries to upgrade MySQL server.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Checking system database.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.columns_priv                                 OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.db                                           OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.engine_cost                                  OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.event                                        OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.func                                         OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.general_log                                  OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.gtid_executed                                OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.help_category                                OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.help_keyword                                 OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.help_relation                                OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.help_topic                                   OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.innodb_index_stats                           OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.innodb_table_stats                           OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.ndb_binlog_index                             OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.plugin                                       OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.proc                                         OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.procs_priv                                   OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.proxies_priv                                 OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.server_cost                                  OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.servers                                      OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.slave_master_info                            OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.slave_relay_log_info                         OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.slave_worker_info                            OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.slow_log                                     OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.tables_priv                                  OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.time_zone                                    OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.time_zone_leap_second                        OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.time_zone_name                               OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.time_zone_transition                         OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.time_zone_transition_type                    OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.user                                         OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The sys schema is already up to date (version 1.5.1).&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Checking databases.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sys.sys_config                                     OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Upgrade process completed successfully.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Checking if update is needed.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;通过 general 日志，可以看到 &lt;code&gt;mysql.session&lt;/code&gt; 用户被写入用户表。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 07:43:42]$ grep &amp;#x27;mysql.session&amp;#x27; /var/lib/mysql/shawnyan.log&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-03-15T23:43:09.277088Z	    6 Query	SELECT COUNT(*) FROM mysql.user WHERE user = &amp;#x27;mysql.session&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-03-15T23:43:10.888664Z	    6 Query	INSERT IGNORE INTO mysql.user VALUES (&amp;#x27;localhost&amp;#x27;,&amp;#x27;mysql.session&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;Y&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;&amp;#x27;,&amp;#x27;&amp;#x27;,&amp;#x27;&amp;#x27;,&amp;#x27;&amp;#x27;,0,0,0,0,&amp;#x27;mysql_native_password&amp;#x27;,&amp;#x27;*THISISNOTAVALIDPASSWORDTHATCANBEUSEDHERE&amp;#x27;,&amp;#x27;N&amp;#x27;,CURRENT_TIMESTAMP,NULL,&amp;#x27;Y&amp;#x27;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-03-15T23:43:10.889540Z	    6 Query	INSERT IGNORE INTO mysql.tables_priv VALUES (&amp;#x27;localhost&amp;#x27;, &amp;#x27;mysql&amp;#x27;, &amp;#x27;mysql.session&amp;#x27;, &amp;#x27;user&amp;#x27;, &amp;#x27;root\@localhost&amp;#x27;, CURRENT_TIMESTAMP, &amp;#x27;Select&amp;#x27;, &amp;#x27;&amp;#x27;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-03-15T23:43:10.890429Z	    6 Query	INSERT IGNORE INTO mysql.db VALUES (&amp;#x27;localhost&amp;#x27;, &amp;#x27;performance_schema&amp;#x27;, &amp;#x27;mysql.session&amp;#x27;,&amp;#x27;Y&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 07:44:02]$ &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;再次登陆数据库，查看用户列表，确认新用户已经添加成功。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;mysql&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; version();&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| version() |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| 5.7.19    |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;mysql&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; user from mysql.user;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+---------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| user          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+---------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mysql.session |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mysql.sys     |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| root          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+---------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3 rows in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;mysql-upgrade-废弃&#34;&gt;mysql_upgrade 废弃&lt;/h2&gt;
+&lt;p&gt;不过，从 MySQL 8.0.16 开始， mysql_upgrade 被废弃，并将从未来的版本中移除。&lt;/p&gt;
+&lt;p&gt;DBA 不再需要额外地手动调用 mysql_upgrade 来进行升级操作。&lt;/p&gt;
+&lt;p&gt;取而代之的是，服务器新增了 &lt;code&gt;--upgrade&lt;/code&gt; 选项，默认值为 &lt;code&gt;AUTO&lt;/code&gt;，&lt;/p&gt;
+&lt;p&gt;服务器会自行判断是否需要升级，如需要会在启动时自动执行升级操作。&lt;/p&gt;
+&lt;p&gt;如果执行 mysql_upgrade 命令，会输出下面一段信息：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;The mysql_upgrade client is now deprecated. The actions executed by the upgrade client are now done by the server.&lt;br&gt;
+To upgrade, please start the new MySQL binary with the older data directory. Repairing user tables is done automatically. Restart is not required after upgrade.&lt;br&gt;
+The upgrade process automatically starts on running a new MySQL binary with an older data directory. To avoid accidental upgrades, please use the --upgrade=NONE option with the MySQL binary. The option --upgrade=FORCE is also provided to run the server upgrade sequence on demand.&lt;br&gt;
+It may be possible that the server upgrade fails due to a number of reasons. In that case, the upgrade sequence will run again during the next MySQL server start. If the server upgrade fails repeatedly, the server can be started with the --upgrade=MINIMAL option to start the server without executing the upgrade sequence, thus allowing users to manually rectify the problem.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;总的来说，在 MySQL 8.0.16 之前，mysql_upgrade 是一个功能强大且实用的工具，它能够帮助用户平滑地过渡到新版本的 MySQL。&lt;/p&gt;
+&lt;p&gt;随着 MySQL 版本的不断更新和升级，mysql_upgrade 的功能已经内嵌到 MySQL 服务器，其也将伴随 MySQL 5.7 逐步退出历史舞台。&lt;/p&gt;
+&lt;p&gt;– END –&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;如果这篇文章为你带来了灵感或启发，就帮忙点『赞』or『在看』or『转发』吧，这对我非常重要，感谢！(๑˃̵ᴗ˂̵)&lt;/p&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="MySQL 升级：使用 mysql_upgrade 注意事项（再见 mysql_upgrade）">
+    <meta property="og:url" content="https://shawnyan.cn/2024/mysql/mysql-upgrade-deprecated/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;p&gt;在数据库管理的世界里，随着技术的不断进步和业务的不断发展，数据库的版本升级成为了一个不可避免的过程。&lt;/p&gt;
+&lt;p&gt;MySQL 作为业界领先的开源关系型数据库管理系统，其版本迭代与功能优化同样不容忽视。&lt;/p&gt;
+&lt;p&gt;而在这个过程中，升级工具就显得尤为重要，比如 &lt;code&gt;mysql_upgrade&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;但是，&lt;code&gt;mysql_upgrade&lt;/code&gt; 已经成为过去式，且来往下看。&lt;/p&gt;
+&lt;h2 id=&#34;mysql-upgrade-介绍&#34;&gt;mysql_upgrade 介绍&lt;/h2&gt;
+&lt;p&gt;mysql_upgrade 是 MySQL 提供的一个用于升级 MySQL 服务器的实用程序。&lt;/p&gt;
+&lt;p&gt;它检查服务器上的所有数据库，查看是否需要任何更改以利用新版本的 MySQL 服务器提供的特性。&lt;/p&gt;
+&lt;p&gt;mysql_upgrade 还会升级系统表，以使用当前 MySQL 版本提供的任何新特性。&lt;/p&gt;
+&lt;p&gt;简而言之，mysql_upgrade 就是一个帮助用户平滑过渡到新版本 MySQL 的桥梁。&lt;/p&gt;
+&lt;p&gt;使用 mysql_upgrade 的过程相对简单。&lt;/p&gt;
+&lt;p&gt;首先，停止旧版本的 MySQL 服务，建议用户备份整个数据库，以防万一升级过程中出现问题。&lt;/p&gt;
+&lt;p&gt;然后，安装新版本的 MySQL 服务器软件，并启动新版本的 MySQL 服务。&lt;/p&gt;
+&lt;p&gt;最后，运行 mysql_upgrade 命令，它会检查数据库中的表，并根据需要进行升级。&lt;/p&gt;
+&lt;p&gt;通常只需向几个表添加新字段，或者修改字段长度，或者补充修订数据。&lt;/p&gt;
+&lt;p&gt;也可能会出现罕见的情况，比如系统表的存储引擎发生变更，比如由 MyISAM 变更为 InnoDB。&lt;/p&gt;
+&lt;h2 id=&#34;mysql-upgrade-使用示例&#34;&gt;mysql_upgrade 使用示例&lt;/h2&gt;
+&lt;p&gt;举个栗子，&lt;/p&gt;
+&lt;p&gt;从 MySQL 5.7.18 升级到 MySQL 5.7.19，会增加一个 &lt;code&gt;&#39;mysql.session&#39;@&#39;localhost&#39;&lt;/code&gt; 保留账户。&lt;/p&gt;
+&lt;p&gt;该帐户由插件在内部使用来访问服务器。 它被锁定，因此不能用于客户端连接。&lt;/p&gt;
+&lt;p&gt;具体案例如下：&lt;/p&gt;
+&lt;p&gt;现在，我们有一个 MySQL 5.7.18 服务器正在运行。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; select version();&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| version() |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| 5.7.18    |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看用户列表。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; select user from mysql.user;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| user      |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mysql.sys |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| root      |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2 rows in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;我们来停止旧版本的 MySQL 服务。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;systemctl stop mysqld&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;接下来，准备升级到 MySQL 5.7.19，RPM 包已经准备好。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;$ ls m*rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql-community-client-5.7.19-1.el7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql-community-common-5.7.19-1.el7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql-community-devel-5.7.19-1.el7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql-community-embedded-5.7.19-1.el7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql-community-embedded-compat-5.7.19-1.el7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql-community-embedded-devel-5.7.19-1.el7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql-community-libs-5.7.19-1.el7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql-community-libs-compat-5.7.19-1.el7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql-community-server-5.7.19-1.el7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;使用 yum 命令进行升级。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;yum update mysql-community-*&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;Updated:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  mysql-community-client.x86_64 0:5.7.19-1.el7                             &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  mysql-community-common.x86_64 0:5.7.19-1.el7                             &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  mysql-community-devel.x86_64 0:5.7.19-1.el7                              &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  mysql-community-embedded.x86_64 0:5.7.19-1.el7                           &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  mysql-community-embedded-compat.x86_64 0:5.7.19-1.el7                    &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  mysql-community-embedded-devel.x86_64 0:5.7.19-1.el7                     &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  mysql-community-libs.x86_64 0:5.7.19-1.el7                               &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  mysql-community-libs-compat.x86_64 0:5.7.19-1.el7                        &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  mysql-community-server.x86_64 0:5.7.19-1.el7                             &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Complete!&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;安装完成，启动新版本的 MySQL 服务。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;systemctl start mysqld&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;登陆数据库，查看用户列表。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; select user from mysql.user;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| user      |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mysql.sys |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| root      |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2 rows in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;可以看到，&lt;code&gt;mysql.session&lt;/code&gt; 用户尚未被添加到数据库中。&lt;/p&gt;
+&lt;p&gt;这里我们开启 general 日志，来观察升级命令都执行了哪些 SQL。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; show variables like &amp;#x27;%gen%&amp;#x27;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------+-----------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| Variable_name    | Value                       |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------+-----------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| general_log      | ON                          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| general_log_file | /var/lib/mysql/shawnyan.log |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------+-----------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2 rows in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;下一步，运行 mysql_upgrade 命令。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql_upgrade&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;41&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 07:42:50]$ mysql_upgrade -uroot -p&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Checking if update is needed.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Checking server version.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Running queries to upgrade MySQL server.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Checking system database.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.columns_priv                                 OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.db                                           OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.engine_cost                                  OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.event                                        OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.func                                         OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.general_log                                  OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.gtid_executed                                OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.help_category                                OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.help_keyword                                 OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.help_relation                                OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.help_topic                                   OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.innodb_index_stats                           OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.innodb_table_stats                           OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.ndb_binlog_index                             OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.plugin                                       OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.proc                                         OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.procs_priv                                   OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.proxies_priv                                 OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.server_cost                                  OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.servers                                      OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.slave_master_info                            OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.slave_relay_log_info                         OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.slave_worker_info                            OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.slow_log                                     OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.tables_priv                                  OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.time_zone                                    OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.time_zone_leap_second                        OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.time_zone_name                               OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.time_zone_transition                         OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.time_zone_transition_type                    OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql.user                                         OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The sys schema is already up to date (version 1.5.1).&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Checking databases.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;sys.sys_config                                     OK&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Upgrade process completed successfully.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Checking if update is needed.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;通过 general 日志，可以看到 &lt;code&gt;mysql.session&lt;/code&gt; 用户被写入用户表。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 07:43:42]$ grep &amp;#x27;mysql.session&amp;#x27; /var/lib/mysql/shawnyan.log&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-03-15T23:43:09.277088Z	    6 Query	SELECT COUNT(*) FROM mysql.user WHERE user = &amp;#x27;mysql.session&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-03-15T23:43:10.888664Z	    6 Query	INSERT IGNORE INTO mysql.user VALUES (&amp;#x27;localhost&amp;#x27;,&amp;#x27;mysql.session&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;Y&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;&amp;#x27;,&amp;#x27;&amp;#x27;,&amp;#x27;&amp;#x27;,&amp;#x27;&amp;#x27;,0,0,0,0,&amp;#x27;mysql_native_password&amp;#x27;,&amp;#x27;*THISISNOTAVALIDPASSWORDTHATCANBEUSEDHERE&amp;#x27;,&amp;#x27;N&amp;#x27;,CURRENT_TIMESTAMP,NULL,&amp;#x27;Y&amp;#x27;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-03-15T23:43:10.889540Z	    6 Query	INSERT IGNORE INTO mysql.tables_priv VALUES (&amp;#x27;localhost&amp;#x27;, &amp;#x27;mysql&amp;#x27;, &amp;#x27;mysql.session&amp;#x27;, &amp;#x27;user&amp;#x27;, &amp;#x27;root\@localhost&amp;#x27;, CURRENT_TIMESTAMP, &amp;#x27;Select&amp;#x27;, &amp;#x27;&amp;#x27;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-03-15T23:43:10.890429Z	    6 Query	INSERT IGNORE INTO mysql.db VALUES (&amp;#x27;localhost&amp;#x27;, &amp;#x27;performance_schema&amp;#x27;, &amp;#x27;mysql.session&amp;#x27;,&amp;#x27;Y&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;,&amp;#x27;N&amp;#x27;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 07:44:02]$ &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;再次登陆数据库，查看用户列表，确认新用户已经添加成功。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;mysql&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; version();&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| version() |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| 5.7.19    |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;mysql&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; user from mysql.user;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+---------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| user          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+---------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mysql.session |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mysql.sys     |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| root          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+---------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3 rows in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;mysql-upgrade-废弃&#34;&gt;mysql_upgrade 废弃&lt;/h2&gt;
+&lt;p&gt;不过，从 MySQL 8.0.16 开始， mysql_upgrade 被废弃，并将从未来的版本中移除。&lt;/p&gt;
+&lt;p&gt;DBA 不再需要额外地手动调用 mysql_upgrade 来进行升级操作。&lt;/p&gt;
+&lt;p&gt;取而代之的是，服务器新增了 &lt;code&gt;--upgrade&lt;/code&gt; 选项，默认值为 &lt;code&gt;AUTO&lt;/code&gt;，&lt;/p&gt;
+&lt;p&gt;服务器会自行判断是否需要升级，如需要会在启动时自动执行升级操作。&lt;/p&gt;
+&lt;p&gt;如果执行 mysql_upgrade 命令，会输出下面一段信息：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;The mysql_upgrade client is now deprecated. The actions executed by the upgrade client are now done by the server.&lt;br&gt;
+To upgrade, please start the new MySQL binary with the older data directory. Repairing user tables is done automatically. Restart is not required after upgrade.&lt;br&gt;
+The upgrade process automatically starts on running a new MySQL binary with an older data directory. To avoid accidental upgrades, please use the --upgrade=NONE option with the MySQL binary. The option --upgrade=FORCE is also provided to run the server upgrade sequence on demand.&lt;br&gt;
+It may be possible that the server upgrade fails due to a number of reasons. In that case, the upgrade sequence will run again during the next MySQL server start. If the server upgrade fails repeatedly, the server can be started with the --upgrade=MINIMAL option to start the server without executing the upgrade sequence, thus allowing users to manually rectify the problem.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;总的来说，在 MySQL 8.0.16 之前，mysql_upgrade 是一个功能强大且实用的工具，它能够帮助用户平滑地过渡到新版本的 MySQL。&lt;/p&gt;
+&lt;p&gt;随着 MySQL 版本的不断更新和升级，mysql_upgrade 的功能已经内嵌到 MySQL 服务器，其也将伴随 MySQL 5.7 逐步退出历史舞台。&lt;/p&gt;
+&lt;p&gt;– END –&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;如果这篇文章为你带来了灵感或启发，就帮忙点『赞』or『在看』or『转发』吧，这对我非常重要，感谢！(๑˃̵ᴗ˂̵)&lt;/p&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/mysql/" class="category-badge">
+                                    MySQL
+                                </a>
+                            
+                                <a href="/categories/mysql/mysql-8-0/" class="category-badge">
+                                    MySQL 8.0
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">MySQL 升级：使用 mysql_upgrade 注意事项（再见 mysql_upgrade）</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2024-03-15
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                1.7k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                8 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <p>在数据库管理的世界里，随着技术的不断进步和业务的不断发展，数据库的版本升级成为了一个不可避免的过程。</p>
+<p>MySQL 作为业界领先的开源关系型数据库管理系统，其版本迭代与功能优化同样不容忽视。</p>
+<p>而在这个过程中，升级工具就显得尤为重要，比如 <code>mysql_upgrade</code>。</p>
+<p>但是，<code>mysql_upgrade</code> 已经成为过去式，且来往下看。</p>
+<h2 id="mysql-upgrade-介绍">mysql_upgrade 介绍</h2>
+<p>mysql_upgrade 是 MySQL 提供的一个用于升级 MySQL 服务器的实用程序。</p>
+<p>它检查服务器上的所有数据库，查看是否需要任何更改以利用新版本的 MySQL 服务器提供的特性。</p>
+<p>mysql_upgrade 还会升级系统表，以使用当前 MySQL 版本提供的任何新特性。</p>
+<p>简而言之，mysql_upgrade 就是一个帮助用户平滑过渡到新版本 MySQL 的桥梁。</p>
+<p>使用 mysql_upgrade 的过程相对简单。</p>
+<p>首先，停止旧版本的 MySQL 服务，建议用户备份整个数据库，以防万一升级过程中出现问题。</p>
+<p>然后，安装新版本的 MySQL 服务器软件，并启动新版本的 MySQL 服务。</p>
+<p>最后，运行 mysql_upgrade 命令，它会检查数据库中的表，并根据需要进行升级。</p>
+<p>通常只需向几个表添加新字段，或者修改字段长度，或者补充修订数据。</p>
+<p>也可能会出现罕见的情况，比如系统表的存储引擎发生变更，比如由 MyISAM 变更为 InnoDB。</p>
+<h2 id="mysql-upgrade-使用示例">mysql_upgrade 使用示例</h2>
+<p>举个栗子，</p>
+<p>从 MySQL 5.7.18 升级到 MySQL 5.7.19，会增加一个 <code>'mysql.session'@'localhost'</code> 保留账户。</p>
+<p>该帐户由插件在内部使用来访问服务器。 它被锁定，因此不能用于客户端连接。</p>
+<p>具体案例如下：</p>
+<p>现在，我们有一个 MySQL 5.7.18 服务器正在运行。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; select version();</span><br><span class="line">+-----------+</span><br><span class="line">| version() |</span><br><span class="line">+-----------+</span><br><span class="line">| 5.7.18    |</span><br><span class="line">+-----------+</span><br><span class="line">1 row in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<p>查看用户列表。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; select user from mysql.user;</span><br><span class="line">+-----------+</span><br><span class="line">| user      |</span><br><span class="line">+-----------+</span><br><span class="line">| mysql.sys |</span><br><span class="line">| root      |</span><br><span class="line">+-----------+</span><br><span class="line">2 rows in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<p>我们来停止旧版本的 MySQL 服务。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">systemctl stop mysqld</span><br></pre></td></tr></table></figure>
+<p>接下来，准备升级到 MySQL 5.7.19，RPM 包已经准备好。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">$ ls m*rpm</span><br><span class="line">mysql-community-client-5.7.19-1.el7.x86_64.rpm</span><br><span class="line">mysql-community-common-5.7.19-1.el7.x86_64.rpm</span><br><span class="line">mysql-community-devel-5.7.19-1.el7.x86_64.rpm</span><br><span class="line">mysql-community-embedded-5.7.19-1.el7.x86_64.rpm</span><br><span class="line">mysql-community-embedded-compat-5.7.19-1.el7.x86_64.rpm</span><br><span class="line">mysql-community-embedded-devel-5.7.19-1.el7.x86_64.rpm</span><br><span class="line">mysql-community-libs-5.7.19-1.el7.x86_64.rpm</span><br><span class="line">mysql-community-libs-compat-5.7.19-1.el7.x86_64.rpm</span><br><span class="line">mysql-community-server-5.7.19-1.el7.x86_64.rpm</span><br></pre></td></tr></table></figure>
+<p>使用 yum 命令进行升级。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">yum update mysql-community-*</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">Updated:</span><br><span class="line">  mysql-community-client.x86_64 0:5.7.19-1.el7                             </span><br><span class="line">  mysql-community-common.x86_64 0:5.7.19-1.el7                             </span><br><span class="line">  mysql-community-devel.x86_64 0:5.7.19-1.el7                              </span><br><span class="line">  mysql-community-embedded.x86_64 0:5.7.19-1.el7                           </span><br><span class="line">  mysql-community-embedded-compat.x86_64 0:5.7.19-1.el7                    </span><br><span class="line">  mysql-community-embedded-devel.x86_64 0:5.7.19-1.el7                     </span><br><span class="line">  mysql-community-libs.x86_64 0:5.7.19-1.el7                               </span><br><span class="line">  mysql-community-libs-compat.x86_64 0:5.7.19-1.el7                        </span><br><span class="line">  mysql-community-server.x86_64 0:5.7.19-1.el7                             </span><br><span class="line"></span><br><span class="line">Complete!</span><br></pre></td></tr></table></figure>
+<p>安装完成，启动新版本的 MySQL 服务。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">systemctl start mysqld</span><br></pre></td></tr></table></figure>
+<p>登陆数据库，查看用户列表。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; select user from mysql.user;</span><br><span class="line">+-----------+</span><br><span class="line">| user      |</span><br><span class="line">+-----------+</span><br><span class="line">| mysql.sys |</span><br><span class="line">| root      |</span><br><span class="line">+-----------+</span><br><span class="line">2 rows in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<p>可以看到，<code>mysql.session</code> 用户尚未被添加到数据库中。</p>
+<p>这里我们开启 general 日志，来观察升级命令都执行了哪些 SQL。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; show variables like &#x27;%gen%&#x27;;</span><br><span class="line">+------------------+-----------------------------+</span><br><span class="line">| Variable_name    | Value                       |</span><br><span class="line">+------------------+-----------------------------+</span><br><span class="line">| general_log      | ON                          |</span><br><span class="line">| general_log_file | /var/lib/mysql/shawnyan.log |</span><br><span class="line">+------------------+-----------------------------+</span><br><span class="line">2 rows in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<p>下一步，运行 mysql_upgrade 命令。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysql_upgrade</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~ 07:42:50]$ mysql_upgrade -uroot -p</span><br><span class="line">Checking if update is needed.</span><br><span class="line">Checking server version.</span><br><span class="line">Running queries to upgrade MySQL server.</span><br><span class="line">Checking system database.</span><br><span class="line">mysql.columns_priv                                 OK</span><br><span class="line">mysql.db                                           OK</span><br><span class="line">mysql.engine_cost                                  OK</span><br><span class="line">mysql.event                                        OK</span><br><span class="line">mysql.func                                         OK</span><br><span class="line">mysql.general_log                                  OK</span><br><span class="line">mysql.gtid_executed                                OK</span><br><span class="line">mysql.help_category                                OK</span><br><span class="line">mysql.help_keyword                                 OK</span><br><span class="line">mysql.help_relation                                OK</span><br><span class="line">mysql.help_topic                                   OK</span><br><span class="line">mysql.innodb_index_stats                           OK</span><br><span class="line">mysql.innodb_table_stats                           OK</span><br><span class="line">mysql.ndb_binlog_index                             OK</span><br><span class="line">mysql.plugin                                       OK</span><br><span class="line">mysql.proc                                         OK</span><br><span class="line">mysql.procs_priv                                   OK</span><br><span class="line">mysql.proxies_priv                                 OK</span><br><span class="line">mysql.server_cost                                  OK</span><br><span class="line">mysql.servers                                      OK</span><br><span class="line">mysql.slave_master_info                            OK</span><br><span class="line">mysql.slave_relay_log_info                         OK</span><br><span class="line">mysql.slave_worker_info                            OK</span><br><span class="line">mysql.slow_log                                     OK</span><br><span class="line">mysql.tables_priv                                  OK</span><br><span class="line">mysql.time_zone                                    OK</span><br><span class="line">mysql.time_zone_leap_second                        OK</span><br><span class="line">mysql.time_zone_name                               OK</span><br><span class="line">mysql.time_zone_transition                         OK</span><br><span class="line">mysql.time_zone_transition_type                    OK</span><br><span class="line">mysql.user                                         OK</span><br><span class="line">The sys schema is already up to date (version 1.5.1).</span><br><span class="line">Checking databases.</span><br><span class="line">sys.sys_config                                     OK</span><br><span class="line">Upgrade process completed successfully.</span><br><span class="line">Checking if update is needed.</span><br></pre></td></tr></table></figure>
+<p>通过 general 日志，可以看到 <code>mysql.session</code> 用户被写入用户表。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~ 07:43:42]$ grep &#x27;mysql.session&#x27; /var/lib/mysql/shawnyan.log</span><br><span class="line">2024-03-15T23:43:09.277088Z	    6 Query	SELECT COUNT(*) FROM mysql.user WHERE user = &#x27;mysql.session&#x27;</span><br><span class="line">2024-03-15T23:43:10.888664Z	    6 Query	INSERT IGNORE INTO mysql.user VALUES (&#x27;localhost&#x27;,&#x27;mysql.session&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;Y&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;&#x27;,&#x27;&#x27;,&#x27;&#x27;,&#x27;&#x27;,0,0,0,0,&#x27;mysql_native_password&#x27;,&#x27;*THISISNOTAVALIDPASSWORDTHATCANBEUSEDHERE&#x27;,&#x27;N&#x27;,CURRENT_TIMESTAMP,NULL,&#x27;Y&#x27;)</span><br><span class="line">2024-03-15T23:43:10.889540Z	    6 Query	INSERT IGNORE INTO mysql.tables_priv VALUES (&#x27;localhost&#x27;, &#x27;mysql&#x27;, &#x27;mysql.session&#x27;, &#x27;user&#x27;, &#x27;root\@localhost&#x27;, CURRENT_TIMESTAMP, &#x27;Select&#x27;, &#x27;&#x27;)</span><br><span class="line">2024-03-15T23:43:10.890429Z	    6 Query	INSERT IGNORE INTO mysql.db VALUES (&#x27;localhost&#x27;, &#x27;performance_schema&#x27;, &#x27;mysql.session&#x27;,&#x27;Y&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;,&#x27;N&#x27;)</span><br><span class="line">[root@shawnyan ~ 07:44:02]$ </span><br></pre></td></tr></table></figure>
+<p>再次登陆数据库，查看用户列表，确认新用户已经添加成功。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">mysql&gt; </span><span class="language-bash"><span class="keyword">select</span> version();</span></span><br><span class="line">+-----------+</span><br><span class="line">| version() |</span><br><span class="line">+-----------+</span><br><span class="line">| 5.7.19    |</span><br><span class="line">+-----------+</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_">mysql&gt; </span><span class="language-bash"><span class="keyword">select</span> user from mysql.user;</span></span><br><span class="line">+---------------+</span><br><span class="line">| user          |</span><br><span class="line">+---------------+</span><br><span class="line">| mysql.session |</span><br><span class="line">| mysql.sys     |</span><br><span class="line">| root          |</span><br><span class="line">+---------------+</span><br><span class="line">3 rows in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<h2 id="mysql-upgrade-废弃">mysql_upgrade 废弃</h2>
+<p>不过，从 MySQL 8.0.16 开始， mysql_upgrade 被废弃，并将从未来的版本中移除。</p>
+<p>DBA 不再需要额外地手动调用 mysql_upgrade 来进行升级操作。</p>
+<p>取而代之的是，服务器新增了 <code>--upgrade</code> 选项，默认值为 <code>AUTO</code>，</p>
+<p>服务器会自行判断是否需要升级，如需要会在启动时自动执行升级操作。</p>
+<p>如果执行 mysql_upgrade 命令，会输出下面一段信息：</p>
+<blockquote>
+<p>The mysql_upgrade client is now deprecated. The actions executed by the upgrade client are now done by the server.<br>
+To upgrade, please start the new MySQL binary with the older data directory. Repairing user tables is done automatically. Restart is not required after upgrade.<br>
+The upgrade process automatically starts on running a new MySQL binary with an older data directory. To avoid accidental upgrades, please use the --upgrade=NONE option with the MySQL binary. The option --upgrade=FORCE is also provided to run the server upgrade sequence on demand.<br>
+It may be possible that the server upgrade fails due to a number of reasons. In that case, the upgrade sequence will run again during the next MySQL server start. If the server upgrade fails repeatedly, the server can be started with the --upgrade=MINIMAL option to start the server without executing the upgrade sequence, thus allowing users to manually rectify the problem.</p>
+</blockquote>
+<h2 id="总结">总结</h2>
+<p>总的来说，在 MySQL 8.0.16 之前，mysql_upgrade 是一个功能强大且实用的工具，它能够帮助用户平滑地过渡到新版本的 MySQL。</p>
+<p>随着 MySQL 版本的不断更新和升级，mysql_upgrade 的功能已经内嵌到 MySQL 服务器，其也将伴随 MySQL 5.7 逐步退出历史舞台。</p>
+<p>– END –</p>
+<img alt="logo.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg" referrerpolicy="no-referrer"/>
+<p>如果这篇文章为你带来了灵感或启发，就帮忙点『赞』or『在看』or『转发』吧，这对我非常重要，感谢！(๑˃̵ᴗ˂̵)</p>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/upgrade/" class="tag-link">
+                                upgrade
+                            </a>
+                        
+                            <a href="/tags/mysql/" class="tag-link">
+                                mysql
+                            </a>
+                        
+                            <a href="/tags/mysql-5-7/" class="tag-link">
+                                mysql 5.7
+                            </a>
+                        
+                            <a href="/tags/mysql-8-0/" class="tag-link">
+                                mysql 8.0
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2024/mysql/mysql-upgrade-deprecated/index.html">https://shawnyan.cn/2024/mysql/mysql-upgrade-deprecated/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2024/mysql/mysql-certification-intro/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">MySQL 数据库认证考试介绍（2024 版）</span>
+        </a>
+    
+
+    
+        <a href="/2024/oracle/oracle-ru-version-list/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">Oracle 19c RU 版本号速查表</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#mysql-upgrade-%E4%BB%8B%E7%BB%8D"><span class="toc-text">mysql_upgrade 介绍</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#mysql-upgrade-%E4%BD%BF%E7%94%A8%E7%A4%BA%E4%BE%8B"><span class="toc-text">mysql_upgrade 使用示例</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#mysql-upgrade-%E5%BA%9F%E5%BC%83"><span class="toc-text">mysql_upgrade 废弃</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        MySQL 管理运维：这类 VALUES() 已被弃用 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;p&gt;在之前的文章 &lt;a href=&#34;https://shawnyan.cn/2023/mysql/mysql-8-case-datetime-default/&#34;&gt;MySQL 管理运维：妙用 DATETIME 数据类型的默认值&lt;/a&gt; 中，介绍了如何巧用自动更新字段时间戳。&lt;/p&gt;
+&lt;p&gt;本文将继续扩展该案例，使用 &lt;code&gt;INSERT ... ON DUPLICATE KEY UPDATE&lt;/code&gt; 语句来检查记录用户登录情况。&lt;/p&gt;
+&lt;h2 id=&#34;背景&#34;&gt;背景&lt;/h2&gt;
+&lt;p&gt;用户登录数据库的时间、次数，执行的语句，都是重要的审计项目。在老版本的 MySQL 中没有记录用户密码最后更改时间和用户最后登录时间，需要依靠外挂工具实现。&lt;/p&gt;
+&lt;p&gt;在 MySQL 8 中，系统表 &lt;code&gt;mysql.user&lt;/code&gt; 的 &lt;code&gt;password_last_changed&lt;/code&gt; 字段记录了密码最后更改时间，但用户最后登录时间仍较难查询。&lt;/p&gt;
+&lt;p&gt;好在，performance_schema 库中的 users 表记录了所有用户的总连接次数。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;users 表为连接到 MySQL 服务器的每个用户包含一行。对于每个用户名，该表计算当前连接数和总连接数。 表大小在服务器启动时自动调整大小。要显式设置表大小，请在服务器启动时设置Performance_schema_users_size 系统变量。 要禁用用户统计信息，请将此变量设置为 0。&lt;sup class=&#34;footnote-ref&#34;&gt;&lt;a href=&#34;#fn1&#34; id=&#34;fnref1&#34;&gt;[1]&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;假设我们有个以“天”为单位粒度的需求，要求记录每个用户上次登录数据库是哪一天。&lt;/p&gt;
+&lt;h2 id=&#34;实现&#34;&gt;实现&lt;/h2&gt;
+&lt;p&gt;对于该需求，我们可以创建一张新表 myuser，该表记录用户名 user，总连接次数 total_conn，和更新时间 update_at。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;create table myuser(&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;user char(32) primary key,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;total_conn bigint,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;update_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;创建一个事件 myevent，每天零时从 &lt;code&gt;performance_schema.users&lt;/code&gt; 抽取数据写入到 myuser 表。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;CREATE EVENT myuser_daily&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  ON SCHEDULE EVERY DAY&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;DO&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  xxx&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;VALUES&#34;&gt;VALUES()&lt;/h2&gt;
+&lt;p&gt;这里，将用到 &lt;code&gt;INSERT ... ON DUPLICATE KEY UPDATE&lt;/code&gt;，该语句允许你插入一行数据，但如果遇到重复的主键或唯一键约束，它会更新现有的行而不是抛出错误。&lt;/p&gt;
+&lt;p&gt;我们可以使用 &lt;code&gt;VALUES()&lt;/code&gt; 方法来更新数据：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;INSERT INTO myuser (user,total_conn) VALUES (&amp;#x27;shawnyan&amp;#x27;,1) &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ON DUPLICATE KEY UPDATE total_conn = values(total_conn);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;这里的第二个 VALUES() 是一个特殊的函数，它返回 INSERT 语句中对应的列的值。这允许你引用你试图插入的值，而不是表中的现有值。&lt;/p&gt;
+&lt;p&gt;但从 MySQL 8.0.20 开始，该函数的用法被废弃，并在未来的版本中移除。继续使用会抛出如下告警：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;Warning (Code 1287): &amp;#x27;VALUES function&amp;#x27; is deprecated and will be removed in a future release. Please use an alias (INSERT INTO ... VALUES (...) AS alias) and replace VALUES(col) in the ON DUPLICATE KEY UPDATE clause with alias.col instead&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;建议使用别名来代替。&lt;sup class=&#34;footnote-ref&#34;&gt;&lt;a href=&#34;#fn2&#34; id=&#34;fnref2&#34;&gt;[2]&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;具体用法：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;insert myuser(user,total_conn) &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;select USER,TOTAL_CONNECTIONS &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;from performance_schema.users AS new &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;where new.user is not null&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ON DUPLICATE KEY UPDATE total_conn = new.TOTAL_CONNECTIONS;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;输出：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;(root@localhost) [yandb]&amp;gt; select * from myuser;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------+------------+---------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| user            | total_conn | update_at           |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------+------------+---------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| event_scheduler |          1 | 2023-05-21 14:49:30 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| root            |          7 | 2023-05-21 14:54:57 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| shawnyan        |          1 | 2023-05-21 14:36:57 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------+------------+---------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3 rows in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(root@localhost) [yandb]&amp;gt; \r&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Connection id:    17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Current database: yandb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(root@localhost) [yandb]&amp;gt; insert myuser(user,total_conn) &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    -&amp;gt; select USER,TOTAL_CONNECTIONS &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    -&amp;gt; from performance_schema.users AS new &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    -&amp;gt; where new.user is not null&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    -&amp;gt; ON DUPLICATE KEY UPDATE total_conn = new.TOTAL_CONNECTIONS;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, 2 rows affected (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Records: 2  Duplicates: 0  Warnings: 0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(root@localhost) [yandb]&amp;gt; select * from myuser;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------+------------+---------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| user            | total_conn | update_at           |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------+------------+---------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| event_scheduler |          1 | 2023-05-21 14:49:30 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| root            |          8 | 2023-05-21 14:55:12 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| shawnyan        |          1 | 2023-05-21 14:36:57 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------+------------+---------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3 rows in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;小结&#34;&gt;小结&lt;/h2&gt;
+&lt;p&gt;MySQL 8 的各项特性一直在改进优化，在使用新版本或者升级时，也需要注意一下废弃的特性，及时更新应用程式。&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;&lt;hr class=&#34;footnotes-sep&#34;&gt;
+&lt;section class=&#34;footnotes&#34;&gt;
+&lt;ol class=&#34;footnotes-list&#34;&gt;
+&lt;li id=&#34;fn1&#34; class=&#34;footnote-item&#34;&gt;&lt;p&gt;&lt;a href=&#34;https://dev.mysql.com/doc/refman/8.0/en/performance-schema-users-table.html&#34;&gt;https://dev.mysql.com/doc/refman/8.0/en/performance-schema-users-table.html&lt;/a&gt; &lt;a href=&#34;#fnref1&#34; class=&#34;footnote-backref&#34;&gt;↩︎&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id=&#34;fn2&#34; class=&#34;footnote-item&#34;&gt;&lt;p&gt;&lt;a href=&#34;https://dev.mysql.com/doc/refman/8.0/en/miscellaneous-functions.html#function_values&#34;&gt;https://dev.mysql.com/doc/refman/8.0/en/miscellaneous-functions.html#function_values&lt;/a&gt; &lt;a href=&#34;#fnref2&#34; class=&#34;footnote-backref&#34;&gt;↩︎&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/section&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="MySQL 管理运维：这类 VALUES() 已被弃用">
+    <meta property="og:url" content="https://shawnyan.cn/2023/mysql/mysql-8.0.20-values-deprecated/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;p&gt;在之前的文章 &lt;a href=&#34;https://shawnyan.cn/2023/mysql/mysql-8-case-datetime-default/&#34;&gt;MySQL 管理运维：妙用 DATETIME 数据类型的默认值&lt;/a&gt; 中，介绍了如何巧用自动更新字段时间戳。&lt;/p&gt;
+&lt;p&gt;本文将继续扩展该案例，使用 &lt;code&gt;INSERT ... ON DUPLICATE KEY UPDATE&lt;/code&gt; 语句来检查记录用户登录情况。&lt;/p&gt;
+&lt;h2 id=&#34;背景&#34;&gt;背景&lt;/h2&gt;
+&lt;p&gt;用户登录数据库的时间、次数，执行的语句，都是重要的审计项目。在老版本的 MySQL 中没有记录用户密码最后更改时间和用户最后登录时间，需要依靠外挂工具实现。&lt;/p&gt;
+&lt;p&gt;在 MySQL 8 中，系统表 &lt;code&gt;mysql.user&lt;/code&gt; 的 &lt;code&gt;password_last_changed&lt;/code&gt; 字段记录了密码最后更改时间，但用户最后登录时间仍较难查询。&lt;/p&gt;
+&lt;p&gt;好在，performance_schema 库中的 users 表记录了所有用户的总连接次数。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;users 表为连接到 MySQL 服务器的每个用户包含一行。对于每个用户名，该表计算当前连接数和总连接数。 表大小在服务器启动时自动调整大小。要显式设置表大小，请在服务器启动时设置Performance_schema_users_size 系统变量。 要禁用用户统计信息，请将此变量设置为 0。&lt;sup class=&#34;footnote-ref&#34;&gt;&lt;a href=&#34;#fn1&#34; id=&#34;fnref1&#34;&gt;[1]&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;假设我们有个以“天”为单位粒度的需求，要求记录每个用户上次登录数据库是哪一天。&lt;/p&gt;
+&lt;h2 id=&#34;实现&#34;&gt;实现&lt;/h2&gt;
+&lt;p&gt;对于该需求，我们可以创建一张新表 myuser，该表记录用户名 user，总连接次数 total_conn，和更新时间 update_at。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;create table myuser(&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;user char(32) primary key,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;total_conn bigint,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;update_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;创建一个事件 myevent，每天零时从 &lt;code&gt;performance_schema.users&lt;/code&gt; 抽取数据写入到 myuser 表。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;CREATE EVENT myuser_daily&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  ON SCHEDULE EVERY DAY&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;DO&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  xxx&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;VALUES&#34;&gt;VALUES()&lt;/h2&gt;
+&lt;p&gt;这里，将用到 &lt;code&gt;INSERT ... ON DUPLICATE KEY UPDATE&lt;/code&gt;，该语句允许你插入一行数据，但如果遇到重复的主键或唯一键约束，它会更新现有的行而不是抛出错误。&lt;/p&gt;
+&lt;p&gt;我们可以使用 &lt;code&gt;VALUES()&lt;/code&gt; 方法来更新数据：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;INSERT INTO myuser (user,total_conn) VALUES (&amp;#x27;shawnyan&amp;#x27;,1) &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ON DUPLICATE KEY UPDATE total_conn = values(total_conn);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;这里的第二个 VALUES() 是一个特殊的函数，它返回 INSERT 语句中对应的列的值。这允许你引用你试图插入的值，而不是表中的现有值。&lt;/p&gt;
+&lt;p&gt;但从 MySQL 8.0.20 开始，该函数的用法被废弃，并在未来的版本中移除。继续使用会抛出如下告警：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;Warning (Code 1287): &amp;#x27;VALUES function&amp;#x27; is deprecated and will be removed in a future release. Please use an alias (INSERT INTO ... VALUES (...) AS alias) and replace VALUES(col) in the ON DUPLICATE KEY UPDATE clause with alias.col instead&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;建议使用别名来代替。&lt;sup class=&#34;footnote-ref&#34;&gt;&lt;a href=&#34;#fn2&#34; id=&#34;fnref2&#34;&gt;[2]&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;具体用法：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;insert myuser(user,total_conn) &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;select USER,TOTAL_CONNECTIONS &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;from performance_schema.users AS new &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;where new.user is not null&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ON DUPLICATE KEY UPDATE total_conn = new.TOTAL_CONNECTIONS;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;输出：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;(root@localhost) [yandb]&amp;gt; select * from myuser;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------+------------+---------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| user            | total_conn | update_at           |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------+------------+---------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| event_scheduler |          1 | 2023-05-21 14:49:30 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| root            |          7 | 2023-05-21 14:54:57 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| shawnyan        |          1 | 2023-05-21 14:36:57 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------+------------+---------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3 rows in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(root@localhost) [yandb]&amp;gt; \r&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Connection id:    17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Current database: yandb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(root@localhost) [yandb]&amp;gt; insert myuser(user,total_conn) &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    -&amp;gt; select USER,TOTAL_CONNECTIONS &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    -&amp;gt; from performance_schema.users AS new &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    -&amp;gt; where new.user is not null&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    -&amp;gt; ON DUPLICATE KEY UPDATE total_conn = new.TOTAL_CONNECTIONS;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, 2 rows affected (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Records: 2  Duplicates: 0  Warnings: 0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(root@localhost) [yandb]&amp;gt; select * from myuser;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------+------------+---------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| user            | total_conn | update_at           |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------+------------+---------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| event_scheduler |          1 | 2023-05-21 14:49:30 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| root            |          8 | 2023-05-21 14:55:12 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| shawnyan        |          1 | 2023-05-21 14:36:57 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------+------------+---------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3 rows in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;小结&#34;&gt;小结&lt;/h2&gt;
+&lt;p&gt;MySQL 8 的各项特性一直在改进优化，在使用新版本或者升级时，也需要注意一下废弃的特性，及时更新应用程式。&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;&lt;hr class=&#34;footnotes-sep&#34;&gt;
+&lt;section class=&#34;footnotes&#34;&gt;
+&lt;ol class=&#34;footnotes-list&#34;&gt;
+&lt;li id=&#34;fn1&#34; class=&#34;footnote-item&#34;&gt;&lt;p&gt;&lt;a href=&#34;https://dev.mysql.com/doc/refman/8.0/en/performance-schema-users-table.html&#34;&gt;https://dev.mysql.com/doc/refman/8.0/en/performance-schema-users-table.html&lt;/a&gt; &lt;a href=&#34;#fnref1&#34; class=&#34;footnote-backref&#34;&gt;↩︎&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id=&#34;fn2&#34; class=&#34;footnote-item&#34;&gt;&lt;p&gt;&lt;a href=&#34;https://dev.mysql.com/doc/refman/8.0/en/miscellaneous-functions.html#function_values&#34;&gt;https://dev.mysql.com/doc/refman/8.0/en/miscellaneous-functions.html#function_values&lt;/a&gt; &lt;a href=&#34;#fnref2&#34; class=&#34;footnote-backref&#34;&gt;↩︎&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/section&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/mysql/" class="category-badge">
+                                    MySQL
+                                </a>
+                            
+                                <a href="/categories/mysql/mysql-8-0/" class="category-badge">
+                                    MySQL 8.0
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">MySQL 管理运维：这类 VALUES() 已被弃用</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2023-05-21
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                882 words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                3 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <p>在之前的文章 <a href="https://shawnyan.cn/2023/mysql/mysql-8-case-datetime-default/">MySQL 管理运维：妙用 DATETIME 数据类型的默认值</a> 中，介绍了如何巧用自动更新字段时间戳。</p>
+<p>本文将继续扩展该案例，使用 <code>INSERT ... ON DUPLICATE KEY UPDATE</code> 语句来检查记录用户登录情况。</p>
+<h2 id="背景">背景</h2>
+<p>用户登录数据库的时间、次数，执行的语句，都是重要的审计项目。在老版本的 MySQL 中没有记录用户密码最后更改时间和用户最后登录时间，需要依靠外挂工具实现。</p>
+<p>在 MySQL 8 中，系统表 <code>mysql.user</code> 的 <code>password_last_changed</code> 字段记录了密码最后更改时间，但用户最后登录时间仍较难查询。</p>
+<p>好在，performance_schema 库中的 users 表记录了所有用户的总连接次数。</p>
+<blockquote>
+<p>users 表为连接到 MySQL 服务器的每个用户包含一行。对于每个用户名，该表计算当前连接数和总连接数。 表大小在服务器启动时自动调整大小。要显式设置表大小，请在服务器启动时设置Performance_schema_users_size 系统变量。 要禁用用户统计信息，请将此变量设置为 0。<sup class="footnote-ref"><a href="#fn1" id="fnref1">[1]</a></sup></p>
+</blockquote>
+<p>假设我们有个以“天”为单位粒度的需求，要求记录每个用户上次登录数据库是哪一天。</p>
+<h2 id="实现">实现</h2>
+<p>对于该需求，我们可以创建一张新表 myuser，该表记录用户名 user，总连接次数 total_conn，和更新时间 update_at。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">create table myuser(</span><br><span class="line">user char(32) primary key,</span><br><span class="line">total_conn bigint,</span><br><span class="line">update_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP</span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+<p>创建一个事件 myevent，每天零时从 <code>performance_schema.users</code> 抽取数据写入到 myuser 表。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">CREATE EVENT myuser_daily</span><br><span class="line">  ON SCHEDULE EVERY DAY</span><br><span class="line">DO</span><br><span class="line">  xxx</span><br></pre></td></tr></table></figure>
+<h2 id="VALUES">VALUES()</h2>
+<p>这里，将用到 <code>INSERT ... ON DUPLICATE KEY UPDATE</code>，该语句允许你插入一行数据，但如果遇到重复的主键或唯一键约束，它会更新现有的行而不是抛出错误。</p>
+<p>我们可以使用 <code>VALUES()</code> 方法来更新数据：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">INSERT INTO myuser (user,total_conn) VALUES (&#x27;shawnyan&#x27;,1) </span><br><span class="line">ON DUPLICATE KEY UPDATE total_conn = values(total_conn);</span><br></pre></td></tr></table></figure>
+<p>这里的第二个 VALUES() 是一个特殊的函数，它返回 INSERT 语句中对应的列的值。这允许你引用你试图插入的值，而不是表中的现有值。</p>
+<p>但从 MySQL 8.0.20 开始，该函数的用法被废弃，并在未来的版本中移除。继续使用会抛出如下告警：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Warning (Code 1287): &#x27;VALUES function&#x27; is deprecated and will be removed in a future release. Please use an alias (INSERT INTO ... VALUES (...) AS alias) and replace VALUES(col) in the ON DUPLICATE KEY UPDATE clause with alias.col instead</span><br></pre></td></tr></table></figure>
+<p>建议使用别名来代替。<sup class="footnote-ref"><a href="#fn2" id="fnref2">[2]</a></sup></p>
+<p>具体用法：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">insert myuser(user,total_conn) </span><br><span class="line">select USER,TOTAL_CONNECTIONS </span><br><span class="line">from performance_schema.users AS new </span><br><span class="line">where new.user is not null</span><br><span class="line">ON DUPLICATE KEY UPDATE total_conn = new.TOTAL_CONNECTIONS;</span><br></pre></td></tr></table></figure>
+<p>输出：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">(root@localhost) [yandb]&gt; select * from myuser;</span><br><span class="line">+-----------------+------------+---------------------+</span><br><span class="line">| user            | total_conn | update_at           |</span><br><span class="line">+-----------------+------------+---------------------+</span><br><span class="line">| event_scheduler |          1 | 2023-05-21 14:49:30 |</span><br><span class="line">| root            |          7 | 2023-05-21 14:54:57 |</span><br><span class="line">| shawnyan        |          1 | 2023-05-21 14:36:57 |</span><br><span class="line">+-----------------+------------+---------------------+</span><br><span class="line">3 rows in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">(root@localhost) [yandb]&gt; \r</span><br><span class="line">Connection id:    17</span><br><span class="line">Current database: yandb</span><br><span class="line"></span><br><span class="line">(root@localhost) [yandb]&gt; insert myuser(user,total_conn) </span><br><span class="line">    -&gt; select USER,TOTAL_CONNECTIONS </span><br><span class="line">    -&gt; from performance_schema.users AS new </span><br><span class="line">    -&gt; where new.user is not null</span><br><span class="line">    -&gt; ON DUPLICATE KEY UPDATE total_conn = new.TOTAL_CONNECTIONS;</span><br><span class="line">Query OK, 2 rows affected (0.00 sec)</span><br><span class="line">Records: 2  Duplicates: 0  Warnings: 0</span><br><span class="line"></span><br><span class="line">(root@localhost) [yandb]&gt; select * from myuser;</span><br><span class="line">+-----------------+------------+---------------------+</span><br><span class="line">| user            | total_conn | update_at           |</span><br><span class="line">+-----------------+------------+---------------------+</span><br><span class="line">| event_scheduler |          1 | 2023-05-21 14:49:30 |</span><br><span class="line">| root            |          8 | 2023-05-21 14:55:12 |</span><br><span class="line">| shawnyan        |          1 | 2023-05-21 14:36:57 |</span><br><span class="line">+-----------------+------------+---------------------+</span><br><span class="line">3 rows in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<h2 id="小结">小结</h2>
+<p>MySQL 8 的各项特性一直在改进优化，在使用新版本或者升级时，也需要注意一下废弃的特性，及时更新应用程式。</p>
+<img alt="logo.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg" referrerpolicy="no-referrer"/><hr class="footnotes-sep">
+<section class="footnotes">
+<ol class="footnotes-list">
+<li id="fn1" class="footnote-item"><p><a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/8.0/en/performance-schema-users-table.html">https://dev.mysql.com/doc/refman/8.0/en/performance-schema-users-table.html</a> <a href="#fnref1" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn2" class="footnote-item"><p><a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/8.0/en/miscellaneous-functions.html#function_values">https://dev.mysql.com/doc/refman/8.0/en/miscellaneous-functions.html#function_values</a> <a href="#fnref2" class="footnote-backref">↩︎</a></p>
+</li>
+</ol>
+</section>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/oracle/" class="tag-link">
+                                oracle
+                            </a>
+                        
+                            <a href="/tags/mysql/" class="tag-link">
+                                mysql
+                            </a>
+                        
+                            <a href="/tags/mysql-8-0/" class="tag-link">
+                                mysql 8.0
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2023/mysql/mysql-8.0.20-values-deprecated/index.html">https://shawnyan.cn/2023/mysql/mysql-8.0.20-values-deprecated/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2023/mysql/mysql-8-component_validate_password/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">MySQL 管理运维：root 密码还可以这样改</span>
+        </a>
+    
+
+    
+        <a href="/2023/mysql/mysql-8-case-datetime-default/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">MySQL 管理运维：妙用 DATETIME 数据类型的默认值</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%83%8C%E6%99%AF"><span class="toc-text">背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%9E%E7%8E%B0"><span class="toc-text">实现</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#VALUES"><span class="toc-text">VALUES()</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B0%8F%E7%BB%93"><span class="toc-text">小结</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

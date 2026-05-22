@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        IvorySQL 3.1 和 2.3 系统参数变化（下篇） | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;img alt=&#34;ivorysql.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240207-d856ff9f-5e9e-474b-b5c0-0ff3718eb5c8.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;前情提要&#34;&gt;前情提要&lt;/h2&gt;
+&lt;p&gt;在&lt;a href=&#34;https://mp.weixin.qq.com/s/UeX8mz2nFQ6rFvHKQZJoCQ&#34;&gt;上篇文章&lt;/a&gt; 中，我们介绍了 IvorySQL 3.1 和 2.3 系统参数有哪些删减和默认值变更，本文将介绍 23 个新增参数。&lt;/p&gt;
+&lt;h2 id=&#34;新增参数&#34;&gt;新增参数&lt;/h2&gt;
+&lt;p&gt;新增参数一览如下，共 23 个。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;4 个安全相关
+&lt;ol&gt;
+&lt;li&gt;createrole_self_grant&lt;/li&gt;
+&lt;li&gt;gss_accept_delegation&lt;/li&gt;
+&lt;li&gt;reserved_connections&lt;/li&gt;
+&lt;li&gt;scram_iterations&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;li&gt;5 个开发选项
+&lt;ol&gt;
+&lt;li&gt;debug_io_direct&lt;/li&gt;
+&lt;li&gt;debug_logical_replication_streaming&lt;/li&gt;
+&lt;li&gt;debug_parallel_query&lt;/li&gt;
+&lt;li&gt;send_abort_for_crash&lt;/li&gt;
+&lt;li&gt;send_abort_for_kill&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;li&gt;1 个优化器相关
+&lt;ol&gt;
+&lt;li&gt;enable_presorted_aggregate&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;li&gt;1 个语言相关
+&lt;ol&gt;
+&lt;li&gt;icu_validation_level&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;li&gt;1 个复制相关
+&lt;ol&gt;
+&lt;li&gt;max_parallel_apply_workers_per_subscription&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;li&gt;1 个资源相关
+&lt;ol&gt;
+&lt;li&gt;vacuum_buffer_usage_limit&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;li&gt;10 个兼容性相关
+&lt;ol&gt;
+&lt;li&gt;nls_date_format&lt;/li&gt;
+&lt;li&gt;nls_timestamp_format&lt;/li&gt;
+&lt;li&gt;nls_timestamp_tz_format&lt;/li&gt;
+&lt;li&gt;ivorysql.compatible_mode&lt;/li&gt;
+&lt;li&gt;ivorysql.database_mode&lt;/li&gt;
+&lt;li&gt;ivorysql.datetime_ignore_nls_mask&lt;/li&gt;
+&lt;li&gt;ivorysql.enable_emptystring_to_NULL&lt;/li&gt;
+&lt;li&gt;ivorysql.identifier_case_switch&lt;/li&gt;
+&lt;li&gt;ivorysql.listen_addresses&lt;/li&gt;
+&lt;li&gt;ivorysql.port&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;接下来我们逐一介绍。&lt;/p&gt;
+&lt;h3 id=&#34;1-createrole-self-grant&#34;&gt;1. createrole_self_grant&lt;/h3&gt;
+&lt;p&gt;​&lt;br&gt;
+如果具有 &lt;code&gt;CREATEROLE&lt;/code&gt; 但没有 &lt;code&gt;SUPERUSER&lt;/code&gt; 的用户创建角色，并且将其设置为非空值，则新创建的角色将被授予具有指定选项的创建用户。该值必须是设置的、继承的或以逗号分隔的列表。默认值为空字符串，这会禁用该功能。&lt;/p&gt;
+&lt;p&gt;此选项的目的是允许非超级用户的 &lt;code&gt;CREATEROLE&lt;/code&gt; 用户自动继承或自动获得对任何创建的用户设置 &lt;code&gt;ROLE&lt;/code&gt; 的能力。由于 CREATEROLE 用户始终在创建的角色上隐式授予 &lt;code&gt;ADMIN OPTION&lt;/code&gt;，因此该用户始终可以执行 &lt;code&gt;GRANT&lt;/code&gt; 语句来实现与此设置相同的效果。但是，如果自动授予，出于可用性原因，可能会很方便。超级用户自动继承每个角色的权限，并且始终可以为任何角色设置 &lt;code&gt;ROLE&lt;/code&gt;，并且此设置可用于为 &lt;code&gt;CREATEROLE&lt;/code&gt; 用户创建的用户产生类似的行为。&lt;/p&gt;
+&lt;p&gt;用法示例如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;41&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;42&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;43&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;44&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;45&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;46&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;47&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql&lt;span class=&#34;variable&#34;&gt;@shawnyan&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;~&lt;/span&gt;]$ psql&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;psql (&lt;span class=&#34;number&#34;&gt;16.1&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;ShawnYan)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;quot;help&amp;quot; &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; help.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; createrole_self_grant;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; createrole_self_grant&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-----------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;USER&lt;/span&gt; shawnyan_user_1 CREATEROLE NOINHERIT;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; ROLE&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# \c &lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt; shawnyan_user_1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;You &lt;span class=&#34;keyword&#34;&gt;are&lt;/span&gt; now connected &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; database &amp;quot;postgres&amp;quot; &lt;span class=&#34;keyword&#34;&gt;as&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;user&lt;/span&gt; &amp;quot;shawnyan_user_1&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;USER&lt;/span&gt; shawnyan_tenant_1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; ROLE&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt; createrole_self_grant &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;set, inherit&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt; ROLE shawnyan_user_1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; roleid::regrole, &lt;span class=&#34;keyword&#34;&gt;member&lt;/span&gt;::regrole, grantor::regrole, &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; pg_auth_members;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        roleid        &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;     &lt;span class=&#34;keyword&#34;&gt;member&lt;/span&gt;      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; grantor  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  oid  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; roleid &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;member&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; grantor &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; admin_option &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; inherit_option &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; set_option&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;----------------------+-----------------+----------+-------+--------+--------+---------+--------------+----------------+------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; shawnyan_tenant_1    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; shawnyan_user_1 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; ivorysql &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;16398&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;16397&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;16396&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;number&#34;&gt;10&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; t            &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; f              &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; f&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;4&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; \c &lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt; shawnyan_user_1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;You &lt;span class=&#34;keyword&#34;&gt;are&lt;/span&gt; now connected &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; database &amp;quot;ivorysql&amp;quot; &lt;span class=&#34;keyword&#34;&gt;as&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;user&lt;/span&gt; &amp;quot;shawnyan_user_1&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt; createrole_self_grant &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;set, inherit&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;USER&lt;/span&gt; shawnyan_tenant_2;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; ROLE&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; roleid::regrole, &lt;span class=&#34;keyword&#34;&gt;member&lt;/span&gt;::regrole, grantor::regrole, &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; pg_auth_members;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        roleid        &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;     &lt;span class=&#34;keyword&#34;&gt;member&lt;/span&gt;      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;     grantor     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  oid  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; roleid &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;member&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; grantor &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; admin_option &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; inherit_option &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; set_option&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;----------------------+-----------------+-----------------+-------+--------+--------+---------+--------------+----------------+------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; shawnyan_tenant_1    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; shawnyan_user_1 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; ivorysql        &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;16398&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;16397&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;16396&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;number&#34;&gt;10&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; t            &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; f              &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; f&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; shawnyan_tenant_2    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; shawnyan_user_1 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; ivorysql        &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;16400&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;16399&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;16396&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;number&#34;&gt;10&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; t            &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; f              &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; f&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; shawnyan_tenant_2    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; shawnyan_user_1 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; shawnyan_user_1 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;16401&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;16399&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;16396&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;   &lt;span class=&#34;number&#34;&gt;16396&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; f            &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; t              &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; t&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;6&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; createrole_self_grant;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; createrole_self_grant&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-----------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt;, inherit&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;2-gss-accept-delegation&#34;&gt;2. gss_accept_delegation&lt;/h3&gt;
+&lt;p&gt;添加对 Kerberos 凭证委托的支持。&lt;/p&gt;
+&lt;p&gt;这可以通过服务器变量 &lt;code&gt;gss_accept_delegation&lt;/code&gt; 和 libpq 连接参数 &lt;code&gt;gssdelegation&lt;/code&gt; 来启用。&lt;/p&gt;
+&lt;p&gt;默认值为 &lt;code&gt;off&lt;/code&gt;，这意味着不接受来自客户端的凭据。&lt;/p&gt;
+&lt;h3 id=&#34;3-reserved-connections&#34;&gt;3. reserved_connections&lt;/h3&gt;
+&lt;p&gt;确定具有 &lt;code&gt;pg_use_reserved_connections&lt;/code&gt; 角色权限的角色为连接保留的连接“插槽”的数量。当空闲连接槽的数量大于 &lt;code&gt;superuser_reserved_connections&lt;/code&gt;，但小于或等于 &lt;code&gt;superuser_reserved_connections&lt;/code&gt; 和 &lt;code&gt;reserved_connections&lt;/code&gt; 的总和时，新的连接将只被超级用户和具有 &lt;code&gt;pg_use_reserved_connections&lt;/code&gt; 权限的角色接受。如果 &lt;code&gt;superuser_reserved_connections&lt;/code&gt; 或更少的连接槽可用，则只接受超级用户的新连接。&lt;/p&gt;
+&lt;p&gt;缺省值为零连接。该值必须小于 &lt;code&gt;max_connections&lt;/code&gt; 减去 &lt;code&gt;superuser_reserved_connections&lt;/code&gt;。该参数只能在服务器启动时设置。&lt;/p&gt;
+&lt;p&gt;关联参数： &lt;code&gt;superuser_reserved_connections&lt;/code&gt;&lt;br&gt;
+关联角色： &lt;code&gt;pg_use_reserved_connections&lt;/code&gt;&lt;/p&gt;
+&lt;h3 id=&#34;4-scram-iterations&#34;&gt;4. scram_iterations&lt;/h3&gt;
+&lt;p&gt;允许使用服务器变量 &lt;code&gt;scram_iterations&lt;/code&gt; 设置 SCRAM 迭代计数。&lt;br&gt;
+使用 SCRAM-SHA-256 加密密码时要执行的计算迭代次数。&lt;/p&gt;
+&lt;h3 id=&#34;5-debug-io-direct&#34;&gt;5. debug_io_direct&lt;/h3&gt;
+&lt;p&gt;从 IvorySQL 3 开始，新增 3 个用于开发调试的参数，&lt;code&gt;debug_io_direct&lt;/code&gt;，&lt;code&gt;debug_logical_replication_streaming&lt;/code&gt; 和 &lt;code&gt;debug_parallel_query&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;可以设置为空字符串(默认值)以禁用直接 I/O，或者应该使用直接 I/O 的逗号分隔的操作列表。&lt;/p&gt;
+&lt;p&gt;目前，该特性降低了性能，并且仅用于开发人员测试。&lt;/p&gt;
+&lt;h3 id=&#34;6-debug-logical-replication-streaming&#34;&gt;6. debug_logical_replication_streaming&lt;/h3&gt;
+&lt;p&gt;在逻辑复制中，添加服务器变量以控制逻辑解码发布者如何传输更改以及订阅者如何应用更改。&lt;/p&gt;
+&lt;p&gt;默认值为 &lt;code&gt;buffered&lt;/code&gt;，还可选 &lt;code&gt;immediate&lt;/code&gt;。&lt;/p&gt;
+&lt;h3 id=&#34;7-debug-parallel-query&#34;&gt;7. debug_parallel_query&lt;/h3&gt;
+&lt;p&gt;上篇文章提及过，该参数由 &lt;code&gt;force_parallel_mode&lt;/code&gt; 更名而来。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;debug_parallel_query&lt;/code&gt; 允许的值是 &lt;code&gt;off&lt;/code&gt;(仅在期望提高性能时使用并行模式)、&lt;code&gt;on&lt;/code&gt;(对所有被认为是安全的查询强制并行查询)和&lt;code&gt;regress&lt;/code&gt;(类似于 on，但会有例外行为)。&lt;/p&gt;
+&lt;h3 id=&#34;8-send-abort-for-crash&#34;&gt;8. send_abort_for_crash&lt;/h3&gt;
+&lt;p&gt;允许 postmaster 用中止信号终止子进程。&lt;/p&gt;
+&lt;p&gt;这允许为卡住的子进程收集核心转储 (core dump)。这是由 &lt;code&gt;send_abort_for_crash&lt;/code&gt; 和 &lt;code&gt;send_abort_for_kill&lt;/code&gt; 控制的。postmaster 的 &lt;code&gt;-T&lt;/code&gt; 开关现在与设置 &lt;code&gt;send_abort_for_crash&lt;/code&gt; 相同。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql@shawnyan bin]$ postgres --help | grep &amp;#x27;\-T&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  -T                 send SIGABRT to all backend processes if one dies&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;9-send-abort-for-kill&#34;&gt;9. send_abort_for_kill&lt;/h3&gt;
+&lt;p&gt;同上。&lt;/p&gt;
+&lt;p&gt;区别在于 &lt;code&gt;send_abort_for_crash&lt;/code&gt; 发送的是 SIGABRT，而 &lt;code&gt;send_abort_for_kill&lt;/code&gt; 发送的是 SIGKILL。&lt;/p&gt;
+&lt;h3 id=&#34;10-enable-presorted-aggregate&#34;&gt;10. enable_presorted_aggregate&lt;/h3&gt;
+&lt;p&gt;优化器中为具有 &lt;code&gt;ORDER BY&lt;/code&gt; 或 &lt;code&gt;DISTINCT&lt;/code&gt; 的聚合添加使用预排序数据的能力，默认开启，通过该参数可将其关闭。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt; t(id &lt;span class=&#34;type&#34;&gt;int&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# explain &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;built_in&#34;&gt;sum&lt;/span&gt;(id &lt;span class=&#34;keyword&#34;&gt;order&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;by&lt;/span&gt; id) &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                           QUERY PLAN&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-----------------------------------------------------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; Aggregate  (cost&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;192.53&lt;/span&gt;.&lt;span class=&#34;number&#34;&gt;.192&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.54&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; width&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;8&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt;  Sort  (cost&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;179.78&lt;/span&gt;.&lt;span class=&#34;number&#34;&gt;.186&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.16&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;2550&lt;/span&gt; width&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;         Sort Key: id&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;         &lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt;  Seq Scan &lt;span class=&#34;keyword&#34;&gt;on&lt;/span&gt; t  (cost&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;0.00&lt;/span&gt;.&lt;span class=&#34;number&#34;&gt;.35&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.50&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;2550&lt;/span&gt; width&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;4&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; enable_presorted_aggregate &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; off;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# explain &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;built_in&#34;&gt;sum&lt;/span&gt;(id &lt;span class=&#34;keyword&#34;&gt;order&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;by&lt;/span&gt; id) &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                        QUERY PLAN&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-----------------------------------------------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; Aggregate  (cost&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;41.88&lt;/span&gt;.&lt;span class=&#34;number&#34;&gt;.41&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.88&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; width&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;8&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt;  Seq Scan &lt;span class=&#34;keyword&#34;&gt;on&lt;/span&gt; t  (cost&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;0.00&lt;/span&gt;.&lt;span class=&#34;number&#34;&gt;.35&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.50&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;2550&lt;/span&gt; width&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;2&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;11-icu-validation-level&#34;&gt;11. icu_validation_level&lt;/h3&gt;
+&lt;p&gt;当遇到 ICU 语言环境验证问题时，控制使用哪个消息级别来报告问题。&lt;/p&gt;
+&lt;p&gt;如果设置为 &lt;code&gt;DISABLED&lt;/code&gt; 则不报告验证问题。默认值是 &lt;code&gt;WARNING&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;COLLATION&lt;/span&gt; nonsense (provider &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; icu, locale &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;nonsense&amp;#x27;&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WARNING:  ICU locale &amp;quot;nonsense&amp;quot; has &lt;span class=&#34;literal&#34;&gt;unknown&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;language&lt;/span&gt; &amp;quot;nonsense&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;HINT:  &lt;span class=&#34;keyword&#34;&gt;To&lt;/span&gt; disable ICU locale validation, &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; the &lt;span class=&#34;keyword&#34;&gt;parameter&lt;/span&gt; &amp;quot;icu_validation_level&amp;quot; &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; &amp;quot;disabled&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;COLLATION&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; icu_validation_level &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; disabled;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;COLLATION&lt;/span&gt; nonsense1 (provider &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; icu, locale &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;nonsense&amp;#x27;&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;COLLATION&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;12-max-parallel-apply-workers-per-subscription&#34;&gt;12. max_parallel_apply_workers_per_subscription&lt;/h3&gt;
+&lt;p&gt;每次订阅的最大并行应用程序工作者数。该参数通过订阅参数 &lt;code&gt;streaming = parallel&lt;/code&gt; 控制正在进行的事务流的并行度。&lt;/p&gt;
+&lt;p&gt;并行应用程序是从 &lt;code&gt;max_logical_replication_workers&lt;/code&gt; 定义的池中获取的。&lt;/p&gt;
+&lt;p&gt;默认值为 2。此参数只能在 postgresql.conf 文件或服务器命令行中设置。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;alter&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;system&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; max_parallel_apply_workers_per_subscription &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;5&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;ALTER&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SYSTEM&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; max_parallel_apply_workers_per_subscription;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; max_parallel_apply_workers_per_subscription&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;---------------------------------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;number&#34;&gt;5&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;!--
+select * from pg_subscription;
+create subscription s1 connection &#39;dbname=postgres&#39; publication p1 with (streaming = parallel);
+--&gt;
+&lt;h3 id=&#34;13-vacuum-buffer-usage-limit&#34;&gt;13. vacuum_buffer_usage_limit&lt;/h3&gt;
+&lt;p&gt;允许通过 vacuum 和 analyze 来控制共享缓冲区的使用。&lt;/p&gt;
+&lt;p&gt;VACUUM/ANALYZE 选项是 &lt;code&gt;BUFFER_USAGE_LIMIT&lt;/code&gt;, vacuumdb 选项是 &lt;code&gt;--buffer-usage-limit&lt;/code&gt;。默认值由服务器变量 vacuum_buffer_usage_limit 设置，该变量还控制 autovacuum。&lt;/p&gt;
+&lt;p&gt;VACUUM 使用类似于顺序扫描的环，但是，这个环的大小由 vacuum_buffer_usage_limit GUC 控制。脏页不会从环上移除。相反，如果需要，则刷新 WAL 以允许重用缓冲区。在 8.3 引入缓冲区环策略之前，VACUUM 的缓冲区被发送到自由列表，这实际上是一个 1 缓冲区的缓冲区环，导致过多的 WAL 刷新。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# ANALYZE (BUFFER_USAGE_LIMIT &lt;span class=&#34;number&#34;&gt;128&lt;/span&gt;) t;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ANALYZE&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; vacuum_buffer_usage_limit;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; vacuum_buffer_usage_limit&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;---------------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;number&#34;&gt;256&lt;/span&gt;kB&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;14-nls-date-format&#34;&gt;14. nls_date_format&lt;/h3&gt;
+&lt;p&gt;接下来的 10 个参数是 IvorySQL 为兼容 Oracle 而增设参数，在 IvorySQL 官方文档中也有相关描述。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;nls_date_format&lt;/code&gt; 表示默认的日期格式。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; nls_date_format;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;[ RECORD &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; ]&lt;span class=&#34;comment&#34;&gt;---+-----------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;nls_date_format &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; YYYY&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;MM&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;DD&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;15-nls-timestamp-format&#34;&gt;15. nls_timestamp_format&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;nls_timestamp_format&lt;/code&gt; 表示带时间的日期格式。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; nls_timestamp_format;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;[ RECORD &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; ]&lt;span class=&#34;comment&#34;&gt;--------+--------------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;nls_timestamp_format &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; YYYY&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;MM&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;DD HH24:MI:SS.FF6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;16-nls-timestamp-tz-format&#34;&gt;16. nls_timestamp_tz_format&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;nls_timestamp_tz_format&lt;/code&gt; 表示带时区的日期格式。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; nls_timestamp_tz_format;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;[ RECORD &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; ]&lt;span class=&#34;comment&#34;&gt;-----------+----------------------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;nls_timestamp_tz_format &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; YYYY&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;MM&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;DD HH24:MI:SS.FF6 TZH:TZM&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;17-ivorysql-compatible-mode&#34;&gt;17. ivorysql.compatible_mode&lt;/h3&gt;
+&lt;p&gt;表示当前兼容 pg 还是 oracle。&lt;/p&gt;
+&lt;p&gt;普通连接到默认端口 5432，显示为 pg 模式。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql&lt;span class=&#34;variable&#34;&gt;@shawnyan&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;~&lt;/span&gt;]$ psql &lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;x&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;psql (&lt;span class=&#34;number&#34;&gt;16.1&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;ShawnYan)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;quot;help&amp;quot; &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; help.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; ivorysql.compatible_mode;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;[ RECORD &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; ]&lt;span class=&#34;comment&#34;&gt;------------+---&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql.compatible_mode &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; pg&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;连接到兼容 oracle 的端口 1521，显示为 oracle 模式。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql&lt;span class=&#34;variable&#34;&gt;@shawnyan&lt;/span&gt; bin]$ psql &lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;p1521 &lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;x&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;psql (&lt;span class=&#34;number&#34;&gt;16.1&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;ShawnYan)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;quot;help&amp;quot; &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; help.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; ivorysql.compatible_mode;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;[ RECORD &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; ]&lt;span class=&#34;comment&#34;&gt;------------+-------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql.compatible_mode &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; oracle&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;18-ivorysql-database-mode&#34;&gt;18. ivorysql.database_mode&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;ivorysql.database_mode&lt;/code&gt; 表示当前数据库的模式（pg/oracle）。&lt;/p&gt;
+&lt;h3 id=&#34;19-ivorysql-datetime-ignore-nls-mask&#34;&gt;19. ivorysql.datetime_ignore_nls_mask&lt;/h3&gt;
+&lt;p&gt;表示日期格式是否会受 NLS 参数影响，默认为 0。&lt;/p&gt;
+&lt;!--
+ivorysql=# show nls_date_format;
+-[ RECORD 1 ]---+-----------
+nls_date_format | YYYY-MM-DD
+
+ivorysql=# select sys.current_date();
+-[ RECORD 1 ]+-----------
+current_date | 2024-02-07
+
+ivorysql=# show ivorysql.datetime_ignore_nls_mask;
+-[ RECORD 1 ]---------------------+--
+ivorysql.datetime_ignore_nls_mask | 0
+
+ivorysql=# set nls_date_format = &#39;YY/MM/DD&#39;;
+SET
+ivorysql=# select sys.current_date();
+-[ RECORD 1 ]+---------
+current_date | 24/02/07
+
+ivorysql=# set ivorysql.datetime_ignore_nls_mask = 1;
+SET
+ivorysql=# select sys.current_date();
+-[ RECORD 1 ]+---------
+current_date | 24/02/07
+
+ivorysql=#
+ivorysql=# select sys.current_date();
+-[ RECORD 1 ]+---------
+current_date | 24/02/07
+--&gt;
+&lt;h3 id=&#34;20-ivorysql-enable-emptystring-to-NULL&#34;&gt;20. ivorysql.enable_emptystring_to_NULL&lt;/h3&gt;
+&lt;p&gt;取值为（on/off），该变量为 on 时，会将插入的空字符串转成 NULL 值存储。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;41&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;42&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;43&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; name,setting &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; pg_settings &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; name &lt;span class=&#34;keyword&#34;&gt;like&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;ivory%&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                name                 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;   setting&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-------------------------------------+-------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.compatible_mode            &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; oracle&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.database_mode              &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; oracle&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.datetime_ignore_nls_mask   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.enable_emptystring_to_NULL &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;on&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.identifier_case_switch     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; interchange&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.listen_addresses           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; localhost&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.port                       &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1521&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;7&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt; tnull (id &lt;span class=&#34;type&#34;&gt;int&lt;/span&gt;, sal &lt;span class=&#34;type&#34;&gt;varchar&lt;/span&gt;(&lt;span class=&#34;number&#34;&gt;20&lt;/span&gt;));&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;insert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;into&lt;/span&gt; tnull &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;INSERT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; tnull &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; sal &lt;span class=&#34;keyword&#34;&gt;is&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;null&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; id &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; sal&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;----+-----&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; ivorysql.enable_emptystring_to_NULL &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; tnull &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; sal &lt;span class=&#34;keyword&#34;&gt;is&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;null&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; id &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; sal&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;----+-----&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;insert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;into&lt;/span&gt; tnull &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;INSERT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; tnull &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; sal &lt;span class=&#34;keyword&#34;&gt;is&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;null&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; id &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; sal&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;----+-----&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; tnull &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; sal &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; id &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; sal&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;----+-----&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;21-ivorysql-identifier-case-switch&#34;&gt;21. ivorysql.identifier_case_switch&lt;/h3&gt;
+&lt;p&gt;用于设置字符大小写转换模式。&lt;/p&gt;
+&lt;p&gt;可设置为 &lt;code&gt;NORMAL&lt;/code&gt;，&lt;code&gt;LOWERCASE&lt;/code&gt;，&lt;code&gt;INTERCHANGE&lt;/code&gt;。&lt;/p&gt;
+&lt;h3 id=&#34;22-ivorysql-listen-addresses&#34;&gt;22. ivorysql.listen_addresses&lt;/h3&gt;
+&lt;p&gt;表示兼容模式监听的地址。&lt;/p&gt;
+&lt;p&gt;默认监听本地，可以设置为 &lt;code&gt;*&lt;/code&gt;，允许所有地址访问。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; ivorysql.listen_addresses;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;[ RECORD &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; ]&lt;span class=&#34;comment&#34;&gt;-------------+--&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql.listen_addresses &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;23-ivorysql-port&#34;&gt;23. ivorysql.port&lt;/h3&gt;
+&lt;p&gt;表示兼容模式下连接的端口号，这里默认为兼容 oracle 模式，端口号为 1521。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; ivorysql.port;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;[ RECORD &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; ]&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql.port &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1521&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;IvorySQL 3 的新增参数提供了更多的配置和调优选项。通过了解这些参数，我们可以适当调整安全策略。&lt;/p&gt;
+&lt;p&gt;在未来的工作中，建议持续关注 IvorySQL 的更新和优化，以便更好地利用这些新功能。&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="IvorySQL 3.1 和 2.3 系统参数变化（下篇）">
+    <meta property="og:url" content="https://shawnyan.cn/2024/ivorysql/ivorysql-3.1-sys-vars-2/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;img alt=&#34;ivorysql.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240207-d856ff9f-5e9e-474b-b5c0-0ff3718eb5c8.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;前情提要&#34;&gt;前情提要&lt;/h2&gt;
+&lt;p&gt;在&lt;a href=&#34;https://mp.weixin.qq.com/s/UeX8mz2nFQ6rFvHKQZJoCQ&#34;&gt;上篇文章&lt;/a&gt; 中，我们介绍了 IvorySQL 3.1 和 2.3 系统参数有哪些删减和默认值变更，本文将介绍 23 个新增参数。&lt;/p&gt;
+&lt;h2 id=&#34;新增参数&#34;&gt;新增参数&lt;/h2&gt;
+&lt;p&gt;新增参数一览如下，共 23 个。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;4 个安全相关
+&lt;ol&gt;
+&lt;li&gt;createrole_self_grant&lt;/li&gt;
+&lt;li&gt;gss_accept_delegation&lt;/li&gt;
+&lt;li&gt;reserved_connections&lt;/li&gt;
+&lt;li&gt;scram_iterations&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;li&gt;5 个开发选项
+&lt;ol&gt;
+&lt;li&gt;debug_io_direct&lt;/li&gt;
+&lt;li&gt;debug_logical_replication_streaming&lt;/li&gt;
+&lt;li&gt;debug_parallel_query&lt;/li&gt;
+&lt;li&gt;send_abort_for_crash&lt;/li&gt;
+&lt;li&gt;send_abort_for_kill&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;li&gt;1 个优化器相关
+&lt;ol&gt;
+&lt;li&gt;enable_presorted_aggregate&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;li&gt;1 个语言相关
+&lt;ol&gt;
+&lt;li&gt;icu_validation_level&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;li&gt;1 个复制相关
+&lt;ol&gt;
+&lt;li&gt;max_parallel_apply_workers_per_subscription&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;li&gt;1 个资源相关
+&lt;ol&gt;
+&lt;li&gt;vacuum_buffer_usage_limit&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;li&gt;10 个兼容性相关
+&lt;ol&gt;
+&lt;li&gt;nls_date_format&lt;/li&gt;
+&lt;li&gt;nls_timestamp_format&lt;/li&gt;
+&lt;li&gt;nls_timestamp_tz_format&lt;/li&gt;
+&lt;li&gt;ivorysql.compatible_mode&lt;/li&gt;
+&lt;li&gt;ivorysql.database_mode&lt;/li&gt;
+&lt;li&gt;ivorysql.datetime_ignore_nls_mask&lt;/li&gt;
+&lt;li&gt;ivorysql.enable_emptystring_to_NULL&lt;/li&gt;
+&lt;li&gt;ivorysql.identifier_case_switch&lt;/li&gt;
+&lt;li&gt;ivorysql.listen_addresses&lt;/li&gt;
+&lt;li&gt;ivorysql.port&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;接下来我们逐一介绍。&lt;/p&gt;
+&lt;h3 id=&#34;1-createrole-self-grant&#34;&gt;1. createrole_self_grant&lt;/h3&gt;
+&lt;p&gt;​&lt;br&gt;
+如果具有 &lt;code&gt;CREATEROLE&lt;/code&gt; 但没有 &lt;code&gt;SUPERUSER&lt;/code&gt; 的用户创建角色，并且将其设置为非空值，则新创建的角色将被授予具有指定选项的创建用户。该值必须是设置的、继承的或以逗号分隔的列表。默认值为空字符串，这会禁用该功能。&lt;/p&gt;
+&lt;p&gt;此选项的目的是允许非超级用户的 &lt;code&gt;CREATEROLE&lt;/code&gt; 用户自动继承或自动获得对任何创建的用户设置 &lt;code&gt;ROLE&lt;/code&gt; 的能力。由于 CREATEROLE 用户始终在创建的角色上隐式授予 &lt;code&gt;ADMIN OPTION&lt;/code&gt;，因此该用户始终可以执行 &lt;code&gt;GRANT&lt;/code&gt; 语句来实现与此设置相同的效果。但是，如果自动授予，出于可用性原因，可能会很方便。超级用户自动继承每个角色的权限，并且始终可以为任何角色设置 &lt;code&gt;ROLE&lt;/code&gt;，并且此设置可用于为 &lt;code&gt;CREATEROLE&lt;/code&gt; 用户创建的用户产生类似的行为。&lt;/p&gt;
+&lt;p&gt;用法示例如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;41&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;42&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;43&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;44&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;45&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;46&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;47&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql&lt;span class=&#34;variable&#34;&gt;@shawnyan&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;~&lt;/span&gt;]$ psql&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;psql (&lt;span class=&#34;number&#34;&gt;16.1&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;ShawnYan)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;quot;help&amp;quot; &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; help.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; createrole_self_grant;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; createrole_self_grant&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-----------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;USER&lt;/span&gt; shawnyan_user_1 CREATEROLE NOINHERIT;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; ROLE&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# \c &lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt; shawnyan_user_1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;You &lt;span class=&#34;keyword&#34;&gt;are&lt;/span&gt; now connected &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; database &amp;quot;postgres&amp;quot; &lt;span class=&#34;keyword&#34;&gt;as&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;user&lt;/span&gt; &amp;quot;shawnyan_user_1&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;USER&lt;/span&gt; shawnyan_tenant_1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; ROLE&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt; createrole_self_grant &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;set, inherit&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt; ROLE shawnyan_user_1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; roleid::regrole, &lt;span class=&#34;keyword&#34;&gt;member&lt;/span&gt;::regrole, grantor::regrole, &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; pg_auth_members;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        roleid        &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;     &lt;span class=&#34;keyword&#34;&gt;member&lt;/span&gt;      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; grantor  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  oid  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; roleid &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;member&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; grantor &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; admin_option &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; inherit_option &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; set_option&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;----------------------+-----------------+----------+-------+--------+--------+---------+--------------+----------------+------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; shawnyan_tenant_1    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; shawnyan_user_1 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; ivorysql &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;16398&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;16397&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;16396&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;number&#34;&gt;10&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; t            &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; f              &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; f&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;4&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; \c &lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt; shawnyan_user_1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;You &lt;span class=&#34;keyword&#34;&gt;are&lt;/span&gt; now connected &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; database &amp;quot;ivorysql&amp;quot; &lt;span class=&#34;keyword&#34;&gt;as&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;user&lt;/span&gt; &amp;quot;shawnyan_user_1&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt; createrole_self_grant &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;set, inherit&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;USER&lt;/span&gt; shawnyan_tenant_2;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; ROLE&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; roleid::regrole, &lt;span class=&#34;keyword&#34;&gt;member&lt;/span&gt;::regrole, grantor::regrole, &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; pg_auth_members;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        roleid        &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;     &lt;span class=&#34;keyword&#34;&gt;member&lt;/span&gt;      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;     grantor     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  oid  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; roleid &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;member&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; grantor &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; admin_option &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; inherit_option &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; set_option&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;----------------------+-----------------+-----------------+-------+--------+--------+---------+--------------+----------------+------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; shawnyan_tenant_1    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; shawnyan_user_1 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; ivorysql        &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;16398&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;16397&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;16396&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;number&#34;&gt;10&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; t            &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; f              &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; f&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; shawnyan_tenant_2    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; shawnyan_user_1 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; ivorysql        &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;16400&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;16399&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;16396&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;number&#34;&gt;10&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; t            &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; f              &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; f&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; shawnyan_tenant_2    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; shawnyan_user_1 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; shawnyan_user_1 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;16401&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;16399&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;16396&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;   &lt;span class=&#34;number&#34;&gt;16396&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; f            &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; t              &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; t&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;6&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; createrole_self_grant;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; createrole_self_grant&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-----------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt;, inherit&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;2-gss-accept-delegation&#34;&gt;2. gss_accept_delegation&lt;/h3&gt;
+&lt;p&gt;添加对 Kerberos 凭证委托的支持。&lt;/p&gt;
+&lt;p&gt;这可以通过服务器变量 &lt;code&gt;gss_accept_delegation&lt;/code&gt; 和 libpq 连接参数 &lt;code&gt;gssdelegation&lt;/code&gt; 来启用。&lt;/p&gt;
+&lt;p&gt;默认值为 &lt;code&gt;off&lt;/code&gt;，这意味着不接受来自客户端的凭据。&lt;/p&gt;
+&lt;h3 id=&#34;3-reserved-connections&#34;&gt;3. reserved_connections&lt;/h3&gt;
+&lt;p&gt;确定具有 &lt;code&gt;pg_use_reserved_connections&lt;/code&gt; 角色权限的角色为连接保留的连接“插槽”的数量。当空闲连接槽的数量大于 &lt;code&gt;superuser_reserved_connections&lt;/code&gt;，但小于或等于 &lt;code&gt;superuser_reserved_connections&lt;/code&gt; 和 &lt;code&gt;reserved_connections&lt;/code&gt; 的总和时，新的连接将只被超级用户和具有 &lt;code&gt;pg_use_reserved_connections&lt;/code&gt; 权限的角色接受。如果 &lt;code&gt;superuser_reserved_connections&lt;/code&gt; 或更少的连接槽可用，则只接受超级用户的新连接。&lt;/p&gt;
+&lt;p&gt;缺省值为零连接。该值必须小于 &lt;code&gt;max_connections&lt;/code&gt; 减去 &lt;code&gt;superuser_reserved_connections&lt;/code&gt;。该参数只能在服务器启动时设置。&lt;/p&gt;
+&lt;p&gt;关联参数： &lt;code&gt;superuser_reserved_connections&lt;/code&gt;&lt;br&gt;
+关联角色： &lt;code&gt;pg_use_reserved_connections&lt;/code&gt;&lt;/p&gt;
+&lt;h3 id=&#34;4-scram-iterations&#34;&gt;4. scram_iterations&lt;/h3&gt;
+&lt;p&gt;允许使用服务器变量 &lt;code&gt;scram_iterations&lt;/code&gt; 设置 SCRAM 迭代计数。&lt;br&gt;
+使用 SCRAM-SHA-256 加密密码时要执行的计算迭代次数。&lt;/p&gt;
+&lt;h3 id=&#34;5-debug-io-direct&#34;&gt;5. debug_io_direct&lt;/h3&gt;
+&lt;p&gt;从 IvorySQL 3 开始，新增 3 个用于开发调试的参数，&lt;code&gt;debug_io_direct&lt;/code&gt;，&lt;code&gt;debug_logical_replication_streaming&lt;/code&gt; 和 &lt;code&gt;debug_parallel_query&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;可以设置为空字符串(默认值)以禁用直接 I/O，或者应该使用直接 I/O 的逗号分隔的操作列表。&lt;/p&gt;
+&lt;p&gt;目前，该特性降低了性能，并且仅用于开发人员测试。&lt;/p&gt;
+&lt;h3 id=&#34;6-debug-logical-replication-streaming&#34;&gt;6. debug_logical_replication_streaming&lt;/h3&gt;
+&lt;p&gt;在逻辑复制中，添加服务器变量以控制逻辑解码发布者如何传输更改以及订阅者如何应用更改。&lt;/p&gt;
+&lt;p&gt;默认值为 &lt;code&gt;buffered&lt;/code&gt;，还可选 &lt;code&gt;immediate&lt;/code&gt;。&lt;/p&gt;
+&lt;h3 id=&#34;7-debug-parallel-query&#34;&gt;7. debug_parallel_query&lt;/h3&gt;
+&lt;p&gt;上篇文章提及过，该参数由 &lt;code&gt;force_parallel_mode&lt;/code&gt; 更名而来。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;debug_parallel_query&lt;/code&gt; 允许的值是 &lt;code&gt;off&lt;/code&gt;(仅在期望提高性能时使用并行模式)、&lt;code&gt;on&lt;/code&gt;(对所有被认为是安全的查询强制并行查询)和&lt;code&gt;regress&lt;/code&gt;(类似于 on，但会有例外行为)。&lt;/p&gt;
+&lt;h3 id=&#34;8-send-abort-for-crash&#34;&gt;8. send_abort_for_crash&lt;/h3&gt;
+&lt;p&gt;允许 postmaster 用中止信号终止子进程。&lt;/p&gt;
+&lt;p&gt;这允许为卡住的子进程收集核心转储 (core dump)。这是由 &lt;code&gt;send_abort_for_crash&lt;/code&gt; 和 &lt;code&gt;send_abort_for_kill&lt;/code&gt; 控制的。postmaster 的 &lt;code&gt;-T&lt;/code&gt; 开关现在与设置 &lt;code&gt;send_abort_for_crash&lt;/code&gt; 相同。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql@shawnyan bin]$ postgres --help | grep &amp;#x27;\-T&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  -T                 send SIGABRT to all backend processes if one dies&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;9-send-abort-for-kill&#34;&gt;9. send_abort_for_kill&lt;/h3&gt;
+&lt;p&gt;同上。&lt;/p&gt;
+&lt;p&gt;区别在于 &lt;code&gt;send_abort_for_crash&lt;/code&gt; 发送的是 SIGABRT，而 &lt;code&gt;send_abort_for_kill&lt;/code&gt; 发送的是 SIGKILL。&lt;/p&gt;
+&lt;h3 id=&#34;10-enable-presorted-aggregate&#34;&gt;10. enable_presorted_aggregate&lt;/h3&gt;
+&lt;p&gt;优化器中为具有 &lt;code&gt;ORDER BY&lt;/code&gt; 或 &lt;code&gt;DISTINCT&lt;/code&gt; 的聚合添加使用预排序数据的能力，默认开启，通过该参数可将其关闭。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt; t(id &lt;span class=&#34;type&#34;&gt;int&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# explain &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;built_in&#34;&gt;sum&lt;/span&gt;(id &lt;span class=&#34;keyword&#34;&gt;order&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;by&lt;/span&gt; id) &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                           QUERY PLAN&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-----------------------------------------------------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; Aggregate  (cost&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;192.53&lt;/span&gt;.&lt;span class=&#34;number&#34;&gt;.192&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.54&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; width&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;8&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt;  Sort  (cost&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;179.78&lt;/span&gt;.&lt;span class=&#34;number&#34;&gt;.186&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.16&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;2550&lt;/span&gt; width&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;         Sort Key: id&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;         &lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt;  Seq Scan &lt;span class=&#34;keyword&#34;&gt;on&lt;/span&gt; t  (cost&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;0.00&lt;/span&gt;.&lt;span class=&#34;number&#34;&gt;.35&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.50&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;2550&lt;/span&gt; width&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;4&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; enable_presorted_aggregate &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; off;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# explain &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;built_in&#34;&gt;sum&lt;/span&gt;(id &lt;span class=&#34;keyword&#34;&gt;order&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;by&lt;/span&gt; id) &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                        QUERY PLAN&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-----------------------------------------------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; Aggregate  (cost&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;41.88&lt;/span&gt;.&lt;span class=&#34;number&#34;&gt;.41&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.88&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; width&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;8&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt;  Seq Scan &lt;span class=&#34;keyword&#34;&gt;on&lt;/span&gt; t  (cost&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;0.00&lt;/span&gt;.&lt;span class=&#34;number&#34;&gt;.35&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.50&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;2550&lt;/span&gt; width&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;2&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;11-icu-validation-level&#34;&gt;11. icu_validation_level&lt;/h3&gt;
+&lt;p&gt;当遇到 ICU 语言环境验证问题时，控制使用哪个消息级别来报告问题。&lt;/p&gt;
+&lt;p&gt;如果设置为 &lt;code&gt;DISABLED&lt;/code&gt; 则不报告验证问题。默认值是 &lt;code&gt;WARNING&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;COLLATION&lt;/span&gt; nonsense (provider &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; icu, locale &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;nonsense&amp;#x27;&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WARNING:  ICU locale &amp;quot;nonsense&amp;quot; has &lt;span class=&#34;literal&#34;&gt;unknown&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;language&lt;/span&gt; &amp;quot;nonsense&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;HINT:  &lt;span class=&#34;keyword&#34;&gt;To&lt;/span&gt; disable ICU locale validation, &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; the &lt;span class=&#34;keyword&#34;&gt;parameter&lt;/span&gt; &amp;quot;icu_validation_level&amp;quot; &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; &amp;quot;disabled&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;COLLATION&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; icu_validation_level &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; disabled;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;COLLATION&lt;/span&gt; nonsense1 (provider &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; icu, locale &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;nonsense&amp;#x27;&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;COLLATION&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;12-max-parallel-apply-workers-per-subscription&#34;&gt;12. max_parallel_apply_workers_per_subscription&lt;/h3&gt;
+&lt;p&gt;每次订阅的最大并行应用程序工作者数。该参数通过订阅参数 &lt;code&gt;streaming = parallel&lt;/code&gt; 控制正在进行的事务流的并行度。&lt;/p&gt;
+&lt;p&gt;并行应用程序是从 &lt;code&gt;max_logical_replication_workers&lt;/code&gt; 定义的池中获取的。&lt;/p&gt;
+&lt;p&gt;默认值为 2。此参数只能在 postgresql.conf 文件或服务器命令行中设置。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;alter&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;system&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; max_parallel_apply_workers_per_subscription &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;5&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;ALTER&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SYSTEM&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; max_parallel_apply_workers_per_subscription;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; max_parallel_apply_workers_per_subscription&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;---------------------------------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;number&#34;&gt;5&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;!--
+select * from pg_subscription;
+create subscription s1 connection &#39;dbname=postgres&#39; publication p1 with (streaming = parallel);
+--&gt;
+&lt;h3 id=&#34;13-vacuum-buffer-usage-limit&#34;&gt;13. vacuum_buffer_usage_limit&lt;/h3&gt;
+&lt;p&gt;允许通过 vacuum 和 analyze 来控制共享缓冲区的使用。&lt;/p&gt;
+&lt;p&gt;VACUUM/ANALYZE 选项是 &lt;code&gt;BUFFER_USAGE_LIMIT&lt;/code&gt;, vacuumdb 选项是 &lt;code&gt;--buffer-usage-limit&lt;/code&gt;。默认值由服务器变量 vacuum_buffer_usage_limit 设置，该变量还控制 autovacuum。&lt;/p&gt;
+&lt;p&gt;VACUUM 使用类似于顺序扫描的环，但是，这个环的大小由 vacuum_buffer_usage_limit GUC 控制。脏页不会从环上移除。相反，如果需要，则刷新 WAL 以允许重用缓冲区。在 8.3 引入缓冲区环策略之前，VACUUM 的缓冲区被发送到自由列表，这实际上是一个 1 缓冲区的缓冲区环，导致过多的 WAL 刷新。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# ANALYZE (BUFFER_USAGE_LIMIT &lt;span class=&#34;number&#34;&gt;128&lt;/span&gt;) t;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ANALYZE&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; vacuum_buffer_usage_limit;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; vacuum_buffer_usage_limit&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;---------------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;number&#34;&gt;256&lt;/span&gt;kB&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;14-nls-date-format&#34;&gt;14. nls_date_format&lt;/h3&gt;
+&lt;p&gt;接下来的 10 个参数是 IvorySQL 为兼容 Oracle 而增设参数，在 IvorySQL 官方文档中也有相关描述。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;nls_date_format&lt;/code&gt; 表示默认的日期格式。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; nls_date_format;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;[ RECORD &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; ]&lt;span class=&#34;comment&#34;&gt;---+-----------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;nls_date_format &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; YYYY&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;MM&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;DD&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;15-nls-timestamp-format&#34;&gt;15. nls_timestamp_format&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;nls_timestamp_format&lt;/code&gt; 表示带时间的日期格式。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; nls_timestamp_format;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;[ RECORD &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; ]&lt;span class=&#34;comment&#34;&gt;--------+--------------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;nls_timestamp_format &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; YYYY&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;MM&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;DD HH24:MI:SS.FF6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;16-nls-timestamp-tz-format&#34;&gt;16. nls_timestamp_tz_format&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;nls_timestamp_tz_format&lt;/code&gt; 表示带时区的日期格式。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; nls_timestamp_tz_format;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;[ RECORD &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; ]&lt;span class=&#34;comment&#34;&gt;-----------+----------------------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;nls_timestamp_tz_format &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; YYYY&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;MM&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;DD HH24:MI:SS.FF6 TZH:TZM&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;17-ivorysql-compatible-mode&#34;&gt;17. ivorysql.compatible_mode&lt;/h3&gt;
+&lt;p&gt;表示当前兼容 pg 还是 oracle。&lt;/p&gt;
+&lt;p&gt;普通连接到默认端口 5432，显示为 pg 模式。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql&lt;span class=&#34;variable&#34;&gt;@shawnyan&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;~&lt;/span&gt;]$ psql &lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;x&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;psql (&lt;span class=&#34;number&#34;&gt;16.1&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;ShawnYan)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;quot;help&amp;quot; &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; help.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; ivorysql.compatible_mode;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;[ RECORD &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; ]&lt;span class=&#34;comment&#34;&gt;------------+---&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql.compatible_mode &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; pg&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;连接到兼容 oracle 的端口 1521，显示为 oracle 模式。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[ivorysql&lt;span class=&#34;variable&#34;&gt;@shawnyan&lt;/span&gt; bin]$ psql &lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;p1521 &lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;x&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;psql (&lt;span class=&#34;number&#34;&gt;16.1&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;ShawnYan)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;quot;help&amp;quot; &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; help.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; ivorysql.compatible_mode;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;[ RECORD &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; ]&lt;span class=&#34;comment&#34;&gt;------------+-------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql.compatible_mode &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; oracle&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;18-ivorysql-database-mode&#34;&gt;18. ivorysql.database_mode&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;ivorysql.database_mode&lt;/code&gt; 表示当前数据库的模式（pg/oracle）。&lt;/p&gt;
+&lt;h3 id=&#34;19-ivorysql-datetime-ignore-nls-mask&#34;&gt;19. ivorysql.datetime_ignore_nls_mask&lt;/h3&gt;
+&lt;p&gt;表示日期格式是否会受 NLS 参数影响，默认为 0。&lt;/p&gt;
+&lt;!--
+ivorysql=# show nls_date_format;
+-[ RECORD 1 ]---+-----------
+nls_date_format | YYYY-MM-DD
+
+ivorysql=# select sys.current_date();
+-[ RECORD 1 ]+-----------
+current_date | 2024-02-07
+
+ivorysql=# show ivorysql.datetime_ignore_nls_mask;
+-[ RECORD 1 ]---------------------+--
+ivorysql.datetime_ignore_nls_mask | 0
+
+ivorysql=# set nls_date_format = &#39;YY/MM/DD&#39;;
+SET
+ivorysql=# select sys.current_date();
+-[ RECORD 1 ]+---------
+current_date | 24/02/07
+
+ivorysql=# set ivorysql.datetime_ignore_nls_mask = 1;
+SET
+ivorysql=# select sys.current_date();
+-[ RECORD 1 ]+---------
+current_date | 24/02/07
+
+ivorysql=#
+ivorysql=# select sys.current_date();
+-[ RECORD 1 ]+---------
+current_date | 24/02/07
+--&gt;
+&lt;h3 id=&#34;20-ivorysql-enable-emptystring-to-NULL&#34;&gt;20. ivorysql.enable_emptystring_to_NULL&lt;/h3&gt;
+&lt;p&gt;取值为（on/off），该变量为 on 时，会将插入的空字符串转成 NULL 值存储。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;41&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;42&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;43&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; name,setting &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; pg_settings &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; name &lt;span class=&#34;keyword&#34;&gt;like&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;ivory%&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                name                 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;   setting&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-------------------------------------+-------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.compatible_mode            &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; oracle&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.database_mode              &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; oracle&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.datetime_ignore_nls_mask   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.enable_emptystring_to_NULL &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;on&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.identifier_case_switch     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; interchange&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.listen_addresses           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; localhost&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ivorysql.port                       &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1521&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;7&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt; tnull (id &lt;span class=&#34;type&#34;&gt;int&lt;/span&gt;, sal &lt;span class=&#34;type&#34;&gt;varchar&lt;/span&gt;(&lt;span class=&#34;number&#34;&gt;20&lt;/span&gt;));&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;insert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;into&lt;/span&gt; tnull &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;INSERT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; tnull &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; sal &lt;span class=&#34;keyword&#34;&gt;is&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;null&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; id &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; sal&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;----+-----&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; ivorysql.enable_emptystring_to_NULL &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; tnull &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; sal &lt;span class=&#34;keyword&#34;&gt;is&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;null&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; id &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; sal&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;----+-----&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;insert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;into&lt;/span&gt; tnull &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;INSERT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; tnull &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; sal &lt;span class=&#34;keyword&#34;&gt;is&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;null&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; id &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; sal&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;----+-----&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; tnull &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; sal &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; id &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; sal&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;----+-----&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;21-ivorysql-identifier-case-switch&#34;&gt;21. ivorysql.identifier_case_switch&lt;/h3&gt;
+&lt;p&gt;用于设置字符大小写转换模式。&lt;/p&gt;
+&lt;p&gt;可设置为 &lt;code&gt;NORMAL&lt;/code&gt;，&lt;code&gt;LOWERCASE&lt;/code&gt;，&lt;code&gt;INTERCHANGE&lt;/code&gt;。&lt;/p&gt;
+&lt;h3 id=&#34;22-ivorysql-listen-addresses&#34;&gt;22. ivorysql.listen_addresses&lt;/h3&gt;
+&lt;p&gt;表示兼容模式监听的地址。&lt;/p&gt;
+&lt;p&gt;默认监听本地，可以设置为 &lt;code&gt;*&lt;/code&gt;，允许所有地址访问。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; ivorysql.listen_addresses;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;[ RECORD &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; ]&lt;span class=&#34;comment&#34;&gt;-------------+--&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql.listen_addresses &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;23-ivorysql-port&#34;&gt;23. ivorysql.port&lt;/h3&gt;
+&lt;p&gt;表示兼容模式下连接的端口号，这里默认为兼容 oracle 模式，端口号为 1521。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ivorysql&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; ivorysql.port;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;[ RECORD &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; ]&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ivorysql.port &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1521&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;IvorySQL 3 的新增参数提供了更多的配置和调优选项。通过了解这些参数，我们可以适当调整安全策略。&lt;/p&gt;
+&lt;p&gt;在未来的工作中，建议持续关注 IvorySQL 的更新和优化，以便更好地利用这些新功能。&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/ivorysql/" class="category-badge">
+                                    IvorySQL
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">IvorySQL 3.1 和 2.3 系统参数变化（下篇）</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2024-02-07
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                2.2k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                9 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <img alt="ivorysql.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20240207-d856ff9f-5e9e-474b-b5c0-0ff3718eb5c8.png" referrerpolicy="no-referrer"/>
+<h2 id="前情提要">前情提要</h2>
+<p>在<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/UeX8mz2nFQ6rFvHKQZJoCQ">上篇文章</a> 中，我们介绍了 IvorySQL 3.1 和 2.3 系统参数有哪些删减和默认值变更，本文将介绍 23 个新增参数。</p>
+<h2 id="新增参数">新增参数</h2>
+<p>新增参数一览如下，共 23 个。</p>
+<ul>
+<li>4 个安全相关
+<ol>
+<li>createrole_self_grant</li>
+<li>gss_accept_delegation</li>
+<li>reserved_connections</li>
+<li>scram_iterations</li>
+</ol>
+</li>
+<li>5 个开发选项
+<ol>
+<li>debug_io_direct</li>
+<li>debug_logical_replication_streaming</li>
+<li>debug_parallel_query</li>
+<li>send_abort_for_crash</li>
+<li>send_abort_for_kill</li>
+</ol>
+</li>
+<li>1 个优化器相关
+<ol>
+<li>enable_presorted_aggregate</li>
+</ol>
+</li>
+<li>1 个语言相关
+<ol>
+<li>icu_validation_level</li>
+</ol>
+</li>
+<li>1 个复制相关
+<ol>
+<li>max_parallel_apply_workers_per_subscription</li>
+</ol>
+</li>
+<li>1 个资源相关
+<ol>
+<li>vacuum_buffer_usage_limit</li>
+</ol>
+</li>
+<li>10 个兼容性相关
+<ol>
+<li>nls_date_format</li>
+<li>nls_timestamp_format</li>
+<li>nls_timestamp_tz_format</li>
+<li>ivorysql.compatible_mode</li>
+<li>ivorysql.database_mode</li>
+<li>ivorysql.datetime_ignore_nls_mask</li>
+<li>ivorysql.enable_emptystring_to_NULL</li>
+<li>ivorysql.identifier_case_switch</li>
+<li>ivorysql.listen_addresses</li>
+<li>ivorysql.port</li>
+</ol>
+</li>
+</ul>
+<p>接下来我们逐一介绍。</p>
+<h3 id="1-createrole-self-grant">1. createrole_self_grant</h3>
+<p>​<br>
+如果具有 <code>CREATEROLE</code> 但没有 <code>SUPERUSER</code> 的用户创建角色，并且将其设置为非空值，则新创建的角色将被授予具有指定选项的创建用户。该值必须是设置的、继承的或以逗号分隔的列表。默认值为空字符串，这会禁用该功能。</p>
+<p>此选项的目的是允许非超级用户的 <code>CREATEROLE</code> 用户自动继承或自动获得对任何创建的用户设置 <code>ROLE</code> 的能力。由于 CREATEROLE 用户始终在创建的角色上隐式授予 <code>ADMIN OPTION</code>，因此该用户始终可以执行 <code>GRANT</code> 语句来实现与此设置相同的效果。但是，如果自动授予，出于可用性原因，可能会很方便。超级用户自动继承每个角色的权限，并且始终可以为任何角色设置 <code>ROLE</code>，并且此设置可用于为 <code>CREATEROLE</code> 用户创建的用户产生类似的行为。</p>
+<p>用法示例如下：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line">[ivorysql<span class="variable">@shawnyan</span> <span class="operator">~</span>]$ psql</span><br><span class="line">psql (<span class="number">16.1</span><span class="operator">-</span>ShawnYan)</span><br><span class="line">Type &quot;help&quot; <span class="keyword">for</span> help.</span><br><span class="line"></span><br><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">show</span> createrole_self_grant;</span><br><span class="line"> createrole_self_grant</span><br><span class="line"><span class="comment">-----------------------</span></span><br><span class="line"></span><br><span class="line">(<span class="number">1</span> <span class="type">row</span>)</span><br><span class="line"></span><br><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">CREATE</span> <span class="keyword">USER</span> shawnyan_user_1 CREATEROLE NOINHERIT;</span><br><span class="line"><span class="keyword">CREATE</span> ROLE</span><br><span class="line">ivorysql<span class="operator">=</span># \c <span class="operator">-</span> shawnyan_user_1</span><br><span class="line">You <span class="keyword">are</span> now connected <span class="keyword">to</span> database &quot;postgres&quot; <span class="keyword">as</span> <span class="keyword">user</span> &quot;shawnyan_user_1&quot;.</span><br><span class="line">ivorysql<span class="operator">=</span><span class="operator">&gt;</span> <span class="keyword">CREATE</span> <span class="keyword">USER</span> shawnyan_tenant_1;</span><br><span class="line"><span class="keyword">CREATE</span> ROLE</span><br><span class="line">ivorysql<span class="operator">=</span><span class="operator">&gt;</span> <span class="keyword">SET</span> createrole_self_grant <span class="operator">=</span> <span class="string">&#x27;set, inherit&#x27;</span>;</span><br><span class="line"><span class="keyword">SET</span></span><br><span class="line">ivorysql<span class="operator">=</span><span class="operator">&gt;</span> <span class="keyword">SET</span> ROLE shawnyan_user_1;</span><br><span class="line"><span class="keyword">SET</span></span><br><span class="line">ivorysql<span class="operator">=</span><span class="operator">&gt;</span> <span class="keyword">SELECT</span> roleid::regrole, <span class="keyword">member</span>::regrole, grantor::regrole, <span class="operator">*</span> <span class="keyword">FROM</span> pg_auth_members;</span><br><span class="line">        roleid        <span class="operator">|</span>     <span class="keyword">member</span>      <span class="operator">|</span> grantor  <span class="operator">|</span>  oid  <span class="operator">|</span> roleid <span class="operator">|</span> <span class="keyword">member</span> <span class="operator">|</span> grantor <span class="operator">|</span> admin_option <span class="operator">|</span> inherit_option <span class="operator">|</span> set_option</span><br><span class="line"><span class="comment">----------------------+-----------------+----------+-------+--------+--------+---------+--------------+----------------+------------</span></span><br><span class="line">...</span><br><span class="line"> shawnyan_tenant_1    <span class="operator">|</span> shawnyan_user_1 <span class="operator">|</span> ivorysql <span class="operator">|</span> <span class="number">16398</span> <span class="operator">|</span>  <span class="number">16397</span> <span class="operator">|</span>  <span class="number">16396</span> <span class="operator">|</span>      <span class="number">10</span> <span class="operator">|</span> t            <span class="operator">|</span> f              <span class="operator">|</span> f</span><br><span class="line">(<span class="number">4</span> <span class="keyword">rows</span>)</span><br><span class="line"></span><br><span class="line">ivorysql<span class="operator">=</span><span class="operator">&gt;</span> \c <span class="operator">-</span> shawnyan_user_1</span><br><span class="line">You <span class="keyword">are</span> now connected <span class="keyword">to</span> database &quot;ivorysql&quot; <span class="keyword">as</span> <span class="keyword">user</span> &quot;shawnyan_user_1&quot;.</span><br><span class="line">ivorysql<span class="operator">=</span><span class="operator">&gt;</span> <span class="keyword">SET</span> createrole_self_grant <span class="operator">=</span> <span class="string">&#x27;set, inherit&#x27;</span>;</span><br><span class="line"><span class="keyword">SET</span></span><br><span class="line">ivorysql<span class="operator">=</span><span class="operator">&gt;</span> <span class="keyword">CREATE</span> <span class="keyword">USER</span> shawnyan_tenant_2;</span><br><span class="line"><span class="keyword">CREATE</span> ROLE</span><br><span class="line">ivorysql<span class="operator">=</span><span class="operator">&gt;</span> <span class="keyword">SELECT</span> roleid::regrole, <span class="keyword">member</span>::regrole, grantor::regrole, <span class="operator">*</span> <span class="keyword">FROM</span> pg_auth_members;</span><br><span class="line">        roleid        <span class="operator">|</span>     <span class="keyword">member</span>      <span class="operator">|</span>     grantor     <span class="operator">|</span>  oid  <span class="operator">|</span> roleid <span class="operator">|</span> <span class="keyword">member</span> <span class="operator">|</span> grantor <span class="operator">|</span> admin_option <span class="operator">|</span> inherit_option <span class="operator">|</span> set_option</span><br><span class="line"><span class="comment">----------------------+-----------------+-----------------+-------+--------+--------+---------+--------------+----------------+------------</span></span><br><span class="line">...</span><br><span class="line"> shawnyan_tenant_1    <span class="operator">|</span> shawnyan_user_1 <span class="operator">|</span> ivorysql        <span class="operator">|</span> <span class="number">16398</span> <span class="operator">|</span>  <span class="number">16397</span> <span class="operator">|</span>  <span class="number">16396</span> <span class="operator">|</span>      <span class="number">10</span> <span class="operator">|</span> t            <span class="operator">|</span> f              <span class="operator">|</span> f</span><br><span class="line"> shawnyan_tenant_2    <span class="operator">|</span> shawnyan_user_1 <span class="operator">|</span> ivorysql        <span class="operator">|</span> <span class="number">16400</span> <span class="operator">|</span>  <span class="number">16399</span> <span class="operator">|</span>  <span class="number">16396</span> <span class="operator">|</span>      <span class="number">10</span> <span class="operator">|</span> t            <span class="operator">|</span> f              <span class="operator">|</span> f</span><br><span class="line"> shawnyan_tenant_2    <span class="operator">|</span> shawnyan_user_1 <span class="operator">|</span> shawnyan_user_1 <span class="operator">|</span> <span class="number">16401</span> <span class="operator">|</span>  <span class="number">16399</span> <span class="operator">|</span>  <span class="number">16396</span> <span class="operator">|</span>   <span class="number">16396</span> <span class="operator">|</span> f            <span class="operator">|</span> t              <span class="operator">|</span> t</span><br><span class="line">(<span class="number">6</span> <span class="keyword">rows</span>)</span><br><span class="line"></span><br><span class="line">ivorysql<span class="operator">=</span><span class="operator">&gt;</span> <span class="keyword">show</span> createrole_self_grant;</span><br><span class="line"> createrole_self_grant</span><br><span class="line"><span class="comment">-----------------------</span></span><br><span class="line"> <span class="keyword">set</span>, inherit</span><br><span class="line">(<span class="number">1</span> <span class="type">row</span>)</span><br></pre></td></tr></table></figure>
+<h3 id="2-gss-accept-delegation">2. gss_accept_delegation</h3>
+<p>添加对 Kerberos 凭证委托的支持。</p>
+<p>这可以通过服务器变量 <code>gss_accept_delegation</code> 和 libpq 连接参数 <code>gssdelegation</code> 来启用。</p>
+<p>默认值为 <code>off</code>，这意味着不接受来自客户端的凭据。</p>
+<h3 id="3-reserved-connections">3. reserved_connections</h3>
+<p>确定具有 <code>pg_use_reserved_connections</code> 角色权限的角色为连接保留的连接“插槽”的数量。当空闲连接槽的数量大于 <code>superuser_reserved_connections</code>，但小于或等于 <code>superuser_reserved_connections</code> 和 <code>reserved_connections</code> 的总和时，新的连接将只被超级用户和具有 <code>pg_use_reserved_connections</code> 权限的角色接受。如果 <code>superuser_reserved_connections</code> 或更少的连接槽可用，则只接受超级用户的新连接。</p>
+<p>缺省值为零连接。该值必须小于 <code>max_connections</code> 减去 <code>superuser_reserved_connections</code>。该参数只能在服务器启动时设置。</p>
+<p>关联参数： <code>superuser_reserved_connections</code><br>
+关联角色： <code>pg_use_reserved_connections</code></p>
+<h3 id="4-scram-iterations">4. scram_iterations</h3>
+<p>允许使用服务器变量 <code>scram_iterations</code> 设置 SCRAM 迭代计数。<br>
+使用 SCRAM-SHA-256 加密密码时要执行的计算迭代次数。</p>
+<h3 id="5-debug-io-direct">5. debug_io_direct</h3>
+<p>从 IvorySQL 3 开始，新增 3 个用于开发调试的参数，<code>debug_io_direct</code>，<code>debug_logical_replication_streaming</code> 和 <code>debug_parallel_query</code>。</p>
+<p>可以设置为空字符串(默认值)以禁用直接 I/O，或者应该使用直接 I/O 的逗号分隔的操作列表。</p>
+<p>目前，该特性降低了性能，并且仅用于开发人员测试。</p>
+<h3 id="6-debug-logical-replication-streaming">6. debug_logical_replication_streaming</h3>
+<p>在逻辑复制中，添加服务器变量以控制逻辑解码发布者如何传输更改以及订阅者如何应用更改。</p>
+<p>默认值为 <code>buffered</code>，还可选 <code>immediate</code>。</p>
+<h3 id="7-debug-parallel-query">7. debug_parallel_query</h3>
+<p>上篇文章提及过，该参数由 <code>force_parallel_mode</code> 更名而来。</p>
+<p><code>debug_parallel_query</code> 允许的值是 <code>off</code>(仅在期望提高性能时使用并行模式)、<code>on</code>(对所有被认为是安全的查询强制并行查询)和<code>regress</code>(类似于 on，但会有例外行为)。</p>
+<h3 id="8-send-abort-for-crash">8. send_abort_for_crash</h3>
+<p>允许 postmaster 用中止信号终止子进程。</p>
+<p>这允许为卡住的子进程收集核心转储 (core dump)。这是由 <code>send_abort_for_crash</code> 和 <code>send_abort_for_kill</code> 控制的。postmaster 的 <code>-T</code> 开关现在与设置 <code>send_abort_for_crash</code> 相同。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[ivorysql@shawnyan bin]$ postgres --help | grep &#x27;\-T&#x27;</span><br><span class="line">  -T                 send SIGABRT to all backend processes if one dies</span><br></pre></td></tr></table></figure>
+<h3 id="9-send-abort-for-kill">9. send_abort_for_kill</h3>
+<p>同上。</p>
+<p>区别在于 <code>send_abort_for_crash</code> 发送的是 SIGABRT，而 <code>send_abort_for_kill</code> 发送的是 SIGKILL。</p>
+<h3 id="10-enable-presorted-aggregate">10. enable_presorted_aggregate</h3>
+<p>优化器中为具有 <code>ORDER BY</code> 或 <code>DISTINCT</code> 的聚合添加使用预排序数据的能力，默认开启，通过该参数可将其关闭。</p>
+<p>示例：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">create</span> <span class="keyword">table</span> t(id <span class="type">int</span>);</span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span></span><br><span class="line"></span><br><span class="line">ivorysql<span class="operator">=</span># explain <span class="keyword">select</span> <span class="built_in">sum</span>(id <span class="keyword">order</span> <span class="keyword">by</span> id) <span class="keyword">from</span> t;</span><br><span class="line">                           QUERY PLAN</span><br><span class="line"><span class="comment">-----------------------------------------------------------------</span></span><br><span class="line"> Aggregate  (cost<span class="operator">=</span><span class="number">192.53</span>.<span class="number">.192</span><span class="number">.54</span> <span class="keyword">rows</span><span class="operator">=</span><span class="number">1</span> width<span class="operator">=</span><span class="number">8</span>)</span><br><span class="line">   <span class="operator">-</span><span class="operator">&gt;</span>  Sort  (cost<span class="operator">=</span><span class="number">179.78</span>.<span class="number">.186</span><span class="number">.16</span> <span class="keyword">rows</span><span class="operator">=</span><span class="number">2550</span> width<span class="operator">=</span><span class="number">4</span>)</span><br><span class="line">         Sort Key: id</span><br><span class="line">         <span class="operator">-</span><span class="operator">&gt;</span>  Seq Scan <span class="keyword">on</span> t  (cost<span class="operator">=</span><span class="number">0.00</span>.<span class="number">.35</span><span class="number">.50</span> <span class="keyword">rows</span><span class="operator">=</span><span class="number">2550</span> width<span class="operator">=</span><span class="number">4</span>)</span><br><span class="line">(<span class="number">4</span> <span class="keyword">rows</span>)</span><br><span class="line"></span><br><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">set</span> enable_presorted_aggregate <span class="keyword">to</span> off;</span><br><span class="line"><span class="keyword">SET</span></span><br><span class="line">ivorysql<span class="operator">=</span># explain <span class="keyword">select</span> <span class="built_in">sum</span>(id <span class="keyword">order</span> <span class="keyword">by</span> id) <span class="keyword">from</span> t;</span><br><span class="line">                        QUERY PLAN</span><br><span class="line"><span class="comment">-----------------------------------------------------------</span></span><br><span class="line"> Aggregate  (cost<span class="operator">=</span><span class="number">41.88</span>.<span class="number">.41</span><span class="number">.88</span> <span class="keyword">rows</span><span class="operator">=</span><span class="number">1</span> width<span class="operator">=</span><span class="number">8</span>)</span><br><span class="line">   <span class="operator">-</span><span class="operator">&gt;</span>  Seq Scan <span class="keyword">on</span> t  (cost<span class="operator">=</span><span class="number">0.00</span>.<span class="number">.35</span><span class="number">.50</span> <span class="keyword">rows</span><span class="operator">=</span><span class="number">2550</span> width<span class="operator">=</span><span class="number">4</span>)</span><br><span class="line">(<span class="number">2</span> <span class="keyword">rows</span>)</span><br></pre></td></tr></table></figure>
+<h3 id="11-icu-validation-level">11. icu_validation_level</h3>
+<p>当遇到 ICU 语言环境验证问题时，控制使用哪个消息级别来报告问题。</p>
+<p>如果设置为 <code>DISABLED</code> 则不报告验证问题。默认值是 <code>WARNING</code>。</p>
+<p>示例：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">CREATE</span> <span class="keyword">COLLATION</span> nonsense (provider <span class="operator">=</span> icu, locale <span class="operator">=</span> <span class="string">&#x27;nonsense&#x27;</span>);</span><br><span class="line">WARNING:  ICU locale &quot;nonsense&quot; has <span class="literal">unknown</span> <span class="keyword">language</span> &quot;nonsense&quot;</span><br><span class="line">HINT:  <span class="keyword">To</span> disable ICU locale validation, <span class="keyword">set</span> the <span class="keyword">parameter</span> &quot;icu_validation_level&quot; <span class="keyword">to</span> &quot;disabled&quot;.</span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">COLLATION</span></span><br><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">set</span> icu_validation_level <span class="keyword">to</span> disabled;</span><br><span class="line"><span class="keyword">SET</span></span><br><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">CREATE</span> <span class="keyword">COLLATION</span> nonsense1 (provider <span class="operator">=</span> icu, locale <span class="operator">=</span> <span class="string">&#x27;nonsense&#x27;</span>);</span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">COLLATION</span></span><br></pre></td></tr></table></figure>
+<h3 id="12-max-parallel-apply-workers-per-subscription">12. max_parallel_apply_workers_per_subscription</h3>
+<p>每次订阅的最大并行应用程序工作者数。该参数通过订阅参数 <code>streaming = parallel</code> 控制正在进行的事务流的并行度。</p>
+<p>并行应用程序是从 <code>max_logical_replication_workers</code> 定义的池中获取的。</p>
+<p>默认值为 2。此参数只能在 postgresql.conf 文件或服务器命令行中设置。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">alter</span> <span class="keyword">system</span> <span class="keyword">set</span> max_parallel_apply_workers_per_subscription <span class="operator">=</span> <span class="number">5</span>;</span><br><span class="line"><span class="keyword">ALTER</span> <span class="keyword">SYSTEM</span></span><br><span class="line">...</span><br><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">show</span> max_parallel_apply_workers_per_subscription;</span><br><span class="line"> max_parallel_apply_workers_per_subscription</span><br><span class="line"><span class="comment">---------------------------------------------</span></span><br><span class="line"> <span class="number">5</span></span><br><span class="line">(<span class="number">1</span> <span class="type">row</span>)</span><br></pre></td></tr></table></figure>
+<!--
+select * from pg_subscription;
+create subscription s1 connection 'dbname=postgres' publication p1 with (streaming = parallel);
+-->
+<h3 id="13-vacuum-buffer-usage-limit">13. vacuum_buffer_usage_limit</h3>
+<p>允许通过 vacuum 和 analyze 来控制共享缓冲区的使用。</p>
+<p>VACUUM/ANALYZE 选项是 <code>BUFFER_USAGE_LIMIT</code>, vacuumdb 选项是 <code>--buffer-usage-limit</code>。默认值由服务器变量 vacuum_buffer_usage_limit 设置，该变量还控制 autovacuum。</p>
+<p>VACUUM 使用类似于顺序扫描的环，但是，这个环的大小由 vacuum_buffer_usage_limit GUC 控制。脏页不会从环上移除。相反，如果需要，则刷新 WAL 以允许重用缓冲区。在 8.3 引入缓冲区环策略之前，VACUUM 的缓冲区被发送到自由列表，这实际上是一个 1 缓冲区的缓冲区环，导致过多的 WAL 刷新。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">ivorysql<span class="operator">=</span># ANALYZE (BUFFER_USAGE_LIMIT <span class="number">128</span>) t;</span><br><span class="line">ANALYZE</span><br><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">show</span> vacuum_buffer_usage_limit;</span><br><span class="line"> vacuum_buffer_usage_limit</span><br><span class="line"><span class="comment">---------------------------</span></span><br><span class="line"> <span class="number">256</span>kB</span><br><span class="line">(<span class="number">1</span> <span class="type">row</span>)</span><br></pre></td></tr></table></figure>
+<h3 id="14-nls-date-format">14. nls_date_format</h3>
+<p>接下来的 10 个参数是 IvorySQL 为兼容 Oracle 而增设参数，在 IvorySQL 官方文档中也有相关描述。</p>
+<p><code>nls_date_format</code> 表示默认的日期格式。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">show</span> nls_date_format;</span><br><span class="line"><span class="operator">-</span>[ RECORD <span class="number">1</span> ]<span class="comment">---+-----------</span></span><br><span class="line">nls_date_format <span class="operator">|</span> YYYY<span class="operator">-</span>MM<span class="operator">-</span>DD</span><br></pre></td></tr></table></figure>
+<h3 id="15-nls-timestamp-format">15. nls_timestamp_format</h3>
+<p><code>nls_timestamp_format</code> 表示带时间的日期格式。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">show</span> nls_timestamp_format;</span><br><span class="line"><span class="operator">-</span>[ RECORD <span class="number">1</span> ]<span class="comment">--------+--------------------------</span></span><br><span class="line">nls_timestamp_format <span class="operator">|</span> YYYY<span class="operator">-</span>MM<span class="operator">-</span>DD HH24:MI:SS.FF6</span><br></pre></td></tr></table></figure>
+<h3 id="16-nls-timestamp-tz-format">16. nls_timestamp_tz_format</h3>
+<p><code>nls_timestamp_tz_format</code> 表示带时区的日期格式。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">show</span> nls_timestamp_tz_format;</span><br><span class="line"><span class="operator">-</span>[ RECORD <span class="number">1</span> ]<span class="comment">-----------+----------------------------------</span></span><br><span class="line">nls_timestamp_tz_format <span class="operator">|</span> YYYY<span class="operator">-</span>MM<span class="operator">-</span>DD HH24:MI:SS.FF6 TZH:TZM</span><br></pre></td></tr></table></figure>
+<h3 id="17-ivorysql-compatible-mode">17. ivorysql.compatible_mode</h3>
+<p>表示当前兼容 pg 还是 oracle。</p>
+<p>普通连接到默认端口 5432，显示为 pg 模式。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">[ivorysql<span class="variable">@shawnyan</span> <span class="operator">~</span>]$ psql <span class="operator">-</span>x</span><br><span class="line">psql (<span class="number">16.1</span><span class="operator">-</span>ShawnYan)</span><br><span class="line">Type &quot;help&quot; <span class="keyword">for</span> help.</span><br><span class="line"></span><br><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">show</span> ivorysql.compatible_mode;</span><br><span class="line"><span class="operator">-</span>[ RECORD <span class="number">1</span> ]<span class="comment">------------+---</span></span><br><span class="line">ivorysql.compatible_mode <span class="operator">|</span> pg</span><br></pre></td></tr></table></figure>
+<p>连接到兼容 oracle 的端口 1521，显示为 oracle 模式。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">[ivorysql<span class="variable">@shawnyan</span> bin]$ psql <span class="operator">-</span>p1521 <span class="operator">-</span>x</span><br><span class="line">psql (<span class="number">16.1</span><span class="operator">-</span>ShawnYan)</span><br><span class="line">Type &quot;help&quot; <span class="keyword">for</span> help.</span><br><span class="line"></span><br><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">show</span> ivorysql.compatible_mode;</span><br><span class="line"><span class="operator">-</span>[ RECORD <span class="number">1</span> ]<span class="comment">------------+-------</span></span><br><span class="line">ivorysql.compatible_mode <span class="operator">|</span> oracle</span><br></pre></td></tr></table></figure>
+<h3 id="18-ivorysql-database-mode">18. ivorysql.database_mode</h3>
+<p><code>ivorysql.database_mode</code> 表示当前数据库的模式（pg/oracle）。</p>
+<h3 id="19-ivorysql-datetime-ignore-nls-mask">19. ivorysql.datetime_ignore_nls_mask</h3>
+<p>表示日期格式是否会受 NLS 参数影响，默认为 0。</p>
+<!--
+ivorysql=# show nls_date_format;
+-[ RECORD 1 ]---+-----------
+nls_date_format | YYYY-MM-DD
+
+ivorysql=# select sys.current_date();
+-[ RECORD 1 ]+-----------
+current_date | 2024-02-07
+
+ivorysql=# show ivorysql.datetime_ignore_nls_mask;
+-[ RECORD 1 ]---------------------+--
+ivorysql.datetime_ignore_nls_mask | 0
+
+ivorysql=# set nls_date_format = 'YY/MM/DD';
+SET
+ivorysql=# select sys.current_date();
+-[ RECORD 1 ]+---------
+current_date | 24/02/07
+
+ivorysql=# set ivorysql.datetime_ignore_nls_mask = 1;
+SET
+ivorysql=# select sys.current_date();
+-[ RECORD 1 ]+---------
+current_date | 24/02/07
+
+ivorysql=#
+ivorysql=# select sys.current_date();
+-[ RECORD 1 ]+---------
+current_date | 24/02/07
+-->
+<h3 id="20-ivorysql-enable-emptystring-to-NULL">20. ivorysql.enable_emptystring_to_NULL</h3>
+<p>取值为（on/off），该变量为 on 时，会将插入的空字符串转成 NULL 值存储。</p>
+<p>示例：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">select</span> name,setting <span class="keyword">from</span> pg_settings <span class="keyword">where</span> name <span class="keyword">like</span> <span class="string">&#x27;ivory%&#x27;</span>;</span><br><span class="line">                name                 <span class="operator">|</span>   setting</span><br><span class="line"><span class="comment">-------------------------------------+-------------</span></span><br><span class="line"> ivorysql.compatible_mode            <span class="operator">|</span> oracle</span><br><span class="line"> ivorysql.database_mode              <span class="operator">|</span> oracle</span><br><span class="line"> ivorysql.datetime_ignore_nls_mask   <span class="operator">|</span> <span class="number">0</span></span><br><span class="line"> ivorysql.enable_emptystring_to_NULL <span class="operator">|</span> <span class="keyword">on</span></span><br><span class="line"> ivorysql.identifier_case_switch     <span class="operator">|</span> interchange</span><br><span class="line"> ivorysql.listen_addresses           <span class="operator">|</span> localhost</span><br><span class="line"> ivorysql.port                       <span class="operator">|</span> <span class="number">1521</span></span><br><span class="line">(<span class="number">7</span> <span class="keyword">rows</span>)</span><br><span class="line">...</span><br><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">create</span> <span class="keyword">table</span> tnull (id <span class="type">int</span>, sal <span class="type">varchar</span>(<span class="number">20</span>));</span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span></span><br><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">insert</span> <span class="keyword">into</span> tnull <span class="keyword">select</span> <span class="number">1</span>,<span class="string">&#x27;&#x27;</span>;</span><br><span class="line"><span class="keyword">INSERT</span> <span class="number">0</span> <span class="number">1</span></span><br><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> tnull <span class="keyword">where</span> sal <span class="keyword">is</span> <span class="keyword">null</span>;</span><br><span class="line"> id <span class="operator">|</span> sal</span><br><span class="line"><span class="comment">----+-----</span></span><br><span class="line">  <span class="number">1</span> <span class="operator">|</span></span><br><span class="line">(<span class="number">1</span> <span class="type">row</span>)</span><br><span class="line"></span><br><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">set</span> ivorysql.enable_emptystring_to_NULL <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line"><span class="keyword">SET</span></span><br><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> tnull <span class="keyword">where</span> sal <span class="keyword">is</span> <span class="keyword">null</span>;</span><br><span class="line"> id <span class="operator">|</span> sal</span><br><span class="line"><span class="comment">----+-----</span></span><br><span class="line">  <span class="number">1</span> <span class="operator">|</span></span><br><span class="line">(<span class="number">1</span> <span class="type">row</span>)</span><br><span class="line"></span><br><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">insert</span> <span class="keyword">into</span> tnull <span class="keyword">select</span> <span class="number">3</span>,<span class="string">&#x27;&#x27;</span>;</span><br><span class="line"><span class="keyword">INSERT</span> <span class="number">0</span> <span class="number">1</span></span><br><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> tnull <span class="keyword">where</span> sal <span class="keyword">is</span> <span class="keyword">null</span>;</span><br><span class="line"> id <span class="operator">|</span> sal</span><br><span class="line"><span class="comment">----+-----</span></span><br><span class="line">  <span class="number">1</span> <span class="operator">|</span></span><br><span class="line">(<span class="number">1</span> <span class="type">row</span>)</span><br><span class="line"></span><br><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> tnull <span class="keyword">where</span> sal <span class="operator">=</span> <span class="string">&#x27;&#x27;</span>;</span><br><span class="line"> id <span class="operator">|</span> sal</span><br><span class="line"><span class="comment">----+-----</span></span><br><span class="line">  <span class="number">3</span> <span class="operator">|</span></span><br><span class="line">(<span class="number">1</span> <span class="type">row</span>)</span><br></pre></td></tr></table></figure>
+<h3 id="21-ivorysql-identifier-case-switch">21. ivorysql.identifier_case_switch</h3>
+<p>用于设置字符大小写转换模式。</p>
+<p>可设置为 <code>NORMAL</code>，<code>LOWERCASE</code>，<code>INTERCHANGE</code>。</p>
+<h3 id="22-ivorysql-listen-addresses">22. ivorysql.listen_addresses</h3>
+<p>表示兼容模式监听的地址。</p>
+<p>默认监听本地，可以设置为 <code>*</code>，允许所有地址访问。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">show</span> ivorysql.listen_addresses;</span><br><span class="line"><span class="operator">-</span>[ RECORD <span class="number">1</span> ]<span class="comment">-------------+--</span></span><br><span class="line">ivorysql.listen_addresses <span class="operator">|</span> <span class="operator">*</span></span><br></pre></td></tr></table></figure>
+<h3 id="23-ivorysql-port">23. ivorysql.port</h3>
+<p>表示兼容模式下连接的端口号，这里默认为兼容 oracle 模式，端口号为 1521。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">ivorysql<span class="operator">=</span># <span class="keyword">show</span> ivorysql.port;</span><br><span class="line"><span class="operator">-</span>[ RECORD <span class="number">1</span> ]<span class="operator">-</span><span class="operator">+</span><span class="comment">-----</span></span><br><span class="line">ivorysql.port <span class="operator">|</span> <span class="number">1521</span></span><br></pre></td></tr></table></figure>
+<h2 id="总结">总结</h2>
+<p>IvorySQL 3 的新增参数提供了更多的配置和调优选项。通过了解这些参数，我们可以适当调整安全策略。</p>
+<p>在未来的工作中，建议持续关注 IvorySQL 的更新和优化，以便更好地利用这些新功能。</p>
+<img alt="logo.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg" referrerpolicy="no-referrer"/>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/ivorysql/" class="tag-link">
+                                ivorysql
+                            </a>
+                        
+                            <a href="/tags/highgo/" class="tag-link">
+                                highgo
+                            </a>
+                        
+                            <a href="/tags/postgresql/" class="tag-link">
+                                postgresql
+                            </a>
+                        
+                            <a href="/tags/postgresql-16/" class="tag-link">
+                                postgresql 16
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2024/ivorysql/ivorysql-3.1-sys-vars-2/index.html">https://shawnyan.cn/2024/ivorysql/ivorysql-3.1-sys-vars-2/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2024/mysql/mysql-connector-j-8-x/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">如何选择适合的 MySQL Connector/J 版本</span>
+        </a>
+    
+
+    
+        <a href="/2024/ivorysql/ivorysql-3.1-sys-vars-1/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">IvorySQL 3.1 和 2.3 系统参数变化（上篇）</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E6%83%85%E6%8F%90%E8%A6%81"><span class="toc-text">前情提要</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%96%B0%E5%A2%9E%E5%8F%82%E6%95%B0"><span class="toc-text">新增参数</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-createrole-self-grant"><span class="toc-text">1. createrole_self_grant</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-gss-accept-delegation"><span class="toc-text">2. gss_accept_delegation</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-reserved-connections"><span class="toc-text">3. reserved_connections</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-scram-iterations"><span class="toc-text">4. scram_iterations</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-debug-io-direct"><span class="toc-text">5. debug_io_direct</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-debug-logical-replication-streaming"><span class="toc-text">6. debug_logical_replication_streaming</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#7-debug-parallel-query"><span class="toc-text">7. debug_parallel_query</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#8-send-abort-for-crash"><span class="toc-text">8. send_abort_for_crash</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#9-send-abort-for-kill"><span class="toc-text">9. send_abort_for_kill</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#10-enable-presorted-aggregate"><span class="toc-text">10. enable_presorted_aggregate</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#11-icu-validation-level"><span class="toc-text">11. icu_validation_level</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#12-max-parallel-apply-workers-per-subscription"><span class="toc-text">12. max_parallel_apply_workers_per_subscription</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#13-vacuum-buffer-usage-limit"><span class="toc-text">13. vacuum_buffer_usage_limit</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#14-nls-date-format"><span class="toc-text">14. nls_date_format</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#15-nls-timestamp-format"><span class="toc-text">15. nls_timestamp_format</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#16-nls-timestamp-tz-format"><span class="toc-text">16. nls_timestamp_tz_format</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#17-ivorysql-compatible-mode"><span class="toc-text">17. ivorysql.compatible_mode</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#18-ivorysql-database-mode"><span class="toc-text">18. ivorysql.database_mode</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#19-ivorysql-datetime-ignore-nls-mask"><span class="toc-text">19. ivorysql.datetime_ignore_nls_mask</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#20-ivorysql-enable-emptystring-to-NULL"><span class="toc-text">20. ivorysql.enable_emptystring_to_NULL</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#21-ivorysql-identifier-case-switch"><span class="toc-text">21. ivorysql.identifier_case_switch</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#22-ivorysql-listen-addresses"><span class="toc-text">22. ivorysql.listen_addresses</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#23-ivorysql-port"><span class="toc-text">23. ivorysql.port</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

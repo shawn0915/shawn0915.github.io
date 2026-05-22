@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        [译] 开始 Elastic (ELK) Stack 之旅 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;blockquote&gt;
+&lt;p&gt;原文链接：&lt;a href=&#34;https://blog.dbi-services.com/elastic-elk-stack-get-started/&#34;&gt;https://blog.dbi-services.com/elastic-elk-stack-get-started/&lt;/a&gt;&lt;br&gt;
+原文作者：David Diab&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;ELK Stack及其他组件最近被统称为Elastic Stack，这是三个开源项目的组合:Elasticsearch、Logstash和Kibana。所有这些项目都是由&lt;a href=&#34;https://www.elastic.co/&#34;&gt;Elastic&lt;/a&gt;开发的，用于高效地存储、分析、发现和可视化数据！两年多以来，我有机会在Kubernetes上安装、配置和维护Elastic Stack。今天，我想和您分享Elastic Stack的快速启程之旅。&lt;/p&gt;
+&lt;h2 id=&#34;Elastic-Stack-组件&#34;&gt;Elastic Stack 组件&lt;/h2&gt;
+&lt;h3 id=&#34;Elasticsearch&#34;&gt;Elasticsearch&lt;/h3&gt;
+&lt;p&gt;事实上，一切都始于 Elasticsearch，对我来说，它是 Elastic Stack 的核心！它是一个高度可扩展的开源全文搜索和分析引擎。 它允许您几乎实时地存储和分析大量数据，无论是结构化的还是非结构化的文本、数字数据还是地理空间数据，Elasticsearch 都可以有效地存储和索引这些数据。&lt;/p&gt;
+&lt;p&gt;它提供了一个基于 Lucene StandardAnalyzer 的分布式系统，并应用于索引和基于 REST API 的 JSON 工具。&lt;/p&gt;
+&lt;h3 id=&#34;Logstash&#34;&gt;Logstash&lt;/h3&gt;
+&lt;p&gt;Logstash 是一个轻量级的、开源的、服务器端数据处理管道，它允许您从多种来源收集数据，动态地转换它们，并将它们发送到您的期望目的地。由于它与 Elasticsearch 紧密集成，具有强大的日志处理功能，所以 Logstash 是将数据加载到 Elasticsearch 的热门选择。&lt;/p&gt;
+&lt;h3 id=&#34;Kibana&#34;&gt;Kibana&lt;/h3&gt;
+&lt;p&gt;这是您进入 Stack 的入口！Kibana 是一款数据可视化和探索工具，用于日志和时间序列分析、应用监控和运营智能化。它提供了强大且易于使用的特性，如直方图、线形图、饼图、热力图和内置的地理空间支持。此外，它还提供了与 Elasticsearch 紧密集成的工具，一个流行的分析和搜索引擎，这使得 Kibana 成为数据可视化的默认选择，来展示存储在 Elasticserch 中的数据。&lt;/p&gt;
+&lt;h3 id=&#34;Beats&#34;&gt;Beats&lt;/h3&gt;
+&lt;p&gt;Beats 在2015年被引入到 Elastic Stack。它是一个轻量级、单一用途的数据传输程序家族，被称为 Beats。&lt;br&gt;
+它们是客户端应用程序，将数据从数百上千台机器或容器发送到 Elasticsearch。&lt;br&gt;
+Beats 家族由7个 Beat 组成：Filebeat, Metricbeat, Packetbeat, winlogbeat, Auditbeat, Heartbeat, Functionbeat。&lt;/p&gt;
+&lt;p&gt;我将在之后的文章中更深入地讨论每个组件，现在让我们理解所有这些组件是如何一起工作的。&lt;/p&gt;
+&lt;h2 id=&#34;Elastic-Stack-架构&#34;&gt;Elastic Stack 架构&lt;/h2&gt;
+&lt;p&gt;下面是 ELK Stack 的架构，展示了 ELK 内部层的正确顺序。这里，从各种来源 (Logstash 或 Beats) 生成的数据将根据提供的过滤条件被收集和处理。经过 Logstash 或 Beats 然后将数据传输到 Elasticsearch，然后进行分析和搜索。最后，在最外层，离用户最近的一层，您可以发现 Kibana 允许用户根据各自的需求进行可视化和管理数据。&lt;/p&gt;
+&lt;img alt=&#34;ELKStacke1640097724371.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220423-d6b7c1f2-60fd-4bd6-bac8-acafd061409e.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;图片来自：&lt;a href=&#34;https://www.elastic.co/elk-stack&#34;&gt;https://www.elastic.co/elk-stack&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;这篇博客是对于 Elastic Stack 的概览，在之后的博客中，我将与您分享我是如何在 Kubernetes 安装和配置每个 Elastic Stack 组件的。同时，也欢迎您分享您的经验和用例，如果您没有任何经验，尽管试一试 Elastic Stack。&lt;/p&gt;
+&lt;h2 id=&#34;译者注&#34;&gt;译者注&lt;/h2&gt;
+&lt;p&gt;&lt;a href=&#34;https://lucene.apache.org/core/4_0_0/analyzers-common/org/apache/lucene/analysis/standard/StandardAnalyzer.html&#34;&gt;Lucene StandardAnalyzer&lt;/a&gt;&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;&lt;a href=&#34;https://www.modb.pro/db/397721&#34;&gt;https://www.modb.pro/db/397721&lt;/a&gt;&lt;/p&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="[译] 开始 Elastic (ELK) Stack 之旅">
+    <meta property="og:url" content="https://shawnyan.cn/2022/modb/fanyi-elastic-stack-begining/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;blockquote&gt;
+&lt;p&gt;原文链接：&lt;a href=&#34;https://blog.dbi-services.com/elastic-elk-stack-get-started/&#34;&gt;https://blog.dbi-services.com/elastic-elk-stack-get-started/&lt;/a&gt;&lt;br&gt;
+原文作者：David Diab&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;ELK Stack及其他组件最近被统称为Elastic Stack，这是三个开源项目的组合:Elasticsearch、Logstash和Kibana。所有这些项目都是由&lt;a href=&#34;https://www.elastic.co/&#34;&gt;Elastic&lt;/a&gt;开发的，用于高效地存储、分析、发现和可视化数据！两年多以来，我有机会在Kubernetes上安装、配置和维护Elastic Stack。今天，我想和您分享Elastic Stack的快速启程之旅。&lt;/p&gt;
+&lt;h2 id=&#34;Elastic-Stack-组件&#34;&gt;Elastic Stack 组件&lt;/h2&gt;
+&lt;h3 id=&#34;Elasticsearch&#34;&gt;Elasticsearch&lt;/h3&gt;
+&lt;p&gt;事实上，一切都始于 Elasticsearch，对我来说，它是 Elastic Stack 的核心！它是一个高度可扩展的开源全文搜索和分析引擎。 它允许您几乎实时地存储和分析大量数据，无论是结构化的还是非结构化的文本、数字数据还是地理空间数据，Elasticsearch 都可以有效地存储和索引这些数据。&lt;/p&gt;
+&lt;p&gt;它提供了一个基于 Lucene StandardAnalyzer 的分布式系统，并应用于索引和基于 REST API 的 JSON 工具。&lt;/p&gt;
+&lt;h3 id=&#34;Logstash&#34;&gt;Logstash&lt;/h3&gt;
+&lt;p&gt;Logstash 是一个轻量级的、开源的、服务器端数据处理管道，它允许您从多种来源收集数据，动态地转换它们，并将它们发送到您的期望目的地。由于它与 Elasticsearch 紧密集成，具有强大的日志处理功能，所以 Logstash 是将数据加载到 Elasticsearch 的热门选择。&lt;/p&gt;
+&lt;h3 id=&#34;Kibana&#34;&gt;Kibana&lt;/h3&gt;
+&lt;p&gt;这是您进入 Stack 的入口！Kibana 是一款数据可视化和探索工具，用于日志和时间序列分析、应用监控和运营智能化。它提供了强大且易于使用的特性，如直方图、线形图、饼图、热力图和内置的地理空间支持。此外，它还提供了与 Elasticsearch 紧密集成的工具，一个流行的分析和搜索引擎，这使得 Kibana 成为数据可视化的默认选择，来展示存储在 Elasticserch 中的数据。&lt;/p&gt;
+&lt;h3 id=&#34;Beats&#34;&gt;Beats&lt;/h3&gt;
+&lt;p&gt;Beats 在2015年被引入到 Elastic Stack。它是一个轻量级、单一用途的数据传输程序家族，被称为 Beats。&lt;br&gt;
+它们是客户端应用程序，将数据从数百上千台机器或容器发送到 Elasticsearch。&lt;br&gt;
+Beats 家族由7个 Beat 组成：Filebeat, Metricbeat, Packetbeat, winlogbeat, Auditbeat, Heartbeat, Functionbeat。&lt;/p&gt;
+&lt;p&gt;我将在之后的文章中更深入地讨论每个组件，现在让我们理解所有这些组件是如何一起工作的。&lt;/p&gt;
+&lt;h2 id=&#34;Elastic-Stack-架构&#34;&gt;Elastic Stack 架构&lt;/h2&gt;
+&lt;p&gt;下面是 ELK Stack 的架构，展示了 ELK 内部层的正确顺序。这里，从各种来源 (Logstash 或 Beats) 生成的数据将根据提供的过滤条件被收集和处理。经过 Logstash 或 Beats 然后将数据传输到 Elasticsearch，然后进行分析和搜索。最后，在最外层，离用户最近的一层，您可以发现 Kibana 允许用户根据各自的需求进行可视化和管理数据。&lt;/p&gt;
+&lt;img alt=&#34;ELKStacke1640097724371.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220423-d6b7c1f2-60fd-4bd6-bac8-acafd061409e.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;图片来自：&lt;a href=&#34;https://www.elastic.co/elk-stack&#34;&gt;https://www.elastic.co/elk-stack&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;这篇博客是对于 Elastic Stack 的概览，在之后的博客中，我将与您分享我是如何在 Kubernetes 安装和配置每个 Elastic Stack 组件的。同时，也欢迎您分享您的经验和用例，如果您没有任何经验，尽管试一试 Elastic Stack。&lt;/p&gt;
+&lt;h2 id=&#34;译者注&#34;&gt;译者注&lt;/h2&gt;
+&lt;p&gt;&lt;a href=&#34;https://lucene.apache.org/core/4_0_0/analyzers-common/org/apache/lucene/analysis/standard/StandardAnalyzer.html&#34;&gt;Lucene StandardAnalyzer&lt;/a&gt;&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;&lt;a href=&#34;https://www.modb.pro/db/397721&#34;&gt;https://www.modb.pro/db/397721&lt;/a&gt;&lt;/p&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/elastic/" class="category-badge">
+                                    Elastic
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">[译] 开始 Elastic (ELK) Stack 之旅</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2022-04-23
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                816 words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                2 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <blockquote>
+<p>原文链接：<a target="_blank" rel="noopener" href="https://blog.dbi-services.com/elastic-elk-stack-get-started/">https://blog.dbi-services.com/elastic-elk-stack-get-started/</a><br>
+原文作者：David Diab</p>
+</blockquote>
+<p>ELK Stack及其他组件最近被统称为Elastic Stack，这是三个开源项目的组合:Elasticsearch、Logstash和Kibana。所有这些项目都是由<a target="_blank" rel="noopener" href="https://www.elastic.co/">Elastic</a>开发的，用于高效地存储、分析、发现和可视化数据！两年多以来，我有机会在Kubernetes上安装、配置和维护Elastic Stack。今天，我想和您分享Elastic Stack的快速启程之旅。</p>
+<h2 id="Elastic-Stack-组件">Elastic Stack 组件</h2>
+<h3 id="Elasticsearch">Elasticsearch</h3>
+<p>事实上，一切都始于 Elasticsearch，对我来说，它是 Elastic Stack 的核心！它是一个高度可扩展的开源全文搜索和分析引擎。 它允许您几乎实时地存储和分析大量数据，无论是结构化的还是非结构化的文本、数字数据还是地理空间数据，Elasticsearch 都可以有效地存储和索引这些数据。</p>
+<p>它提供了一个基于 Lucene StandardAnalyzer 的分布式系统，并应用于索引和基于 REST API 的 JSON 工具。</p>
+<h3 id="Logstash">Logstash</h3>
+<p>Logstash 是一个轻量级的、开源的、服务器端数据处理管道，它允许您从多种来源收集数据，动态地转换它们，并将它们发送到您的期望目的地。由于它与 Elasticsearch 紧密集成，具有强大的日志处理功能，所以 Logstash 是将数据加载到 Elasticsearch 的热门选择。</p>
+<h3 id="Kibana">Kibana</h3>
+<p>这是您进入 Stack 的入口！Kibana 是一款数据可视化和探索工具，用于日志和时间序列分析、应用监控和运营智能化。它提供了强大且易于使用的特性，如直方图、线形图、饼图、热力图和内置的地理空间支持。此外，它还提供了与 Elasticsearch 紧密集成的工具，一个流行的分析和搜索引擎，这使得 Kibana 成为数据可视化的默认选择，来展示存储在 Elasticserch 中的数据。</p>
+<h3 id="Beats">Beats</h3>
+<p>Beats 在2015年被引入到 Elastic Stack。它是一个轻量级、单一用途的数据传输程序家族，被称为 Beats。<br>
+它们是客户端应用程序，将数据从数百上千台机器或容器发送到 Elasticsearch。<br>
+Beats 家族由7个 Beat 组成：Filebeat, Metricbeat, Packetbeat, winlogbeat, Auditbeat, Heartbeat, Functionbeat。</p>
+<p>我将在之后的文章中更深入地讨论每个组件，现在让我们理解所有这些组件是如何一起工作的。</p>
+<h2 id="Elastic-Stack-架构">Elastic Stack 架构</h2>
+<p>下面是 ELK Stack 的架构，展示了 ELK 内部层的正确顺序。这里，从各种来源 (Logstash 或 Beats) 生成的数据将根据提供的过滤条件被收集和处理。经过 Logstash 或 Beats 然后将数据传输到 Elasticsearch，然后进行分析和搜索。最后，在最外层，离用户最近的一层，您可以发现 Kibana 允许用户根据各自的需求进行可视化和管理数据。</p>
+<img alt="ELKStacke1640097724371.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20220423-d6b7c1f2-60fd-4bd6-bac8-acafd061409e.png" referrerpolicy="no-referrer"/>
+<p>图片来自：<a target="_blank" rel="noopener" href="https://www.elastic.co/elk-stack">https://www.elastic.co/elk-stack</a></p>
+<p>这篇博客是对于 Elastic Stack 的概览，在之后的博客中，我将与您分享我是如何在 Kubernetes 安装和配置每个 Elastic Stack 组件的。同时，也欢迎您分享您的经验和用例，如果您没有任何经验，尽管试一试 Elastic Stack。</p>
+<h2 id="译者注">译者注</h2>
+<p><a target="_blank" rel="noopener" href="https://lucene.apache.org/core/4_0_0/analyzers-common/org/apache/lucene/analysis/standard/StandardAnalyzer.html">Lucene StandardAnalyzer</a></p>
+<hr>
+<p><a target="_blank" rel="noopener" href="https://www.modb.pro/db/397721">https://www.modb.pro/db/397721</a></p>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/%E8%AF%91%E6%96%87/" class="tag-link">
+                                译文
+                            </a>
+                        
+                            <a href="/tags/elastic/" class="tag-link">
+                                elastic
+                            </a>
+                        
+                            <a href="/tags/elasticsearch/" class="tag-link">
+                                elasticsearch
+                            </a>
+                        
+                            <a href="/tags/apache/" class="tag-link">
+                                apache
+                            </a>
+                        
+                            <a href="/tags/elk/" class="tag-link">
+                                elk
+                            </a>
+                        
+                            <a href="/tags/kibana/" class="tag-link">
+                                kibana
+                            </a>
+                        
+                            <a href="/tags/logstash/" class="tag-link">
+                                logstash
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2022/modb/fanyi-elastic-stack-begining/index.html">https://shawnyan.cn/2022/modb/fanyi-elastic-stack-begining/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2022/mysql/fanyi-quick-peek-at-mysql-8-0-29/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">[译] 快速浏览 MySQL 8.0.29</span>
+        </a>
+    
+
+    
+        <a href="/2022/mysql/fanyi-percona-xtrabackup-example/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">[译] Percona XtraBackup 示例</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Elastic-Stack-%E7%BB%84%E4%BB%B6"><span class="toc-text">Elastic Stack 组件</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Elasticsearch"><span class="toc-text">Elasticsearch</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Logstash"><span class="toc-text">Logstash</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Kibana"><span class="toc-text">Kibana</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Beats"><span class="toc-text">Beats</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Elastic-Stack-%E6%9E%B6%E6%9E%84"><span class="toc-text">Elastic Stack 架构</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AF%91%E8%80%85%E6%B3%A8"><span class="toc-text">译者注</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        Oracle 23ai 的 JSON 集合分区表 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;p&gt;Oracle 数据库提供了分区表功能，通过将大表拆分为更小、更易于管理的分区来提高性能和可维护性。对于 JSON 数据，Oracle 特别引入了 Partitioned Collection Table（集合分区表）的概念，使我们能够针对 JSON 数据进行有效的分区操作，从而优化查询性能和数据管理。&lt;/p&gt;
+&lt;h2 id=&#34;基础概念&#34;&gt;基础概念&lt;/h2&gt;
+&lt;h3 id=&#34;分区表的概念&#34;&gt;分区表的概念&lt;/h3&gt;
+&lt;p&gt;分区表是将一个大的表按照一定的规则分成多个较小的部分（分区）。每个分区可以独立地进行查询、维护等操作。分区表的优点在于：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;提高查询性能：通过分区裁剪（Partition Pruning），查询只需要访问相关的分区，减少了数据扫描量。&lt;/li&gt;
+&lt;li&gt;简化维护操作：例如，可以对单个分区进行备份、恢复、重建索引等操作。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;JSON-数据的分区&#34;&gt;JSON 数据的分区&lt;/h3&gt;
+&lt;p&gt;对于 JSON 数据，分区是通过使用 JSON 表达式列作为分区键来实现的。Oracle 提供了两种类型的 JSON 表达式列：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;虚拟列（Virtual Column）：每次访问列数据时都会重新计算表达式。&lt;/li&gt;
+&lt;li&gt;物化列（Materialized Column）：在 DML 操作时计算表达式值，并将其存储在磁盘上。Oracle 推荐使用物化列来存储经常查询的数据，因为它可以缓存表达式值，提高查询性能。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;集合分区表的用法&#34;&gt;集合分区表的用法&lt;/h2&gt;
+&lt;h3 id=&#34;分区键的定义&#34;&gt;分区键的定义&lt;/h3&gt;
+&lt;p&gt;分区键必须使用 SQL/JSON 函数 &lt;code&gt;json_value&lt;/code&gt; 来定义。这个函数从 JSON 数据中提取标量值。例如，如果我们有一个 JSON 文档中包含字段 &lt;code&gt;PONumber&lt;/code&gt;，我们可以使用 &lt;code&gt;json_value(DATA, &#39;$.PONumber&#39;)&lt;/code&gt; 来提取它的值，并将其用作分区键。&lt;/p&gt;
+&lt;h3 id=&#34;集合分区表的创建&#34;&gt;集合分区表的创建&lt;/h3&gt;
+&lt;p&gt;准备 Oracle 23ai 环境，这里使用开发者版本。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SQL&amp;gt; SELECT BANNER_FULL FROM V$VERSION;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;BANNER_FULL&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--------------------------------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Oracle Database 23ai Free Release 23.0.0.0.0 - Develop, Learn, and Run for Free&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Version 23.8.0.25.04&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;以下是一个创建集合分区表的 SQL 示例：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; JSON COLLECTION &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt; orders&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  (po_num_vc NUMBER GENERATED ALWAYS &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    (&lt;span class=&#34;built_in&#34;&gt;json_value&lt;/span&gt; (DATA, &lt;span class=&#34;string&#34;&gt;&amp;#x27;$.PONumber.number()&amp;#x27;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;     ERROR &lt;span class=&#34;keyword&#34;&gt;ON&lt;/span&gt; ERROR))&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    MATERIALIZED)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;keyword&#34;&gt;PARTITION&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;BY&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;RANGE&lt;/span&gt; (po_num_vc)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   (&lt;span class=&#34;keyword&#34;&gt;PARTITION&lt;/span&gt; p1 &lt;span class=&#34;keyword&#34;&gt;VALUES&lt;/span&gt; LESS THAN (&lt;span class=&#34;number&#34;&gt;1000&lt;/span&gt;),&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;keyword&#34;&gt;PARTITION&lt;/span&gt; p2 &lt;span class=&#34;keyword&#34;&gt;VALUES&lt;/span&gt; LESS THAN (&lt;span class=&#34;number&#34;&gt;2000&lt;/span&gt;));&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;在这个例子中：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;我们创建了一个名为 &lt;code&gt;orders&lt;/code&gt; 的 JSON 集合表。&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;po_num_vc&lt;/code&gt; 是一个物化表达式列，它使用 &lt;code&gt;json_value&lt;/code&gt; 函数从 JSON 数据的 &lt;code&gt;PONumber&lt;/code&gt; 字段提取数值。&lt;/li&gt;
+&lt;li&gt;表按照 &lt;code&gt;po_num_vc&lt;/code&gt; 的值进行范围分区，&lt;code&gt;p1&lt;/code&gt; 分区包含小于 1000 的值，&lt;code&gt;p2&lt;/code&gt; 分区包含小于 2000 的值，&lt;code&gt;p3&lt;/code&gt; 分区包含小于 3000 的值。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;查询与分区裁剪&#34;&gt;查询与分区裁剪&lt;/h3&gt;
+&lt;p&gt;当执行查询时，Oracle 数据库可以根据分区键的值自动进行分区裁剪。例如，执行以下查询：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; autotrace &lt;span class=&#34;keyword&#34;&gt;on&lt;/span&gt; explain&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; DATA &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; orders p&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;keyword&#34;&gt;WHERE&lt;/span&gt; p.data.PONumber.number() &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1234&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看执行计划。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY());&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;由于分区键 &lt;code&gt;po_num_vc&lt;/code&gt; 的值为 2025，落在 &lt;code&gt;p3&lt;/code&gt; 分区的范围内，所以执行计划会显示只访问了 &lt;code&gt;p3&lt;/code&gt; 分区：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;---------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| Id  | Operation              | Name   | Pstart| Pstop |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;---------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;|   0 | SELECT STATEMENT       |        |       |       |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;|   1 |  PARTITION RANGE SINGLE|        |     2 |     2 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;|   2 |   TABLE ACCESS FULL    | ORDERS |     2 |     2 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;---------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;知识扩展：作用于-JSON-的三种索引&#34;&gt;知识扩展：作用于 JSON 的三种索引&lt;/h2&gt;
+&lt;p&gt;作用于 JSON 数据类型，常见有三种索引，普通索引，多值索引，检索索引。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SQL&amp;gt; create index ponumber_idx on orders(json_value(data,&amp;#x27;$.PONumber.number()&amp;#x27; error on error));&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Index created.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SQL&amp;gt; create multivalue index p_uppcode_idx on orders p (p.data.PONumber.number());&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Index created.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SQL&amp;gt; create search index po_search_idx on orders (data) for json;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Index created.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;普通索引&lt;/strong&gt;，对特定字段或属性创建。若 JSON 数据结构经常变化，如字段名或嵌套结构更改，索引可能失效或需重建，增加维护成本。对于结构简单且查询需求明确的 JSON 数据，普通索引是一种有效的索引方式。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;多值索引&lt;/strong&gt;（Multivalue Index）是一种特殊的索引类型，主要用于对JSON列中的数组或对象元素进行索引。它与传统的单值索引不同，单值索引每行只能有一个索引值，而多值索引允许多个索引记录对应同一主键或行。当需要频繁查询JSON数组中的特定值时，多值索引可以避免全表扫描，优化查询性能。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Search Index&lt;/strong&gt;：在处理 JSON 数据时，Search Index 是一种专门用于提升查询性能的索引类型。它与传统索引不同，特别适用于 JSON 数据的复杂查询场景，能够对 JSON 文档中的文本内容进行索引，支持模糊匹配、词干提取、同义词扩展等全文搜索功能。例如，可以在产品描述中搜索包含特定关键词的文档。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;Oracle 的集合分区表功能为 JSON 数据的存储和查询提供了一个强大的工具。通过合理地定义分区键和分区策略，我们可以显著提高查询性能和数据管理效率。分区裁剪技术可以减少数据扫描量，而物化表达式列则可以提高查询响应速度。在设计分区方案时，需要综合考虑数据的访问模式、插入频率以及存储资源等因素，以达到最佳的平衡点。&lt;/p&gt;
+&lt;p&gt;Have a nice day ~&lt;/p&gt;
+&lt;p&gt;– / END / –&lt;/p&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="Oracle 23ai 的 JSON 集合分区表">
+    <meta property="og:url" content="https://shawnyan.cn/2025/oracle/oracle-23ai-json-partitioned-collection-table/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;p&gt;Oracle 数据库提供了分区表功能，通过将大表拆分为更小、更易于管理的分区来提高性能和可维护性。对于 JSON 数据，Oracle 特别引入了 Partitioned Collection Table（集合分区表）的概念，使我们能够针对 JSON 数据进行有效的分区操作，从而优化查询性能和数据管理。&lt;/p&gt;
+&lt;h2 id=&#34;基础概念&#34;&gt;基础概念&lt;/h2&gt;
+&lt;h3 id=&#34;分区表的概念&#34;&gt;分区表的概念&lt;/h3&gt;
+&lt;p&gt;分区表是将一个大的表按照一定的规则分成多个较小的部分（分区）。每个分区可以独立地进行查询、维护等操作。分区表的优点在于：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;提高查询性能：通过分区裁剪（Partition Pruning），查询只需要访问相关的分区，减少了数据扫描量。&lt;/li&gt;
+&lt;li&gt;简化维护操作：例如，可以对单个分区进行备份、恢复、重建索引等操作。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;JSON-数据的分区&#34;&gt;JSON 数据的分区&lt;/h3&gt;
+&lt;p&gt;对于 JSON 数据，分区是通过使用 JSON 表达式列作为分区键来实现的。Oracle 提供了两种类型的 JSON 表达式列：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;虚拟列（Virtual Column）：每次访问列数据时都会重新计算表达式。&lt;/li&gt;
+&lt;li&gt;物化列（Materialized Column）：在 DML 操作时计算表达式值，并将其存储在磁盘上。Oracle 推荐使用物化列来存储经常查询的数据，因为它可以缓存表达式值，提高查询性能。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;集合分区表的用法&#34;&gt;集合分区表的用法&lt;/h2&gt;
+&lt;h3 id=&#34;分区键的定义&#34;&gt;分区键的定义&lt;/h3&gt;
+&lt;p&gt;分区键必须使用 SQL/JSON 函数 &lt;code&gt;json_value&lt;/code&gt; 来定义。这个函数从 JSON 数据中提取标量值。例如，如果我们有一个 JSON 文档中包含字段 &lt;code&gt;PONumber&lt;/code&gt;，我们可以使用 &lt;code&gt;json_value(DATA, &#39;$.PONumber&#39;)&lt;/code&gt; 来提取它的值，并将其用作分区键。&lt;/p&gt;
+&lt;h3 id=&#34;集合分区表的创建&#34;&gt;集合分区表的创建&lt;/h3&gt;
+&lt;p&gt;准备 Oracle 23ai 环境，这里使用开发者版本。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SQL&amp;gt; SELECT BANNER_FULL FROM V$VERSION;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;BANNER_FULL&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--------------------------------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Oracle Database 23ai Free Release 23.0.0.0.0 - Develop, Learn, and Run for Free&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Version 23.8.0.25.04&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;以下是一个创建集合分区表的 SQL 示例：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; JSON COLLECTION &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt; orders&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  (po_num_vc NUMBER GENERATED ALWAYS &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    (&lt;span class=&#34;built_in&#34;&gt;json_value&lt;/span&gt; (DATA, &lt;span class=&#34;string&#34;&gt;&amp;#x27;$.PONumber.number()&amp;#x27;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;     ERROR &lt;span class=&#34;keyword&#34;&gt;ON&lt;/span&gt; ERROR))&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    MATERIALIZED)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;keyword&#34;&gt;PARTITION&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;BY&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;RANGE&lt;/span&gt; (po_num_vc)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   (&lt;span class=&#34;keyword&#34;&gt;PARTITION&lt;/span&gt; p1 &lt;span class=&#34;keyword&#34;&gt;VALUES&lt;/span&gt; LESS THAN (&lt;span class=&#34;number&#34;&gt;1000&lt;/span&gt;),&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;keyword&#34;&gt;PARTITION&lt;/span&gt; p2 &lt;span class=&#34;keyword&#34;&gt;VALUES&lt;/span&gt; LESS THAN (&lt;span class=&#34;number&#34;&gt;2000&lt;/span&gt;));&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;在这个例子中：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;我们创建了一个名为 &lt;code&gt;orders&lt;/code&gt; 的 JSON 集合表。&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;po_num_vc&lt;/code&gt; 是一个物化表达式列，它使用 &lt;code&gt;json_value&lt;/code&gt; 函数从 JSON 数据的 &lt;code&gt;PONumber&lt;/code&gt; 字段提取数值。&lt;/li&gt;
+&lt;li&gt;表按照 &lt;code&gt;po_num_vc&lt;/code&gt; 的值进行范围分区，&lt;code&gt;p1&lt;/code&gt; 分区包含小于 1000 的值，&lt;code&gt;p2&lt;/code&gt; 分区包含小于 2000 的值，&lt;code&gt;p3&lt;/code&gt; 分区包含小于 3000 的值。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;查询与分区裁剪&#34;&gt;查询与分区裁剪&lt;/h3&gt;
+&lt;p&gt;当执行查询时，Oracle 数据库可以根据分区键的值自动进行分区裁剪。例如，执行以下查询：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; autotrace &lt;span class=&#34;keyword&#34;&gt;on&lt;/span&gt; explain&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; DATA &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; orders p&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;keyword&#34;&gt;WHERE&lt;/span&gt; p.data.PONumber.number() &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1234&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看执行计划。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY());&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;由于分区键 &lt;code&gt;po_num_vc&lt;/code&gt; 的值为 2025，落在 &lt;code&gt;p3&lt;/code&gt; 分区的范围内，所以执行计划会显示只访问了 &lt;code&gt;p3&lt;/code&gt; 分区：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;---------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| Id  | Operation              | Name   | Pstart| Pstop |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;---------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;|   0 | SELECT STATEMENT       |        |       |       |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;|   1 |  PARTITION RANGE SINGLE|        |     2 |     2 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;|   2 |   TABLE ACCESS FULL    | ORDERS |     2 |     2 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;---------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;知识扩展：作用于-JSON-的三种索引&#34;&gt;知识扩展：作用于 JSON 的三种索引&lt;/h2&gt;
+&lt;p&gt;作用于 JSON 数据类型，常见有三种索引，普通索引，多值索引，检索索引。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SQL&amp;gt; create index ponumber_idx on orders(json_value(data,&amp;#x27;$.PONumber.number()&amp;#x27; error on error));&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Index created.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SQL&amp;gt; create multivalue index p_uppcode_idx on orders p (p.data.PONumber.number());&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Index created.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SQL&amp;gt; create search index po_search_idx on orders (data) for json;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Index created.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;普通索引&lt;/strong&gt;，对特定字段或属性创建。若 JSON 数据结构经常变化，如字段名或嵌套结构更改，索引可能失效或需重建，增加维护成本。对于结构简单且查询需求明确的 JSON 数据，普通索引是一种有效的索引方式。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;多值索引&lt;/strong&gt;（Multivalue Index）是一种特殊的索引类型，主要用于对JSON列中的数组或对象元素进行索引。它与传统的单值索引不同，单值索引每行只能有一个索引值，而多值索引允许多个索引记录对应同一主键或行。当需要频繁查询JSON数组中的特定值时，多值索引可以避免全表扫描，优化查询性能。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Search Index&lt;/strong&gt;：在处理 JSON 数据时，Search Index 是一种专门用于提升查询性能的索引类型。它与传统索引不同，特别适用于 JSON 数据的复杂查询场景，能够对 JSON 文档中的文本内容进行索引，支持模糊匹配、词干提取、同义词扩展等全文搜索功能。例如，可以在产品描述中搜索包含特定关键词的文档。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;Oracle 的集合分区表功能为 JSON 数据的存储和查询提供了一个强大的工具。通过合理地定义分区键和分区策略，我们可以显著提高查询性能和数据管理效率。分区裁剪技术可以减少数据扫描量，而物化表达式列则可以提高查询响应速度。在设计分区方案时，需要综合考虑数据的访问模式、插入频率以及存储资源等因素，以达到最佳的平衡点。&lt;/p&gt;
+&lt;p&gt;Have a nice day ~&lt;/p&gt;
+&lt;p&gt;– / END / –&lt;/p&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/oracle/" class="category-badge">
+                                    Oracle
+                                </a>
+                            
+                                <a href="/categories/oracle/23ai/" class="category-badge">
+                                    23ai
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">Oracle 23ai 的 JSON 集合分区表</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2025-04-20
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                1.3k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                4 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <p>Oracle 数据库提供了分区表功能，通过将大表拆分为更小、更易于管理的分区来提高性能和可维护性。对于 JSON 数据，Oracle 特别引入了 Partitioned Collection Table（集合分区表）的概念，使我们能够针对 JSON 数据进行有效的分区操作，从而优化查询性能和数据管理。</p>
+<h2 id="基础概念">基础概念</h2>
+<h3 id="分区表的概念">分区表的概念</h3>
+<p>分区表是将一个大的表按照一定的规则分成多个较小的部分（分区）。每个分区可以独立地进行查询、维护等操作。分区表的优点在于：</p>
+<ul>
+<li>提高查询性能：通过分区裁剪（Partition Pruning），查询只需要访问相关的分区，减少了数据扫描量。</li>
+<li>简化维护操作：例如，可以对单个分区进行备份、恢复、重建索引等操作。</li>
+</ul>
+<h3 id="JSON-数据的分区">JSON 数据的分区</h3>
+<p>对于 JSON 数据，分区是通过使用 JSON 表达式列作为分区键来实现的。Oracle 提供了两种类型的 JSON 表达式列：</p>
+<ul>
+<li>虚拟列（Virtual Column）：每次访问列数据时都会重新计算表达式。</li>
+<li>物化列（Materialized Column）：在 DML 操作时计算表达式值，并将其存储在磁盘上。Oracle 推荐使用物化列来存储经常查询的数据，因为它可以缓存表达式值，提高查询性能。</li>
+</ul>
+<h2 id="集合分区表的用法">集合分区表的用法</h2>
+<h3 id="分区键的定义">分区键的定义</h3>
+<p>分区键必须使用 SQL/JSON 函数 <code>json_value</code> 来定义。这个函数从 JSON 数据中提取标量值。例如，如果我们有一个 JSON 文档中包含字段 <code>PONumber</code>，我们可以使用 <code>json_value(DATA, '$.PONumber')</code> 来提取它的值，并将其用作分区键。</p>
+<h3 id="集合分区表的创建">集合分区表的创建</h3>
+<p>准备 Oracle 23ai 环境，这里使用开发者版本。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">SQL&gt; SELECT BANNER_FULL FROM V$VERSION;</span><br><span class="line"></span><br><span class="line">BANNER_FULL</span><br><span class="line">--------------------------------------------------------------------------------</span><br><span class="line">Oracle Database 23ai Free Release 23.0.0.0.0 - Develop, Learn, and Run for Free</span><br><span class="line">Version 23.8.0.25.04</span><br></pre></td></tr></table></figure>
+<p>以下是一个创建集合分区表的 SQL 示例：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> JSON COLLECTION <span class="keyword">TABLE</span> orders</span><br><span class="line">  (po_num_vc NUMBER GENERATED ALWAYS <span class="keyword">AS</span></span><br><span class="line">    (<span class="built_in">json_value</span> (DATA, <span class="string">&#x27;$.PONumber.number()&#x27;</span></span><br><span class="line">     ERROR <span class="keyword">ON</span> ERROR))</span><br><span class="line">    MATERIALIZED)</span><br><span class="line">  <span class="keyword">PARTITION</span> <span class="keyword">BY</span> <span class="keyword">RANGE</span> (po_num_vc)</span><br><span class="line">   (<span class="keyword">PARTITION</span> p1 <span class="keyword">VALUES</span> LESS THAN (<span class="number">1000</span>),</span><br><span class="line">    <span class="keyword">PARTITION</span> p2 <span class="keyword">VALUES</span> LESS THAN (<span class="number">2000</span>));</span><br></pre></td></tr></table></figure>
+<p>在这个例子中：</p>
+<ul>
+<li>我们创建了一个名为 <code>orders</code> 的 JSON 集合表。</li>
+<li><code>po_num_vc</code> 是一个物化表达式列，它使用 <code>json_value</code> 函数从 JSON 数据的 <code>PONumber</code> 字段提取数值。</li>
+<li>表按照 <code>po_num_vc</code> 的值进行范围分区，<code>p1</code> 分区包含小于 1000 的值，<code>p2</code> 分区包含小于 2000 的值，<code>p3</code> 分区包含小于 3000 的值。</li>
+</ul>
+<h3 id="查询与分区裁剪">查询与分区裁剪</h3>
+<p>当执行查询时，Oracle 数据库可以根据分区键的值自动进行分区裁剪。例如，执行以下查询：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">set</span> autotrace <span class="keyword">on</span> explain</span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> DATA <span class="keyword">FROM</span> orders p</span><br><span class="line">  <span class="keyword">WHERE</span> p.data.PONumber.number() <span class="operator">=</span> <span class="number">1234</span>;</span><br></pre></td></tr></table></figure>
+<p>查看执行计划。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY());</span><br></pre></td></tr></table></figure>
+<p>由于分区键 <code>po_num_vc</code> 的值为 2025，落在 <code>p3</code> 分区的范围内，所以执行计划会显示只访问了 <code>p3</code> 分区：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">---------------------------------------------------------</span><br><span class="line">| Id  | Operation              | Name   | Pstart| Pstop |</span><br><span class="line">---------------------------------------------------------</span><br><span class="line">|   0 | SELECT STATEMENT       |        |       |       |</span><br><span class="line">|   1 |  PARTITION RANGE SINGLE|        |     2 |     2 |</span><br><span class="line">|   2 |   TABLE ACCESS FULL    | ORDERS |     2 |     2 |</span><br><span class="line">---------------------------------------------------------</span><br></pre></td></tr></table></figure>
+<h2 id="知识扩展：作用于-JSON-的三种索引">知识扩展：作用于 JSON 的三种索引</h2>
+<p>作用于 JSON 数据类型，常见有三种索引，普通索引，多值索引，检索索引。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">SQL&gt; create index ponumber_idx on orders(json_value(data,&#x27;$.PONumber.number()&#x27; error on error));</span><br><span class="line"></span><br><span class="line">Index created.</span><br><span class="line"></span><br><span class="line">SQL&gt; create multivalue index p_uppcode_idx on orders p (p.data.PONumber.number());</span><br><span class="line"></span><br><span class="line">Index created.</span><br><span class="line"></span><br><span class="line">SQL&gt; create search index po_search_idx on orders (data) for json;</span><br><span class="line"></span><br><span class="line">Index created.</span><br></pre></td></tr></table></figure>
+<ul>
+<li>
+<p><strong>普通索引</strong>，对特定字段或属性创建。若 JSON 数据结构经常变化，如字段名或嵌套结构更改，索引可能失效或需重建，增加维护成本。对于结构简单且查询需求明确的 JSON 数据，普通索引是一种有效的索引方式。</p>
+</li>
+<li>
+<p><strong>多值索引</strong>（Multivalue Index）是一种特殊的索引类型，主要用于对JSON列中的数组或对象元素进行索引。它与传统的单值索引不同，单值索引每行只能有一个索引值，而多值索引允许多个索引记录对应同一主键或行。当需要频繁查询JSON数组中的特定值时，多值索引可以避免全表扫描，优化查询性能。</p>
+</li>
+<li>
+<p><strong>Search Index</strong>：在处理 JSON 数据时，Search Index 是一种专门用于提升查询性能的索引类型。它与传统索引不同，特别适用于 JSON 数据的复杂查询场景，能够对 JSON 文档中的文本内容进行索引，支持模糊匹配、词干提取、同义词扩展等全文搜索功能。例如，可以在产品描述中搜索包含特定关键词的文档。</p>
+</li>
+</ul>
+<h2 id="总结">总结</h2>
+<p>Oracle 的集合分区表功能为 JSON 数据的存储和查询提供了一个强大的工具。通过合理地定义分区键和分区策略，我们可以显著提高查询性能和数据管理效率。分区裁剪技术可以减少数据扫描量，而物化表达式列则可以提高查询响应速度。在设计分区方案时，需要综合考虑数据的访问模式、插入频率以及存储资源等因素，以达到最佳的平衡点。</p>
+<p>Have a nice day ~</p>
+<p>– / END / –</p>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/oracle/" class="tag-link">
+                                oracle
+                            </a>
+                        
+                            <a href="/tags/oracle-23ai/" class="tag-link">
+                                oracle 23ai
+                            </a>
+                        
+                            <a href="/tags/json/" class="tag-link">
+                                json
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2025/oracle/oracle-23ai-json-partitioned-collection-table/index.html">https://shawnyan.cn/2025/oracle/oracle-23ai-json-partitioned-collection-table/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2025/oracle/oracle-23ai-ai-vector-search/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">Oracle 23ai 的 AI Vector Search 特性</span>
+        </a>
+    
+
+    
+        <a href="/2025/java/java-23-javadoc-support-markdown/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">Java 23：JavaDoc 重大升级，支持Markdown文档注释</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9F%BA%E7%A1%80%E6%A6%82%E5%BF%B5"><span class="toc-text">基础概念</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%86%E5%8C%BA%E8%A1%A8%E7%9A%84%E6%A6%82%E5%BF%B5"><span class="toc-text">分区表的概念</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#JSON-%E6%95%B0%E6%8D%AE%E7%9A%84%E5%88%86%E5%8C%BA"><span class="toc-text">JSON 数据的分区</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%9B%86%E5%90%88%E5%88%86%E5%8C%BA%E8%A1%A8%E7%9A%84%E7%94%A8%E6%B3%95"><span class="toc-text">集合分区表的用法</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%86%E5%8C%BA%E9%94%AE%E7%9A%84%E5%AE%9A%E4%B9%89"><span class="toc-text">分区键的定义</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%9B%86%E5%90%88%E5%88%86%E5%8C%BA%E8%A1%A8%E7%9A%84%E5%88%9B%E5%BB%BA"><span class="toc-text">集合分区表的创建</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9F%A5%E8%AF%A2%E4%B8%8E%E5%88%86%E5%8C%BA%E8%A3%81%E5%89%AA"><span class="toc-text">查询与分区裁剪</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%9F%A5%E8%AF%86%E6%89%A9%E5%B1%95%EF%BC%9A%E4%BD%9C%E7%94%A8%E4%BA%8E-JSON-%E7%9A%84%E4%B8%89%E7%A7%8D%E7%B4%A2%E5%BC%95"><span class="toc-text">知识扩展：作用于 JSON 的三种索引</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

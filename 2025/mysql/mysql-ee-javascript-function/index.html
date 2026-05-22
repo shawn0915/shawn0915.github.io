@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        MySQL 9.0 支持 JavaScript 存储程序 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;p&gt;MySQL 9.0 企业版和 MySQL HeatWave 推出了一项令人振奋的创新特性：支持使用 JavaScript 编写存储过程和函数。&lt;/p&gt;
+&lt;p&gt;这标志着开发者可以凭借对 JavaScript 的熟悉度，以及丰富的 JavaScript 生态资源，更加高效地编写 MySQL 存储过程。不仅极大地提升了开发者的生产力，还大幅降低了存储过程编写的门槛，使得广大开发者能够投身其中。此外，这种设计巧妙地减少了数据库服务器与应用程序之间的数据传输量，优化了整体性能。&lt;/p&gt;
+&lt;h2 id=&#34;准备-MySQL-9-环境&#34;&gt;准备 MySQL 9 环境&lt;/h2&gt;
+&lt;p&gt;为了深入浅出地展示 JavaScript 存储程序的强大功能，我们将利用 MySQL 企业版 9.2 的 Docker 容器进行环境搭建。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;从 Oracle Container Registry（OCR） 拉取 MySQL 企业版 9.2 的镜像。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@el7 ~]# docker pull container-registry.oracle.com/mysql/enterprise-server:9.2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9.2: Pulling from mysql/enterprise-server&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;08b26210552c: Pull complete &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;c743ba8e0994: Pull complete &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6ed95c0f26d2: Pull complete &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cae75ca37528: Pull complete &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2b352847173b: Pull complete &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16a46733c092: Pull complete &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;b6e314a3018d: Pull complete &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Digest: sha256:5225178395d4920f4675472c4207d10e127690d5704df2103d03bfaea5af992d&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Status: Downloaded newer image for container-registry.oracle.com/mysql/enterprise-server:9.2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;container-registry.oracle.com/mysql/enterprise-server:9.2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@el7 ~]# &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;使用以下命令运行 MySQL 企业版容器：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;docker run --name=mysql9 \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--restart on-failure \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-e MYSQL_ROOT_PASSWORD=root \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-d container-registry.oracle.com/mysql/enterprise-server:9.2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;连接到数据库，并查看版本。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@el7 ~]# docker exec -it mysql9 mysql -uroot -proot&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql: [Warning] Using a password on the command line interface can be insecure.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Welcome to the MySQL monitor.  Commands end with ; or \g.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Your MySQL connection id is 9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Server version: 9.2.0-commercial MySQL Enterprise Server - Commercial&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copyright (c) 2000, 2025, Oracle and/or its affiliates.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Oracle is a registered trademark of Oracle Corporation and/or its&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;affiliates. Other names may be trademarks of their respective&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;owners.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;#x27;help;&amp;#x27; or &amp;#x27;\h&amp;#x27; for help. Type &amp;#x27;\c&amp;#x27; to clear the current input statement.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; select version();&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| version()        |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| 9.2.0-commercial |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;至此，我们已经成功搭建了 MySQL 9 的运行环境。&lt;/p&gt;
+&lt;h2 id=&#34;安装-MLE-组件&#34;&gt;安装 MLE 组件&lt;/h2&gt;
+&lt;p&gt;MySQL 的多语言引擎（MLE）组件是实现 JavaScript 存储程序的关键所在。MLE 组件赋予存储过程和函数支持 SQL 之外语言的能力，是 MySQL 企业版的专属特性。&lt;/p&gt;
+&lt;p&gt;使用 MySQL 9.2 中的 MLE 组件，您可以创建和执行用 JavaScript（ECMAScript） 编写的 MySQL 存储程序。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;安装 MLE 组件：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; INSTALL COMPONENT &amp;#x27;file://component_mle&amp;#x27;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, 0 rows affected (0.24 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;查看组件状态：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; SHOW STATUS LIKE &amp;#x27;mle%&amp;#x27;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------+---------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| Variable_name                | Value         |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------+---------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_heap_status              | Not Allocated |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_languages_supported      | JavaScript    |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_memory_used              | 0             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_oom_errors               | 0             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_session_resets           | 0             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_sessions                 | 0             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_sessions_max             | 0             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_status                   | Inactive      |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_stored_functions         | 0             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_stored_procedures        | 0             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_stored_program_bytes_max | 0             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_stored_program_sql_max   | 0             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_stored_programs          | 0             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_threads                  | 0             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_threads_max              | 1             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------+---------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15 rows in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;用-JavaScript-编写的存储程序&#34;&gt;用 JavaScript 编写的存储程序&lt;/h2&gt;
+&lt;p&gt;现在，我们开始编写一个简单的 JavaScript 存储函数。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; CREATE FUNCTION add_nos(arg1 INT, arg2 INT)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    -&amp;gt;   RETURNS INT LANGUAGE JAVASCRIPT AS &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    -&amp;gt;   $$&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    $&amp;gt;     return arg1 + arg2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    $&amp;gt;   $$&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    -&amp;gt;   ;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ERROR 1418 (HY000): This function has none of DETERMINISTIC, NO SQL, or READS SQL DATA in its declaration and binary logging is enabled (you *might* want to use the less safe log_bin_trust_function_creators variable)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;但可能会遇到上面的报错。要放宽上述函数创建的条件（用户必须拥有超级特权，并且函数必须声明为确定性的，或者不修改数据），可以将全局的log_bin_trust_function_creators系统变量设置为1。默认情况下，这个变量的值为0，但你可以这样修改它：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; set global log_bin_trust_function_creators = on;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, 0 rows affected, 1 warning (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;再次执行创建语句，成功。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; CREATE FUNCTION add_nos(arg1 INT, arg2 INT)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    -&amp;gt;   RETURNS INT LANGUAGE JAVASCRIPT AS &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    -&amp;gt;   $$&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    $&amp;gt;     return arg1 + arg2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    $&amp;gt;   $$&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    -&amp;gt;   ;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, 0 rows affected (0.01 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;通过以下命令查看存储函数的创建语句。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; show create function add_nos\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;            Function: add_nos&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;            sql_mode: ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;     Create Function: CREATE DEFINER=`root`@`localhost` FUNCTION `add_nos`(arg1 INT, arg2 INT) RETURNS int&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    LANGUAGE JAVASCRIPT&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;AS $$&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    return arg1 + arg2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  $$&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;character_set_client: utf8mb4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;collation_connection: utf8mb4_0900_ai_ci&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  Database Collation: utf8mb4_0900_ai_ci&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;执行该存储函数，验证其功能。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; SELECT add_nos(20,25);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| add_nos(20,25) |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;|             45 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.03 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;MLE-组件提供的会话信息方法&#34;&gt;MLE 组件提供的会话信息方法&lt;/h2&gt;
+&lt;p&gt;MLE组件提供了许多用于处理MLE用户会话的可加载函数。下面列出了这些函数。&lt;/p&gt;
+&lt;h3 id=&#34;mle-session-reset&#34;&gt;mle_session_reset()&lt;/h3&gt;
+&lt;p&gt;调用此函数将清理当前 MLE 会话状态，删除 mle_session_state() 中所有可观察的输出。它还会重置会话时区，以便后续调用 JavaScript 存储例程时使用会话中最新设置的时区。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; select mle_session_reset();&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_session_reset()                      |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| The session state is successfully reset. |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;mle-session-state&#34;&gt;mle_session_state()&lt;/h3&gt;
+&lt;p&gt;使用此可加载函数获取最近执行的 MLE 存储程序的会话信息。mle_session_state() 接受一个参数，即会话状态键（字符串），并显示会话状态值。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; SELECT mle_session_state(&amp;quot;is_active&amp;quot;) AS &amp;#x27;-ACTIVE-&amp;#x27;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| -ACTIVE- |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| 0        |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;mle-set-session-state&#34;&gt;mle_set_session_state()&lt;/h3&gt;
+&lt;p&gt;此函数用于确定当前会话中将 MySQL 整数类型（TINYINT、SMALLINT、MEDIUMINT、INT、BIGINT）转换为 JavaScript 值的规则。这些规则适用于 JavaScript 程序的输入参数以及结果集中的值。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; SELECT mle_set_session_state(&amp;#x27;&amp;#123;&amp;quot;integer_type&amp;quot;:&amp;quot;BIGINT&amp;quot;&amp;#125;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_set_session_state(&amp;#x27;&amp;#123;&amp;quot;integer_type&amp;quot;:&amp;quot;BIGINT&amp;quot;&amp;#125;&amp;#x27;) |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;|                                                  1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;内存监控&#34;&gt;内存监控&lt;/h2&gt;
+&lt;p&gt;调用 JavaScript 存储函数后，可通过如下方法查看 MLE 消耗的内存。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; SELECT * FROM performance_schema.memory_summary_global_by_event_name        &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    -&amp;gt; WHERE EVENT_NAME LIKE &amp;#x27;memory/language_component/%&amp;#x27;\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  EVENT_NAME: memory/language_component/session&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                 COUNT_ALLOC: 62&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  COUNT_FREE: 61&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   SUM_NUMBER_OF_BYTES_ALLOC: 15571&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    SUM_NUMBER_OF_BYTES_FREE: 15363&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              LOW_COUNT_USED: 0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          CURRENT_COUNT_USED: 1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;             HIGH_COUNT_USED: 7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    LOW_NUMBER_OF_BYTES_USED: 0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;CURRENT_NUMBER_OF_BYTES_USED: 208&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   HIGH_NUMBER_OF_BYTES_USED: 2341&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.01 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;MySQL 9.0 企业版和 MySQL HeatWave 对 JavaScript 存储程序的支持，这一特性不仅丰富了 MySQL 的功能集，更为开发者提供了更广阔的应用场景和更高效的开发方式。&lt;/p&gt;
+&lt;p&gt;Have a nice day ~&lt;/p&gt;
+&lt;p&gt;– / END / –&lt;/p&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="MySQL 9.0 支持 JavaScript 存储程序">
+    <meta property="og:url" content="https://shawnyan.cn/2025/mysql/mysql-ee-javascript-function/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;p&gt;MySQL 9.0 企业版和 MySQL HeatWave 推出了一项令人振奋的创新特性：支持使用 JavaScript 编写存储过程和函数。&lt;/p&gt;
+&lt;p&gt;这标志着开发者可以凭借对 JavaScript 的熟悉度，以及丰富的 JavaScript 生态资源，更加高效地编写 MySQL 存储过程。不仅极大地提升了开发者的生产力，还大幅降低了存储过程编写的门槛，使得广大开发者能够投身其中。此外，这种设计巧妙地减少了数据库服务器与应用程序之间的数据传输量，优化了整体性能。&lt;/p&gt;
+&lt;h2 id=&#34;准备-MySQL-9-环境&#34;&gt;准备 MySQL 9 环境&lt;/h2&gt;
+&lt;p&gt;为了深入浅出地展示 JavaScript 存储程序的强大功能，我们将利用 MySQL 企业版 9.2 的 Docker 容器进行环境搭建。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;从 Oracle Container Registry（OCR） 拉取 MySQL 企业版 9.2 的镜像。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@el7 ~]# docker pull container-registry.oracle.com/mysql/enterprise-server:9.2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9.2: Pulling from mysql/enterprise-server&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;08b26210552c: Pull complete &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;c743ba8e0994: Pull complete &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6ed95c0f26d2: Pull complete &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;cae75ca37528: Pull complete &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2b352847173b: Pull complete &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16a46733c092: Pull complete &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;b6e314a3018d: Pull complete &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Digest: sha256:5225178395d4920f4675472c4207d10e127690d5704df2103d03bfaea5af992d&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Status: Downloaded newer image for container-registry.oracle.com/mysql/enterprise-server:9.2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;container-registry.oracle.com/mysql/enterprise-server:9.2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@el7 ~]# &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;使用以下命令运行 MySQL 企业版容器：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;docker run --name=mysql9 \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--restart on-failure \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-e MYSQL_ROOT_PASSWORD=root \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-d container-registry.oracle.com/mysql/enterprise-server:9.2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;连接到数据库，并查看版本。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@el7 ~]# docker exec -it mysql9 mysql -uroot -proot&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql: [Warning] Using a password on the command line interface can be insecure.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Welcome to the MySQL monitor.  Commands end with ; or \g.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Your MySQL connection id is 9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Server version: 9.2.0-commercial MySQL Enterprise Server - Commercial&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copyright (c) 2000, 2025, Oracle and/or its affiliates.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Oracle is a registered trademark of Oracle Corporation and/or its&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;affiliates. Other names may be trademarks of their respective&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;owners.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;#x27;help;&amp;#x27; or &amp;#x27;\h&amp;#x27; for help. Type &amp;#x27;\c&amp;#x27; to clear the current input statement.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; select version();&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| version()        |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| 9.2.0-commercial |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;至此，我们已经成功搭建了 MySQL 9 的运行环境。&lt;/p&gt;
+&lt;h2 id=&#34;安装-MLE-组件&#34;&gt;安装 MLE 组件&lt;/h2&gt;
+&lt;p&gt;MySQL 的多语言引擎（MLE）组件是实现 JavaScript 存储程序的关键所在。MLE 组件赋予存储过程和函数支持 SQL 之外语言的能力，是 MySQL 企业版的专属特性。&lt;/p&gt;
+&lt;p&gt;使用 MySQL 9.2 中的 MLE 组件，您可以创建和执行用 JavaScript（ECMAScript） 编写的 MySQL 存储程序。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;安装 MLE 组件：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; INSTALL COMPONENT &amp;#x27;file://component_mle&amp;#x27;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, 0 rows affected (0.24 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;查看组件状态：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; SHOW STATUS LIKE &amp;#x27;mle%&amp;#x27;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------+---------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| Variable_name                | Value         |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------+---------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_heap_status              | Not Allocated |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_languages_supported      | JavaScript    |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_memory_used              | 0             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_oom_errors               | 0             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_session_resets           | 0             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_sessions                 | 0             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_sessions_max             | 0             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_status                   | Inactive      |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_stored_functions         | 0             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_stored_procedures        | 0             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_stored_program_bytes_max | 0             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_stored_program_sql_max   | 0             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_stored_programs          | 0             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_threads                  | 0             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_threads_max              | 1             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------+---------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15 rows in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;用-JavaScript-编写的存储程序&#34;&gt;用 JavaScript 编写的存储程序&lt;/h2&gt;
+&lt;p&gt;现在，我们开始编写一个简单的 JavaScript 存储函数。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; CREATE FUNCTION add_nos(arg1 INT, arg2 INT)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    -&amp;gt;   RETURNS INT LANGUAGE JAVASCRIPT AS &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    -&amp;gt;   $$&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    $&amp;gt;     return arg1 + arg2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    $&amp;gt;   $$&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    -&amp;gt;   ;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ERROR 1418 (HY000): This function has none of DETERMINISTIC, NO SQL, or READS SQL DATA in its declaration and binary logging is enabled (you *might* want to use the less safe log_bin_trust_function_creators variable)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;但可能会遇到上面的报错。要放宽上述函数创建的条件（用户必须拥有超级特权，并且函数必须声明为确定性的，或者不修改数据），可以将全局的log_bin_trust_function_creators系统变量设置为1。默认情况下，这个变量的值为0，但你可以这样修改它：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; set global log_bin_trust_function_creators = on;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, 0 rows affected, 1 warning (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;再次执行创建语句，成功。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; CREATE FUNCTION add_nos(arg1 INT, arg2 INT)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    -&amp;gt;   RETURNS INT LANGUAGE JAVASCRIPT AS &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    -&amp;gt;   $$&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    $&amp;gt;     return arg1 + arg2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    $&amp;gt;   $$&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    -&amp;gt;   ;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, 0 rows affected (0.01 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;通过以下命令查看存储函数的创建语句。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; show create function add_nos\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;            Function: add_nos&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;            sql_mode: ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;     Create Function: CREATE DEFINER=`root`@`localhost` FUNCTION `add_nos`(arg1 INT, arg2 INT) RETURNS int&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    LANGUAGE JAVASCRIPT&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;AS $$&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    return arg1 + arg2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  $$&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;character_set_client: utf8mb4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;collation_connection: utf8mb4_0900_ai_ci&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  Database Collation: utf8mb4_0900_ai_ci&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;执行该存储函数，验证其功能。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; SELECT add_nos(20,25);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| add_nos(20,25) |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;|             45 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.03 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;MLE-组件提供的会话信息方法&#34;&gt;MLE 组件提供的会话信息方法&lt;/h2&gt;
+&lt;p&gt;MLE组件提供了许多用于处理MLE用户会话的可加载函数。下面列出了这些函数。&lt;/p&gt;
+&lt;h3 id=&#34;mle-session-reset&#34;&gt;mle_session_reset()&lt;/h3&gt;
+&lt;p&gt;调用此函数将清理当前 MLE 会话状态，删除 mle_session_state() 中所有可观察的输出。它还会重置会话时区，以便后续调用 JavaScript 存储例程时使用会话中最新设置的时区。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; select mle_session_reset();&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_session_reset()                      |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| The session state is successfully reset. |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;mle-session-state&#34;&gt;mle_session_state()&lt;/h3&gt;
+&lt;p&gt;使用此可加载函数获取最近执行的 MLE 存储程序的会话信息。mle_session_state() 接受一个参数，即会话状态键（字符串），并显示会话状态值。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; SELECT mle_session_state(&amp;quot;is_active&amp;quot;) AS &amp;#x27;-ACTIVE-&amp;#x27;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| -ACTIVE- |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| 0        |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;mle-set-session-state&#34;&gt;mle_set_session_state()&lt;/h3&gt;
+&lt;p&gt;此函数用于确定当前会话中将 MySQL 整数类型（TINYINT、SMALLINT、MEDIUMINT、INT、BIGINT）转换为 JavaScript 值的规则。这些规则适用于 JavaScript 程序的输入参数以及结果集中的值。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; SELECT mle_set_session_state(&amp;#x27;&amp;#123;&amp;quot;integer_type&amp;quot;:&amp;quot;BIGINT&amp;quot;&amp;#125;&amp;#x27;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mle_set_session_state(&amp;#x27;&amp;#123;&amp;quot;integer_type&amp;quot;:&amp;quot;BIGINT&amp;quot;&amp;#125;&amp;#x27;) |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;|                                                  1 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------------------------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;内存监控&#34;&gt;内存监控&lt;/h2&gt;
+&lt;p&gt;调用 JavaScript 存储函数后，可通过如下方法查看 MLE 消耗的内存。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; SELECT * FROM performance_schema.memory_summary_global_by_event_name        &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    -&amp;gt; WHERE EVENT_NAME LIKE &amp;#x27;memory/language_component/%&amp;#x27;\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  EVENT_NAME: memory/language_component/session&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                 COUNT_ALLOC: 62&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  COUNT_FREE: 61&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   SUM_NUMBER_OF_BYTES_ALLOC: 15571&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    SUM_NUMBER_OF_BYTES_FREE: 15363&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              LOW_COUNT_USED: 0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;          CURRENT_COUNT_USED: 1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;             HIGH_COUNT_USED: 7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    LOW_NUMBER_OF_BYTES_USED: 0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;CURRENT_NUMBER_OF_BYTES_USED: 208&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   HIGH_NUMBER_OF_BYTES_USED: 2341&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.01 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;MySQL 9.0 企业版和 MySQL HeatWave 对 JavaScript 存储程序的支持，这一特性不仅丰富了 MySQL 的功能集，更为开发者提供了更广阔的应用场景和更高效的开发方式。&lt;/p&gt;
+&lt;p&gt;Have a nice day ~&lt;/p&gt;
+&lt;p&gt;– / END / –&lt;/p&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/oracle/" class="category-badge">
+                                    Oracle
+                                </a>
+                            
+                                <a href="/categories/oracle/mysql/" class="category-badge">
+                                    MySQL
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">MySQL 9.0 支持 JavaScript 存储程序</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2025-04-11
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                1.4k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                6 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <p>MySQL 9.0 企业版和 MySQL HeatWave 推出了一项令人振奋的创新特性：支持使用 JavaScript 编写存储过程和函数。</p>
+<p>这标志着开发者可以凭借对 JavaScript 的熟悉度，以及丰富的 JavaScript 生态资源，更加高效地编写 MySQL 存储过程。不仅极大地提升了开发者的生产力，还大幅降低了存储过程编写的门槛，使得广大开发者能够投身其中。此外，这种设计巧妙地减少了数据库服务器与应用程序之间的数据传输量，优化了整体性能。</p>
+<h2 id="准备-MySQL-9-环境">准备 MySQL 9 环境</h2>
+<p>为了深入浅出地展示 JavaScript 存储程序的强大功能，我们将利用 MySQL 企业版 9.2 的 Docker 容器进行环境搭建。</p>
+<ol>
+<li>从 Oracle Container Registry（OCR） 拉取 MySQL 企业版 9.2 的镜像。</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">[root@el7 ~]# docker pull container-registry.oracle.com/mysql/enterprise-server:9.2</span><br><span class="line">9.2: Pulling from mysql/enterprise-server</span><br><span class="line">08b26210552c: Pull complete </span><br><span class="line">c743ba8e0994: Pull complete </span><br><span class="line">6ed95c0f26d2: Pull complete </span><br><span class="line">cae75ca37528: Pull complete </span><br><span class="line">2b352847173b: Pull complete </span><br><span class="line">16a46733c092: Pull complete </span><br><span class="line">b6e314a3018d: Pull complete </span><br><span class="line">Digest: sha256:5225178395d4920f4675472c4207d10e127690d5704df2103d03bfaea5af992d</span><br><span class="line">Status: Downloaded newer image for container-registry.oracle.com/mysql/enterprise-server:9.2</span><br><span class="line">container-registry.oracle.com/mysql/enterprise-server:9.2</span><br><span class="line">[root@el7 ~]# </span><br></pre></td></tr></table></figure>
+<ol start="2">
+<li>使用以下命令运行 MySQL 企业版容器：</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">docker run --name=mysql9 \</span><br><span class="line">--restart on-failure \</span><br><span class="line">-e MYSQL_ROOT_PASSWORD=root \</span><br><span class="line">-d container-registry.oracle.com/mysql/enterprise-server:9.2</span><br></pre></td></tr></table></figure>
+<ol start="3">
+<li>连接到数据库，并查看版本。</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">[root@el7 ~]# docker exec -it mysql9 mysql -uroot -proot</span><br><span class="line">mysql: [Warning] Using a password on the command line interface can be insecure.</span><br><span class="line">Welcome to the MySQL monitor.  Commands end with ; or \g.</span><br><span class="line">Your MySQL connection id is 9</span><br><span class="line">Server version: 9.2.0-commercial MySQL Enterprise Server - Commercial</span><br><span class="line"></span><br><span class="line">Copyright (c) 2000, 2025, Oracle and/or its affiliates.</span><br><span class="line"></span><br><span class="line">Oracle is a registered trademark of Oracle Corporation and/or its</span><br><span class="line">affiliates. Other names may be trademarks of their respective</span><br><span class="line">owners.</span><br><span class="line"></span><br><span class="line">Type &#x27;help;&#x27; or &#x27;\h&#x27; for help. Type &#x27;\c&#x27; to clear the current input statement.</span><br><span class="line"></span><br><span class="line">mysql&gt; select version();</span><br><span class="line">+------------------+</span><br><span class="line">| version()        |</span><br><span class="line">+------------------+</span><br><span class="line">| 9.2.0-commercial |</span><br><span class="line">+------------------+</span><br><span class="line">1 row in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<p>至此，我们已经成功搭建了 MySQL 9 的运行环境。</p>
+<h2 id="安装-MLE-组件">安装 MLE 组件</h2>
+<p>MySQL 的多语言引擎（MLE）组件是实现 JavaScript 存储程序的关键所在。MLE 组件赋予存储过程和函数支持 SQL 之外语言的能力，是 MySQL 企业版的专属特性。</p>
+<p>使用 MySQL 9.2 中的 MLE 组件，您可以创建和执行用 JavaScript（ECMAScript） 编写的 MySQL 存储程序。</p>
+<ol>
+<li>安装 MLE 组件：</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; INSTALL COMPONENT &#x27;file://component_mle&#x27;;</span><br><span class="line">Query OK, 0 rows affected (0.24 sec)</span><br></pre></td></tr></table></figure>
+<ol start="2">
+<li>查看组件状态：</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SHOW STATUS LIKE &#x27;mle%&#x27;;</span><br><span class="line">+------------------------------+---------------+</span><br><span class="line">| Variable_name                | Value         |</span><br><span class="line">+------------------------------+---------------+</span><br><span class="line">| mle_heap_status              | Not Allocated |</span><br><span class="line">| mle_languages_supported      | JavaScript    |</span><br><span class="line">| mle_memory_used              | 0             |</span><br><span class="line">| mle_oom_errors               | 0             |</span><br><span class="line">| mle_session_resets           | 0             |</span><br><span class="line">| mle_sessions                 | 0             |</span><br><span class="line">| mle_sessions_max             | 0             |</span><br><span class="line">| mle_status                   | Inactive      |</span><br><span class="line">| mle_stored_functions         | 0             |</span><br><span class="line">| mle_stored_procedures        | 0             |</span><br><span class="line">| mle_stored_program_bytes_max | 0             |</span><br><span class="line">| mle_stored_program_sql_max   | 0             |</span><br><span class="line">| mle_stored_programs          | 0             |</span><br><span class="line">| mle_threads                  | 0             |</span><br><span class="line">| mle_threads_max              | 1             |</span><br><span class="line">+------------------------------+---------------+</span><br><span class="line">15 rows in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<h2 id="用-JavaScript-编写的存储程序">用 JavaScript 编写的存储程序</h2>
+<p>现在，我们开始编写一个简单的 JavaScript 存储函数。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; CREATE FUNCTION add_nos(arg1 INT, arg2 INT)</span><br><span class="line">    -&gt;   RETURNS INT LANGUAGE JAVASCRIPT AS </span><br><span class="line">    -&gt;   $$</span><br><span class="line">    $&gt;     return arg1 + arg2</span><br><span class="line">    $&gt;   $$</span><br><span class="line">    -&gt;   ;</span><br><span class="line">ERROR 1418 (HY000): This function has none of DETERMINISTIC, NO SQL, or READS SQL DATA in its declaration and binary logging is enabled (you *might* want to use the less safe log_bin_trust_function_creators variable)</span><br></pre></td></tr></table></figure>
+<p>但可能会遇到上面的报错。要放宽上述函数创建的条件（用户必须拥有超级特权，并且函数必须声明为确定性的，或者不修改数据），可以将全局的log_bin_trust_function_creators系统变量设置为1。默认情况下，这个变量的值为0，但你可以这样修改它：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; set global log_bin_trust_function_creators = on;</span><br><span class="line">Query OK, 0 rows affected, 1 warning (0.00 sec)</span><br></pre></td></tr></table></figure>
+<p>再次执行创建语句，成功。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; CREATE FUNCTION add_nos(arg1 INT, arg2 INT)</span><br><span class="line">    -&gt;   RETURNS INT LANGUAGE JAVASCRIPT AS </span><br><span class="line">    -&gt;   $$</span><br><span class="line">    $&gt;     return arg1 + arg2</span><br><span class="line">    $&gt;   $$</span><br><span class="line">    -&gt;   ;</span><br><span class="line">Query OK, 0 rows affected (0.01 sec)</span><br></pre></td></tr></table></figure>
+<p>通过以下命令查看存储函数的创建语句。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; show create function add_nos\G</span><br><span class="line">*************************** 1. row ***************************</span><br><span class="line">            Function: add_nos</span><br><span class="line">            sql_mode: ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION</span><br><span class="line">     Create Function: CREATE DEFINER=`root`@`localhost` FUNCTION `add_nos`(arg1 INT, arg2 INT) RETURNS int</span><br><span class="line">    LANGUAGE JAVASCRIPT</span><br><span class="line">AS $$</span><br><span class="line">    return arg1 + arg2</span><br><span class="line">  $$</span><br><span class="line">character_set_client: utf8mb4</span><br><span class="line">collation_connection: utf8mb4_0900_ai_ci</span><br><span class="line">  Database Collation: utf8mb4_0900_ai_ci</span><br><span class="line">1 row in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<p>执行该存储函数，验证其功能。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SELECT add_nos(20,25);</span><br><span class="line">+----------------+</span><br><span class="line">| add_nos(20,25) |</span><br><span class="line">+----------------+</span><br><span class="line">|             45 |</span><br><span class="line">+----------------+</span><br><span class="line">1 row in set (0.03 sec)</span><br></pre></td></tr></table></figure>
+<h2 id="MLE-组件提供的会话信息方法">MLE 组件提供的会话信息方法</h2>
+<p>MLE组件提供了许多用于处理MLE用户会话的可加载函数。下面列出了这些函数。</p>
+<h3 id="mle-session-reset">mle_session_reset()</h3>
+<p>调用此函数将清理当前 MLE 会话状态，删除 mle_session_state() 中所有可观察的输出。它还会重置会话时区，以便后续调用 JavaScript 存储例程时使用会话中最新设置的时区。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; select mle_session_reset();</span><br><span class="line">+------------------------------------------+</span><br><span class="line">| mle_session_reset()                      |</span><br><span class="line">+------------------------------------------+</span><br><span class="line">| The session state is successfully reset. |</span><br><span class="line">+------------------------------------------+</span><br><span class="line">1 row in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<h3 id="mle-session-state">mle_session_state()</h3>
+<p>使用此可加载函数获取最近执行的 MLE 存储程序的会话信息。mle_session_state() 接受一个参数，即会话状态键（字符串），并显示会话状态值。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SELECT mle_session_state(&quot;is_active&quot;) AS &#x27;-ACTIVE-&#x27;;</span><br><span class="line">+----------+</span><br><span class="line">| -ACTIVE- |</span><br><span class="line">+----------+</span><br><span class="line">| 0        |</span><br><span class="line">+----------+</span><br><span class="line">1 row in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<h3 id="mle-set-session-state">mle_set_session_state()</h3>
+<p>此函数用于确定当前会话中将 MySQL 整数类型（TINYINT、SMALLINT、MEDIUMINT、INT、BIGINT）转换为 JavaScript 值的规则。这些规则适用于 JavaScript 程序的输入参数以及结果集中的值。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SELECT mle_set_session_state(&#x27;&#123;&quot;integer_type&quot;:&quot;BIGINT&quot;&#125;&#x27;);</span><br><span class="line">+----------------------------------------------------+</span><br><span class="line">| mle_set_session_state(&#x27;&#123;&quot;integer_type&quot;:&quot;BIGINT&quot;&#125;&#x27;) |</span><br><span class="line">+----------------------------------------------------+</span><br><span class="line">|                                                  1 |</span><br><span class="line">+----------------------------------------------------+</span><br><span class="line">1 row in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<h2 id="内存监控">内存监控</h2>
+<p>调用 JavaScript 存储函数后，可通过如下方法查看 MLE 消耗的内存。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SELECT * FROM performance_schema.memory_summary_global_by_event_name        </span><br><span class="line">    -&gt; WHERE EVENT_NAME LIKE &#x27;memory/language_component/%&#x27;\G</span><br><span class="line">*************************** 1. row ***************************</span><br><span class="line">                  EVENT_NAME: memory/language_component/session</span><br><span class="line">                 COUNT_ALLOC: 62</span><br><span class="line">                  COUNT_FREE: 61</span><br><span class="line">   SUM_NUMBER_OF_BYTES_ALLOC: 15571</span><br><span class="line">    SUM_NUMBER_OF_BYTES_FREE: 15363</span><br><span class="line">              LOW_COUNT_USED: 0</span><br><span class="line">          CURRENT_COUNT_USED: 1</span><br><span class="line">             HIGH_COUNT_USED: 7</span><br><span class="line">    LOW_NUMBER_OF_BYTES_USED: 0</span><br><span class="line">CURRENT_NUMBER_OF_BYTES_USED: 208</span><br><span class="line">   HIGH_NUMBER_OF_BYTES_USED: 2341</span><br><span class="line">1 row in set (0.01 sec)</span><br></pre></td></tr></table></figure>
+<h2 id="总结">总结</h2>
+<p>MySQL 9.0 企业版和 MySQL HeatWave 对 JavaScript 存储程序的支持，这一特性不仅丰富了 MySQL 的功能集，更为开发者提供了更广阔的应用场景和更高效的开发方式。</p>
+<p>Have a nice day ~</p>
+<p>– / END / –</p>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/oracle/" class="tag-link">
+                                oracle
+                            </a>
+                        
+                            <a href="/tags/mysql/" class="tag-link">
+                                mysql
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2025/mysql/mysql-ee-javascript-function/index.html">https://shawnyan.cn/2025/mysql/mysql-ee-javascript-function/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2025/java/java-23-javadoc-support-markdown/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">Java 23：JavaDoc 重大升级，支持Markdown文档注释</span>
+        </a>
+    
+
+    
+        <a href="/2025/mysql/mysql-ee-monitor/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">关于 MySQL Enterprise Monitor 必知必会的几件事</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%87%86%E5%A4%87-MySQL-9-%E7%8E%AF%E5%A2%83"><span class="toc-text">准备 MySQL 9 环境</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%89%E8%A3%85-MLE-%E7%BB%84%E4%BB%B6"><span class="toc-text">安装 MLE 组件</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%94%A8-JavaScript-%E7%BC%96%E5%86%99%E7%9A%84%E5%AD%98%E5%82%A8%E7%A8%8B%E5%BA%8F"><span class="toc-text">用 JavaScript 编写的存储程序</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#MLE-%E7%BB%84%E4%BB%B6%E6%8F%90%E4%BE%9B%E7%9A%84%E4%BC%9A%E8%AF%9D%E4%BF%A1%E6%81%AF%E6%96%B9%E6%B3%95"><span class="toc-text">MLE 组件提供的会话信息方法</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#mle-session-reset"><span class="toc-text">mle_session_reset()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#mle-session-state"><span class="toc-text">mle_session_state()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#mle-set-session-state"><span class="toc-text">mle_set_session_state()</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%85%E5%AD%98%E7%9B%91%E6%8E%A7"><span class="toc-text">内存监控</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

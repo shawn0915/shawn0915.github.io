@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        【MySQL 8.x】从参数变化解读 MySQL 8.2.0 发版说明 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;p&gt;日前，MySQL 8.2.0 创新版本已正式上线，并提供安装包下载，但 docker 镜像尚未更新。&lt;/p&gt;
+&lt;p&gt;在 MySQL 8.1.0 刚发版时也做过分析，欢迎阅读： &lt;a href=&#34;https://shawnyan.cn/2023/mysql/mysql-8.1.0-release/&#34;&gt;重磅！MySQL 8.1.0 已来！有彩蛋~&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;本文将通过 MySQL 启动选项和系统参数的变更情况，来深入了解 8.2.0 都有哪些变化。&lt;/p&gt;
+&lt;h2 id=&#34;启动-MySQL-8-2-0&#34;&gt;启动 MySQL 8.2.0&lt;/h2&gt;
+&lt;p&gt;这一小节不是本文的重点，我们快速推进。&lt;/p&gt;
+&lt;p&gt;从官网直接下载二进制包，并初始化运行。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;初始化日志：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@centos7 ~]$ sudo /usr/local/mysql/bin/mysqld --initialize-insecure&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T01:57:36.185664Z 0 [System] [MY-015017] [Server] MySQL Server Initialization - start.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T01:57:36.187344Z 0 [System] [MY-013169] [Server] /usr/local/mysql/bin/mysqld (mysqld 8.2.0) initializing of server in progress as process 119963&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T01:57:36.194573Z 1 [System] [MY-013576] [InnoDB] InnoDB initialization has started.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T01:57:36.712452Z 1 [System] [MY-013577] [InnoDB] InnoDB initialization has ended.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T01:57:38.681960Z 6 [Warning] [MY-010453] [Server] root@localhost is created with an empty password ! Please consider switching off the --initialize-insecure option.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T01:57:42.299632Z 0 [System] [MY-015018] [Server] MySQL Server Initialization - end.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;服务器启动日志：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[mysql@centos7 ~]$ /usr/local/mysql/bin/mysqld&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T02:00:07.525736Z 0 [System] [MY-015015] [Server] MySQL Server - start.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T02:00:08.462689Z 0 [System] [MY-010116] [Server] /usr/local/mysql/bin/mysqld (mysqld 8.2.0) starting as process 120743&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T02:00:08.473638Z 1 [System] [MY-013576] [InnoDB] InnoDB initialization has started.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T02:00:09.377582Z 1 [System] [MY-013577] [InnoDB] InnoDB initialization has ended.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T02:00:09.757717Z 0 [Warning] [MY-010068] [Server] CA certificate ca.pem is self signed.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T02:00:09.757776Z 0 [System] [MY-013602] [Server] Channel mysql_main configured to support TLS. Encrypted connections are now supported for this channel.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T02:00:09.822331Z 0 [System] [MY-011323] [Server] X Plugin ready for connections. Bind-address: &amp;#x27;::&amp;#x27; port: 33060, socket: /tmp/mysqlx.sock&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T02:00:09.822417Z 0 [System] [MY-010931] [Server] /usr/local/mysql/bin/mysqld: ready for connections. Version: &amp;#x27;8.2.0&amp;#x27;  socket: &amp;#x27;/tmp/mysql.sock&amp;#x27;  port: 3306  MySQL Community Server - GPL.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T02:00:22.899823Z 8 [Warning] [MY-013360] [Server] Plugin mysql_native_password reported: &amp;#x27;&amp;#x27;mysql_native_password&amp;#x27; is deprecated and will be removed in a future release. Please use caching_sha2_password instead&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;为了便于测试，这里直接将 root 用户密码设为空，并直接运行 mysqld 服务。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;登陆 MySQL 并查看版本信息：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;img alt=&#34;01.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/datalk/talk_1698285812343.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;删除的参数-3&#34;&gt;删除的参数 (3)&lt;/h2&gt;
+&lt;h3 id=&#34;1-abort-slave-event-count&#34;&gt;1. abort-slave-event-count&lt;/h3&gt;
+&lt;blockquote&gt;
+&lt;p&gt;The deprecated server startup options --abort-slave-event-count and --disconnect-slave-event-count, deprecated in MySQL 8.0, have been removed in this release. Attempting to start mysqld with either of these options now results in an error.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;code&gt;abort_slave_event_count&lt;/code&gt; / &lt;code&gt;disconnect_slave_event_count&lt;/code&gt; 这两个启动参数在之前的版本中用做测试，并非真的生产环境参数。&lt;/p&gt;
+&lt;p&gt;从 8.0.29 版本开始，被标记为废弃状态，从 8.2.0 开始，正式被移除。&lt;/p&gt;
+&lt;h3 id=&#34;2-disconnect-slave-event-count&#34;&gt;2. disconnect-slave-event-count&lt;/h3&gt;
+&lt;p&gt;同上。&lt;/p&gt;
+&lt;h3 id=&#34;3-expire-logs-days&#34;&gt;3. expire-logs-days&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;expire_logs_days&lt;/code&gt; 参数用于设定二进制日志保留天数，从 8.2.0 开始，正式被移除。&lt;/p&gt;
+&lt;p&gt;从 MySQL 8.0.1 开始，新增参数 &lt;code&gt;binlog_expire_logs_seconds&lt;/code&gt;，以秒为单位控制二进制日志的保留时长。&lt;/p&gt;
+&lt;p&gt;默认值为 2592000 ，即 30 天。最大值为 4294967295 ，即 unsigned int 最大值，约 138 年。&lt;/p&gt;
+&lt;p&gt;在 MariaDB 中，从 10.6.1 开始引入 &lt;code&gt;binlog_expire_logs_seconds&lt;/code&gt; 参数，但默认值为 0 ，需要自己进行设定。&lt;/p&gt;
+&lt;h2 id=&#34;变更值的参数-6&#34;&gt;变更值的参数 (6)&lt;/h2&gt;
+&lt;h3 id=&#34;1-master-retry-count&#34;&gt;1. master-retry-count&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;master_retry_count&lt;/code&gt; 参数用于设定复制连接超时后，重试连接的最大次数。 在 8.2.0 默认值为 10 ，而 8.0.35 的默认值为 86400 ，这一变更是从 8.1.0 开始的。&lt;/p&gt;
+&lt;p&gt;需要注意的是，创建复制的语法 &lt;code&gt;change master to&lt;/code&gt; 已经废弃，改为 &lt;code&gt;change replication source to&lt;/code&gt;。&lt;/p&gt;
+&lt;h3 id=&#34;2-optimizer-switch-hash-set-operations-on&#34;&gt;2. optimizer-switch (hash_set_operations=on)&lt;/h3&gt;
+&lt;p&gt;从 8.2.0 开始， &lt;code&gt;optimizer_switch&lt;/code&gt; 中新增了一个控制标记 &lt;code&gt;hash_set_operations&lt;/code&gt;，默认值为 &lt;code&gt;on&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;用于对集合操作(包括 EXCEPT 和 INTERSECT)进行哈希表优化，这种优化用于哈希的内存量可以使用 &lt;code&gt;set_operations_buffer_size&lt;/code&gt; 系统变量来控制。&lt;/p&gt;
+&lt;p&gt;系统变量 &lt;code&gt;set_operations_buffer_size&lt;/code&gt; 是 MySQL 8.2.0 新引入的，下面会再介绍。&lt;/p&gt;
+&lt;h3 id=&#34;3-performance-schema-error-size&#34;&gt;3. performance-schema-error-size&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;performance_schema_error_size&lt;/code&gt; 表示数据库错误码的数量，在 MySQL 8.0.35 中，默认值为 5307 ，而在 MySQL 8.2.0 中，变更为 5377 。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; version(),&lt;span class=&#34;built_in&#34;&gt;count&lt;/span&gt;(&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;) &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; performance_schema.events_errors_summary_global_by_error;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------+----------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; version() &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;built_in&#34;&gt;count&lt;/span&gt;(&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;) &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------+----------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;8.2&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.0&lt;/span&gt;     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;     &lt;span class=&#34;number&#34;&gt;5377&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------+----------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.00&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;源码中的定义如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight c&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;type&#34;&gt;static&lt;/span&gt; Sys_var_long &lt;span class=&#34;title function_&#34;&gt;Sys_pfs_error_size&lt;/span&gt;&lt;span class=&#34;params&#34;&gt;(&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;params&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;performance_schema_error_size&amp;quot;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;quot;Number of server errors instrumented.&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;params&#34;&gt;    READ_ONLY GLOBAL_VAR(pfs_param.m_error_sizing), CMD_LINE(REQUIRED_ARG),&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;params&#34;&gt;    VALID_RANGE(&lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;, &lt;span class=&#34;number&#34;&gt;1024&lt;/span&gt; * &lt;span class=&#34;number&#34;&gt;1024&lt;/span&gt;), DEFAULT(PFS_MAX_GLOBAL_SERVER_ERRORS),&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;params&#34;&gt;    BLOCK_SIZE(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;), PFS_TRAILING_PROPERTIES)&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;4-performance-schema-max-memory-classes&#34;&gt;4. performance-schema-max-memory-classes&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;performance_schema_max_memory_classes&lt;/code&gt; 是全局只读参数，表示 memory instruments 的最大数量。&lt;/p&gt;
+&lt;p&gt;在 MySQL 8.0.35 中，默认值为 450 ，但在 MySQL 8.2.0 中变为 470 ，不过官方文档尚未更新。&lt;/p&gt;
+&lt;p&gt;已在 MySQL Bugs 网站提交相关 bug：&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://bugs.mysql.com/bug.php?id=112839&#34;&gt;https://bugs.mysql.com/bug.php?id=112839&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id=&#34;5-performance-schema-max-rwlock-classes&#34;&gt;5. performance-schema-max-rwlock-classes&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;performance_schema_max_rwlock_classes&lt;/code&gt; 是全局只读参数，表示 rwlock instruments 的最大数量。&lt;/p&gt;
+&lt;p&gt;在 MySQL 8.0.35 中，默认值为 60 ，但在 MySQL 8.2.0 中变为 100 。&lt;/p&gt;
+&lt;h3 id=&#34;6-performance-schema-max-statement-classes&#34;&gt;6. performance-schema-max-statement-classes&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;performance_schema_max_statement_classes&lt;/code&gt; 是全局只读参数，表示 statement instruments 的最大数量。&lt;/p&gt;
+&lt;p&gt;默认值是在服务器构建时根据客户机/服务器协议中的命令数量和服务器支持的SQL语句类型数量计算的。&lt;/p&gt;
+&lt;p&gt;在 MySQL 8.0.35 中，默认值为 219 ，而在 MySQL 8.2.0 中变为 220 。&lt;/p&gt;
+&lt;p&gt;那么，多的1个是从哪来的呢？&lt;/p&gt;
+&lt;p&gt;从相关代码提交记录可以看到描述：&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://github.com/mysql/mysql-server/commit/eb7dd6c6c10c0437658caa7b9c7716c0468582fa&#34;&gt;https://github.com/mysql/mysql-server/commit/eb7dd6c6c10c0437658caa7b9c7716c0468582fa&lt;/a&gt;&lt;br&gt;
+WL#15426: Implement SHOW PARSE_TREE&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Implemented a SHOW PARSE_TREE statement in debug builds to display the JSON-formatted parse tree for a SELECT statement. This statement is not supported in release builds, and is available only in debug builds, or by compiling the server using -DWITH_SHOW_PARSE_TREE. (WL #15426)&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;从 MySQL 8.1.0 开始，引入新 SQL 语句， &lt;code&gt;show parse_tree&lt;/code&gt; 用来调试 &lt;code&gt;select&lt;/code&gt; 语句，并以 json 格式展示。&lt;br&gt;
+需要注意的是，该参数只能用于 Debug 模式，所以官方下载的正式安装包是无法使用该语法的，否则会报语法错误。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SHOW&lt;/span&gt; PARSE_TREE &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ERROR &lt;span class=&#34;number&#34;&gt;1064&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;42000&lt;/span&gt;): You have an error &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; your &lt;span class=&#34;keyword&#34;&gt;SQL&lt;/span&gt; syntax; &lt;span class=&#34;keyword&#34;&gt;check&lt;/span&gt; the manual that corresponds &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; your MySQL server version &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; the &lt;span class=&#34;keyword&#34;&gt;right&lt;/span&gt; syntax &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; use near &lt;span class=&#34;string&#34;&gt;&amp;#x27;PARSE_TREE select 1&amp;#x27;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;at&lt;/span&gt; line &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;新增的参数-7&#34;&gt;新增的参数 (7)&lt;/h2&gt;
+&lt;h3 id=&#34;1-mysql-native-password&#34;&gt;1. mysql-native-password&lt;/h3&gt;
+&lt;p&gt;MySQL 中创建用户时默认的密码插件已经变更为 &lt;code&gt;caching_sha2_password&lt;/code&gt;，但目前仍然支持使用 &lt;code&gt;mysql_native_password&lt;/code&gt;，该参数就是控制服务器启动时，是否启用该密码插件。&lt;/p&gt;
+&lt;p&gt;在 8.1.0 的发版说明中有如下一段描述：&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://dev.mysql.com/doc/relnotes/mysql/8.1/en/news-8-1-0.html&#34;&gt;https://dev.mysql.com/doc/relnotes/mysql/8.1/en/news-8-1-0.html&lt;/a&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;The mysql_native_password authentication plugin now is deprecated and subject to removal in a future version of MySQL. CREATE USER, ALTER USER, and SET PASSWORD operations now insert a deprecation warning into the server error log if an account attempts to authenticate using mysql_native_password as an authentication method. (Bug #35336317)&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;具体演示如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;user&lt;/span&gt; shawnyan identified &lt;span class=&#34;keyword&#34;&gt;with&lt;/span&gt; mysql_native_password &lt;span class=&#34;keyword&#34;&gt;by&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;1&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt; affected (&lt;span class=&#34;number&#34;&gt;0.00&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;日志中会提示该插件已弃用，请用 &lt;code&gt;caching_sha2_password&lt;/code&gt; 代替。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T09:04:32.364529Z 12 [Warning] [MY-013360] [Server] Plugin mysql_native_password reported: &amp;#x27;&amp;#x27;mysql_native_password&amp;#x27; is deprecated and will be removed in a future release. Please use caching_sha2_password instead&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;2-ndb-mgm-tls&#34;&gt;2. ndb-mgm-tls&lt;/h3&gt;
+&lt;p&gt;启动选项 &lt;code&gt;ndb-mgm-tls&lt;/code&gt;/&lt;code&gt;ndb-tls-search-path&lt;/code&gt; 是 MySQL 8.2.0 新引入的，为 NDB 引擎增加 TLS 相关选项。&lt;/p&gt;
+&lt;p&gt;但由于文档中暂无相关参数描述，而且官网公开的 worklog 不再更新，所以无法查阅到具体的功能描述，仅能通过社区版的代码提交记录窥视一二。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 post-push fixes (2nd set)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 post-push fixes&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #17 Run more existing MTR tests with TLS&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #16 Use TLS for Event Listener&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #15 Visbility&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #14 Add MGM TLS support to all remaining tools&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 patch #13 ndb_waiter and new MTR tests&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #12 MGM TLS in API Nodes, mysqld, and Cluster/J&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #11 Use MGM TLS in TransporterRegistry and MgmtSrvr&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patches #9 and #10: --ndb-mgm-tls in ndbd and ndb_mgmd&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #8 TLS options in ndb_mgm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #7 Add --ndb-mgm-tls option to ndb_sign_keys&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #6 Command authorization in MGM client&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #5 Command authorization in MGM server&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #4 MGM TLS Configuration&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #3 Use TLS for upgraded transporter&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #2 TLS-safe upgrade of mgm socket to transporter&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #1 &amp;quot;START TLS&amp;quot; for management API&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;以及，从源码中，可以看到这个选项提供了三个选项值，分别是 &lt;code&gt;relaxed&lt;/code&gt;,&lt;code&gt;strict&lt;/code&gt;,&lt;code&gt;deferred&lt;/code&gt;，默认值为 &lt;code&gt;relaxed&lt;/code&gt;。&lt;/p&gt;
+&lt;figure class=&#34;highlight c&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;/* ndb_mgm uses an extended form of the --ndb-mgm-tls enum, which accepts&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;   an extra option, &amp;quot;disabled&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;*/&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;type&#34;&gt;static&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;const&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;char&lt;/span&gt; * tls_names[] = &amp;#123; &lt;span class=&#34;string&#34;&gt;&amp;quot;relaxed&amp;quot;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;quot;strict&amp;quot;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;quot;deferred&amp;quot;&lt;/span&gt;, nullptr &amp;#125;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;3-ndb-tls-search-path&#34;&gt;3. ndb-tls-search-path&lt;/h3&gt;
+&lt;p&gt;用于存放 NDB 集群 TLS 私钥的目录。&lt;br&gt;
+具体内容，同上。&lt;/p&gt;
+&lt;h3 id=&#34;4-performance-schema-max-meter-classes&#34;&gt;4. performance-schema-max-meter-classes&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;performance_schema_max_meter_classes&lt;/code&gt; 是全局只读系统变量，从 MySQL 8.2.0 开始引入，表示 meter instruments 可被创建的最大数量。&lt;/p&gt;
+&lt;!--
+https://dev.mysql.com/doc/refman/8.2/en/performance-schema-system-variables.html#sysvar_performance_schema_max_meter_classes
+--&gt;
+&lt;h3 id=&#34;5-performance-schema-max-metric-classes&#34;&gt;5. performance-schema-max-metric-classes&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;performance_schema_max_metric_classes&lt;/code&gt; 是全局只读系统变量，从 MySQL 8.2.0 开始引入，表示 metric instruments 可被创建的最大数量。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;performance_schema_max_meter_classes&lt;/code&gt; / &lt;code&gt;performance_schema_max_metric_classes&lt;/code&gt; 这两个变量是一个 worklog 里增加的，用于服务器的遥测指标接口。&lt;/p&gt;
+&lt;p&gt;另外，命令很相似，一个是 meter，另一个是 metric，需要注意区分。&lt;/p&gt;
+&lt;!--
+https://dev.mysql.com/doc/refman/8.2/en/performance-schema-system-variables.html#sysvar_performance_schema_max_metric_classes
+
+https://github.com/mysql/mysql-server/commit/83926c7fda58664b649f0731a973ad610985d36e
+
+```
+WL#15199: PERFORMANCE_SCHEMA, OTEL METRICS INTERFACE
+Description:
+-----------
+This WL implements core part of the server telemetry metrics feature
+with the following deliverables:
+* Definition of service to instrument metrics (pfs_metrics_v1)
+* Implementation of pfs_metrics_v1 in the performance schema
+* Added setup_meter and setup_metrics performance schema tables
+* Code base instrumentation using pfs_metrics_v1 to expose metrics:
+  - from status variables in core server
+  - from status variables in innodb storage engine
+  - from status variables in X plugin
+  - custom metrics from health monitor component
+* Service definition for metric exporter (mysql_server_telemetry_metrics_v1)
+* Implementation of this interface in a server component
+* A test component (test_server_telemetry_metrics) using the service
+  to test the feature
+```
+--&gt;
+&lt;h3 id=&#34;6-set-operations-buffer-size&#34;&gt;6. set-operations-buffer-size&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;set_operations_buffer_size&lt;/code&gt; 可以动态调整，默认值为 256K，最大可以调整到 1GB，从 MySQL 8.2.0 开始引入。&lt;/p&gt;
+&lt;p&gt;在上面的 &lt;code&gt;optimizer-switch (hash_set_operations=on)&lt;/code&gt; 部分已经介绍过。&lt;/p&gt;
+&lt;p&gt;相关文档参见：&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://dev.mysql.com/doc/refman/8.2/en/server-system-variables.html#sysvar_set_operations_buffer_size&#34;&gt;https://dev.mysql.com/doc/refman/8.2/en/server-system-variables.html#sysvar_set_operations_buffer_size&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id=&#34;7-tls-certificates-enforced-validation&#34;&gt;7. tls-certificates-enforced-validation&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;tls_certificates_enforced_validation&lt;/code&gt; 表示在数据库启动时，强制校验 SSL 证书是否有效，如果设定为 &lt;code&gt;TRUE&lt;/code&gt; ，那么数据库在发现无效证书时将停止启动，其默认值为 &lt;code&gt;OFF&lt;/code&gt;。&lt;/p&gt;
+&lt;!--
+https://dev.mysql.com/doc/refman/8.2/en/server-system-variables.html#sysvar_tls_certificates_enforced_validation
+--&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;MySQL 8.2.0 启动选项和系统变量的变化多达 16 项，还有很多系统状态变量文本没有列举。&lt;/p&gt;
+&lt;img alt=&#34;mysql-params-diff.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20231027-3bcb0b6f-c75a-4a3f-852f-5b6852bf9f78.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;MySQL 8.2.0 是 MySQL 变更发版模型后的第二个版本，是创新版本 (Innovation Release)，不建议部署到生产环境。&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="【MySQL 8.x】从参数变化解读 MySQL 8.2.0 发版说明">
+    <meta property="og:url" content="https://shawnyan.cn/2023/mysql/mysql-8.2.0-sys-vars/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;p&gt;日前，MySQL 8.2.0 创新版本已正式上线，并提供安装包下载，但 docker 镜像尚未更新。&lt;/p&gt;
+&lt;p&gt;在 MySQL 8.1.0 刚发版时也做过分析，欢迎阅读： &lt;a href=&#34;https://shawnyan.cn/2023/mysql/mysql-8.1.0-release/&#34;&gt;重磅！MySQL 8.1.0 已来！有彩蛋~&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;本文将通过 MySQL 启动选项和系统参数的变更情况，来深入了解 8.2.0 都有哪些变化。&lt;/p&gt;
+&lt;h2 id=&#34;启动-MySQL-8-2-0&#34;&gt;启动 MySQL 8.2.0&lt;/h2&gt;
+&lt;p&gt;这一小节不是本文的重点，我们快速推进。&lt;/p&gt;
+&lt;p&gt;从官网直接下载二进制包，并初始化运行。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;初始化日志：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@centos7 ~]$ sudo /usr/local/mysql/bin/mysqld --initialize-insecure&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T01:57:36.185664Z 0 [System] [MY-015017] [Server] MySQL Server Initialization - start.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T01:57:36.187344Z 0 [System] [MY-013169] [Server] /usr/local/mysql/bin/mysqld (mysqld 8.2.0) initializing of server in progress as process 119963&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T01:57:36.194573Z 1 [System] [MY-013576] [InnoDB] InnoDB initialization has started.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T01:57:36.712452Z 1 [System] [MY-013577] [InnoDB] InnoDB initialization has ended.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T01:57:38.681960Z 6 [Warning] [MY-010453] [Server] root@localhost is created with an empty password ! Please consider switching off the --initialize-insecure option.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T01:57:42.299632Z 0 [System] [MY-015018] [Server] MySQL Server Initialization - end.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;服务器启动日志：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[mysql@centos7 ~]$ /usr/local/mysql/bin/mysqld&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T02:00:07.525736Z 0 [System] [MY-015015] [Server] MySQL Server - start.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T02:00:08.462689Z 0 [System] [MY-010116] [Server] /usr/local/mysql/bin/mysqld (mysqld 8.2.0) starting as process 120743&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T02:00:08.473638Z 1 [System] [MY-013576] [InnoDB] InnoDB initialization has started.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T02:00:09.377582Z 1 [System] [MY-013577] [InnoDB] InnoDB initialization has ended.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T02:00:09.757717Z 0 [Warning] [MY-010068] [Server] CA certificate ca.pem is self signed.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T02:00:09.757776Z 0 [System] [MY-013602] [Server] Channel mysql_main configured to support TLS. Encrypted connections are now supported for this channel.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T02:00:09.822331Z 0 [System] [MY-011323] [Server] X Plugin ready for connections. Bind-address: &amp;#x27;::&amp;#x27; port: 33060, socket: /tmp/mysqlx.sock&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T02:00:09.822417Z 0 [System] [MY-010931] [Server] /usr/local/mysql/bin/mysqld: ready for connections. Version: &amp;#x27;8.2.0&amp;#x27;  socket: &amp;#x27;/tmp/mysql.sock&amp;#x27;  port: 3306  MySQL Community Server - GPL.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T02:00:22.899823Z 8 [Warning] [MY-013360] [Server] Plugin mysql_native_password reported: &amp;#x27;&amp;#x27;mysql_native_password&amp;#x27; is deprecated and will be removed in a future release. Please use caching_sha2_password instead&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;为了便于测试，这里直接将 root 用户密码设为空，并直接运行 mysqld 服务。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;登陆 MySQL 并查看版本信息：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;img alt=&#34;01.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/datalk/talk_1698285812343.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;删除的参数-3&#34;&gt;删除的参数 (3)&lt;/h2&gt;
+&lt;h3 id=&#34;1-abort-slave-event-count&#34;&gt;1. abort-slave-event-count&lt;/h3&gt;
+&lt;blockquote&gt;
+&lt;p&gt;The deprecated server startup options --abort-slave-event-count and --disconnect-slave-event-count, deprecated in MySQL 8.0, have been removed in this release. Attempting to start mysqld with either of these options now results in an error.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;code&gt;abort_slave_event_count&lt;/code&gt; / &lt;code&gt;disconnect_slave_event_count&lt;/code&gt; 这两个启动参数在之前的版本中用做测试，并非真的生产环境参数。&lt;/p&gt;
+&lt;p&gt;从 8.0.29 版本开始，被标记为废弃状态，从 8.2.0 开始，正式被移除。&lt;/p&gt;
+&lt;h3 id=&#34;2-disconnect-slave-event-count&#34;&gt;2. disconnect-slave-event-count&lt;/h3&gt;
+&lt;p&gt;同上。&lt;/p&gt;
+&lt;h3 id=&#34;3-expire-logs-days&#34;&gt;3. expire-logs-days&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;expire_logs_days&lt;/code&gt; 参数用于设定二进制日志保留天数，从 8.2.0 开始，正式被移除。&lt;/p&gt;
+&lt;p&gt;从 MySQL 8.0.1 开始，新增参数 &lt;code&gt;binlog_expire_logs_seconds&lt;/code&gt;，以秒为单位控制二进制日志的保留时长。&lt;/p&gt;
+&lt;p&gt;默认值为 2592000 ，即 30 天。最大值为 4294967295 ，即 unsigned int 最大值，约 138 年。&lt;/p&gt;
+&lt;p&gt;在 MariaDB 中，从 10.6.1 开始引入 &lt;code&gt;binlog_expire_logs_seconds&lt;/code&gt; 参数，但默认值为 0 ，需要自己进行设定。&lt;/p&gt;
+&lt;h2 id=&#34;变更值的参数-6&#34;&gt;变更值的参数 (6)&lt;/h2&gt;
+&lt;h3 id=&#34;1-master-retry-count&#34;&gt;1. master-retry-count&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;master_retry_count&lt;/code&gt; 参数用于设定复制连接超时后，重试连接的最大次数。 在 8.2.0 默认值为 10 ，而 8.0.35 的默认值为 86400 ，这一变更是从 8.1.0 开始的。&lt;/p&gt;
+&lt;p&gt;需要注意的是，创建复制的语法 &lt;code&gt;change master to&lt;/code&gt; 已经废弃，改为 &lt;code&gt;change replication source to&lt;/code&gt;。&lt;/p&gt;
+&lt;h3 id=&#34;2-optimizer-switch-hash-set-operations-on&#34;&gt;2. optimizer-switch (hash_set_operations=on)&lt;/h3&gt;
+&lt;p&gt;从 8.2.0 开始， &lt;code&gt;optimizer_switch&lt;/code&gt; 中新增了一个控制标记 &lt;code&gt;hash_set_operations&lt;/code&gt;，默认值为 &lt;code&gt;on&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;用于对集合操作(包括 EXCEPT 和 INTERSECT)进行哈希表优化，这种优化用于哈希的内存量可以使用 &lt;code&gt;set_operations_buffer_size&lt;/code&gt; 系统变量来控制。&lt;/p&gt;
+&lt;p&gt;系统变量 &lt;code&gt;set_operations_buffer_size&lt;/code&gt; 是 MySQL 8.2.0 新引入的，下面会再介绍。&lt;/p&gt;
+&lt;h3 id=&#34;3-performance-schema-error-size&#34;&gt;3. performance-schema-error-size&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;performance_schema_error_size&lt;/code&gt; 表示数据库错误码的数量，在 MySQL 8.0.35 中，默认值为 5307 ，而在 MySQL 8.2.0 中，变更为 5377 。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; version(),&lt;span class=&#34;built_in&#34;&gt;count&lt;/span&gt;(&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;) &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; performance_schema.events_errors_summary_global_by_error;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------+----------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; version() &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;built_in&#34;&gt;count&lt;/span&gt;(&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;) &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------+----------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;8.2&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.0&lt;/span&gt;     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;     &lt;span class=&#34;number&#34;&gt;5377&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------+----------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.00&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;源码中的定义如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight c&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;type&#34;&gt;static&lt;/span&gt; Sys_var_long &lt;span class=&#34;title function_&#34;&gt;Sys_pfs_error_size&lt;/span&gt;&lt;span class=&#34;params&#34;&gt;(&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;params&#34;&gt;    &lt;span class=&#34;string&#34;&gt;&amp;quot;performance_schema_error_size&amp;quot;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;quot;Number of server errors instrumented.&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;params&#34;&gt;    READ_ONLY GLOBAL_VAR(pfs_param.m_error_sizing), CMD_LINE(REQUIRED_ARG),&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;params&#34;&gt;    VALID_RANGE(&lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;, &lt;span class=&#34;number&#34;&gt;1024&lt;/span&gt; * &lt;span class=&#34;number&#34;&gt;1024&lt;/span&gt;), DEFAULT(PFS_MAX_GLOBAL_SERVER_ERRORS),&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;params&#34;&gt;    BLOCK_SIZE(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;), PFS_TRAILING_PROPERTIES)&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;4-performance-schema-max-memory-classes&#34;&gt;4. performance-schema-max-memory-classes&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;performance_schema_max_memory_classes&lt;/code&gt; 是全局只读参数，表示 memory instruments 的最大数量。&lt;/p&gt;
+&lt;p&gt;在 MySQL 8.0.35 中，默认值为 450 ，但在 MySQL 8.2.0 中变为 470 ，不过官方文档尚未更新。&lt;/p&gt;
+&lt;p&gt;已在 MySQL Bugs 网站提交相关 bug：&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://bugs.mysql.com/bug.php?id=112839&#34;&gt;https://bugs.mysql.com/bug.php?id=112839&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id=&#34;5-performance-schema-max-rwlock-classes&#34;&gt;5. performance-schema-max-rwlock-classes&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;performance_schema_max_rwlock_classes&lt;/code&gt; 是全局只读参数，表示 rwlock instruments 的最大数量。&lt;/p&gt;
+&lt;p&gt;在 MySQL 8.0.35 中，默认值为 60 ，但在 MySQL 8.2.0 中变为 100 。&lt;/p&gt;
+&lt;h3 id=&#34;6-performance-schema-max-statement-classes&#34;&gt;6. performance-schema-max-statement-classes&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;performance_schema_max_statement_classes&lt;/code&gt; 是全局只读参数，表示 statement instruments 的最大数量。&lt;/p&gt;
+&lt;p&gt;默认值是在服务器构建时根据客户机/服务器协议中的命令数量和服务器支持的SQL语句类型数量计算的。&lt;/p&gt;
+&lt;p&gt;在 MySQL 8.0.35 中，默认值为 219 ，而在 MySQL 8.2.0 中变为 220 。&lt;/p&gt;
+&lt;p&gt;那么，多的1个是从哪来的呢？&lt;/p&gt;
+&lt;p&gt;从相关代码提交记录可以看到描述：&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://github.com/mysql/mysql-server/commit/eb7dd6c6c10c0437658caa7b9c7716c0468582fa&#34;&gt;https://github.com/mysql/mysql-server/commit/eb7dd6c6c10c0437658caa7b9c7716c0468582fa&lt;/a&gt;&lt;br&gt;
+WL#15426: Implement SHOW PARSE_TREE&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Implemented a SHOW PARSE_TREE statement in debug builds to display the JSON-formatted parse tree for a SELECT statement. This statement is not supported in release builds, and is available only in debug builds, or by compiling the server using -DWITH_SHOW_PARSE_TREE. (WL #15426)&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;从 MySQL 8.1.0 开始，引入新 SQL 语句， &lt;code&gt;show parse_tree&lt;/code&gt; 用来调试 &lt;code&gt;select&lt;/code&gt; 语句，并以 json 格式展示。&lt;br&gt;
+需要注意的是，该参数只能用于 Debug 模式，所以官方下载的正式安装包是无法使用该语法的，否则会报语法错误。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SHOW&lt;/span&gt; PARSE_TREE &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ERROR &lt;span class=&#34;number&#34;&gt;1064&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;42000&lt;/span&gt;): You have an error &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; your &lt;span class=&#34;keyword&#34;&gt;SQL&lt;/span&gt; syntax; &lt;span class=&#34;keyword&#34;&gt;check&lt;/span&gt; the manual that corresponds &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; your MySQL server version &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; the &lt;span class=&#34;keyword&#34;&gt;right&lt;/span&gt; syntax &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; use near &lt;span class=&#34;string&#34;&gt;&amp;#x27;PARSE_TREE select 1&amp;#x27;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;at&lt;/span&gt; line &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;新增的参数-7&#34;&gt;新增的参数 (7)&lt;/h2&gt;
+&lt;h3 id=&#34;1-mysql-native-password&#34;&gt;1. mysql-native-password&lt;/h3&gt;
+&lt;p&gt;MySQL 中创建用户时默认的密码插件已经变更为 &lt;code&gt;caching_sha2_password&lt;/code&gt;，但目前仍然支持使用 &lt;code&gt;mysql_native_password&lt;/code&gt;，该参数就是控制服务器启动时，是否启用该密码插件。&lt;/p&gt;
+&lt;p&gt;在 8.1.0 的发版说明中有如下一段描述：&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://dev.mysql.com/doc/relnotes/mysql/8.1/en/news-8-1-0.html&#34;&gt;https://dev.mysql.com/doc/relnotes/mysql/8.1/en/news-8-1-0.html&lt;/a&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;The mysql_native_password authentication plugin now is deprecated and subject to removal in a future version of MySQL. CREATE USER, ALTER USER, and SET PASSWORD operations now insert a deprecation warning into the server error log if an account attempts to authenticate using mysql_native_password as an authentication method. (Bug #35336317)&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;具体演示如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;user&lt;/span&gt; shawnyan identified &lt;span class=&#34;keyword&#34;&gt;with&lt;/span&gt; mysql_native_password &lt;span class=&#34;keyword&#34;&gt;by&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;1&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt; affected (&lt;span class=&#34;number&#34;&gt;0.00&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;日志中会提示该插件已弃用，请用 &lt;code&gt;caching_sha2_password&lt;/code&gt; 代替。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;2023-10-26T09:04:32.364529Z 12 [Warning] [MY-013360] [Server] Plugin mysql_native_password reported: &amp;#x27;&amp;#x27;mysql_native_password&amp;#x27; is deprecated and will be removed in a future release. Please use caching_sha2_password instead&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;2-ndb-mgm-tls&#34;&gt;2. ndb-mgm-tls&lt;/h3&gt;
+&lt;p&gt;启动选项 &lt;code&gt;ndb-mgm-tls&lt;/code&gt;/&lt;code&gt;ndb-tls-search-path&lt;/code&gt; 是 MySQL 8.2.0 新引入的，为 NDB 引擎增加 TLS 相关选项。&lt;/p&gt;
+&lt;p&gt;但由于文档中暂无相关参数描述，而且官网公开的 worklog 不再更新，所以无法查阅到具体的功能描述，仅能通过社区版的代码提交记录窥视一二。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 post-push fixes (2nd set)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 post-push fixes&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #17 Run more existing MTR tests with TLS&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #16 Use TLS for Event Listener&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #15 Visbility&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #14 Add MGM TLS support to all remaining tools&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 patch #13 ndb_waiter and new MTR tests&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #12 MGM TLS in API Nodes, mysqld, and Cluster/J&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #11 Use MGM TLS in TransporterRegistry and MgmtSrvr&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patches #9 and #10: --ndb-mgm-tls in ndbd and ndb_mgmd&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #8 TLS options in ndb_mgm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #7 Add --ndb-mgm-tls option to ndb_sign_keys&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #6 Command authorization in MGM client&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #5 Command authorization in MGM server&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #4 MGM TLS Configuration&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #3 Use TLS for upgraded transporter&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #2 TLS-safe upgrade of mgm socket to transporter&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;WL#15524 Patch #1 &amp;quot;START TLS&amp;quot; for management API&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;以及，从源码中，可以看到这个选项提供了三个选项值，分别是 &lt;code&gt;relaxed&lt;/code&gt;,&lt;code&gt;strict&lt;/code&gt;,&lt;code&gt;deferred&lt;/code&gt;，默认值为 &lt;code&gt;relaxed&lt;/code&gt;。&lt;/p&gt;
+&lt;figure class=&#34;highlight c&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;/* ndb_mgm uses an extended form of the --ndb-mgm-tls enum, which accepts&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;   an extra option, &amp;quot;disabled&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;*/&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;type&#34;&gt;static&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;const&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;char&lt;/span&gt; * tls_names[] = &amp;#123; &lt;span class=&#34;string&#34;&gt;&amp;quot;relaxed&amp;quot;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;quot;strict&amp;quot;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;quot;deferred&amp;quot;&lt;/span&gt;, nullptr &amp;#125;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;3-ndb-tls-search-path&#34;&gt;3. ndb-tls-search-path&lt;/h3&gt;
+&lt;p&gt;用于存放 NDB 集群 TLS 私钥的目录。&lt;br&gt;
+具体内容，同上。&lt;/p&gt;
+&lt;h3 id=&#34;4-performance-schema-max-meter-classes&#34;&gt;4. performance-schema-max-meter-classes&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;performance_schema_max_meter_classes&lt;/code&gt; 是全局只读系统变量，从 MySQL 8.2.0 开始引入，表示 meter instruments 可被创建的最大数量。&lt;/p&gt;
+&lt;!--
+https://dev.mysql.com/doc/refman/8.2/en/performance-schema-system-variables.html#sysvar_performance_schema_max_meter_classes
+--&gt;
+&lt;h3 id=&#34;5-performance-schema-max-metric-classes&#34;&gt;5. performance-schema-max-metric-classes&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;performance_schema_max_metric_classes&lt;/code&gt; 是全局只读系统变量，从 MySQL 8.2.0 开始引入，表示 metric instruments 可被创建的最大数量。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;performance_schema_max_meter_classes&lt;/code&gt; / &lt;code&gt;performance_schema_max_metric_classes&lt;/code&gt; 这两个变量是一个 worklog 里增加的，用于服务器的遥测指标接口。&lt;/p&gt;
+&lt;p&gt;另外，命令很相似，一个是 meter，另一个是 metric，需要注意区分。&lt;/p&gt;
+&lt;!--
+https://dev.mysql.com/doc/refman/8.2/en/performance-schema-system-variables.html#sysvar_performance_schema_max_metric_classes
+
+https://github.com/mysql/mysql-server/commit/83926c7fda58664b649f0731a973ad610985d36e
+
+```
+WL#15199: PERFORMANCE_SCHEMA, OTEL METRICS INTERFACE
+Description:
+-----------
+This WL implements core part of the server telemetry metrics feature
+with the following deliverables:
+* Definition of service to instrument metrics (pfs_metrics_v1)
+* Implementation of pfs_metrics_v1 in the performance schema
+* Added setup_meter and setup_metrics performance schema tables
+* Code base instrumentation using pfs_metrics_v1 to expose metrics:
+  - from status variables in core server
+  - from status variables in innodb storage engine
+  - from status variables in X plugin
+  - custom metrics from health monitor component
+* Service definition for metric exporter (mysql_server_telemetry_metrics_v1)
+* Implementation of this interface in a server component
+* A test component (test_server_telemetry_metrics) using the service
+  to test the feature
+```
+--&gt;
+&lt;h3 id=&#34;6-set-operations-buffer-size&#34;&gt;6. set-operations-buffer-size&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;set_operations_buffer_size&lt;/code&gt; 可以动态调整，默认值为 256K，最大可以调整到 1GB，从 MySQL 8.2.0 开始引入。&lt;/p&gt;
+&lt;p&gt;在上面的 &lt;code&gt;optimizer-switch (hash_set_operations=on)&lt;/code&gt; 部分已经介绍过。&lt;/p&gt;
+&lt;p&gt;相关文档参见：&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://dev.mysql.com/doc/refman/8.2/en/server-system-variables.html#sysvar_set_operations_buffer_size&#34;&gt;https://dev.mysql.com/doc/refman/8.2/en/server-system-variables.html#sysvar_set_operations_buffer_size&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id=&#34;7-tls-certificates-enforced-validation&#34;&gt;7. tls-certificates-enforced-validation&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;tls_certificates_enforced_validation&lt;/code&gt; 表示在数据库启动时，强制校验 SSL 证书是否有效，如果设定为 &lt;code&gt;TRUE&lt;/code&gt; ，那么数据库在发现无效证书时将停止启动，其默认值为 &lt;code&gt;OFF&lt;/code&gt;。&lt;/p&gt;
+&lt;!--
+https://dev.mysql.com/doc/refman/8.2/en/server-system-variables.html#sysvar_tls_certificates_enforced_validation
+--&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;MySQL 8.2.0 启动选项和系统变量的变化多达 16 项，还有很多系统状态变量文本没有列举。&lt;/p&gt;
+&lt;img alt=&#34;mysql-params-diff.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20231027-3bcb0b6f-c75a-4a3f-852f-5b6852bf9f78.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;MySQL 8.2.0 是 MySQL 变更发版模型后的第二个版本，是创新版本 (Innovation Release)，不建议部署到生产环境。&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/mysql/" class="category-badge">
+                                    MySQL
+                                </a>
+                            
+                                <a href="/categories/mysql/mysql-8-x/" class="category-badge">
+                                    MySQL 8.x
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">【MySQL 8.x】从参数变化解读 MySQL 8.2.0 发版说明</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2023-10-27
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                2.3k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                11 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <p>日前，MySQL 8.2.0 创新版本已正式上线，并提供安装包下载，但 docker 镜像尚未更新。</p>
+<p>在 MySQL 8.1.0 刚发版时也做过分析，欢迎阅读： <a href="https://shawnyan.cn/2023/mysql/mysql-8.1.0-release/">重磅！MySQL 8.1.0 已来！有彩蛋~</a></p>
+<p>本文将通过 MySQL 启动选项和系统参数的变更情况，来深入了解 8.2.0 都有哪些变化。</p>
+<h2 id="启动-MySQL-8-2-0">启动 MySQL 8.2.0</h2>
+<p>这一小节不是本文的重点，我们快速推进。</p>
+<p>从官网直接下载二进制包，并初始化运行。</p>
+<ul>
+<li>初始化日志：</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@centos7 ~]$ sudo /usr/local/mysql/bin/mysqld --initialize-insecure</span><br><span class="line">2023-10-26T01:57:36.185664Z 0 [System] [MY-015017] [Server] MySQL Server Initialization - start.</span><br><span class="line">2023-10-26T01:57:36.187344Z 0 [System] [MY-013169] [Server] /usr/local/mysql/bin/mysqld (mysqld 8.2.0) initializing of server in progress as process 119963</span><br><span class="line">2023-10-26T01:57:36.194573Z 1 [System] [MY-013576] [InnoDB] InnoDB initialization has started.</span><br><span class="line">2023-10-26T01:57:36.712452Z 1 [System] [MY-013577] [InnoDB] InnoDB initialization has ended.</span><br><span class="line">2023-10-26T01:57:38.681960Z 6 [Warning] [MY-010453] [Server] root@localhost is created with an empty password ! Please consider switching off the --initialize-insecure option.</span><br><span class="line">2023-10-26T01:57:42.299632Z 0 [System] [MY-015018] [Server] MySQL Server Initialization - end.</span><br></pre></td></tr></table></figure>
+<ul>
+<li>服务器启动日志：</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">[mysql@centos7 ~]$ /usr/local/mysql/bin/mysqld</span><br><span class="line">2023-10-26T02:00:07.525736Z 0 [System] [MY-015015] [Server] MySQL Server - start.</span><br><span class="line">2023-10-26T02:00:08.462689Z 0 [System] [MY-010116] [Server] /usr/local/mysql/bin/mysqld (mysqld 8.2.0) starting as process 120743</span><br><span class="line">2023-10-26T02:00:08.473638Z 1 [System] [MY-013576] [InnoDB] InnoDB initialization has started.</span><br><span class="line">2023-10-26T02:00:09.377582Z 1 [System] [MY-013577] [InnoDB] InnoDB initialization has ended.</span><br><span class="line">2023-10-26T02:00:09.757717Z 0 [Warning] [MY-010068] [Server] CA certificate ca.pem is self signed.</span><br><span class="line">2023-10-26T02:00:09.757776Z 0 [System] [MY-013602] [Server] Channel mysql_main configured to support TLS. Encrypted connections are now supported for this channel.</span><br><span class="line">2023-10-26T02:00:09.822331Z 0 [System] [MY-011323] [Server] X Plugin ready for connections. Bind-address: &#x27;::&#x27; port: 33060, socket: /tmp/mysqlx.sock</span><br><span class="line">2023-10-26T02:00:09.822417Z 0 [System] [MY-010931] [Server] /usr/local/mysql/bin/mysqld: ready for connections. Version: &#x27;8.2.0&#x27;  socket: &#x27;/tmp/mysql.sock&#x27;  port: 3306  MySQL Community Server - GPL.</span><br><span class="line"></span><br><span class="line">2023-10-26T02:00:22.899823Z 8 [Warning] [MY-013360] [Server] Plugin mysql_native_password reported: &#x27;&#x27;mysql_native_password&#x27; is deprecated and will be removed in a future release. Please use caching_sha2_password instead&#x27;</span><br></pre></td></tr></table></figure>
+<p>为了便于测试，这里直接将 root 用户密码设为空，并直接运行 mysqld 服务。</p>
+<ul>
+<li>登陆 MySQL 并查看版本信息：</li>
+</ul>
+<img alt="01.png" src="https://oss-emcsprod-public.modb.pro/image/datalk/talk_1698285812343.png" referrerpolicy="no-referrer"/>
+<h2 id="删除的参数-3">删除的参数 (3)</h2>
+<h3 id="1-abort-slave-event-count">1. abort-slave-event-count</h3>
+<blockquote>
+<p>The deprecated server startup options --abort-slave-event-count and --disconnect-slave-event-count, deprecated in MySQL 8.0, have been removed in this release. Attempting to start mysqld with either of these options now results in an error.</p>
+</blockquote>
+<p><code>abort_slave_event_count</code> / <code>disconnect_slave_event_count</code> 这两个启动参数在之前的版本中用做测试，并非真的生产环境参数。</p>
+<p>从 8.0.29 版本开始，被标记为废弃状态，从 8.2.0 开始，正式被移除。</p>
+<h3 id="2-disconnect-slave-event-count">2. disconnect-slave-event-count</h3>
+<p>同上。</p>
+<h3 id="3-expire-logs-days">3. expire-logs-days</h3>
+<p><code>expire_logs_days</code> 参数用于设定二进制日志保留天数，从 8.2.0 开始，正式被移除。</p>
+<p>从 MySQL 8.0.1 开始，新增参数 <code>binlog_expire_logs_seconds</code>，以秒为单位控制二进制日志的保留时长。</p>
+<p>默认值为 2592000 ，即 30 天。最大值为 4294967295 ，即 unsigned int 最大值，约 138 年。</p>
+<p>在 MariaDB 中，从 10.6.1 开始引入 <code>binlog_expire_logs_seconds</code> 参数，但默认值为 0 ，需要自己进行设定。</p>
+<h2 id="变更值的参数-6">变更值的参数 (6)</h2>
+<h3 id="1-master-retry-count">1. master-retry-count</h3>
+<p><code>master_retry_count</code> 参数用于设定复制连接超时后，重试连接的最大次数。 在 8.2.0 默认值为 10 ，而 8.0.35 的默认值为 86400 ，这一变更是从 8.1.0 开始的。</p>
+<p>需要注意的是，创建复制的语法 <code>change master to</code> 已经废弃，改为 <code>change replication source to</code>。</p>
+<h3 id="2-optimizer-switch-hash-set-operations-on">2. optimizer-switch (hash_set_operations=on)</h3>
+<p>从 8.2.0 开始， <code>optimizer_switch</code> 中新增了一个控制标记 <code>hash_set_operations</code>，默认值为 <code>on</code>。</p>
+<p>用于对集合操作(包括 EXCEPT 和 INTERSECT)进行哈希表优化，这种优化用于哈希的内存量可以使用 <code>set_operations_buffer_size</code> 系统变量来控制。</p>
+<p>系统变量 <code>set_operations_buffer_size</code> 是 MySQL 8.2.0 新引入的，下面会再介绍。</p>
+<h3 id="3-performance-schema-error-size">3. performance-schema-error-size</h3>
+<p><code>performance_schema_error_size</code> 表示数据库错误码的数量，在 MySQL 8.0.35 中，默认值为 5307 ，而在 MySQL 8.2.0 中，变更为 5377 。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">SELECT</span> version(),<span class="built_in">count</span>(<span class="operator">*</span>) <span class="keyword">FROM</span> performance_schema.events_errors_summary_global_by_error;</span><br><span class="line"><span class="operator">+</span><span class="comment">-----------+----------+</span></span><br><span class="line"><span class="operator">|</span> version() <span class="operator">|</span> <span class="built_in">count</span>(<span class="operator">*</span>) <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-----------+----------+</span></span><br><span class="line"><span class="operator">|</span> <span class="number">8.2</span><span class="number">.0</span>     <span class="operator">|</span>     <span class="number">5377</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-----------+----------+</span></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure>
+<p>源码中的定义如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> Sys_var_long <span class="title function_">Sys_pfs_error_size</span><span class="params">(</span></span><br><span class="line"><span class="params">    <span class="string">&quot;performance_schema_error_size&quot;</span>, <span class="string">&quot;Number of server errors instrumented.&quot;</span>,</span></span><br><span class="line"><span class="params">    READ_ONLY GLOBAL_VAR(pfs_param.m_error_sizing), CMD_LINE(REQUIRED_ARG),</span></span><br><span class="line"><span class="params">    VALID_RANGE(<span class="number">0</span>, <span class="number">1024</span> * <span class="number">1024</span>), DEFAULT(PFS_MAX_GLOBAL_SERVER_ERRORS),</span></span><br><span class="line"><span class="params">    BLOCK_SIZE(<span class="number">1</span>), PFS_TRAILING_PROPERTIES)</span>;</span><br></pre></td></tr></table></figure>
+<h3 id="4-performance-schema-max-memory-classes">4. performance-schema-max-memory-classes</h3>
+<p><code>performance_schema_max_memory_classes</code> 是全局只读参数，表示 memory instruments 的最大数量。</p>
+<p>在 MySQL 8.0.35 中，默认值为 450 ，但在 MySQL 8.2.0 中变为 470 ，不过官方文档尚未更新。</p>
+<p>已在 MySQL Bugs 网站提交相关 bug：</p>
+<p><a target="_blank" rel="noopener" href="https://bugs.mysql.com/bug.php?id=112839">https://bugs.mysql.com/bug.php?id=112839</a></p>
+<h3 id="5-performance-schema-max-rwlock-classes">5. performance-schema-max-rwlock-classes</h3>
+<p><code>performance_schema_max_rwlock_classes</code> 是全局只读参数，表示 rwlock instruments 的最大数量。</p>
+<p>在 MySQL 8.0.35 中，默认值为 60 ，但在 MySQL 8.2.0 中变为 100 。</p>
+<h3 id="6-performance-schema-max-statement-classes">6. performance-schema-max-statement-classes</h3>
+<p><code>performance_schema_max_statement_classes</code> 是全局只读参数，表示 statement instruments 的最大数量。</p>
+<p>默认值是在服务器构建时根据客户机/服务器协议中的命令数量和服务器支持的SQL语句类型数量计算的。</p>
+<p>在 MySQL 8.0.35 中，默认值为 219 ，而在 MySQL 8.2.0 中变为 220 。</p>
+<p>那么，多的1个是从哪来的呢？</p>
+<p>从相关代码提交记录可以看到描述：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/mysql/mysql-server/commit/eb7dd6c6c10c0437658caa7b9c7716c0468582fa">https://github.com/mysql/mysql-server/commit/eb7dd6c6c10c0437658caa7b9c7716c0468582fa</a><br>
+WL#15426: Implement SHOW PARSE_TREE</p>
+<blockquote>
+<p>Implemented a SHOW PARSE_TREE statement in debug builds to display the JSON-formatted parse tree for a SELECT statement. This statement is not supported in release builds, and is available only in debug builds, or by compiling the server using -DWITH_SHOW_PARSE_TREE. (WL #15426)</p>
+</blockquote>
+<p>从 MySQL 8.1.0 开始，引入新 SQL 语句， <code>show parse_tree</code> 用来调试 <code>select</code> 语句，并以 json 格式展示。<br>
+需要注意的是，该参数只能用于 Debug 模式，所以官方下载的正式安装包是无法使用该语法的，否则会报语法错误。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">SHOW</span> PARSE_TREE <span class="keyword">select</span> <span class="number">1</span>;</span><br><span class="line">ERROR <span class="number">1064</span> (<span class="number">42000</span>): You have an error <span class="keyword">in</span> your <span class="keyword">SQL</span> syntax; <span class="keyword">check</span> the manual that corresponds <span class="keyword">to</span> your MySQL server version <span class="keyword">for</span> the <span class="keyword">right</span> syntax <span class="keyword">to</span> use near <span class="string">&#x27;PARSE_TREE select 1&#x27;</span> <span class="keyword">at</span> line <span class="number">1</span></span><br></pre></td></tr></table></figure>
+<h2 id="新增的参数-7">新增的参数 (7)</h2>
+<h3 id="1-mysql-native-password">1. mysql-native-password</h3>
+<p>MySQL 中创建用户时默认的密码插件已经变更为 <code>caching_sha2_password</code>，但目前仍然支持使用 <code>mysql_native_password</code>，该参数就是控制服务器启动时，是否启用该密码插件。</p>
+<p>在 8.1.0 的发版说明中有如下一段描述：</p>
+<p><a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/relnotes/mysql/8.1/en/news-8-1-0.html">https://dev.mysql.com/doc/relnotes/mysql/8.1/en/news-8-1-0.html</a></p>
+<blockquote>
+<p>The mysql_native_password authentication plugin now is deprecated and subject to removal in a future version of MySQL. CREATE USER, ALTER USER, and SET PASSWORD operations now insert a deprecation warning into the server error log if an account attempts to authenticate using mysql_native_password as an authentication method. (Bug #35336317)</p>
+</blockquote>
+<p>具体演示如下：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">create</span> <span class="keyword">user</span> shawnyan identified <span class="keyword">with</span> mysql_native_password <span class="keyword">by</span> <span class="string">&#x27;1&#x27;</span>;</span><br><span class="line">Query OK, <span class="number">0</span> <span class="keyword">rows</span> affected (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure>
+<p>日志中会提示该插件已弃用，请用 <code>caching_sha2_password</code> 代替。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">2023-10-26T09:04:32.364529Z 12 [Warning] [MY-013360] [Server] Plugin mysql_native_password reported: &#x27;&#x27;mysql_native_password&#x27; is deprecated and will be removed in a future release. Please use caching_sha2_password instead&#x27;</span><br></pre></td></tr></table></figure>
+<h3 id="2-ndb-mgm-tls">2. ndb-mgm-tls</h3>
+<p>启动选项 <code>ndb-mgm-tls</code>/<code>ndb-tls-search-path</code> 是 MySQL 8.2.0 新引入的，为 NDB 引擎增加 TLS 相关选项。</p>
+<p>但由于文档中暂无相关参数描述，而且官网公开的 worklog 不再更新，所以无法查阅到具体的功能描述，仅能通过社区版的代码提交记录窥视一二。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">WL#15524 post-push fixes (2nd set)</span><br><span class="line">WL#15524 post-push fixes</span><br><span class="line">WL#15524 Patch #17 Run more existing MTR tests with TLS</span><br><span class="line">WL#15524 Patch #16 Use TLS for Event Listener</span><br><span class="line">WL#15524 Patch #15 Visbility</span><br><span class="line">WL#15524 Patch #14 Add MGM TLS support to all remaining tools</span><br><span class="line">WL#15524 patch #13 ndb_waiter and new MTR tests</span><br><span class="line">WL#15524 Patch #12 MGM TLS in API Nodes, mysqld, and Cluster/J</span><br><span class="line">WL#15524 Patch #11 Use MGM TLS in TransporterRegistry and MgmtSrvr</span><br><span class="line">WL#15524 Patches #9 and #10: --ndb-mgm-tls in ndbd and ndb_mgmd</span><br><span class="line">WL#15524 Patch #8 TLS options in ndb_mgm</span><br><span class="line">WL#15524 Patch #7 Add --ndb-mgm-tls option to ndb_sign_keys</span><br><span class="line">WL#15524 Patch #6 Command authorization in MGM client</span><br><span class="line">WL#15524 Patch #5 Command authorization in MGM server</span><br><span class="line">WL#15524 Patch #4 MGM TLS Configuration</span><br><span class="line">WL#15524 Patch #3 Use TLS for upgraded transporter</span><br><span class="line">WL#15524 Patch #2 TLS-safe upgrade of mgm socket to transporter</span><br><span class="line">WL#15524 Patch #1 &quot;START TLS&quot; for management API</span><br></pre></td></tr></table></figure>
+<p>以及，从源码中，可以看到这个选项提供了三个选项值，分别是 <code>relaxed</code>,<code>strict</code>,<code>deferred</code>，默认值为 <code>relaxed</code>。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* ndb_mgm uses an extended form of the --ndb-mgm-tls enum, which accepts</span></span><br><span class="line"><span class="comment">   an extra option, &quot;disabled&quot;</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line"><span class="type">static</span> <span class="type">const</span> <span class="type">char</span> * tls_names[] = &#123; <span class="string">&quot;relaxed&quot;</span>, <span class="string">&quot;strict&quot;</span>, <span class="string">&quot;deferred&quot;</span>, nullptr &#125;;</span><br></pre></td></tr></table></figure>
+<h3 id="3-ndb-tls-search-path">3. ndb-tls-search-path</h3>
+<p>用于存放 NDB 集群 TLS 私钥的目录。<br>
+具体内容，同上。</p>
+<h3 id="4-performance-schema-max-meter-classes">4. performance-schema-max-meter-classes</h3>
+<p><code>performance_schema_max_meter_classes</code> 是全局只读系统变量，从 MySQL 8.2.0 开始引入，表示 meter instruments 可被创建的最大数量。</p>
+<!--
+https://dev.mysql.com/doc/refman/8.2/en/performance-schema-system-variables.html#sysvar_performance_schema_max_meter_classes
+-->
+<h3 id="5-performance-schema-max-metric-classes">5. performance-schema-max-metric-classes</h3>
+<p><code>performance_schema_max_metric_classes</code> 是全局只读系统变量，从 MySQL 8.2.0 开始引入，表示 metric instruments 可被创建的最大数量。</p>
+<p><code>performance_schema_max_meter_classes</code> / <code>performance_schema_max_metric_classes</code> 这两个变量是一个 worklog 里增加的，用于服务器的遥测指标接口。</p>
+<p>另外，命令很相似，一个是 meter，另一个是 metric，需要注意区分。</p>
+<!--
+https://dev.mysql.com/doc/refman/8.2/en/performance-schema-system-variables.html#sysvar_performance_schema_max_metric_classes
+
+https://github.com/mysql/mysql-server/commit/83926c7fda58664b649f0731a973ad610985d36e
+
+```
+WL#15199: PERFORMANCE_SCHEMA, OTEL METRICS INTERFACE
+Description:
+-----------
+This WL implements core part of the server telemetry metrics feature
+with the following deliverables:
+* Definition of service to instrument metrics (pfs_metrics_v1)
+* Implementation of pfs_metrics_v1 in the performance schema
+* Added setup_meter and setup_metrics performance schema tables
+* Code base instrumentation using pfs_metrics_v1 to expose metrics:
+  - from status variables in core server
+  - from status variables in innodb storage engine
+  - from status variables in X plugin
+  - custom metrics from health monitor component
+* Service definition for metric exporter (mysql_server_telemetry_metrics_v1)
+* Implementation of this interface in a server component
+* A test component (test_server_telemetry_metrics) using the service
+  to test the feature
+```
+-->
+<h3 id="6-set-operations-buffer-size">6. set-operations-buffer-size</h3>
+<p><code>set_operations_buffer_size</code> 可以动态调整，默认值为 256K，最大可以调整到 1GB，从 MySQL 8.2.0 开始引入。</p>
+<p>在上面的 <code>optimizer-switch (hash_set_operations=on)</code> 部分已经介绍过。</p>
+<p>相关文档参见：</p>
+<p><a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/8.2/en/server-system-variables.html#sysvar_set_operations_buffer_size">https://dev.mysql.com/doc/refman/8.2/en/server-system-variables.html#sysvar_set_operations_buffer_size</a></p>
+<h3 id="7-tls-certificates-enforced-validation">7. tls-certificates-enforced-validation</h3>
+<p><code>tls_certificates_enforced_validation</code> 表示在数据库启动时，强制校验 SSL 证书是否有效，如果设定为 <code>TRUE</code> ，那么数据库在发现无效证书时将停止启动，其默认值为 <code>OFF</code>。</p>
+<!--
+https://dev.mysql.com/doc/refman/8.2/en/server-system-variables.html#sysvar_tls_certificates_enforced_validation
+-->
+<h2 id="总结">总结</h2>
+<p>MySQL 8.2.0 启动选项和系统变量的变化多达 16 项，还有很多系统状态变量文本没有列举。</p>
+<img alt="mysql-params-diff.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20231027-3bcb0b6f-c75a-4a3f-852f-5b6852bf9f78.png" referrerpolicy="no-referrer"/>
+<p>MySQL 8.2.0 是 MySQL 变更发版模型后的第二个版本，是创新版本 (Innovation Release)，不建议部署到生产环境。</p>
+<img alt="logo.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg" referrerpolicy="no-referrer"/>
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/oracle/" class="tag-link">
+                                oracle
+                            </a>
+                        
+                            <a href="/tags/mysql/" class="tag-link">
+                                mysql
+                            </a>
+                        
+                            <a href="/tags/mysql-8-x/" class="tag-link">
+                                mysql 8.x
+                            </a>
+                        
+                            <a href="/tags/mysql-news/" class="tag-link">
+                                mysql news
+                            </a>
+                        
+                            <a href="/tags/mysql-%E6%96%B0%E7%89%B9%E6%80%A7/" class="tag-link">
+                                mysql 新特性
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2023/mysql/mysql-8.2.0-sys-vars/index.html">https://shawnyan.cn/2023/mysql/mysql-8.2.0-sys-vars/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2023/mysql/mysql-8.2.0-compile-on-rocky-9/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">【MySQL 8.x】在 Rocky 9 上编译 MySQL 8.2.0 Debug 版本编译指南</span>
+        </a>
+    
+
+    
+        <a href="/2023/linux/centos-7.9-upgrade-to-rocky-9.2/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">[RL9] Step by Step 从 CentOS 7.9 升级到 Rocky Linux 9.2</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%90%AF%E5%8A%A8-MySQL-8-2-0"><span class="toc-text">启动 MySQL 8.2.0</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%A0%E9%99%A4%E7%9A%84%E5%8F%82%E6%95%B0-3"><span class="toc-text">删除的参数 (3)</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-abort-slave-event-count"><span class="toc-text">1. abort-slave-event-count</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-disconnect-slave-event-count"><span class="toc-text">2. disconnect-slave-event-count</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-expire-logs-days"><span class="toc-text">3. expire-logs-days</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%98%E6%9B%B4%E5%80%BC%E7%9A%84%E5%8F%82%E6%95%B0-6"><span class="toc-text">变更值的参数 (6)</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-master-retry-count"><span class="toc-text">1. master-retry-count</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-optimizer-switch-hash-set-operations-on"><span class="toc-text">2. optimizer-switch (hash_set_operations&#x3D;on)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-performance-schema-error-size"><span class="toc-text">3. performance-schema-error-size</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-performance-schema-max-memory-classes"><span class="toc-text">4. performance-schema-max-memory-classes</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-performance-schema-max-rwlock-classes"><span class="toc-text">5. performance-schema-max-rwlock-classes</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-performance-schema-max-statement-classes"><span class="toc-text">6. performance-schema-max-statement-classes</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%96%B0%E5%A2%9E%E7%9A%84%E5%8F%82%E6%95%B0-7"><span class="toc-text">新增的参数 (7)</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-mysql-native-password"><span class="toc-text">1. mysql-native-password</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-ndb-mgm-tls"><span class="toc-text">2. ndb-mgm-tls</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-ndb-tls-search-path"><span class="toc-text">3. ndb-tls-search-path</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-performance-schema-max-meter-classes"><span class="toc-text">4. performance-schema-max-meter-classes</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-performance-schema-max-metric-classes"><span class="toc-text">5. performance-schema-max-metric-classes</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-set-operations-buffer-size"><span class="toc-text">6. set-operations-buffer-size</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#7-tls-certificates-enforced-validation"><span class="toc-text">7. tls-certificates-enforced-validation</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

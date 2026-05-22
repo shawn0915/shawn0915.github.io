@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        SOP for Oracle 23ai：Python 连接 Oracle 的两种方法 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;h2 id=&#34;前情回顾&#34;&gt;前情回顾&lt;/h2&gt;
+&lt;p&gt;前文介绍了如何使用 python-oracledb 连接 Oracle 23ai 数据库，并演示了如何使用独立连接方式。&lt;/p&gt;
+&lt;p&gt;其中提到了支持两种连接池： DRCP 和 PRCP。&lt;/p&gt;
+&lt;p&gt;本文将对这两种连接池做具体演示。&lt;/p&gt;
+&lt;h2 id=&#34;DRCP-和-PRCP-连接池&#34;&gt;DRCP 和 PRCP 连接池&lt;/h2&gt;
+&lt;p&gt;连接池技术的优点不言而喻：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;缩短连接时间和次数&lt;/li&gt;
+&lt;li&gt;复用连接和减小开销&lt;/li&gt;
+&lt;li&gt;简化应用开发&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;在 Oracle 数据库中，提供了两种主要的连接池技术：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;DRCP (Database Resident Connection Pooling)&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;DRCP 为整个 CDB 配置一个连接池，或者为每个 PDB 配置一个隔离的连接池。&lt;/p&gt;
+&lt;p&gt;这一行为由参数 &lt;code&gt;ENABLE_PER_PDB_DRCP&lt;/code&gt; 控制，该参数默认为 false。&lt;sup class=&#34;footnote-ref&#34;&gt;&lt;a href=&#34;#fn1&#34; id=&#34;fnref1&#34;&gt;[1]&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;默认情况下，DRCP 为整个 CDB 创建一个连接池。该连接池由所有 PDB 共享。&lt;/p&gt;
+&lt;p&gt;修改参数为 true 后， 整个 CDB 没有连接池，DRCP 为每个 PDB 创建一个隔离的连接池。你可以连接到特定的 PDB，并根据该 PDB 的特定要求配置、管理和监视其连接池。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SQL&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;parameter&lt;/span&gt; enable_per_pdb_drcp&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;NAME                TYPE    &lt;span class=&#34;keyword&#34;&gt;VALUE&lt;/span&gt; &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;------------------- ------- ----- &lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;enable_per_pdb_drcp &lt;span class=&#34;type&#34;&gt;boolean&lt;/span&gt; &lt;span class=&#34;literal&#34;&gt;TRUE&lt;/span&gt;  &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;在 PDB 中启用 DRCP。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;EXECUTE&lt;/span&gt; DBMS_CONNECTION_POOL.START_POOL();&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看 DRCP 状态。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SQL&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; connection_pool, status, minsize, maxsize, INACTIVITY_TIMEOUT, CON_ID &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; dba_cpool_info;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;CONNECTION_POOL                STATUS       MINSIZE    MAXSIZE    INACTIVITY_TIMEOUT    CON_ID &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;______________________________ _________ __________ __________ _____________________ _________ &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SYS_DEFAULT_CONNECTION_POOL    ACTIVE             &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;         &lt;span class=&#34;number&#34;&gt;40&lt;/span&gt;                   &lt;span class=&#34;number&#34;&gt;300&lt;/span&gt;         &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;PRCP (Proxy Resident Connection Pooling)&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;在 Oracle 23ai 中，引入隐式连接池特性，不使用应用程序连接池的客户端应用程序可以利用 CMAN-TDM 代理驻留连接池 (PRCP)，而无需进行任何应用程序更改。&lt;/p&gt;
+&lt;p&gt;当应用程序启动和完成数据库操作时，即使应用程序没有显式关闭连接，新功能也可以在运行时自动将 PRCP 服务器分配给应用程序连接或从应用程序连接分配 PRCP 服务器。&lt;/p&gt;
+&lt;p&gt;在自治数据库中，可以启用每个 PDB PRCP 池，允许您整合每个 PDB 的连接池，并在属于同一 PDB 的多个服务之间共享这些会话。&lt;sup class=&#34;footnote-ref&#34;&gt;&lt;a href=&#34;#fn2&#34; id=&#34;fnref2&#34;&gt;[2]&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;h2 id=&#34;23ai-新视图：-V-TDM-STATS&#34;&gt;23ai 新视图： V$TDM_STATS&lt;/h2&gt;
+&lt;p&gt;23ai 新引入一个动态性能视图： &lt;code&gt;V$TDM_STATS&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;用于描述 Oracle 连接管理 Traffic Director 模式 (CMAN-TDM) 的统计信息。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SQL&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;desc&lt;/span&gt; V$TDM_STATS;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Name                             &lt;span class=&#34;keyword&#34;&gt;Null&lt;/span&gt;?    Type&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;________________________________ ________ ______________________________ &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;CMAN_ID                                   VARCHAR2(&lt;span class=&#34;number&#34;&gt;1024&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GATEWAY_ID                                NUMBER&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SERVICE_NAME                              VARCHAR2(&lt;span class=&#34;number&#34;&gt;1024&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;PRCP_NUM_REQUESTS                         NUMBER&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;PRCP_NUM_BUSY_CONNECTIONS                 NUMBER&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;PRCP_NUM_OPEN_CONNECTIONS                 NUMBER&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;PRCP_HISTORIC_MAX_CONNECTIONS             NUMBER&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;PRCP_NUM_WAITS                            NUMBER&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;PRCP_NUM_WAITS_ACTIVE                     NUMBER&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;PRCP_NUM_HITS                             NUMBER&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;PRCP_NUM_INBOUND_CONNECTIONS              NUMBER&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;EDITION                                   VARCHAR2(&lt;span class=&#34;number&#34;&gt;1024&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;UPDATED_TIME                              &lt;span class=&#34;type&#34;&gt;TIMESTAMP&lt;/span&gt;(&lt;span class=&#34;number&#34;&gt;6&lt;/span&gt;) &lt;span class=&#34;keyword&#34;&gt;WITH&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;TIME&lt;/span&gt; ZONE&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;CON_ID                                    NUMBER&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;代码示例：-DRCP&#34;&gt;代码示例： DRCP&lt;/h2&gt;
+&lt;p&gt;python-oracledb 2.1.0 中新增参数 &lt;code&gt;pool_boundary&lt;/code&gt; 来配合 Oracle Database 23ai 中的 DRCP 或 PRCP 特性。&lt;/p&gt;
+&lt;p&gt;当参数值为 &lt;code&gt;statement&lt;/code&gt; 时，则当连接为无状态（即，没有活动游标、活动事务、临时表或临时 LOB）时，池中的连接将隐式释放回 DRCP 或 PRCP 池。&lt;/p&gt;
+&lt;p&gt;当参数值为 &lt;code&gt;transaction&lt;/code&gt; 时，则当调用 &lt;code&gt;Connection.commit()&lt;/code&gt; 或 &lt;code&gt;Connection.rollback()&lt;/code&gt; 方法之一时，池中的连接将隐式释放回 DRCP 或 PRCP 池。&lt;sup class=&#34;footnote-ref&#34;&gt;&lt;a href=&#34;#fn3&#34; id=&#34;fnref3&#34;&gt;[3]&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;完整示例代码如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;import&lt;/span&gt; oracledb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;pool = oracledb.create_pool(&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    user=&lt;span class=&#34;string&#34;&gt;&amp;quot;SYS&amp;quot;&lt;/span&gt;, password=&lt;span class=&#34;string&#34;&gt;&amp;quot;1&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    dsn=&lt;span class=&#34;string&#34;&gt;&amp;quot;127.1:1521/FREEPDB1:pooled?pool_boundary=transaction&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    mode=oracledb.AUTH_MODE_SYSDBA,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    cclass=&lt;span class=&#34;string&#34;&gt;&amp;quot;ShawnAPP&amp;quot;&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;with&lt;/span&gt; pool.acquire() &lt;span class=&#34;keyword&#34;&gt;as&lt;/span&gt; conn:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    cursor = conn.cursor()&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    cursor.execute(&lt;span class=&#34;string&#34;&gt;&amp;quot;select to_char(current_date)&amp;quot;&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    (result,) = cursor.fetchone()&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;built_in&#34;&gt;print&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;quot;NOW: &amp;quot;&lt;/span&gt;, &lt;span class=&#34;built_in&#34;&gt;repr&lt;/span&gt;(result))&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;	&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;print&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;quot;See U.&amp;quot;&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;输出：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;NOW:  &amp;#x27;09-MAY-24&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;See U.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;V-CPOOL-CC-STATS&#34;&gt;V$CPOOL_CC_STATS&lt;/h2&gt;
+&lt;p&gt;从 Oracle 11g 引入动态性能视图： &lt;code&gt;V$CPOOL_CC_STATS&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;该视图显示有关每个实例的数据库驻留连接池的连接类级别统计信息。&lt;/p&gt;
+&lt;p&gt;通过查询该视图，可以看到，上面代码已经发出 15 次请求。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;select cclass_name, num_requests, num_hits, num_misses &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;from v$cpool_cc_stats;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;CCLASS_NAME        NUM_REQUESTS    NUM_HITS    NUM_MISSES &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;_______________ _______________ ___________ _____________&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SYS.ShawnAPP                 15           0            15&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;其他视图&#34;&gt;其他视图&lt;/h2&gt;
+&lt;p&gt;与 连接池 相关的动态性能视图，还有：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;V$CPOOL_CC_INFO: 显示有关每个实例的数据库驻留连接池的池到连接类映射的信息。&lt;/li&gt;
+&lt;li&gt;V$CPOOL_CONN_INFO: 显示有关连接代理的每个连接的连接信息。&lt;/li&gt;
+&lt;li&gt;V$CPOOL_STATS: 显示有关实例的数据库驻留连接池统计信息。&lt;/li&gt;
+&lt;li&gt;V$AUTHPOOL_STATS: 显示身份验证池的统计信息。 当客户端应用程序连接到数据库驻留连接池 (DRCP) 时，此池将对用户连接进行身份验证。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;以及，静态数据字典视图：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;DBA_CPOOL_INFO: 显示有关数据库中所有 DRCP 的配置信息。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;小结&#34;&gt;小结&lt;/h2&gt;
+&lt;p&gt;本文介绍了 Oracle 中的 DRCP 和 PRCP 两种连接池，并以 Python 代码为例做演示。&lt;/p&gt;
+&lt;p&gt;下期，我们一起来学习如何使用 Java 连接 Oracle 23ai 数据库。&lt;/p&gt;
+&lt;h2 id=&#34;往期精彩&#34;&gt;往期精彩&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://www.modb.pro/db/1788046832097644544&#34;&gt;python-oracledb 已率先支持 Oracle 23ai&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://mp.weixin.qq.com/s/kJrh6hntYjTzLaUcCavr-g&#34;&gt;一文带你了解 Oracle 23ai 新特性 Vector 的基础用法&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://mp.weixin.qq.com/s/clsSyzgA16NmSGRgUHogvg&#34;&gt;Oracle 数据库全面升级为 23ai&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://mp.weixin.qq.com/s/9uq0ICx076DGn45xoK0k_g&#34;&gt;MySQL 8.4.0 LTS 发布 (MySQL 第一个长期支持版本)&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;– END. –&lt;/p&gt;
+&lt;img alt=&#34;foot.png&#34; src=&#34;https://files.mdnice.com/user/54598/23af4bef-b6ac-4f59-9456-19114dfe6dd7.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;如果这篇文章为你带来了灵感或启发，就请帮忙点『赞』or『在看』or『转发』吧，感谢！(๑˃̵ᴗ˂̵)&lt;/p&gt;
+&lt;hr class=&#34;footnotes-sep&#34;&gt;
+&lt;section class=&#34;footnotes&#34;&gt;
+&lt;ol class=&#34;footnotes-list&#34;&gt;
+&lt;li id=&#34;fn1&#34; class=&#34;footnote-item&#34;&gt;&lt;p&gt;&lt;a href=&#34;https://docs.oracle.com/en/database/oracle/oracle-database/23/refrn/ENABLE_PER_PDB_DRCP.html&#34;&gt;https://docs.oracle.com/en/database/oracle/oracle-database/23/refrn/ENABLE_PER_PDB_DRCP.html&lt;/a&gt; &lt;a href=&#34;#fnref1&#34; class=&#34;footnote-backref&#34;&gt;↩︎&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id=&#34;fn2&#34; class=&#34;footnote-item&#34;&gt;&lt;p&gt;&lt;a href=&#34;https://docs.oracle.com/en/database/oracle/oracle-database/23/nfcoa/application_development.html&#34;&gt;https://docs.oracle.com/en/database/oracle/oracle-database/23/nfcoa/application_development.html&lt;/a&gt; &lt;a href=&#34;#fnref2&#34; class=&#34;footnote-backref&#34;&gt;↩︎&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id=&#34;fn3&#34; class=&#34;footnote-item&#34;&gt;&lt;p&gt;&lt;a href=&#34;https://python-oracledb.readthedocs.io/en/latest/user_guide/connection_handling.html&#34;&gt;https://python-oracledb.readthedocs.io/en/latest/user_guide/connection_handling.html&lt;/a&gt; &lt;a href=&#34;#fnref3&#34; class=&#34;footnote-backref&#34;&gt;↩︎&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/section&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="SOP for Oracle 23ai：Python 连接 Oracle 的两种方法">
+    <meta property="og:url" content="https://shawnyan.cn/2024/oracle/oracle-23ai-with-python-conn-pool/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;h2 id=&#34;前情回顾&#34;&gt;前情回顾&lt;/h2&gt;
+&lt;p&gt;前文介绍了如何使用 python-oracledb 连接 Oracle 23ai 数据库，并演示了如何使用独立连接方式。&lt;/p&gt;
+&lt;p&gt;其中提到了支持两种连接池： DRCP 和 PRCP。&lt;/p&gt;
+&lt;p&gt;本文将对这两种连接池做具体演示。&lt;/p&gt;
+&lt;h2 id=&#34;DRCP-和-PRCP-连接池&#34;&gt;DRCP 和 PRCP 连接池&lt;/h2&gt;
+&lt;p&gt;连接池技术的优点不言而喻：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;缩短连接时间和次数&lt;/li&gt;
+&lt;li&gt;复用连接和减小开销&lt;/li&gt;
+&lt;li&gt;简化应用开发&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;在 Oracle 数据库中，提供了两种主要的连接池技术：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;DRCP (Database Resident Connection Pooling)&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;DRCP 为整个 CDB 配置一个连接池，或者为每个 PDB 配置一个隔离的连接池。&lt;/p&gt;
+&lt;p&gt;这一行为由参数 &lt;code&gt;ENABLE_PER_PDB_DRCP&lt;/code&gt; 控制，该参数默认为 false。&lt;sup class=&#34;footnote-ref&#34;&gt;&lt;a href=&#34;#fn1&#34; id=&#34;fnref1&#34;&gt;[1]&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;默认情况下，DRCP 为整个 CDB 创建一个连接池。该连接池由所有 PDB 共享。&lt;/p&gt;
+&lt;p&gt;修改参数为 true 后， 整个 CDB 没有连接池，DRCP 为每个 PDB 创建一个隔离的连接池。你可以连接到特定的 PDB，并根据该 PDB 的特定要求配置、管理和监视其连接池。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SQL&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;parameter&lt;/span&gt; enable_per_pdb_drcp&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;NAME                TYPE    &lt;span class=&#34;keyword&#34;&gt;VALUE&lt;/span&gt; &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;------------------- ------- ----- &lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;enable_per_pdb_drcp &lt;span class=&#34;type&#34;&gt;boolean&lt;/span&gt; &lt;span class=&#34;literal&#34;&gt;TRUE&lt;/span&gt;  &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;在 PDB 中启用 DRCP。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;EXECUTE&lt;/span&gt; DBMS_CONNECTION_POOL.START_POOL();&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看 DRCP 状态。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SQL&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; connection_pool, status, minsize, maxsize, INACTIVITY_TIMEOUT, CON_ID &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; dba_cpool_info;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;CONNECTION_POOL                STATUS       MINSIZE    MAXSIZE    INACTIVITY_TIMEOUT    CON_ID &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;______________________________ _________ __________ __________ _____________________ _________ &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SYS_DEFAULT_CONNECTION_POOL    ACTIVE             &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;         &lt;span class=&#34;number&#34;&gt;40&lt;/span&gt;                   &lt;span class=&#34;number&#34;&gt;300&lt;/span&gt;         &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;PRCP (Proxy Resident Connection Pooling)&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;在 Oracle 23ai 中，引入隐式连接池特性，不使用应用程序连接池的客户端应用程序可以利用 CMAN-TDM 代理驻留连接池 (PRCP)，而无需进行任何应用程序更改。&lt;/p&gt;
+&lt;p&gt;当应用程序启动和完成数据库操作时，即使应用程序没有显式关闭连接，新功能也可以在运行时自动将 PRCP 服务器分配给应用程序连接或从应用程序连接分配 PRCP 服务器。&lt;/p&gt;
+&lt;p&gt;在自治数据库中，可以启用每个 PDB PRCP 池，允许您整合每个 PDB 的连接池，并在属于同一 PDB 的多个服务之间共享这些会话。&lt;sup class=&#34;footnote-ref&#34;&gt;&lt;a href=&#34;#fn2&#34; id=&#34;fnref2&#34;&gt;[2]&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;h2 id=&#34;23ai-新视图：-V-TDM-STATS&#34;&gt;23ai 新视图： V$TDM_STATS&lt;/h2&gt;
+&lt;p&gt;23ai 新引入一个动态性能视图： &lt;code&gt;V$TDM_STATS&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;用于描述 Oracle 连接管理 Traffic Director 模式 (CMAN-TDM) 的统计信息。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SQL&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;desc&lt;/span&gt; V$TDM_STATS;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Name                             &lt;span class=&#34;keyword&#34;&gt;Null&lt;/span&gt;?    Type&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;________________________________ ________ ______________________________ &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;CMAN_ID                                   VARCHAR2(&lt;span class=&#34;number&#34;&gt;1024&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GATEWAY_ID                                NUMBER&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SERVICE_NAME                              VARCHAR2(&lt;span class=&#34;number&#34;&gt;1024&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;PRCP_NUM_REQUESTS                         NUMBER&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;PRCP_NUM_BUSY_CONNECTIONS                 NUMBER&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;PRCP_NUM_OPEN_CONNECTIONS                 NUMBER&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;PRCP_HISTORIC_MAX_CONNECTIONS             NUMBER&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;PRCP_NUM_WAITS                            NUMBER&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;PRCP_NUM_WAITS_ACTIVE                     NUMBER&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;PRCP_NUM_HITS                             NUMBER&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;PRCP_NUM_INBOUND_CONNECTIONS              NUMBER&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;EDITION                                   VARCHAR2(&lt;span class=&#34;number&#34;&gt;1024&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;UPDATED_TIME                              &lt;span class=&#34;type&#34;&gt;TIMESTAMP&lt;/span&gt;(&lt;span class=&#34;number&#34;&gt;6&lt;/span&gt;) &lt;span class=&#34;keyword&#34;&gt;WITH&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;TIME&lt;/span&gt; ZONE&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;CON_ID                                    NUMBER&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;代码示例：-DRCP&#34;&gt;代码示例： DRCP&lt;/h2&gt;
+&lt;p&gt;python-oracledb 2.1.0 中新增参数 &lt;code&gt;pool_boundary&lt;/code&gt; 来配合 Oracle Database 23ai 中的 DRCP 或 PRCP 特性。&lt;/p&gt;
+&lt;p&gt;当参数值为 &lt;code&gt;statement&lt;/code&gt; 时，则当连接为无状态（即，没有活动游标、活动事务、临时表或临时 LOB）时，池中的连接将隐式释放回 DRCP 或 PRCP 池。&lt;/p&gt;
+&lt;p&gt;当参数值为 &lt;code&gt;transaction&lt;/code&gt; 时，则当调用 &lt;code&gt;Connection.commit()&lt;/code&gt; 或 &lt;code&gt;Connection.rollback()&lt;/code&gt; 方法之一时，池中的连接将隐式释放回 DRCP 或 PRCP 池。&lt;sup class=&#34;footnote-ref&#34;&gt;&lt;a href=&#34;#fn3&#34; id=&#34;fnref3&#34;&gt;[3]&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;完整示例代码如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;import&lt;/span&gt; oracledb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;pool = oracledb.create_pool(&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    user=&lt;span class=&#34;string&#34;&gt;&amp;quot;SYS&amp;quot;&lt;/span&gt;, password=&lt;span class=&#34;string&#34;&gt;&amp;quot;1&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    dsn=&lt;span class=&#34;string&#34;&gt;&amp;quot;127.1:1521/FREEPDB1:pooled?pool_boundary=transaction&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    mode=oracledb.AUTH_MODE_SYSDBA,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    cclass=&lt;span class=&#34;string&#34;&gt;&amp;quot;ShawnAPP&amp;quot;&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;with&lt;/span&gt; pool.acquire() &lt;span class=&#34;keyword&#34;&gt;as&lt;/span&gt; conn:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    cursor = conn.cursor()&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    cursor.execute(&lt;span class=&#34;string&#34;&gt;&amp;quot;select to_char(current_date)&amp;quot;&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    (result,) = cursor.fetchone()&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;built_in&#34;&gt;print&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;quot;NOW: &amp;quot;&lt;/span&gt;, &lt;span class=&#34;built_in&#34;&gt;repr&lt;/span&gt;(result))&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;	&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;print&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;quot;See U.&amp;quot;&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;输出：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;NOW:  &amp;#x27;09-MAY-24&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;See U.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;V-CPOOL-CC-STATS&#34;&gt;V$CPOOL_CC_STATS&lt;/h2&gt;
+&lt;p&gt;从 Oracle 11g 引入动态性能视图： &lt;code&gt;V$CPOOL_CC_STATS&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;该视图显示有关每个实例的数据库驻留连接池的连接类级别统计信息。&lt;/p&gt;
+&lt;p&gt;通过查询该视图，可以看到，上面代码已经发出 15 次请求。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;select cclass_name, num_requests, num_hits, num_misses &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;from v$cpool_cc_stats;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;CCLASS_NAME        NUM_REQUESTS    NUM_HITS    NUM_MISSES &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;_______________ _______________ ___________ _____________&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SYS.ShawnAPP                 15           0            15&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;其他视图&#34;&gt;其他视图&lt;/h2&gt;
+&lt;p&gt;与 连接池 相关的动态性能视图，还有：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;V$CPOOL_CC_INFO: 显示有关每个实例的数据库驻留连接池的池到连接类映射的信息。&lt;/li&gt;
+&lt;li&gt;V$CPOOL_CONN_INFO: 显示有关连接代理的每个连接的连接信息。&lt;/li&gt;
+&lt;li&gt;V$CPOOL_STATS: 显示有关实例的数据库驻留连接池统计信息。&lt;/li&gt;
+&lt;li&gt;V$AUTHPOOL_STATS: 显示身份验证池的统计信息。 当客户端应用程序连接到数据库驻留连接池 (DRCP) 时，此池将对用户连接进行身份验证。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;以及，静态数据字典视图：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;DBA_CPOOL_INFO: 显示有关数据库中所有 DRCP 的配置信息。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;小结&#34;&gt;小结&lt;/h2&gt;
+&lt;p&gt;本文介绍了 Oracle 中的 DRCP 和 PRCP 两种连接池，并以 Python 代码为例做演示。&lt;/p&gt;
+&lt;p&gt;下期，我们一起来学习如何使用 Java 连接 Oracle 23ai 数据库。&lt;/p&gt;
+&lt;h2 id=&#34;往期精彩&#34;&gt;往期精彩&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://www.modb.pro/db/1788046832097644544&#34;&gt;python-oracledb 已率先支持 Oracle 23ai&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://mp.weixin.qq.com/s/kJrh6hntYjTzLaUcCavr-g&#34;&gt;一文带你了解 Oracle 23ai 新特性 Vector 的基础用法&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://mp.weixin.qq.com/s/clsSyzgA16NmSGRgUHogvg&#34;&gt;Oracle 数据库全面升级为 23ai&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://mp.weixin.qq.com/s/9uq0ICx076DGn45xoK0k_g&#34;&gt;MySQL 8.4.0 LTS 发布 (MySQL 第一个长期支持版本)&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;– END. –&lt;/p&gt;
+&lt;img alt=&#34;foot.png&#34; src=&#34;https://files.mdnice.com/user/54598/23af4bef-b6ac-4f59-9456-19114dfe6dd7.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;如果这篇文章为你带来了灵感或启发，就请帮忙点『赞』or『在看』or『转发』吧，感谢！(๑˃̵ᴗ˂̵)&lt;/p&gt;
+&lt;hr class=&#34;footnotes-sep&#34;&gt;
+&lt;section class=&#34;footnotes&#34;&gt;
+&lt;ol class=&#34;footnotes-list&#34;&gt;
+&lt;li id=&#34;fn1&#34; class=&#34;footnote-item&#34;&gt;&lt;p&gt;&lt;a href=&#34;https://docs.oracle.com/en/database/oracle/oracle-database/23/refrn/ENABLE_PER_PDB_DRCP.html&#34;&gt;https://docs.oracle.com/en/database/oracle/oracle-database/23/refrn/ENABLE_PER_PDB_DRCP.html&lt;/a&gt; &lt;a href=&#34;#fnref1&#34; class=&#34;footnote-backref&#34;&gt;↩︎&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id=&#34;fn2&#34; class=&#34;footnote-item&#34;&gt;&lt;p&gt;&lt;a href=&#34;https://docs.oracle.com/en/database/oracle/oracle-database/23/nfcoa/application_development.html&#34;&gt;https://docs.oracle.com/en/database/oracle/oracle-database/23/nfcoa/application_development.html&lt;/a&gt; &lt;a href=&#34;#fnref2&#34; class=&#34;footnote-backref&#34;&gt;↩︎&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id=&#34;fn3&#34; class=&#34;footnote-item&#34;&gt;&lt;p&gt;&lt;a href=&#34;https://python-oracledb.readthedocs.io/en/latest/user_guide/connection_handling.html&#34;&gt;https://python-oracledb.readthedocs.io/en/latest/user_guide/connection_handling.html&lt;/a&gt; &lt;a href=&#34;#fnref3&#34; class=&#34;footnote-backref&#34;&gt;↩︎&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/section&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/oracle/" class="category-badge">
+                                    Oracle
+                                </a>
+                            
+                                <a href="/categories/oracle/23ai/" class="category-badge">
+                                    23ai
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">SOP for Oracle 23ai：Python 连接 Oracle 的两种方法</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2024-05-09
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                1.2k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                4 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <h2 id="前情回顾">前情回顾</h2>
+<p>前文介绍了如何使用 python-oracledb 连接 Oracle 23ai 数据库，并演示了如何使用独立连接方式。</p>
+<p>其中提到了支持两种连接池： DRCP 和 PRCP。</p>
+<p>本文将对这两种连接池做具体演示。</p>
+<h2 id="DRCP-和-PRCP-连接池">DRCP 和 PRCP 连接池</h2>
+<p>连接池技术的优点不言而喻：</p>
+<ol>
+<li>缩短连接时间和次数</li>
+<li>复用连接和减小开销</li>
+<li>简化应用开发</li>
+</ol>
+<p>在 Oracle 数据库中，提供了两种主要的连接池技术：</p>
+<ol>
+<li>DRCP (Database Resident Connection Pooling)</li>
+</ol>
+<p>DRCP 为整个 CDB 配置一个连接池，或者为每个 PDB 配置一个隔离的连接池。</p>
+<p>这一行为由参数 <code>ENABLE_PER_PDB_DRCP</code> 控制，该参数默认为 false。<sup class="footnote-ref"><a href="#fn1" id="fnref1">[1]</a></sup></p>
+<p>默认情况下，DRCP 为整个 CDB 创建一个连接池。该连接池由所有 PDB 共享。</p>
+<p>修改参数为 true 后， 整个 CDB 没有连接池，DRCP 为每个 PDB 创建一个隔离的连接池。你可以连接到特定的 PDB，并根据该 PDB 的特定要求配置、管理和监视其连接池。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SQL</span><span class="operator">&gt;</span> <span class="keyword">show</span> <span class="keyword">parameter</span> enable_per_pdb_drcp</span><br><span class="line">NAME                TYPE    <span class="keyword">VALUE</span> </span><br><span class="line"><span class="comment">------------------- ------- ----- </span></span><br><span class="line">enable_per_pdb_drcp <span class="type">boolean</span> <span class="literal">TRUE</span>  </span><br></pre></td></tr></table></figure>
+<p>在 PDB 中启用 DRCP。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">EXECUTE</span> DBMS_CONNECTION_POOL.START_POOL();</span><br></pre></td></tr></table></figure>
+<p>查看 DRCP 状态。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SQL</span><span class="operator">&gt;</span> <span class="keyword">SELECT</span> connection_pool, status, minsize, maxsize, INACTIVITY_TIMEOUT, CON_ID <span class="keyword">FROM</span> dba_cpool_info;</span><br><span class="line"></span><br><span class="line">CONNECTION_POOL                STATUS       MINSIZE    MAXSIZE    INACTIVITY_TIMEOUT    CON_ID </span><br><span class="line">______________________________ _________ __________ __________ _____________________ _________ </span><br><span class="line">SYS_DEFAULT_CONNECTION_POOL    ACTIVE             <span class="number">0</span>         <span class="number">40</span>                   <span class="number">300</span>         <span class="number">3</span></span><br></pre></td></tr></table></figure>
+<ol start="2">
+<li>PRCP (Proxy Resident Connection Pooling)</li>
+</ol>
+<p>在 Oracle 23ai 中，引入隐式连接池特性，不使用应用程序连接池的客户端应用程序可以利用 CMAN-TDM 代理驻留连接池 (PRCP)，而无需进行任何应用程序更改。</p>
+<p>当应用程序启动和完成数据库操作时，即使应用程序没有显式关闭连接，新功能也可以在运行时自动将 PRCP 服务器分配给应用程序连接或从应用程序连接分配 PRCP 服务器。</p>
+<p>在自治数据库中，可以启用每个 PDB PRCP 池，允许您整合每个 PDB 的连接池，并在属于同一 PDB 的多个服务之间共享这些会话。<sup class="footnote-ref"><a href="#fn2" id="fnref2">[2]</a></sup></p>
+<h2 id="23ai-新视图：-V-TDM-STATS">23ai 新视图： V$TDM_STATS</h2>
+<p>23ai 新引入一个动态性能视图： <code>V$TDM_STATS</code></p>
+<p>用于描述 Oracle 连接管理 Traffic Director 模式 (CMAN-TDM) 的统计信息。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SQL</span><span class="operator">&gt;</span> <span class="keyword">desc</span> V$TDM_STATS;</span><br><span class="line"></span><br><span class="line">Name                             <span class="keyword">Null</span>?    Type</span><br><span class="line">________________________________ ________ ______________________________ </span><br><span class="line">CMAN_ID                                   VARCHAR2(<span class="number">1024</span>)</span><br><span class="line">GATEWAY_ID                                NUMBER</span><br><span class="line">SERVICE_NAME                              VARCHAR2(<span class="number">1024</span>)</span><br><span class="line">PRCP_NUM_REQUESTS                         NUMBER</span><br><span class="line">PRCP_NUM_BUSY_CONNECTIONS                 NUMBER</span><br><span class="line">PRCP_NUM_OPEN_CONNECTIONS                 NUMBER</span><br><span class="line">PRCP_HISTORIC_MAX_CONNECTIONS             NUMBER</span><br><span class="line">PRCP_NUM_WAITS                            NUMBER</span><br><span class="line">PRCP_NUM_WAITS_ACTIVE                     NUMBER</span><br><span class="line">PRCP_NUM_HITS                             NUMBER</span><br><span class="line">PRCP_NUM_INBOUND_CONNECTIONS              NUMBER</span><br><span class="line">EDITION                                   VARCHAR2(<span class="number">1024</span>)</span><br><span class="line">UPDATED_TIME                              <span class="type">TIMESTAMP</span>(<span class="number">6</span>) <span class="keyword">WITH</span> <span class="type">TIME</span> ZONE</span><br><span class="line">CON_ID                                    NUMBER</span><br></pre></td></tr></table></figure>
+<h2 id="代码示例：-DRCP">代码示例： DRCP</h2>
+<p>python-oracledb 2.1.0 中新增参数 <code>pool_boundary</code> 来配合 Oracle Database 23ai 中的 DRCP 或 PRCP 特性。</p>
+<p>当参数值为 <code>statement</code> 时，则当连接为无状态（即，没有活动游标、活动事务、临时表或临时 LOB）时，池中的连接将隐式释放回 DRCP 或 PRCP 池。</p>
+<p>当参数值为 <code>transaction</code> 时，则当调用 <code>Connection.commit()</code> 或 <code>Connection.rollback()</code> 方法之一时，池中的连接将隐式释放回 DRCP 或 PRCP 池。<sup class="footnote-ref"><a href="#fn3" id="fnref3">[3]</a></sup></p>
+<p>完整示例代码如下：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> oracledb</span><br><span class="line"></span><br><span class="line">pool = oracledb.create_pool(</span><br><span class="line">    user=<span class="string">&quot;SYS&quot;</span>, password=<span class="string">&quot;1&quot;</span>,</span><br><span class="line">    dsn=<span class="string">&quot;127.1:1521/FREEPDB1:pooled?pool_boundary=transaction&quot;</span>,</span><br><span class="line">    mode=oracledb.AUTH_MODE_SYSDBA,</span><br><span class="line">    cclass=<span class="string">&quot;ShawnAPP&quot;</span>)</span><br><span class="line"></span><br><span class="line"><span class="keyword">with</span> pool.acquire() <span class="keyword">as</span> conn:</span><br><span class="line">    cursor = conn.cursor()</span><br><span class="line">    cursor.execute(<span class="string">&quot;select to_char(current_date)&quot;</span>)</span><br><span class="line">    (result,) = cursor.fetchone()</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;NOW: &quot;</span>, <span class="built_in">repr</span>(result))</span><br><span class="line">	</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;See U.&quot;</span>)</span><br></pre></td></tr></table></figure>
+<p>输出：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">NOW:  &#x27;09-MAY-24&#x27;</span><br><span class="line">See U.</span><br></pre></td></tr></table></figure>
+<h2 id="V-CPOOL-CC-STATS">V$CPOOL_CC_STATS</h2>
+<p>从 Oracle 11g 引入动态性能视图： <code>V$CPOOL_CC_STATS</code></p>
+<p>该视图显示有关每个实例的数据库驻留连接池的连接类级别统计信息。</p>
+<p>通过查询该视图，可以看到，上面代码已经发出 15 次请求。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">select cclass_name, num_requests, num_hits, num_misses </span><br><span class="line">from v$cpool_cc_stats;</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">CCLASS_NAME        NUM_REQUESTS    NUM_HITS    NUM_MISSES </span><br><span class="line">_______________ _______________ ___________ _____________</span><br><span class="line">SYS.ShawnAPP                 15           0            15</span><br></pre></td></tr></table></figure>
+<h2 id="其他视图">其他视图</h2>
+<p>与 连接池 相关的动态性能视图，还有：</p>
+<ul>
+<li>V$CPOOL_CC_INFO: 显示有关每个实例的数据库驻留连接池的池到连接类映射的信息。</li>
+<li>V$CPOOL_CONN_INFO: 显示有关连接代理的每个连接的连接信息。</li>
+<li>V$CPOOL_STATS: 显示有关实例的数据库驻留连接池统计信息。</li>
+<li>V$AUTHPOOL_STATS: 显示身份验证池的统计信息。 当客户端应用程序连接到数据库驻留连接池 (DRCP) 时，此池将对用户连接进行身份验证。</li>
+</ul>
+<p>以及，静态数据字典视图：</p>
+<ul>
+<li>DBA_CPOOL_INFO: 显示有关数据库中所有 DRCP 的配置信息。</li>
+</ul>
+<h2 id="小结">小结</h2>
+<p>本文介绍了 Oracle 中的 DRCP 和 PRCP 两种连接池，并以 Python 代码为例做演示。</p>
+<p>下期，我们一起来学习如何使用 Java 连接 Oracle 23ai 数据库。</p>
+<h2 id="往期精彩">往期精彩</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://www.modb.pro/db/1788046832097644544">python-oracledb 已率先支持 Oracle 23ai</a></li>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/kJrh6hntYjTzLaUcCavr-g">一文带你了解 Oracle 23ai 新特性 Vector 的基础用法</a></li>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/clsSyzgA16NmSGRgUHogvg">Oracle 数据库全面升级为 23ai</a></li>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/9uq0ICx076DGn45xoK0k_g">MySQL 8.4.0 LTS 发布 (MySQL 第一个长期支持版本)</a></li>
+</ul>
+<p>– END. –</p>
+<img alt="foot.png" src="https://files.mdnice.com/user/54598/23af4bef-b6ac-4f59-9456-19114dfe6dd7.png" referrerpolicy="no-referrer"/>
+<p>如果这篇文章为你带来了灵感或启发，就请帮忙点『赞』or『在看』or『转发』吧，感谢！(๑˃̵ᴗ˂̵)</p>
+<hr class="footnotes-sep">
+<section class="footnotes">
+<ol class="footnotes-list">
+<li id="fn1" class="footnote-item"><p><a target="_blank" rel="noopener" href="https://docs.oracle.com/en/database/oracle/oracle-database/23/refrn/ENABLE_PER_PDB_DRCP.html">https://docs.oracle.com/en/database/oracle/oracle-database/23/refrn/ENABLE_PER_PDB_DRCP.html</a> <a href="#fnref1" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn2" class="footnote-item"><p><a target="_blank" rel="noopener" href="https://docs.oracle.com/en/database/oracle/oracle-database/23/nfcoa/application_development.html">https://docs.oracle.com/en/database/oracle/oracle-database/23/nfcoa/application_development.html</a> <a href="#fnref2" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn3" class="footnote-item"><p><a target="_blank" rel="noopener" href="https://python-oracledb.readthedocs.io/en/latest/user_guide/connection_handling.html">https://python-oracledb.readthedocs.io/en/latest/user_guide/connection_handling.html</a> <a href="#fnref3" class="footnote-backref">↩︎</a></p>
+</li>
+</ol>
+</section>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/oracle/" class="tag-link">
+                                oracle
+                            </a>
+                        
+                            <a href="/tags/python/" class="tag-link">
+                                python
+                            </a>
+                        
+                            <a href="/tags/oracle-23ai/" class="tag-link">
+                                oracle 23ai
+                            </a>
+                        
+                            <a href="/tags/drcp/" class="tag-link">
+                                drcp
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2024/oracle/oracle-23ai-with-python-conn-pool/index.html">https://shawnyan.cn/2024/oracle/oracle-23ai-with-python-conn-pool/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2024/tidb/tidb-cloud-with-datadog/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">TiDB Cloud x Datadog 集成案例</span>
+        </a>
+    
+
+    
+        <a href="/2024/oracle/oracle-23ai-with-python-oracledb-intro/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">python-oracledb 已率先支持 Oracle 23ai</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E6%83%85%E5%9B%9E%E9%A1%BE"><span class="toc-text">前情回顾</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#DRCP-%E5%92%8C-PRCP-%E8%BF%9E%E6%8E%A5%E6%B1%A0"><span class="toc-text">DRCP 和 PRCP 连接池</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#23ai-%E6%96%B0%E8%A7%86%E5%9B%BE%EF%BC%9A-V-TDM-STATS"><span class="toc-text">23ai 新视图： V$TDM_STATS</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%A3%E7%A0%81%E7%A4%BA%E4%BE%8B%EF%BC%9A-DRCP"><span class="toc-text">代码示例： DRCP</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#V-CPOOL-CC-STATS"><span class="toc-text">V$CPOOL_CC_STATS</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B6%E4%BB%96%E8%A7%86%E5%9B%BE"><span class="toc-text">其他视图</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B0%8F%E7%BB%93"><span class="toc-text">小结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BE%80%E6%9C%9F%E7%B2%BE%E5%BD%A9"><span class="toc-text">往期精彩</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

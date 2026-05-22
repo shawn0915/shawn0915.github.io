@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        ProxySQL v2.5.2 版本升级及新特性速览 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;img alt=&#34;proxysql_banner.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240302-cc9e56b7-9308-480c-9d7a-570eaf5f136e.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;ProxySQL 最新 GA 版本为 v2.5.2, 本文将介绍如何升级 ProxySQL 到最新版本，以及 v2.5.x 都有哪些值得一看的新特性。&lt;/p&gt;
+&lt;h2 id=&#34;ProxySQL-升级最新版本&#34;&gt;ProxySQL 升级最新版本&lt;/h2&gt;
+&lt;p&gt;本地环境安装的版本为 2.4.7-5-gd467cc0，通过 RPM 进行安装，那么升级也将变得简单，可以直接通过 YUM 进行升级。&lt;/p&gt;
+&lt;p&gt;具体操作如下，&lt;/p&gt;
+&lt;h3 id=&#34;1-下载新包到指定目录&#34;&gt;1. 下载新包到指定目录&lt;/h3&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;wget https://github.com/sysown/proxysql/releases/download/v2.5.2/proxysql-2.5.2-1-centos7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;$ &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;ls&lt;/span&gt; proxysql-2.5.2-1-centos7.x86_64.rpm; &lt;span class=&#34;built_in&#34;&gt;sha256sum&lt;/span&gt; proxysql-2.5.2-1-centos7.x86_64.rpm&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;proxysql-2.5.2-1-centos7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6f7ecc879864708ac7b62cf05edf31f6785697e1501e389e9a8f0d8fc92da489  proxysql-2.5.2-1-centos7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;2-停止当前-ProxySQL&#34;&gt;2. 停止当前 ProxySQL&lt;/h3&gt;
+&lt;p&gt;停止proxysql，并查看日志，确认服务已停止。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;sudo systemctl stop proxysql&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;日志输出：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:17:27 ProxySQL_GloVars.cpp:16:term_handler(): [WARNING] Received TERM signal: shutdown in progress...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:17:27 [INFO] Starting shutdown...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:17:27 [INFO] Shutdown completed!&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:17:27 [INFO] Exiting...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:17:27 [INFO] Shutdown angel process&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;3-安装新版-ProxySQL&#34;&gt;3. 安装新版 ProxySQL&lt;/h3&gt;
+&lt;p&gt;通过yum将下载好的安装包进行安装升级。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;41&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;$ &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;sudo yum install proxysql-2.5.2-1-centos7.x86_64.rpm&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Loaded plugins: changelog, fastestmirror, product-id, search-disabled-repos, subscription-manager, verify&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;This system is not registered with an entitlement server. You can use subscription-manager to register.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Examining proxysql-2.5.2-1-centos7.x86_64.rpm: proxysql-2.5.2-1.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Marking proxysql-2.5.2-1-centos7.x86_64.rpm as an update to proxysql-2.4.7-1.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Resolving Dependencies&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;--&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;Running transaction check&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;---&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;Package proxysql.x86_64 0:2.4.7-1 will be updated&lt;/span&gt;                                                                               &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;---&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;Package proxysql.x86_64 0:2.5.2-1 will be an update&lt;/span&gt;                                                                             &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;--&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;Finished Dependency Resolution&lt;/span&gt;                                                                               &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                                                                                                 &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Dependencies Resolved                                                                                            &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                                                                                                 &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;=========================================================================================================================================&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Package                                Arch           Version              Repository                                              Size&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;=========================================================================================================================================&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Updating:                                                                                                        &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;proxysql                               x86_64         2.5.2-1              /proxysql-2.5.2-1-centos7.x86_64                        71 M&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                                                                                                 &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Transaction Summary                                                                                              &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;=========================================================================================================================================&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Upgrade  1 Package                                                                                               &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                                                                                                 &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Total size: 71 M                                                                                                 &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Is this ok [y/d/N]: y                                                                                            &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Downloading packages:                                                                                            &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Running transaction check                                                                                        &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Running transaction test                                                                                         &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Transaction test succeeded                                                                                       &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Running transaction                                                                                              &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  Updating   : proxysql-2.5.2-1.x86_64                                                                                               1/2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  Cleanup    : proxysql-2.4.7-1.x86_64                                                                                               2/2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  Verifying  : proxysql-2.5.2-1.x86_64                                                                                               1/2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  Verifying  : proxysql-2.4.7-1.x86_64                                                                                               2/2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                                                                                                 &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Updated:                                                                                                         &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  proxysql.x86_64 0:2.5.2-1           &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                      &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Complete!&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;4-启动-ProxySQL&#34;&gt;4. 启动 ProxySQL&lt;/h3&gt;
+&lt;p&gt;安装成功后，proxysql自动启动，查看服务状态。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;$ &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;systemctl status proxysql&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;* proxysql.service - High Performance Advanced Proxy for MySQL&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   Loaded: loaded (/etc/systemd/system/proxysql.service; enabled; vendor preset: disabled)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   Active: active (running) since Tue 2023-06-13 17:18:34 JST; 2min 16s ago&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  Process: 1920276 ExecStart=/usr/bin/proxysql --idle-threads -c /etc/proxysql.cnf $PROXYSQL_OPTS (code=exited, status=0/SUCCESS)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Main PID: 1920278 (proxysql)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    Tasks: 25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   Memory: 12.3M&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   CGroup: /system.slice/proxysql.service&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           |-1920278 /usr/bin/proxysql --idle-threads -c /etc/proxysql.cnf&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           `-1920279 /usr/bin/proxysql --idle-threads -c /etc/proxysql.cnf&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看日志，确认启动正常。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;41&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;42&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;43&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;44&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;45&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;46&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;47&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;48&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;49&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;50&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;51&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;52&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;53&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;54&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;55&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;56&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] ProxySQL version 2.5.2-217-g7f727b3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Detected OS: Linux centos7.shawnyan.com 3.10.0-1127.19.1.el7.x86_64 #1 SMP Tue Aug 25 17:23:54 UTC 2020 x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] ProxySQL SHA1 checksum: 28c2de2d21c48288b340f5c07e0753d95eca521d&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Starting ProxySQL&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Successfully started&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Angel process started ProxySQL process 1920279&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Loaded built-in SQLite3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Standard ProxySQL MySQL Logger rev. 2.5.0421 -- MySQL_Logger.cpp -- Thu May 11 11:05:36 2023&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Standard ProxySQL Cluster rev. 0.4.0906 -- ProxySQL_Cluster.cpp -- Thu May 11 11:05:36 2023&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Standard ProxySQL Statistics rev. 1.4.1027 -- ProxySQL_Statistics.cpp -- Thu May 11 11:05:36 2023&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Standard ProxySQL HTTP Server Handler rev. 1.4.1031 -- ProxySQL_HTTP_Server.cpp -- Thu May 11 11:05:36 2023&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Using UUID from database: 28a7d839-4b4d-403d-b1e1-1f35f8207714&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Computed checksum for &amp;#x27;LOAD ADMIN VARIABLES TO RUNTIME&amp;#x27; was &amp;#x27;0x355C22D42ECC56EC&amp;#x27;, with epoch &amp;#x27;1686644314&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Switching query logging format from 1 to 2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Computed checksum for &amp;#x27;LOAD MYSQL VARIABLES TO RUNTIME&amp;#x27; was &amp;#x27;0xA8C47DB669B380E4&amp;#x27;, with epoch &amp;#x27;1686644314&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Standard ProxySQL Admin rev. 2.0.6.0805 -- ProxySQL_Admin.cpp -- Thu May 11 11:05:36 2023&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] ProxySQL SHA1 checksum: 28c2de2d21c48288b340f5c07e0753d95eca521d&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Standard MySQL Threads Handler rev. 0.2.0902 -- MySQL_Thread.cpp -- Thu May 11 11:05:36 2023&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Standard MySQL Authentication rev. 0.2.0902 -- MySQL_Authentication.cpp -- Thu May 11 11:05:36 2023&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Computed checksum for &amp;#x27;LOAD MYSQL USERS TO RUNTIME&amp;#x27; was &amp;#x27;0x7917CD487C11478F&amp;#x27;, with epoch &amp;#x27;1686644314&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Dumping mysql_servers_incoming&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------+-------------+------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| hostgroup_id | hostname    | port | gtid_port | weight | status | compression | max_connections | max_replication_lag | use_ssl | max_latency_ms | comment |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------+-------------+------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| 0            | 10000000000 | 3306 | 0         | 1      | 0      | 0           | 1000            | 0                   | 0       | 0              |         |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------+-------------+------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Dumping mysql_servers LEFT JOIN mysql_servers_incoming&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-------------+--------------+----------+------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mem_pointer | hostgroup_id | hostname | port |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-------------+--------------+----------+------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-------------+--------------+----------+------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Dumping mysql_servers JOIN mysql_servers_incoming&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------+-------------+------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+-------------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| hostgroup_id | hostname    | port | gtid_port | weight | status | compression | max_connections | max_replication_lag | use_ssl | max_latency_ms | comment | mem_pointer | gtid_port | weight | status | compression | max_connections | max_replication_lag | use_ssl | max_latency_ms | comment |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------+-------------+------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+-------------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| 0            | 10000000000 | 3306 | 0         | 1      | 0      | 0           | 1000            | 0                   | 0       | 0              |         | 0           | 0         | 1      | 0      | 0           | 1000            | 0                   | 0       | 0              |         |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------+-------------+------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+-------------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Creating new server in HG 0 : 10000000000:3306 , gtid_port=0, weight=1, status=0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] New mysql_group_replication_hostgroups table&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] New mysql_galera_hostgroups table&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] New mysql_aws_aurora_hostgroups table&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] New mysql_hostgroup_attributes table&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Checksum for table mysql_servers is 0x3125ECE8F745478E&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Rebuilding &amp;#x27;Hostgroup_Manager_Mapping&amp;#x27; due to checksums change - mysql_servers &amp;#123; old: 0x0, new: 0x3125ECE8F745478E &amp;#125;, mysql_replication_hostgroups &amp;#123; old:0x0, new:0x0 &amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] MySQL_HostGroups_Manager::commit() locked for 2ms&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Computed checksum for &amp;#x27;LOAD PROXYSQL SERVERS TO RUNTIME&amp;#x27; was &amp;#x27;0x0000000000000000&amp;#x27;, with epoch &amp;#x27;1686644314&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Standard Query Processor rev. 2.0.6.0805 -- Query_Processor.cpp -- Thu May 11 11:05:36 2023&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Computed checksum for &amp;#x27;LOAD MYSQL QUERY RULES TO RUNTIME&amp;#x27; was &amp;#x27;0x63709E548329ECD5&amp;#x27;, with epoch &amp;#x27;1686644314&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;In memory Standard Query Cache (SQC) rev. 1.2.0905 -- Query_Cache.cpp -- Thu May 11 11:05:36 2023&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Starting new mysql event log file /var/lib/proxysql/queries.log.00000004&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Starting new audit log file /var/lib/proxysql/auditlog.log.00000004&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Standard MySQL Monitor (StdMyMon) rev. 2.0.1226 -- MySQL_Monitor.cpp -- Thu May 11 11:05:36 2023&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] For information about products and services visit: https://proxysql.com/&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] For online documentation visit: https://proxysql.com/documentation/&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] For support visit: https://proxysql.com/services/support/&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] For consultancy visit: https://proxysql.com/services/consulting/&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;5-验证版本&#34;&gt;5. 验证版本&lt;/h3&gt;
+&lt;p&gt;从上述日志中，可以看到版本已经升到 2.5.2-217-g7f727b3，再从管理端口连接proxysql确认。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;$ &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;prxsql&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Welcome to the MariaDB monitor.  Commands end with ; or \g.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Your MySQL connection id is 1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Server version: 5.5.30 (ProxySQL Admin Module)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;#x27;help;&amp;#x27; or &amp;#x27;\h&amp;#x27; for help. Type &amp;#x27;\c&amp;#x27; to clear the current input statement.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;Admin&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; version();&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| version()          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| 2.5.2-217-g7f727b3 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.000 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;到此，proxysql已升级到最新版本 v2.5.2。&lt;/p&gt;
+&lt;h2 id=&#34;ProxySQL-2-5-新特性&#34;&gt;ProxySQL 2.5 新特性&lt;/h2&gt;
+&lt;h3 id=&#34;1-mysql-hostgroup-attributes&#34;&gt;1. mysql_hostgroup_attributes&lt;/h3&gt;
+&lt;p&gt;proxysql 增加了一张新系统表 mysql_hostgroup_attributes，&lt;br&gt;
+对于不同主机组中的后端服务器版本不同或不同主机组的预期行为不同的场景，该表特别有用。&lt;br&gt;
+具体表定义如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;Admin&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt; mysql_hostgroup_attributes\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1.&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;       &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt;: mysql_hostgroup_attributes&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;Create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Table&lt;/span&gt;: &lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt; mysql_hostgroup_attributes (&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    hostgroup_id &lt;span class=&#34;type&#34;&gt;INT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;PRIMARY&lt;/span&gt; KEY,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    max_num_online_servers &lt;span class=&#34;type&#34;&gt;INT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;CHECK&lt;/span&gt; (max_num_online_servers&lt;span class=&#34;operator&#34;&gt;&amp;gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;0&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;AND&lt;/span&gt; max_num_online_servers &lt;span class=&#34;operator&#34;&gt;&amp;lt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1000000&lt;/span&gt;) &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;DEFAULT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1000000&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    autocommit &lt;span class=&#34;type&#34;&gt;INT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;CHECK&lt;/span&gt; (autocommit &lt;span class=&#34;keyword&#34;&gt;IN&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;-1&lt;/span&gt;, &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;, &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;)) &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;DEFAULT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;-1&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    free_connections_pct &lt;span class=&#34;type&#34;&gt;INT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;CHECK&lt;/span&gt; (free_connections_pct &lt;span class=&#34;operator&#34;&gt;&amp;gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;AND&lt;/span&gt; free_connections_pct &lt;span class=&#34;operator&#34;&gt;&amp;lt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;100&lt;/span&gt;) &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;DEFAULT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    init_connect &lt;span class=&#34;type&#34;&gt;VARCHAR&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;DEFAULT&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;&amp;#x27;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    multiplex &lt;span class=&#34;type&#34;&gt;INT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;CHECK&lt;/span&gt; (multiplex &lt;span class=&#34;keyword&#34;&gt;IN&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;, &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;)) &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;DEFAULT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    connection_warming &lt;span class=&#34;type&#34;&gt;INT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;CHECK&lt;/span&gt; (connection_warming &lt;span class=&#34;keyword&#34;&gt;IN&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;, &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;)) &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;DEFAULT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    throttle_connections_per_sec &lt;span class=&#34;type&#34;&gt;INT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;CHECK&lt;/span&gt; (throttle_connections_per_sec &lt;span class=&#34;operator&#34;&gt;&amp;gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;AND&lt;/span&gt; throttle_connections_per_sec &lt;span class=&#34;operator&#34;&gt;&amp;lt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1000000&lt;/span&gt;) &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;DEFAULT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1000000&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    ignore_session_variables &lt;span class=&#34;type&#34;&gt;VARCHAR&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;CHECK&lt;/span&gt; (JSON_VALID(ignore_session_variables) &lt;span class=&#34;keyword&#34;&gt;OR&lt;/span&gt; ignore_session_variables &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;&amp;#x27;&lt;/span&gt;) &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;DEFAULT&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;&amp;#x27;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    comment &lt;span class=&#34;type&#34;&gt;VARCHAR&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;DEFAULT&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;&amp;#x27;&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.001&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;依据 Release Notes, 目前该表如下几个字段有意义：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;multiplex: 每个主机组值 HG，该值为特定主机组启用或禁用多路复用。 有关相关全局变量的更多信息，请参见 mysql-multiplexing。&lt;/li&gt;
+&lt;li&gt;free_connections_pct: 打开的空闲连接占主机组中特定服务器的最大连接总数的百分比。 有关相关全局变量的更多信息，请参见 mysql-free_connections_pct。&lt;/li&gt;
+&lt;li&gt;throttle_connections_per_sec: 确定每秒可以为特定主机组打开的最大新连接数。 有关相关全局变量的更多信息，请参见 mysql-throttle_connections_per_sec_to_hostgroup。&lt;/li&gt;
+&lt;li&gt;init_connect: 字符串包含一个或多个SQL语句，以分号分隔，这些语句将由ProxySQL在创建或初始化时对特定主机组中的每个后端连接执行。 有关相关全局变量的更多信息，请参见 mysql-init_connect。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;其余几个字段是预定义字段，目前尚未实现功能。&lt;/p&gt;
+&lt;h3 id=&#34;2-依赖包升级&#34;&gt;2. 依赖包升级&lt;/h3&gt;
+&lt;p&gt;本次共计13个依赖包的版本得到了升级，分别如下：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;cityhash&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;CityHash，用于字符串的哈希函数族。CityHash为字符串提供哈希函数。这些函数完全混合了输入位，但不适合加密。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;clickhouse-cpp&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;ClickHouse 的 C++ 客户端。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;curl&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;一个命令行工具和库，用于传输数据与URL语法，支持DICT, FILE, FTP, FTPS, GOPHER, gopers, HTTP, HTTPS, IMAP, IMAPS, LDAP, LDAPS, MQTT, POP3, POP3S, RTMP, RTMPS, RTSP, SCP, SFTP, SMB, SMTP, SMTPS, TELNET, TFTP, WS和WSS。Libcurl提供了无数强大的特性&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;json&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;JSON (JavaScript Object Notation)是一种轻量级的数据交换格式。 人类很容易读和写。 它很容易被机器解析和生成。 它基于JavaScript编程语言标准ECMA-262第三版(1999年12月)的一个子集。 JSON是一种完全独立于语言的文本格式，但使用C系列语言程序员所熟悉的约定，包括C、c++、c#、Java、JavaScript、Perl、Python和许多其他语言。 这些属性使JSON成为理想的数据交换语言。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;libconfig&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;用于处理配置文件的C/ c++库&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;libev&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;事件通知库&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;libhttpserver&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;用于创建嵌入式Rest HTTP服务器(以及更多)的c++库&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;libmicrohttpd&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;libmicrohttpd是一个用C编写的GNU库(GNU项目的一部分)，它提供了一个紧凑的API和HTTP 1.1 web服务器的实现(也支持HTTP 1.0)。libmicrohttpd只实现HTTP 1.1协议。主应用程序必须仍然提供内容。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;lz4&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;LZ4是一种无损压缩算法，每核压缩速度&amp;gt; 500 MB/s，可在多核CPU下扩展。它具有极快的解码器，每核速度可达数GB/s，通常达到多核系统的RAM速度限制。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;pcre&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;提供类型安全的preg_*替换的PCRE包装库。&lt;br&gt;
+这个库为您提供了一种方法来确保preg_*函数不会无声地失败，返回可能无法处理的意外空值。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;prometheus-cpp&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Prometheus 客户端库的 C++ 实现。该库旨在为c++服务启用度量驱动开发。它实现了Prometheus数据模型，这是一个强大的抽象，可以在其上收集和公开指标。我们提供了由Prometheus收集指标的可能性，但其他推/拉收集可以作为插件添加。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;re2&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;RE2是一种快速、安全、线程友好的替代方案，可以回溯PCRE、Perl和Python中使用的正则表达式引擎。它是一个c++库。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;sqlite3&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;SQLite是一个c语言库，它实现了一个小型、快速、自包含、高可靠性、全功能的SQL数据库引擎。SQLite是世界上使用最多的数据库引擎。&lt;/p&gt;
+&lt;h3 id=&#34;3-core-dump-命令&#34;&gt;3. core dump 命令&lt;/h3&gt;
+&lt;p&gt;从 ProxySQL 2.5 开始，增加了按需生成核心转储的功能(Google coredumper)，&lt;br&gt;
+新增命令 &lt;code&gt;PROXYSQL COREDUMP&lt;/code&gt; 和 &lt;code&gt;PROXYSQL COMPRESSEDCOREDUMP&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;命令调用：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;Admin&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; PROXYSQL COREDUMP;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt; affected (&lt;span class=&#34;number&#34;&gt;1.041&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Coredump: core&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Admin&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; PROXYSQL COMPRESSEDCOREDUMP;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt; affected (&lt;span class=&#34;number&#34;&gt;5.016&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Coredump: core&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;效果如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;shawnyan@centos7:/var/lib/proxysql$ ll -h core*&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-rw------- 1 proxysql proxysql 212M Jun 19 10:27 core&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-rw------- 1 proxysql proxysql 1.3M Jun 19 10:29 core.bz2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;blockquote&gt;
+&lt;p&gt;该特性只支持 x86-64 Linux 系统。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;4-Query-Log-增强&#34;&gt;4. Query Log 增强&lt;/h3&gt;
+&lt;p&gt;在新版本的 Query Log 中，支持了 &lt;code&gt;last_insert_id&lt;/code&gt; 字段。&lt;/p&gt;
+&lt;p&gt;示例如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight json&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;punctuation&#34;&gt;&amp;#123;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;client&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;quot;192.168.0.101:22960&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;digest&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;quot;0x47B278EE303E9CCE&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;duration_us&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;2130&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;endtime&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;quot;2023-06-19 10:47:55.620990&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;endtime_timestamp_us&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;1687139275620990&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;event&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;quot;COM_QUERY&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;hostgroup_id&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;last_insert_id&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt; --&amp;gt; New!&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;query&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;quot;INSERT INTO test.test_insert_id VALUES (NULL)&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;rows_affected&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;rows_sent&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;schemaname&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;quot;test&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;server&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;quot;192.168.0.101:3306&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;starttime&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;quot;2023-06-19 10:47:55.618860&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;starttime_timestamp_us&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;1687139275618860&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;thread_id&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;24&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;username&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;quot;sbtest&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;punctuation&#34;&gt;&amp;#125;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;ProxySQL 是值得信赖的高可用中间件，适用于 MySQL, MariaDB, TiDB, ClickHouse 数据库。&lt;br&gt;
+本文介绍了如何升级 ProxySQL 到最新版本，以及 ProxySQL v2.5 版本中几个重要的新特性。&lt;/p&gt;
+&lt;p&gt;如果您看到这里，觉得有些许收获，那么请为本文点个赞吧~&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="ProxySQL v2.5.2 版本升级及新特性速览">
+    <meta property="og:url" content="https://shawnyan.cn/2023/mysql/proxysql-v2.5.2-new-feature/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;img alt=&#34;proxysql_banner.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240302-cc9e56b7-9308-480c-9d7a-570eaf5f136e.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;ProxySQL 最新 GA 版本为 v2.5.2, 本文将介绍如何升级 ProxySQL 到最新版本，以及 v2.5.x 都有哪些值得一看的新特性。&lt;/p&gt;
+&lt;h2 id=&#34;ProxySQL-升级最新版本&#34;&gt;ProxySQL 升级最新版本&lt;/h2&gt;
+&lt;p&gt;本地环境安装的版本为 2.4.7-5-gd467cc0，通过 RPM 进行安装，那么升级也将变得简单，可以直接通过 YUM 进行升级。&lt;/p&gt;
+&lt;p&gt;具体操作如下，&lt;/p&gt;
+&lt;h3 id=&#34;1-下载新包到指定目录&#34;&gt;1. 下载新包到指定目录&lt;/h3&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;wget https://github.com/sysown/proxysql/releases/download/v2.5.2/proxysql-2.5.2-1-centos7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;$ &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;ls&lt;/span&gt; proxysql-2.5.2-1-centos7.x86_64.rpm; &lt;span class=&#34;built_in&#34;&gt;sha256sum&lt;/span&gt; proxysql-2.5.2-1-centos7.x86_64.rpm&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;proxysql-2.5.2-1-centos7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6f7ecc879864708ac7b62cf05edf31f6785697e1501e389e9a8f0d8fc92da489  proxysql-2.5.2-1-centos7.x86_64.rpm&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;2-停止当前-ProxySQL&#34;&gt;2. 停止当前 ProxySQL&lt;/h3&gt;
+&lt;p&gt;停止proxysql，并查看日志，确认服务已停止。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;sudo systemctl stop proxysql&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;日志输出：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:17:27 ProxySQL_GloVars.cpp:16:term_handler(): [WARNING] Received TERM signal: shutdown in progress...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:17:27 [INFO] Starting shutdown...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:17:27 [INFO] Shutdown completed!&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:17:27 [INFO] Exiting...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:17:27 [INFO] Shutdown angel process&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;3-安装新版-ProxySQL&#34;&gt;3. 安装新版 ProxySQL&lt;/h3&gt;
+&lt;p&gt;通过yum将下载好的安装包进行安装升级。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;41&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;$ &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;sudo yum install proxysql-2.5.2-1-centos7.x86_64.rpm&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Loaded plugins: changelog, fastestmirror, product-id, search-disabled-repos, subscription-manager, verify&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;This system is not registered with an entitlement server. You can use subscription-manager to register.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Examining proxysql-2.5.2-1-centos7.x86_64.rpm: proxysql-2.5.2-1.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Marking proxysql-2.5.2-1-centos7.x86_64.rpm as an update to proxysql-2.4.7-1.x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Resolving Dependencies&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;--&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;Running transaction check&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;---&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;Package proxysql.x86_64 0:2.4.7-1 will be updated&lt;/span&gt;                                                                               &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;---&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;Package proxysql.x86_64 0:2.5.2-1 will be an update&lt;/span&gt;                                                                             &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;--&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;Finished Dependency Resolution&lt;/span&gt;                                                                               &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                                                                                                 &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Dependencies Resolved                                                                                            &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                                                                                                 &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;=========================================================================================================================================&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Package                                Arch           Version              Repository                                              Size&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;=========================================================================================================================================&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Updating:                                                                                                        &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;proxysql                               x86_64         2.5.2-1              /proxysql-2.5.2-1-centos7.x86_64                        71 M&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                                                                                                 &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Transaction Summary                                                                                              &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;=========================================================================================================================================&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Upgrade  1 Package                                                                                               &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                                                                                                 &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Total size: 71 M                                                                                                 &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Is this ok [y/d/N]: y                                                                                            &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Downloading packages:                                                                                            &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Running transaction check                                                                                        &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Running transaction test                                                                                         &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Transaction test succeeded                                                                                       &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Running transaction                                                                                              &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  Updating   : proxysql-2.5.2-1.x86_64                                                                                               1/2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  Cleanup    : proxysql-2.4.7-1.x86_64                                                                                               2/2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  Verifying  : proxysql-2.5.2-1.x86_64                                                                                               1/2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  Verifying  : proxysql-2.4.7-1.x86_64                                                                                               2/2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                                                                                                 &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Updated:                                                                                                         &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  proxysql.x86_64 0:2.5.2-1           &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                      &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Complete!&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;4-启动-ProxySQL&#34;&gt;4. 启动 ProxySQL&lt;/h3&gt;
+&lt;p&gt;安装成功后，proxysql自动启动，查看服务状态。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;$ &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;systemctl status proxysql&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;* proxysql.service - High Performance Advanced Proxy for MySQL&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   Loaded: loaded (/etc/systemd/system/proxysql.service; enabled; vendor preset: disabled)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   Active: active (running) since Tue 2023-06-13 17:18:34 JST; 2min 16s ago&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  Process: 1920276 ExecStart=/usr/bin/proxysql --idle-threads -c /etc/proxysql.cnf $PROXYSQL_OPTS (code=exited, status=0/SUCCESS)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Main PID: 1920278 (proxysql)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    Tasks: 25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   Memory: 12.3M&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   CGroup: /system.slice/proxysql.service&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           |-1920278 /usr/bin/proxysql --idle-threads -c /etc/proxysql.cnf&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           `-1920279 /usr/bin/proxysql --idle-threads -c /etc/proxysql.cnf&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看日志，确认启动正常。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;41&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;42&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;43&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;44&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;45&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;46&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;47&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;48&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;49&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;50&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;51&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;52&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;53&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;54&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;55&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;56&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] ProxySQL version 2.5.2-217-g7f727b3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Detected OS: Linux centos7.shawnyan.com 3.10.0-1127.19.1.el7.x86_64 #1 SMP Tue Aug 25 17:23:54 UTC 2020 x86_64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] ProxySQL SHA1 checksum: 28c2de2d21c48288b340f5c07e0753d95eca521d&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Starting ProxySQL&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Successfully started&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Angel process started ProxySQL process 1920279&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Loaded built-in SQLite3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Standard ProxySQL MySQL Logger rev. 2.5.0421 -- MySQL_Logger.cpp -- Thu May 11 11:05:36 2023&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Standard ProxySQL Cluster rev. 0.4.0906 -- ProxySQL_Cluster.cpp -- Thu May 11 11:05:36 2023&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Standard ProxySQL Statistics rev. 1.4.1027 -- ProxySQL_Statistics.cpp -- Thu May 11 11:05:36 2023&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Standard ProxySQL HTTP Server Handler rev. 1.4.1031 -- ProxySQL_HTTP_Server.cpp -- Thu May 11 11:05:36 2023&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Using UUID from database: 28a7d839-4b4d-403d-b1e1-1f35f8207714&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Computed checksum for &amp;#x27;LOAD ADMIN VARIABLES TO RUNTIME&amp;#x27; was &amp;#x27;0x355C22D42ECC56EC&amp;#x27;, with epoch &amp;#x27;1686644314&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Switching query logging format from 1 to 2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Computed checksum for &amp;#x27;LOAD MYSQL VARIABLES TO RUNTIME&amp;#x27; was &amp;#x27;0xA8C47DB669B380E4&amp;#x27;, with epoch &amp;#x27;1686644314&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Standard ProxySQL Admin rev. 2.0.6.0805 -- ProxySQL_Admin.cpp -- Thu May 11 11:05:36 2023&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] ProxySQL SHA1 checksum: 28c2de2d21c48288b340f5c07e0753d95eca521d&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Standard MySQL Threads Handler rev. 0.2.0902 -- MySQL_Thread.cpp -- Thu May 11 11:05:36 2023&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Standard MySQL Authentication rev. 0.2.0902 -- MySQL_Authentication.cpp -- Thu May 11 11:05:36 2023&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Computed checksum for &amp;#x27;LOAD MYSQL USERS TO RUNTIME&amp;#x27; was &amp;#x27;0x7917CD487C11478F&amp;#x27;, with epoch &amp;#x27;1686644314&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Dumping mysql_servers_incoming&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------+-------------+------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| hostgroup_id | hostname    | port | gtid_port | weight | status | compression | max_connections | max_replication_lag | use_ssl | max_latency_ms | comment |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------+-------------+------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| 0            | 10000000000 | 3306 | 0         | 1      | 0      | 0           | 1000            | 0                   | 0       | 0              |         |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------+-------------+------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Dumping mysql_servers LEFT JOIN mysql_servers_incoming&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-------------+--------------+----------+------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mem_pointer | hostgroup_id | hostname | port |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-------------+--------------+----------+------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-------------+--------------+----------+------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Dumping mysql_servers JOIN mysql_servers_incoming&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------+-------------+------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+-------------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| hostgroup_id | hostname    | port | gtid_port | weight | status | compression | max_connections | max_replication_lag | use_ssl | max_latency_ms | comment | mem_pointer | gtid_port | weight | status | compression | max_connections | max_replication_lag | use_ssl | max_latency_ms | comment |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------+-------------+------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+-------------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| 0            | 10000000000 | 3306 | 0         | 1      | 0      | 0           | 1000            | 0                   | 0       | 0              |         | 0           | 0         | 1      | 0      | 0           | 1000            | 0                   | 0       | 0              |         |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------+-------------+------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+-------------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Creating new server in HG 0 : 10000000000:3306 , gtid_port=0, weight=1, status=0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] New mysql_group_replication_hostgroups table&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] New mysql_galera_hostgroups table&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] New mysql_aws_aurora_hostgroups table&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] New mysql_hostgroup_attributes table&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Checksum for table mysql_servers is 0x3125ECE8F745478E&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Rebuilding &amp;#x27;Hostgroup_Manager_Mapping&amp;#x27; due to checksums change - mysql_servers &amp;#123; old: 0x0, new: 0x3125ECE8F745478E &amp;#125;, mysql_replication_hostgroups &amp;#123; old:0x0, new:0x0 &amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] MySQL_HostGroups_Manager::commit() locked for 2ms&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Computed checksum for &amp;#x27;LOAD PROXYSQL SERVERS TO RUNTIME&amp;#x27; was &amp;#x27;0x0000000000000000&amp;#x27;, with epoch &amp;#x27;1686644314&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Standard Query Processor rev. 2.0.6.0805 -- Query_Processor.cpp -- Thu May 11 11:05:36 2023&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Computed checksum for &amp;#x27;LOAD MYSQL QUERY RULES TO RUNTIME&amp;#x27; was &amp;#x27;0x63709E548329ECD5&amp;#x27;, with epoch &amp;#x27;1686644314&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;In memory Standard Query Cache (SQC) rev. 1.2.0905 -- Query_Cache.cpp -- Thu May 11 11:05:36 2023&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Starting new mysql event log file /var/lib/proxysql/queries.log.00000004&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] Starting new audit log file /var/lib/proxysql/auditlog.log.00000004&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Standard MySQL Monitor (StdMyMon) rev. 2.0.1226 -- MySQL_Monitor.cpp -- Thu May 11 11:05:36 2023&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] For information about products and services visit: https://proxysql.com/&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] For online documentation visit: https://proxysql.com/documentation/&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] For support visit: https://proxysql.com/services/support/&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-06-13 17:18:34 [INFO] For consultancy visit: https://proxysql.com/services/consulting/&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;5-验证版本&#34;&gt;5. 验证版本&lt;/h3&gt;
+&lt;p&gt;从上述日志中，可以看到版本已经升到 2.5.2-217-g7f727b3，再从管理端口连接proxysql确认。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;$ &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;prxsql&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Welcome to the MariaDB monitor.  Commands end with ; or \g.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Your MySQL connection id is 1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Server version: 5.5.30 (ProxySQL Admin Module)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;#x27;help;&amp;#x27; or &amp;#x27;\h&amp;#x27; for help. Type &amp;#x27;\c&amp;#x27; to clear the current input statement.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;Admin&amp;gt; &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; version();&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| version()          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| 2.5.2-217-g7f727b3 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.000 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;到此，proxysql已升级到最新版本 v2.5.2。&lt;/p&gt;
+&lt;h2 id=&#34;ProxySQL-2-5-新特性&#34;&gt;ProxySQL 2.5 新特性&lt;/h2&gt;
+&lt;h3 id=&#34;1-mysql-hostgroup-attributes&#34;&gt;1. mysql_hostgroup_attributes&lt;/h3&gt;
+&lt;p&gt;proxysql 增加了一张新系统表 mysql_hostgroup_attributes，&lt;br&gt;
+对于不同主机组中的后端服务器版本不同或不同主机组的预期行为不同的场景，该表特别有用。&lt;br&gt;
+具体表定义如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;Admin&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt; mysql_hostgroup_attributes\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1.&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;       &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt;: mysql_hostgroup_attributes&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;Create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Table&lt;/span&gt;: &lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt; mysql_hostgroup_attributes (&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    hostgroup_id &lt;span class=&#34;type&#34;&gt;INT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;PRIMARY&lt;/span&gt; KEY,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    max_num_online_servers &lt;span class=&#34;type&#34;&gt;INT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;CHECK&lt;/span&gt; (max_num_online_servers&lt;span class=&#34;operator&#34;&gt;&amp;gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;0&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;AND&lt;/span&gt; max_num_online_servers &lt;span class=&#34;operator&#34;&gt;&amp;lt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1000000&lt;/span&gt;) &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;DEFAULT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1000000&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    autocommit &lt;span class=&#34;type&#34;&gt;INT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;CHECK&lt;/span&gt; (autocommit &lt;span class=&#34;keyword&#34;&gt;IN&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;-1&lt;/span&gt;, &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;, &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;)) &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;DEFAULT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;-1&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    free_connections_pct &lt;span class=&#34;type&#34;&gt;INT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;CHECK&lt;/span&gt; (free_connections_pct &lt;span class=&#34;operator&#34;&gt;&amp;gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;AND&lt;/span&gt; free_connections_pct &lt;span class=&#34;operator&#34;&gt;&amp;lt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;100&lt;/span&gt;) &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;DEFAULT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    init_connect &lt;span class=&#34;type&#34;&gt;VARCHAR&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;DEFAULT&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;&amp;#x27;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    multiplex &lt;span class=&#34;type&#34;&gt;INT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;CHECK&lt;/span&gt; (multiplex &lt;span class=&#34;keyword&#34;&gt;IN&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;, &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;)) &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;DEFAULT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    connection_warming &lt;span class=&#34;type&#34;&gt;INT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;CHECK&lt;/span&gt; (connection_warming &lt;span class=&#34;keyword&#34;&gt;IN&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;, &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;)) &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;DEFAULT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    throttle_connections_per_sec &lt;span class=&#34;type&#34;&gt;INT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;CHECK&lt;/span&gt; (throttle_connections_per_sec &lt;span class=&#34;operator&#34;&gt;&amp;gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;AND&lt;/span&gt; throttle_connections_per_sec &lt;span class=&#34;operator&#34;&gt;&amp;lt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1000000&lt;/span&gt;) &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;DEFAULT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1000000&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    ignore_session_variables &lt;span class=&#34;type&#34;&gt;VARCHAR&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;CHECK&lt;/span&gt; (JSON_VALID(ignore_session_variables) &lt;span class=&#34;keyword&#34;&gt;OR&lt;/span&gt; ignore_session_variables &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;&amp;#x27;&lt;/span&gt;) &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;DEFAULT&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;&amp;#x27;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    comment &lt;span class=&#34;type&#34;&gt;VARCHAR&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;DEFAULT&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;&amp;#x27;&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.001&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;依据 Release Notes, 目前该表如下几个字段有意义：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;multiplex: 每个主机组值 HG，该值为特定主机组启用或禁用多路复用。 有关相关全局变量的更多信息，请参见 mysql-multiplexing。&lt;/li&gt;
+&lt;li&gt;free_connections_pct: 打开的空闲连接占主机组中特定服务器的最大连接总数的百分比。 有关相关全局变量的更多信息，请参见 mysql-free_connections_pct。&lt;/li&gt;
+&lt;li&gt;throttle_connections_per_sec: 确定每秒可以为特定主机组打开的最大新连接数。 有关相关全局变量的更多信息，请参见 mysql-throttle_connections_per_sec_to_hostgroup。&lt;/li&gt;
+&lt;li&gt;init_connect: 字符串包含一个或多个SQL语句，以分号分隔，这些语句将由ProxySQL在创建或初始化时对特定主机组中的每个后端连接执行。 有关相关全局变量的更多信息，请参见 mysql-init_connect。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;其余几个字段是预定义字段，目前尚未实现功能。&lt;/p&gt;
+&lt;h3 id=&#34;2-依赖包升级&#34;&gt;2. 依赖包升级&lt;/h3&gt;
+&lt;p&gt;本次共计13个依赖包的版本得到了升级，分别如下：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;cityhash&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;CityHash，用于字符串的哈希函数族。CityHash为字符串提供哈希函数。这些函数完全混合了输入位，但不适合加密。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;clickhouse-cpp&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;ClickHouse 的 C++ 客户端。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;curl&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;一个命令行工具和库，用于传输数据与URL语法，支持DICT, FILE, FTP, FTPS, GOPHER, gopers, HTTP, HTTPS, IMAP, IMAPS, LDAP, LDAPS, MQTT, POP3, POP3S, RTMP, RTMPS, RTSP, SCP, SFTP, SMB, SMTP, SMTPS, TELNET, TFTP, WS和WSS。Libcurl提供了无数强大的特性&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;json&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;JSON (JavaScript Object Notation)是一种轻量级的数据交换格式。 人类很容易读和写。 它很容易被机器解析和生成。 它基于JavaScript编程语言标准ECMA-262第三版(1999年12月)的一个子集。 JSON是一种完全独立于语言的文本格式，但使用C系列语言程序员所熟悉的约定，包括C、c++、c#、Java、JavaScript、Perl、Python和许多其他语言。 这些属性使JSON成为理想的数据交换语言。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;libconfig&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;用于处理配置文件的C/ c++库&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;libev&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;事件通知库&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;libhttpserver&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;用于创建嵌入式Rest HTTP服务器(以及更多)的c++库&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;libmicrohttpd&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;libmicrohttpd是一个用C编写的GNU库(GNU项目的一部分)，它提供了一个紧凑的API和HTTP 1.1 web服务器的实现(也支持HTTP 1.0)。libmicrohttpd只实现HTTP 1.1协议。主应用程序必须仍然提供内容。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;lz4&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;LZ4是一种无损压缩算法，每核压缩速度&amp;gt; 500 MB/s，可在多核CPU下扩展。它具有极快的解码器，每核速度可达数GB/s，通常达到多核系统的RAM速度限制。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;pcre&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;提供类型安全的preg_*替换的PCRE包装库。&lt;br&gt;
+这个库为您提供了一种方法来确保preg_*函数不会无声地失败，返回可能无法处理的意外空值。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;prometheus-cpp&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Prometheus 客户端库的 C++ 实现。该库旨在为c++服务启用度量驱动开发。它实现了Prometheus数据模型，这是一个强大的抽象，可以在其上收集和公开指标。我们提供了由Prometheus收集指标的可能性，但其他推/拉收集可以作为插件添加。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;re2&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;RE2是一种快速、安全、线程友好的替代方案，可以回溯PCRE、Perl和Python中使用的正则表达式引擎。它是一个c++库。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;sqlite3&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;SQLite是一个c语言库，它实现了一个小型、快速、自包含、高可靠性、全功能的SQL数据库引擎。SQLite是世界上使用最多的数据库引擎。&lt;/p&gt;
+&lt;h3 id=&#34;3-core-dump-命令&#34;&gt;3. core dump 命令&lt;/h3&gt;
+&lt;p&gt;从 ProxySQL 2.5 开始，增加了按需生成核心转储的功能(Google coredumper)，&lt;br&gt;
+新增命令 &lt;code&gt;PROXYSQL COREDUMP&lt;/code&gt; 和 &lt;code&gt;PROXYSQL COMPRESSEDCOREDUMP&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;命令调用：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;Admin&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; PROXYSQL COREDUMP;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt; affected (&lt;span class=&#34;number&#34;&gt;1.041&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Coredump: core&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Admin&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; PROXYSQL COMPRESSEDCOREDUMP;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt; affected (&lt;span class=&#34;number&#34;&gt;5.016&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Coredump: core&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;效果如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;shawnyan@centos7:/var/lib/proxysql$ ll -h core*&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-rw------- 1 proxysql proxysql 212M Jun 19 10:27 core&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-rw------- 1 proxysql proxysql 1.3M Jun 19 10:29 core.bz2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;blockquote&gt;
+&lt;p&gt;该特性只支持 x86-64 Linux 系统。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;4-Query-Log-增强&#34;&gt;4. Query Log 增强&lt;/h3&gt;
+&lt;p&gt;在新版本的 Query Log 中，支持了 &lt;code&gt;last_insert_id&lt;/code&gt; 字段。&lt;/p&gt;
+&lt;p&gt;示例如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight json&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;punctuation&#34;&gt;&amp;#123;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;client&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;quot;192.168.0.101:22960&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;digest&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;quot;0x47B278EE303E9CCE&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;duration_us&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;2130&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;endtime&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;quot;2023-06-19 10:47:55.620990&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;endtime_timestamp_us&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;1687139275620990&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;event&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;quot;COM_QUERY&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;hostgroup_id&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;last_insert_id&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt; --&amp;gt; New!&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;query&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;quot;INSERT INTO test.test_insert_id VALUES (NULL)&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;rows_affected&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;rows_sent&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;schemaname&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;quot;test&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;server&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;quot;192.168.0.101:3306&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;starttime&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;quot;2023-06-19 10:47:55.618860&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;starttime_timestamp_us&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;1687139275618860&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;thread_id&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;24&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;attr&#34;&gt;&amp;quot;username&amp;quot;&lt;/span&gt;&lt;span class=&#34;punctuation&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;quot;sbtest&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;punctuation&#34;&gt;&amp;#125;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;ProxySQL 是值得信赖的高可用中间件，适用于 MySQL, MariaDB, TiDB, ClickHouse 数据库。&lt;br&gt;
+本文介绍了如何升级 ProxySQL 到最新版本，以及 ProxySQL v2.5 版本中几个重要的新特性。&lt;/p&gt;
+&lt;p&gt;如果您看到这里，觉得有些许收获，那么请为本文点个赞吧~&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/proxysql/" class="category-badge">
+                                    ProxySQL
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">ProxySQL v2.5.2 版本升级及新特性速览</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2023-06-19
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                2.9k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                14 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <img alt="proxysql_banner.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20240302-cc9e56b7-9308-480c-9d7a-570eaf5f136e.png" referrerpolicy="no-referrer"/>
+<p>ProxySQL 最新 GA 版本为 v2.5.2, 本文将介绍如何升级 ProxySQL 到最新版本，以及 v2.5.x 都有哪些值得一看的新特性。</p>
+<h2 id="ProxySQL-升级最新版本">ProxySQL 升级最新版本</h2>
+<p>本地环境安装的版本为 2.4.7-5-gd467cc0，通过 RPM 进行安装，那么升级也将变得简单，可以直接通过 YUM 进行升级。</p>
+<p>具体操作如下，</p>
+<h3 id="1-下载新包到指定目录">1. 下载新包到指定目录</h3>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">wget https://github.com/sysown/proxysql/releases/download/v2.5.2/proxysql-2.5.2-1-centos7.x86_64.rpm</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_">$ </span><span class="language-bash"><span class="built_in">ls</span> proxysql-2.5.2-1-centos7.x86_64.rpm; <span class="built_in">sha256sum</span> proxysql-2.5.2-1-centos7.x86_64.rpm</span></span><br><span class="line">proxysql-2.5.2-1-centos7.x86_64.rpm</span><br><span class="line">6f7ecc879864708ac7b62cf05edf31f6785697e1501e389e9a8f0d8fc92da489  proxysql-2.5.2-1-centos7.x86_64.rpm</span><br></pre></td></tr></table></figure>
+<h3 id="2-停止当前-ProxySQL">2. 停止当前 ProxySQL</h3>
+<p>停止proxysql，并查看日志，确认服务已停止。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo systemctl stop proxysql</span><br></pre></td></tr></table></figure>
+<ul>
+<li>日志输出：</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">2023-06-13 17:17:27 ProxySQL_GloVars.cpp:16:term_handler(): [WARNING] Received TERM signal: shutdown in progress...</span><br><span class="line">2023-06-13 17:17:27 [INFO] Starting shutdown...</span><br><span class="line">2023-06-13 17:17:27 [INFO] Shutdown completed!</span><br><span class="line">2023-06-13 17:17:27 [INFO] Exiting...</span><br><span class="line">2023-06-13 17:17:27 [INFO] Shutdown angel process</span><br></pre></td></tr></table></figure>
+<h3 id="3-安装新版-ProxySQL">3. 安装新版 ProxySQL</h3>
+<p>通过yum将下载好的安装包进行安装升级。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">sudo yum install proxysql-2.5.2-1-centos7.x86_64.rpm</span></span><br><span class="line">Loaded plugins: changelog, fastestmirror, product-id, search-disabled-repos, subscription-manager, verify</span><br><span class="line"></span><br><span class="line">This system is not registered with an entitlement server. You can use subscription-manager to register.</span><br><span class="line"></span><br><span class="line">Examining proxysql-2.5.2-1-centos7.x86_64.rpm: proxysql-2.5.2-1.x86_64</span><br><span class="line">Marking proxysql-2.5.2-1-centos7.x86_64.rpm as an update to proxysql-2.4.7-1.x86_64</span><br><span class="line">Resolving Dependencies</span><br><span class="line"><span class="meta prompt_">--&gt; </span><span class="language-bash">Running transaction check</span></span><br><span class="line"><span class="meta prompt_">---&gt; </span><span class="language-bash">Package proxysql.x86_64 0:2.4.7-1 will be updated</span>                                                                               </span><br><span class="line"><span class="meta prompt_">---&gt; </span><span class="language-bash">Package proxysql.x86_64 0:2.5.2-1 will be an update</span>                                                                             </span><br><span class="line"><span class="meta prompt_">--&gt; </span><span class="language-bash">Finished Dependency Resolution</span>                                                                               </span><br><span class="line">                                                                                                                 </span><br><span class="line">Dependencies Resolved                                                                                            </span><br><span class="line">                                                                                                                 </span><br><span class="line">=========================================================================================================================================</span><br><span class="line">Package                                Arch           Version              Repository                                              Size</span><br><span class="line">=========================================================================================================================================</span><br><span class="line">Updating:                                                                                                        </span><br><span class="line">proxysql                               x86_64         2.5.2-1              /proxysql-2.5.2-1-centos7.x86_64                        71 M</span><br><span class="line">                                                                                                                 </span><br><span class="line">Transaction Summary                                                                                              </span><br><span class="line">=========================================================================================================================================</span><br><span class="line">Upgrade  1 Package                                                                                               </span><br><span class="line">                                                                                                                 </span><br><span class="line">Total size: 71 M                                                                                                 </span><br><span class="line">Is this ok [y/d/N]: y                                                                                            </span><br><span class="line">Downloading packages:                                                                                            </span><br><span class="line">Running transaction check                                                                                        </span><br><span class="line">Running transaction test                                                                                         </span><br><span class="line">Transaction test succeeded                                                                                       </span><br><span class="line">Running transaction                                                                                              </span><br><span class="line">  Updating   : proxysql-2.5.2-1.x86_64                                                                                               1/2</span><br><span class="line">  Cleanup    : proxysql-2.4.7-1.x86_64                                                                                               2/2</span><br><span class="line">  Verifying  : proxysql-2.5.2-1.x86_64                                                                                               1/2</span><br><span class="line">  Verifying  : proxysql-2.4.7-1.x86_64                                                                                               2/2</span><br><span class="line">                                                                                                                 </span><br><span class="line">Updated:                                                                                                         </span><br><span class="line">  proxysql.x86_64 0:2.5.2-1           </span><br><span class="line">                                      </span><br><span class="line">Complete!</span><br></pre></td></tr></table></figure>
+<h3 id="4-启动-ProxySQL">4. 启动 ProxySQL</h3>
+<p>安装成功后，proxysql自动启动，查看服务状态。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">systemctl status proxysql</span></span><br><span class="line">* proxysql.service - High Performance Advanced Proxy for MySQL</span><br><span class="line">   Loaded: loaded (/etc/systemd/system/proxysql.service; enabled; vendor preset: disabled)</span><br><span class="line">   Active: active (running) since Tue 2023-06-13 17:18:34 JST; 2min 16s ago</span><br><span class="line">  Process: 1920276 ExecStart=/usr/bin/proxysql --idle-threads -c /etc/proxysql.cnf $PROXYSQL_OPTS (code=exited, status=0/SUCCESS)</span><br><span class="line">Main PID: 1920278 (proxysql)</span><br><span class="line">    Tasks: 25</span><br><span class="line">   Memory: 12.3M</span><br><span class="line">   CGroup: /system.slice/proxysql.service</span><br><span class="line">           |-1920278 /usr/bin/proxysql --idle-threads -c /etc/proxysql.cnf</span><br><span class="line">           `-1920279 /usr/bin/proxysql --idle-threads -c /etc/proxysql.cnf</span><br></pre></td></tr></table></figure>
+<p>查看日志，确认启动正常。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br></pre></td><td class="code"><pre><span class="line">2023-06-13 17:18:34 [INFO] ProxySQL version 2.5.2-217-g7f727b3</span><br><span class="line">2023-06-13 17:18:34 [INFO] Detected OS: Linux centos7.shawnyan.com 3.10.0-1127.19.1.el7.x86_64 #1 SMP Tue Aug 25 17:23:54 UTC 2020 x86_64</span><br><span class="line">2023-06-13 17:18:34 [INFO] ProxySQL SHA1 checksum: 28c2de2d21c48288b340f5c07e0753d95eca521d</span><br><span class="line">2023-06-13 17:18:34 [INFO] Starting ProxySQL</span><br><span class="line">2023-06-13 17:18:34 [INFO] Successfully started</span><br><span class="line">2023-06-13 17:18:34 [INFO] Angel process started ProxySQL process 1920279</span><br><span class="line">2023-06-13 17:18:34 [INFO] Loaded built-in SQLite3</span><br><span class="line">Standard ProxySQL MySQL Logger rev. 2.5.0421 -- MySQL_Logger.cpp -- Thu May 11 11:05:36 2023</span><br><span class="line">Standard ProxySQL Cluster rev. 0.4.0906 -- ProxySQL_Cluster.cpp -- Thu May 11 11:05:36 2023</span><br><span class="line">Standard ProxySQL Statistics rev. 1.4.1027 -- ProxySQL_Statistics.cpp -- Thu May 11 11:05:36 2023</span><br><span class="line">Standard ProxySQL HTTP Server Handler rev. 1.4.1031 -- ProxySQL_HTTP_Server.cpp -- Thu May 11 11:05:36 2023</span><br><span class="line">2023-06-13 17:18:34 [INFO] Using UUID from database: 28a7d839-4b4d-403d-b1e1-1f35f8207714</span><br><span class="line">2023-06-13 17:18:34 [INFO] Computed checksum for &#x27;LOAD ADMIN VARIABLES TO RUNTIME&#x27; was &#x27;0x355C22D42ECC56EC&#x27;, with epoch &#x27;1686644314&#x27;</span><br><span class="line">2023-06-13 17:18:34 [INFO] Switching query logging format from 1 to 2</span><br><span class="line">2023-06-13 17:18:34 [INFO] Computed checksum for &#x27;LOAD MYSQL VARIABLES TO RUNTIME&#x27; was &#x27;0xA8C47DB669B380E4&#x27;, with epoch &#x27;1686644314&#x27;</span><br><span class="line">Standard ProxySQL Admin rev. 2.0.6.0805 -- ProxySQL_Admin.cpp -- Thu May 11 11:05:36 2023</span><br><span class="line">2023-06-13 17:18:34 [INFO] ProxySQL SHA1 checksum: 28c2de2d21c48288b340f5c07e0753d95eca521d</span><br><span class="line">Standard MySQL Threads Handler rev. 0.2.0902 -- MySQL_Thread.cpp -- Thu May 11 11:05:36 2023</span><br><span class="line">Standard MySQL Authentication rev. 0.2.0902 -- MySQL_Authentication.cpp -- Thu May 11 11:05:36 2023</span><br><span class="line">2023-06-13 17:18:34 [INFO] Computed checksum for &#x27;LOAD MYSQL USERS TO RUNTIME&#x27; was &#x27;0x7917CD487C11478F&#x27;, with epoch &#x27;1686644314&#x27;</span><br><span class="line">2023-06-13 17:18:34 [INFO] Dumping mysql_servers_incoming</span><br><span class="line">+--------------+-------------+------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+</span><br><span class="line">| hostgroup_id | hostname    | port | gtid_port | weight | status | compression | max_connections | max_replication_lag | use_ssl | max_latency_ms | comment |</span><br><span class="line">+--------------+-------------+------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+</span><br><span class="line">| 0            | 10000000000 | 3306 | 0         | 1      | 0      | 0           | 1000            | 0                   | 0       | 0              |         |</span><br><span class="line">+--------------+-------------+------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+</span><br><span class="line">2023-06-13 17:18:34 [INFO] Dumping mysql_servers LEFT JOIN mysql_servers_incoming</span><br><span class="line">+-------------+--------------+----------+------+</span><br><span class="line">| mem_pointer | hostgroup_id | hostname | port |</span><br><span class="line">+-------------+--------------+----------+------+</span><br><span class="line">+-------------+--------------+----------+------+</span><br><span class="line">2023-06-13 17:18:34 [INFO] Dumping mysql_servers JOIN mysql_servers_incoming</span><br><span class="line">+--------------+-------------+------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+-------------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+</span><br><span class="line">| hostgroup_id | hostname    | port | gtid_port | weight | status | compression | max_connections | max_replication_lag | use_ssl | max_latency_ms | comment | mem_pointer | gtid_port | weight | status | compression | max_connections | max_replication_lag | use_ssl | max_latency_ms | comment |</span><br><span class="line">+--------------+-------------+------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+-------------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+</span><br><span class="line">| 0            | 10000000000 | 3306 | 0         | 1      | 0      | 0           | 1000            | 0                   | 0       | 0              |         | 0           | 0         | 1      | 0      | 0           | 1000            | 0                   | 0       | 0              |         |</span><br><span class="line">+--------------+-------------+------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+-------------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+</span><br><span class="line">2023-06-13 17:18:34 [INFO] Creating new server in HG 0 : 10000000000:3306 , gtid_port=0, weight=1, status=0</span><br><span class="line">2023-06-13 17:18:34 [INFO] New mysql_group_replication_hostgroups table</span><br><span class="line">2023-06-13 17:18:34 [INFO] New mysql_galera_hostgroups table</span><br><span class="line">2023-06-13 17:18:34 [INFO] New mysql_aws_aurora_hostgroups table</span><br><span class="line">2023-06-13 17:18:34 [INFO] New mysql_hostgroup_attributes table</span><br><span class="line">2023-06-13 17:18:34 [INFO] Checksum for table mysql_servers is 0x3125ECE8F745478E</span><br><span class="line">2023-06-13 17:18:34 [INFO] Rebuilding &#x27;Hostgroup_Manager_Mapping&#x27; due to checksums change - mysql_servers &#123; old: 0x0, new: 0x3125ECE8F745478E &#125;, mysql_replication_hostgroups &#123; old:0x0, new:0x0 &#125;</span><br><span class="line">2023-06-13 17:18:34 [INFO] MySQL_HostGroups_Manager::commit() locked for 2ms</span><br><span class="line">2023-06-13 17:18:34 [INFO] Computed checksum for &#x27;LOAD PROXYSQL SERVERS TO RUNTIME&#x27; was &#x27;0x0000000000000000&#x27;, with epoch &#x27;1686644314&#x27;</span><br><span class="line">Standard Query Processor rev. 2.0.6.0805 -- Query_Processor.cpp -- Thu May 11 11:05:36 2023</span><br><span class="line">2023-06-13 17:18:34 [INFO] Computed checksum for &#x27;LOAD MYSQL QUERY RULES TO RUNTIME&#x27; was &#x27;0x63709E548329ECD5&#x27;, with epoch &#x27;1686644314&#x27;</span><br><span class="line">In memory Standard Query Cache (SQC) rev. 1.2.0905 -- Query_Cache.cpp -- Thu May 11 11:05:36 2023</span><br><span class="line">2023-06-13 17:18:34 [INFO] Starting new mysql event log file /var/lib/proxysql/queries.log.00000004</span><br><span class="line">2023-06-13 17:18:34 [INFO] Starting new audit log file /var/lib/proxysql/auditlog.log.00000004</span><br><span class="line">Standard MySQL Monitor (StdMyMon) rev. 2.0.1226 -- MySQL_Monitor.cpp -- Thu May 11 11:05:36 2023</span><br><span class="line">2023-06-13 17:18:34 [INFO] For information about products and services visit: https://proxysql.com/</span><br><span class="line">2023-06-13 17:18:34 [INFO] For online documentation visit: https://proxysql.com/documentation/</span><br><span class="line">2023-06-13 17:18:34 [INFO] For support visit: https://proxysql.com/services/support/</span><br><span class="line">2023-06-13 17:18:34 [INFO] For consultancy visit: https://proxysql.com/services/consulting/</span><br></pre></td></tr></table></figure>
+<h3 id="5-验证版本">5. 验证版本</h3>
+<p>从上述日志中，可以看到版本已经升到 2.5.2-217-g7f727b3，再从管理端口连接proxysql确认。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">prxsql</span></span><br><span class="line">Welcome to the MariaDB monitor.  Commands end with ; or \g.</span><br><span class="line">Your MySQL connection id is 1</span><br><span class="line">Server version: 5.5.30 (ProxySQL Admin Module)</span><br><span class="line"></span><br><span class="line">Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.</span><br><span class="line"></span><br><span class="line">Type &#x27;help;&#x27; or &#x27;\h&#x27; for help. Type &#x27;\c&#x27; to clear the current input statement.</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_">Admin&gt; </span><span class="language-bash"><span class="keyword">select</span> version();</span></span><br><span class="line">+--------------------+</span><br><span class="line">| version()          |</span><br><span class="line">+--------------------+</span><br><span class="line">| 2.5.2-217-g7f727b3 |</span><br><span class="line">+--------------------+</span><br><span class="line">1 row in set (0.000 sec)</span><br></pre></td></tr></table></figure>
+<p>到此，proxysql已升级到最新版本 v2.5.2。</p>
+<h2 id="ProxySQL-2-5-新特性">ProxySQL 2.5 新特性</h2>
+<h3 id="1-mysql-hostgroup-attributes">1. mysql_hostgroup_attributes</h3>
+<p>proxysql 增加了一张新系统表 mysql_hostgroup_attributes，<br>
+对于不同主机组中的后端服务器版本不同或不同主机组的预期行为不同的场景，该表特别有用。<br>
+具体表定义如下：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">Admin<span class="operator">&gt;</span> <span class="keyword">show</span> <span class="keyword">create</span> <span class="keyword">table</span> mysql_hostgroup_attributes\G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">       <span class="keyword">table</span>: mysql_hostgroup_attributes</span><br><span class="line"><span class="keyword">Create</span> <span class="keyword">Table</span>: <span class="keyword">CREATE</span> <span class="keyword">TABLE</span> mysql_hostgroup_attributes (</span><br><span class="line">    hostgroup_id <span class="type">INT</span> <span class="keyword">NOT</span> <span class="keyword">NULL</span> <span class="keyword">PRIMARY</span> KEY,</span><br><span class="line">    max_num_online_servers <span class="type">INT</span> <span class="keyword">CHECK</span> (max_num_online_servers<span class="operator">&gt;=</span><span class="number">0</span> <span class="keyword">AND</span> max_num_online_servers <span class="operator">&lt;=</span> <span class="number">1000000</span>) <span class="keyword">NOT</span> <span class="keyword">NULL</span> <span class="keyword">DEFAULT</span> <span class="number">1000000</span>,</span><br><span class="line">    autocommit <span class="type">INT</span> <span class="keyword">CHECK</span> (autocommit <span class="keyword">IN</span> (<span class="number">-1</span>, <span class="number">0</span>, <span class="number">1</span>)) <span class="keyword">NOT</span> <span class="keyword">NULL</span> <span class="keyword">DEFAULT</span> <span class="number">-1</span>,</span><br><span class="line">    free_connections_pct <span class="type">INT</span> <span class="keyword">CHECK</span> (free_connections_pct <span class="operator">&gt;=</span> <span class="number">0</span> <span class="keyword">AND</span> free_connections_pct <span class="operator">&lt;=</span> <span class="number">100</span>) <span class="keyword">NOT</span> <span class="keyword">NULL</span> <span class="keyword">DEFAULT</span> <span class="number">10</span>,</span><br><span class="line">    init_connect <span class="type">VARCHAR</span> <span class="keyword">NOT</span> <span class="keyword">NULL</span> <span class="keyword">DEFAULT</span> <span class="string">&#x27;&#x27;</span>,</span><br><span class="line">    multiplex <span class="type">INT</span> <span class="keyword">CHECK</span> (multiplex <span class="keyword">IN</span> (<span class="number">0</span>, <span class="number">1</span>)) <span class="keyword">NOT</span> <span class="keyword">NULL</span> <span class="keyword">DEFAULT</span> <span class="number">1</span>,</span><br><span class="line">    connection_warming <span class="type">INT</span> <span class="keyword">CHECK</span> (connection_warming <span class="keyword">IN</span> (<span class="number">0</span>, <span class="number">1</span>)) <span class="keyword">NOT</span> <span class="keyword">NULL</span> <span class="keyword">DEFAULT</span> <span class="number">0</span>,</span><br><span class="line">    throttle_connections_per_sec <span class="type">INT</span> <span class="keyword">CHECK</span> (throttle_connections_per_sec <span class="operator">&gt;=</span> <span class="number">1</span> <span class="keyword">AND</span> throttle_connections_per_sec <span class="operator">&lt;=</span> <span class="number">1000000</span>) <span class="keyword">NOT</span> <span class="keyword">NULL</span> <span class="keyword">DEFAULT</span> <span class="number">1000000</span>,</span><br><span class="line">    ignore_session_variables <span class="type">VARCHAR</span> <span class="keyword">CHECK</span> (JSON_VALID(ignore_session_variables) <span class="keyword">OR</span> ignore_session_variables <span class="operator">=</span> <span class="string">&#x27;&#x27;</span>) <span class="keyword">NOT</span> <span class="keyword">NULL</span> <span class="keyword">DEFAULT</span> <span class="string">&#x27;&#x27;</span>,</span><br><span class="line">    comment <span class="type">VARCHAR</span> <span class="keyword">NOT</span> <span class="keyword">NULL</span> <span class="keyword">DEFAULT</span> <span class="string">&#x27;&#x27;</span>)</span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.001</span> sec)</span><br></pre></td></tr></table></figure>
+<p>依据 Release Notes, 目前该表如下几个字段有意义：</p>
+<ul>
+<li>multiplex: 每个主机组值 HG，该值为特定主机组启用或禁用多路复用。 有关相关全局变量的更多信息，请参见 mysql-multiplexing。</li>
+<li>free_connections_pct: 打开的空闲连接占主机组中特定服务器的最大连接总数的百分比。 有关相关全局变量的更多信息，请参见 mysql-free_connections_pct。</li>
+<li>throttle_connections_per_sec: 确定每秒可以为特定主机组打开的最大新连接数。 有关相关全局变量的更多信息，请参见 mysql-throttle_connections_per_sec_to_hostgroup。</li>
+<li>init_connect: 字符串包含一个或多个SQL语句，以分号分隔，这些语句将由ProxySQL在创建或初始化时对特定主机组中的每个后端连接执行。 有关相关全局变量的更多信息，请参见 mysql-init_connect。</li>
+</ul>
+<p>其余几个字段是预定义字段，目前尚未实现功能。</p>
+<h3 id="2-依赖包升级">2. 依赖包升级</h3>
+<p>本次共计13个依赖包的版本得到了升级，分别如下：</p>
+<ul>
+<li>cityhash</li>
+</ul>
+<p>CityHash，用于字符串的哈希函数族。CityHash为字符串提供哈希函数。这些函数完全混合了输入位，但不适合加密。</p>
+<ul>
+<li>clickhouse-cpp</li>
+</ul>
+<p>ClickHouse 的 C++ 客户端。</p>
+<ul>
+<li>curl</li>
+</ul>
+<p>一个命令行工具和库，用于传输数据与URL语法，支持DICT, FILE, FTP, FTPS, GOPHER, gopers, HTTP, HTTPS, IMAP, IMAPS, LDAP, LDAPS, MQTT, POP3, POP3S, RTMP, RTMPS, RTSP, SCP, SFTP, SMB, SMTP, SMTPS, TELNET, TFTP, WS和WSS。Libcurl提供了无数强大的特性</p>
+<ul>
+<li>json</li>
+</ul>
+<p>JSON (JavaScript Object Notation)是一种轻量级的数据交换格式。 人类很容易读和写。 它很容易被机器解析和生成。 它基于JavaScript编程语言标准ECMA-262第三版(1999年12月)的一个子集。 JSON是一种完全独立于语言的文本格式，但使用C系列语言程序员所熟悉的约定，包括C、c++、c#、Java、JavaScript、Perl、Python和许多其他语言。 这些属性使JSON成为理想的数据交换语言。</p>
+<ul>
+<li>libconfig</li>
+</ul>
+<p>用于处理配置文件的C/ c++库</p>
+<ul>
+<li>libev</li>
+</ul>
+<p>事件通知库</p>
+<ul>
+<li>libhttpserver</li>
+</ul>
+<p>用于创建嵌入式Rest HTTP服务器(以及更多)的c++库</p>
+<ul>
+<li>libmicrohttpd</li>
+</ul>
+<p>libmicrohttpd是一个用C编写的GNU库(GNU项目的一部分)，它提供了一个紧凑的API和HTTP 1.1 web服务器的实现(也支持HTTP 1.0)。libmicrohttpd只实现HTTP 1.1协议。主应用程序必须仍然提供内容。</p>
+<ul>
+<li>lz4</li>
+</ul>
+<p>LZ4是一种无损压缩算法，每核压缩速度&gt; 500 MB/s，可在多核CPU下扩展。它具有极快的解码器，每核速度可达数GB/s，通常达到多核系统的RAM速度限制。</p>
+<ul>
+<li>pcre</li>
+</ul>
+<p>提供类型安全的preg_*替换的PCRE包装库。<br>
+这个库为您提供了一种方法来确保preg_*函数不会无声地失败，返回可能无法处理的意外空值。</p>
+<ul>
+<li>prometheus-cpp</li>
+</ul>
+<p>Prometheus 客户端库的 C++ 实现。该库旨在为c++服务启用度量驱动开发。它实现了Prometheus数据模型，这是一个强大的抽象，可以在其上收集和公开指标。我们提供了由Prometheus收集指标的可能性，但其他推/拉收集可以作为插件添加。</p>
+<ul>
+<li>re2</li>
+</ul>
+<p>RE2是一种快速、安全、线程友好的替代方案，可以回溯PCRE、Perl和Python中使用的正则表达式引擎。它是一个c++库。</p>
+<ul>
+<li>sqlite3</li>
+</ul>
+<p>SQLite是一个c语言库，它实现了一个小型、快速、自包含、高可靠性、全功能的SQL数据库引擎。SQLite是世界上使用最多的数据库引擎。</p>
+<h3 id="3-core-dump-命令">3. core dump 命令</h3>
+<p>从 ProxySQL 2.5 开始，增加了按需生成核心转储的功能(Google coredumper)，<br>
+新增命令 <code>PROXYSQL COREDUMP</code> 和 <code>PROXYSQL COMPRESSEDCOREDUMP</code>。</p>
+<p>命令调用：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">Admin<span class="operator">&gt;</span> PROXYSQL COREDUMP;</span><br><span class="line">Query OK, <span class="number">0</span> <span class="keyword">rows</span> affected (<span class="number">1.041</span> sec)</span><br><span class="line">Coredump: core</span><br><span class="line"></span><br><span class="line">Admin<span class="operator">&gt;</span> PROXYSQL COMPRESSEDCOREDUMP;</span><br><span class="line">Query OK, <span class="number">0</span> <span class="keyword">rows</span> affected (<span class="number">5.016</span> sec)</span><br><span class="line">Coredump: core</span><br></pre></td></tr></table></figure>
+<p>效果如下：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">shawnyan@centos7:/var/lib/proxysql$ ll -h core*</span><br><span class="line">-rw------- 1 proxysql proxysql 212M Jun 19 10:27 core</span><br><span class="line">-rw------- 1 proxysql proxysql 1.3M Jun 19 10:29 core.bz2</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>该特性只支持 x86-64 Linux 系统。</p>
+</blockquote>
+<h3 id="4-Query-Log-增强">4. Query Log 增强</h3>
+<p>在新版本的 Query Log 中，支持了 <code>last_insert_id</code> 字段。</p>
+<p>示例如下：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">   <span class="attr">&quot;client&quot;</span><span class="punctuation">:</span><span class="string">&quot;192.168.0.101:22960&quot;</span><span class="punctuation">,</span></span><br><span class="line">   <span class="attr">&quot;digest&quot;</span><span class="punctuation">:</span><span class="string">&quot;0x47B278EE303E9CCE&quot;</span><span class="punctuation">,</span></span><br><span class="line">   <span class="attr">&quot;duration_us&quot;</span><span class="punctuation">:</span><span class="number">2130</span><span class="punctuation">,</span></span><br><span class="line">   <span class="attr">&quot;endtime&quot;</span><span class="punctuation">:</span><span class="string">&quot;2023-06-19 10:47:55.620990&quot;</span><span class="punctuation">,</span></span><br><span class="line">   <span class="attr">&quot;endtime_timestamp_us&quot;</span><span class="punctuation">:</span><span class="number">1687139275620990</span><span class="punctuation">,</span></span><br><span class="line">   <span class="attr">&quot;event&quot;</span><span class="punctuation">:</span><span class="string">&quot;COM_QUERY&quot;</span><span class="punctuation">,</span></span><br><span class="line">   <span class="attr">&quot;hostgroup_id&quot;</span><span class="punctuation">:</span><span class="number">0</span><span class="punctuation">,</span></span><br><span class="line">   <span class="attr">&quot;last_insert_id&quot;</span><span class="punctuation">:</span><span class="number">1</span><span class="punctuation">,</span> --&gt; New!</span><br><span class="line">   <span class="attr">&quot;query&quot;</span><span class="punctuation">:</span><span class="string">&quot;INSERT INTO test.test_insert_id VALUES (NULL)&quot;</span><span class="punctuation">,</span></span><br><span class="line">   <span class="attr">&quot;rows_affected&quot;</span><span class="punctuation">:</span><span class="number">1</span><span class="punctuation">,</span></span><br><span class="line">   <span class="attr">&quot;rows_sent&quot;</span><span class="punctuation">:</span><span class="number">0</span><span class="punctuation">,</span></span><br><span class="line">   <span class="attr">&quot;schemaname&quot;</span><span class="punctuation">:</span><span class="string">&quot;test&quot;</span><span class="punctuation">,</span></span><br><span class="line">   <span class="attr">&quot;server&quot;</span><span class="punctuation">:</span><span class="string">&quot;192.168.0.101:3306&quot;</span><span class="punctuation">,</span></span><br><span class="line">   <span class="attr">&quot;starttime&quot;</span><span class="punctuation">:</span><span class="string">&quot;2023-06-19 10:47:55.618860&quot;</span><span class="punctuation">,</span></span><br><span class="line">   <span class="attr">&quot;starttime_timestamp_us&quot;</span><span class="punctuation">:</span><span class="number">1687139275618860</span><span class="punctuation">,</span></span><br><span class="line">   <span class="attr">&quot;thread_id&quot;</span><span class="punctuation">:</span><span class="number">24</span><span class="punctuation">,</span></span><br><span class="line">   <span class="attr">&quot;username&quot;</span><span class="punctuation">:</span><span class="string">&quot;sbtest&quot;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+<h2 id="总结">总结</h2>
+<p>ProxySQL 是值得信赖的高可用中间件，适用于 MySQL, MariaDB, TiDB, ClickHouse 数据库。<br>
+本文介绍了如何升级 ProxySQL 到最新版本，以及 ProxySQL v2.5 版本中几个重要的新特性。</p>
+<p>如果您看到这里，觉得有些许收获，那么请为本文点个赞吧~</p>
+<img alt="logo.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg" referrerpolicy="no-referrer"/>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/mysql/" class="tag-link">
+                                mysql
+                            </a>
+                        
+                            <a href="/tags/proxysql/" class="tag-link">
+                                proxysql
+                            </a>
+                        
+                            <a href="/tags/clickhouse/" class="tag-link">
+                                clickhouse
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2023/mysql/proxysql-v2.5.2-new-feature/index.html">https://shawnyan.cn/2023/mysql/proxysql-v2.5.2-new-feature/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2023/other/goldendb-intro/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">GoldenDB 简介</span>
+        </a>
+    
+
+    
+        <a href="/2023/mysql/mysql-heatwave-1/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">MySQL HeatWave 窥探（1）</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#ProxySQL-%E5%8D%87%E7%BA%A7%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC"><span class="toc-text">ProxySQL 升级最新版本</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E4%B8%8B%E8%BD%BD%E6%96%B0%E5%8C%85%E5%88%B0%E6%8C%87%E5%AE%9A%E7%9B%AE%E5%BD%95"><span class="toc-text">1. 下载新包到指定目录</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E5%81%9C%E6%AD%A2%E5%BD%93%E5%89%8D-ProxySQL"><span class="toc-text">2. 停止当前 ProxySQL</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E5%AE%89%E8%A3%85%E6%96%B0%E7%89%88-ProxySQL"><span class="toc-text">3. 安装新版 ProxySQL</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-%E5%90%AF%E5%8A%A8-ProxySQL"><span class="toc-text">4. 启动 ProxySQL</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-%E9%AA%8C%E8%AF%81%E7%89%88%E6%9C%AC"><span class="toc-text">5. 验证版本</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#ProxySQL-2-5-%E6%96%B0%E7%89%B9%E6%80%A7"><span class="toc-text">ProxySQL 2.5 新特性</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-mysql-hostgroup-attributes"><span class="toc-text">1. mysql_hostgroup_attributes</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E4%BE%9D%E8%B5%96%E5%8C%85%E5%8D%87%E7%BA%A7"><span class="toc-text">2. 依赖包升级</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-core-dump-%E5%91%BD%E4%BB%A4"><span class="toc-text">3. core dump 命令</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-Query-Log-%E5%A2%9E%E5%BC%BA"><span class="toc-text">4. Query Log 增强</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        MySQL 企业级特性：安全审计 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;p&gt;MySQL企业版中的审计功能（MySQL Enterprise Audit）是MySQL Enterprise Security的重要组成部分，主要用于记录、监控和分析所有数据库活动。它对于满足严格行业法规合规性要求很关键。本文将对该特性进行具体介绍。&lt;/p&gt;
+&lt;h2 id=&#34;企业级审计的主要特性&#34;&gt;企业级审计的主要特性&lt;/h2&gt;
+&lt;p&gt;MySQL Enterprise Audit 为数据库管理员（DBA）提供了必备工具，以便在新旧应用程序中添加审计合规功能，其主要特性如下：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;自定义审计日志事件。可以在 MySQL 审计日志中添加自定义事件，从而提供与 SQL 调用相关的额外信息&lt;/li&gt;
+&lt;li&gt;加密。审计文件现在可以使用标准的 AES - 256 加密算法进行加密。&lt;/li&gt;
+&lt;li&gt;压缩。使用压缩技术可以将审计存储空间减少高达 10 倍。&lt;/li&gt;
+&lt;li&gt;JSON 审计数据格式。在审计日志配置中指定所需的输出格式为 JSON 或 XML。&lt;/li&gt;
+&lt;li&gt;过滤功能以保护敏感数据。您可以使用模板定义要审计的内容，或者使用简单的 JSON 过滤器定义来设计高度自定义的过滤器。&lt;/li&gt;
+&lt;li&gt;满足监管合规标准。确保按照相关法规的要求正确配置审计日志，记录所有必要的数据库活动。&lt;/li&gt;
+&lt;li&gt;动态且易于管理。可以动态地启用、禁用审计流，更改过滤规则等，并且无需停机。&lt;/li&gt;
+&lt;li&gt;移除敏感数据。在审计日志配置中，设置敏感数据掩码规则。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;img alt=&#34;1.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20250512-1921600521572462592_3351.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;启用企业级审计&#34;&gt;启用企业级审计&lt;/h2&gt;
+&lt;p&gt;安装审计插件 ：在数据库服务器上，使用以下 SQL 命令动态安装审计插件。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; INSTALL PLUGIN audit_log SONAME &amp;#x27;audit_log.so&amp;#x27;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, 0 rows affected (0.01 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看插件信息。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; select * from information_schema.plugins where plugin_name = &amp;#x27;audit_log&amp;#x27;\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           PLUGIN_NAME: audit_log&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        PLUGIN_VERSION: 1.1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;         PLUGIN_STATUS: ACTIVE&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           PLUGIN_TYPE: AUDIT&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   PLUGIN_TYPE_VERSION: 4.1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        PLUGIN_LIBRARY: audit_log.so&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;PLUGIN_LIBRARY_VERSION: 1.11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;         PLUGIN_AUTHOR: Oracle Corporation&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    PLUGIN_DESCRIPTION: Auditing events logger&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        PLUGIN_LICENSE: PROPRIETARY&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           LOAD_OPTION: ON&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;持久化配置需要修改 MySQL 配置文件 &lt;code&gt;my.cnf&lt;/code&gt;。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;audit_log=FORCE_PLUS_PERMANENT&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;该参数值表示，服务器加载插件，并在服务器运行时防止它被删除。&lt;/p&gt;
+&lt;p&gt;启用了审计日志插件，它会增加几个系统变量，允许控制日志记录：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; SHOW VARIABLES LIKE &amp;#x27;audit_log%&amp;#x27;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------------------------+--------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| Variable_name                        | Value        |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------------------------+--------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_buffer_size                | 1048576      |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_compression                | NONE         |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_connection_policy          | ALL          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_current_session            | OFF          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_database                   | mysql        |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_disable                    | OFF          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_encryption                 | NONE         |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_exclude_accounts           |              |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_file                       | audit.log    |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_filter_id                  | 0            |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_flush                      | OFF          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_flush_interval_seconds     | 0            |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_format                     | NEW          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_format_unix_timestamp      | OFF          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_include_accounts           |              |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_max_size                   | 0            |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_password_history_keep_days | 0            |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_policy                     | ALL          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_prune_seconds              | 0            |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_read_buffer_size           | 32768        |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_rotate_on_size             | 0            |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_statement_policy           | ALL          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_strategy                   | ASYNCHRONOUS |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------------------------+--------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23 rows in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;企业级审计的日志格式&#34;&gt;企业级审计的日志格式&lt;/h2&gt;
+&lt;p&gt;日志格式由参数 audit_log_format 进行控制，目前支持三种格式：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;NEW，新 XML 格式：与旧式 XML 格式相比，这种 XML 格式与 Oracle Audit Vault 的兼容性更好。MySQL 8.4 默认使用 new-style XML 格式。&lt;/li&gt;
+&lt;li&gt;OLD，旧 XML 格式：在旧的 MySQL 系列中默认使用的原始审计日志格式。&lt;/li&gt;
+&lt;li&gt;JSON 格式：将审计日志写入 JSON 数组。只有这种格式支持可选的查询时间和大小统计。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;默认情况下，审计日志文件内容以新 XML 格式写入，不压缩或加密。&lt;/p&gt;
+&lt;p&gt;我们将日志格式调整为 JSON。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; set persist_only audit_log_format = json;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, 0 rows affected (0.01 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;该参数需要重启后生效。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; restart;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, 0 rows affected (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看审计日志。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;bash-5.1# cat audit.log &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#123; &amp;quot;timestamp&amp;quot;: &amp;quot;2025-03-08 06:05:12&amp;quot;, &amp;quot;id&amp;quot;: 0, &amp;quot;class&amp;quot;: &amp;quot;audit&amp;quot;, &amp;quot;event&amp;quot;: &amp;quot;startup&amp;quot;, &amp;quot;connection_id&amp;quot;: 0, &amp;quot;account&amp;quot;: &amp;#123; &amp;quot;user&amp;quot;: &amp;quot;skip-grants user&amp;quot;, &amp;quot;host&amp;quot;: &amp;quot;&amp;quot; &amp;#125;, &amp;quot;login&amp;quot;: &amp;#123; &amp;quot;user&amp;quot;: &amp;quot;&amp;quot;, &amp;quot;os&amp;quot;: &amp;quot;&amp;quot;, &amp;quot;ip&amp;quot;: &amp;quot;&amp;quot;, &amp;quot;proxy&amp;quot;: &amp;quot;&amp;quot; &amp;#125;, &amp;quot;startup_data&amp;quot;: &amp;#123; &amp;quot;server_id&amp;quot;: 1, &amp;quot;os_version&amp;quot;: &amp;quot;x86_64-Linux&amp;quot;, &amp;quot;mysql_version&amp;quot;: &amp;quot;8.4.4-commercial&amp;quot;, &amp;quot;args&amp;quot;: [&amp;quot;/usr/sbin/mysqld&amp;quot;, &amp;quot;--user=mysql&amp;quot; ] &amp;#125; &amp;#125;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#123; &amp;quot;timestamp&amp;quot;: &amp;quot;2025-03-08 06:05:19&amp;quot;, &amp;quot;id&amp;quot;: 0, &amp;quot;class&amp;quot;: &amp;quot;connection&amp;quot;, &amp;quot;event&amp;quot;: &amp;quot;connect&amp;quot;, &amp;quot;connection_id&amp;quot;: 9, &amp;quot;account&amp;quot;: &amp;#123; &amp;quot;user&amp;quot;: &amp;quot;root&amp;quot;, &amp;quot;host&amp;quot;: &amp;quot;localhost&amp;quot; &amp;#125;, &amp;quot;login&amp;quot;: &amp;#123; &amp;quot;user&amp;quot;: &amp;quot;root&amp;quot;, &amp;quot;os&amp;quot;: &amp;quot;&amp;quot;, &amp;quot;ip&amp;quot;: &amp;quot;&amp;quot;, &amp;quot;proxy&amp;quot;: &amp;quot;&amp;quot; &amp;#125;, &amp;quot;connection_data&amp;quot;: &amp;#123; &amp;quot;connection_type&amp;quot;: &amp;quot;socket&amp;quot;, &amp;quot;status&amp;quot;: 0, &amp;quot;db&amp;quot;: &amp;quot;&amp;quot;, &amp;quot;connection_attributes&amp;quot;: &amp;#123; &amp;quot;_pid&amp;quot;: &amp;quot;67&amp;quot;, &amp;quot;_platform&amp;quot;: &amp;quot;x86_64&amp;quot;, &amp;quot;_os&amp;quot;: &amp;quot;Linux&amp;quot;, &amp;quot;_client_name&amp;quot;: &amp;quot;libmysql&amp;quot;, &amp;quot;os_user&amp;quot;: &amp;quot;root&amp;quot;, &amp;quot;_client_version&amp;quot;: &amp;quot;8.4.4&amp;quot;, &amp;quot;program_name&amp;quot;: &amp;quot;mysql&amp;quot; &amp;#125; &amp;#125; &amp;#125;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#123; &amp;quot;timestamp&amp;quot;: &amp;quot;2025-03-08 06:05:19&amp;quot;, &amp;quot;id&amp;quot;: 1, &amp;quot;class&amp;quot;: &amp;quot;general&amp;quot;, &amp;quot;event&amp;quot;: &amp;quot;status&amp;quot;, &amp;quot;connection_id&amp;quot;: 9, &amp;quot;account&amp;quot;: &amp;#123; &amp;quot;user&amp;quot;: &amp;quot;root&amp;quot;, &amp;quot;host&amp;quot;: &amp;quot;localhost&amp;quot; &amp;#125;, &amp;quot;login&amp;quot;: &amp;#123; &amp;quot;user&amp;quot;: &amp;quot;root&amp;quot;, &amp;quot;os&amp;quot;: &amp;quot;&amp;quot;, &amp;quot;ip&amp;quot;: &amp;quot;&amp;quot;, &amp;quot;proxy&amp;quot;: &amp;quot;&amp;quot; &amp;#125;, &amp;quot;general_data&amp;quot;: &amp;#123; &amp;quot;command&amp;quot;: &amp;quot;Query&amp;quot;, &amp;quot;sql_command&amp;quot;: &amp;quot;select&amp;quot;, &amp;quot;query&amp;quot;: &amp;quot;select @@version_comment limit 1&amp;quot;, &amp;quot;status&amp;quot;: 0 &amp;#125; &amp;#125;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;禁用审计功能&#34;&gt;禁用审计功能&lt;/h2&gt;
+&lt;p&gt;audit_log_disable 变量允许禁用所有连接和已连接会话的审计日志记录。例如:&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; set global audit_log_disable = true;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, 0 rows affected (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;当 audit_log_disable 设置为 false 时，会重新启用这个插件。&lt;/p&gt;
+&lt;p&gt;以 audit_log_disable 设置为 true 时，会产生如下警告。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;2025-03-08T06:25:56.055951Z 12 [Warning] [MY-013834] [Server] Plugin audit_log reported: &amp;#x27;Audit Log is disabled. Enable it with audit_log_disable = false.&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;使用审计注意事项&#34;&gt;使用审计注意事项&lt;/h2&gt;
+&lt;p&gt;使用企业级审计时有几点注意事项。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;只有SQL语句被记录。非 SQL API（如memcached、Node.JS和NDB API）所做的更改不会被记录到日志中。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;只有顶级语句被记录，存储程序中的语句、触发器不只被记录。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;LOAD DATA 等语句引用的文件内容不会被记录。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;本文介绍了 MySQL 企业版的安全特性：审计插件。及其一般使用方式和注意事项。更多企业级特性我们后面逐一介绍。&lt;/p&gt;
+&lt;p&gt;Have a nice day ~&lt;/p&gt;
+&lt;p&gt;– / END / –&lt;/p&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="MySQL 企业级特性：安全审计">
+    <meta property="og:url" content="https://shawnyan.cn/2025/mysql/mysql-ee-audit/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;p&gt;MySQL企业版中的审计功能（MySQL Enterprise Audit）是MySQL Enterprise Security的重要组成部分，主要用于记录、监控和分析所有数据库活动。它对于满足严格行业法规合规性要求很关键。本文将对该特性进行具体介绍。&lt;/p&gt;
+&lt;h2 id=&#34;企业级审计的主要特性&#34;&gt;企业级审计的主要特性&lt;/h2&gt;
+&lt;p&gt;MySQL Enterprise Audit 为数据库管理员（DBA）提供了必备工具，以便在新旧应用程序中添加审计合规功能，其主要特性如下：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;自定义审计日志事件。可以在 MySQL 审计日志中添加自定义事件，从而提供与 SQL 调用相关的额外信息&lt;/li&gt;
+&lt;li&gt;加密。审计文件现在可以使用标准的 AES - 256 加密算法进行加密。&lt;/li&gt;
+&lt;li&gt;压缩。使用压缩技术可以将审计存储空间减少高达 10 倍。&lt;/li&gt;
+&lt;li&gt;JSON 审计数据格式。在审计日志配置中指定所需的输出格式为 JSON 或 XML。&lt;/li&gt;
+&lt;li&gt;过滤功能以保护敏感数据。您可以使用模板定义要审计的内容，或者使用简单的 JSON 过滤器定义来设计高度自定义的过滤器。&lt;/li&gt;
+&lt;li&gt;满足监管合规标准。确保按照相关法规的要求正确配置审计日志，记录所有必要的数据库活动。&lt;/li&gt;
+&lt;li&gt;动态且易于管理。可以动态地启用、禁用审计流，更改过滤规则等，并且无需停机。&lt;/li&gt;
+&lt;li&gt;移除敏感数据。在审计日志配置中，设置敏感数据掩码规则。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;img alt=&#34;1.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20250512-1921600521572462592_3351.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;启用企业级审计&#34;&gt;启用企业级审计&lt;/h2&gt;
+&lt;p&gt;安装审计插件 ：在数据库服务器上，使用以下 SQL 命令动态安装审计插件。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; INSTALL PLUGIN audit_log SONAME &amp;#x27;audit_log.so&amp;#x27;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, 0 rows affected (0.01 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看插件信息。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; select * from information_schema.plugins where plugin_name = &amp;#x27;audit_log&amp;#x27;\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           PLUGIN_NAME: audit_log&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        PLUGIN_VERSION: 1.1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;         PLUGIN_STATUS: ACTIVE&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           PLUGIN_TYPE: AUDIT&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   PLUGIN_TYPE_VERSION: 4.1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        PLUGIN_LIBRARY: audit_log.so&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;PLUGIN_LIBRARY_VERSION: 1.11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;         PLUGIN_AUTHOR: Oracle Corporation&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    PLUGIN_DESCRIPTION: Auditing events logger&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        PLUGIN_LICENSE: PROPRIETARY&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           LOAD_OPTION: ON&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;持久化配置需要修改 MySQL 配置文件 &lt;code&gt;my.cnf&lt;/code&gt;。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;audit_log=FORCE_PLUS_PERMANENT&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;该参数值表示，服务器加载插件，并在服务器运行时防止它被删除。&lt;/p&gt;
+&lt;p&gt;启用了审计日志插件，它会增加几个系统变量，允许控制日志记录：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; SHOW VARIABLES LIKE &amp;#x27;audit_log%&amp;#x27;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------------------------+--------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| Variable_name                        | Value        |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------------------------+--------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_buffer_size                | 1048576      |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_compression                | NONE         |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_connection_policy          | ALL          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_current_session            | OFF          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_database                   | mysql        |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_disable                    | OFF          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_encryption                 | NONE         |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_exclude_accounts           |              |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_file                       | audit.log    |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_filter_id                  | 0            |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_flush                      | OFF          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_flush_interval_seconds     | 0            |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_format                     | NEW          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_format_unix_timestamp      | OFF          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_include_accounts           |              |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_max_size                   | 0            |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_password_history_keep_days | 0            |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_policy                     | ALL          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_prune_seconds              | 0            |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_read_buffer_size           | 32768        |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_rotate_on_size             | 0            |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_statement_policy           | ALL          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| audit_log_strategy                   | ASYNCHRONOUS |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------------------------+--------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23 rows in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;企业级审计的日志格式&#34;&gt;企业级审计的日志格式&lt;/h2&gt;
+&lt;p&gt;日志格式由参数 audit_log_format 进行控制，目前支持三种格式：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;NEW，新 XML 格式：与旧式 XML 格式相比，这种 XML 格式与 Oracle Audit Vault 的兼容性更好。MySQL 8.4 默认使用 new-style XML 格式。&lt;/li&gt;
+&lt;li&gt;OLD，旧 XML 格式：在旧的 MySQL 系列中默认使用的原始审计日志格式。&lt;/li&gt;
+&lt;li&gt;JSON 格式：将审计日志写入 JSON 数组。只有这种格式支持可选的查询时间和大小统计。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;默认情况下，审计日志文件内容以新 XML 格式写入，不压缩或加密。&lt;/p&gt;
+&lt;p&gt;我们将日志格式调整为 JSON。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; set persist_only audit_log_format = json;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, 0 rows affected (0.01 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;该参数需要重启后生效。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; restart;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, 0 rows affected (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看审计日志。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;bash-5.1# cat audit.log &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#123; &amp;quot;timestamp&amp;quot;: &amp;quot;2025-03-08 06:05:12&amp;quot;, &amp;quot;id&amp;quot;: 0, &amp;quot;class&amp;quot;: &amp;quot;audit&amp;quot;, &amp;quot;event&amp;quot;: &amp;quot;startup&amp;quot;, &amp;quot;connection_id&amp;quot;: 0, &amp;quot;account&amp;quot;: &amp;#123; &amp;quot;user&amp;quot;: &amp;quot;skip-grants user&amp;quot;, &amp;quot;host&amp;quot;: &amp;quot;&amp;quot; &amp;#125;, &amp;quot;login&amp;quot;: &amp;#123; &amp;quot;user&amp;quot;: &amp;quot;&amp;quot;, &amp;quot;os&amp;quot;: &amp;quot;&amp;quot;, &amp;quot;ip&amp;quot;: &amp;quot;&amp;quot;, &amp;quot;proxy&amp;quot;: &amp;quot;&amp;quot; &amp;#125;, &amp;quot;startup_data&amp;quot;: &amp;#123; &amp;quot;server_id&amp;quot;: 1, &amp;quot;os_version&amp;quot;: &amp;quot;x86_64-Linux&amp;quot;, &amp;quot;mysql_version&amp;quot;: &amp;quot;8.4.4-commercial&amp;quot;, &amp;quot;args&amp;quot;: [&amp;quot;/usr/sbin/mysqld&amp;quot;, &amp;quot;--user=mysql&amp;quot; ] &amp;#125; &amp;#125;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#123; &amp;quot;timestamp&amp;quot;: &amp;quot;2025-03-08 06:05:19&amp;quot;, &amp;quot;id&amp;quot;: 0, &amp;quot;class&amp;quot;: &amp;quot;connection&amp;quot;, &amp;quot;event&amp;quot;: &amp;quot;connect&amp;quot;, &amp;quot;connection_id&amp;quot;: 9, &amp;quot;account&amp;quot;: &amp;#123; &amp;quot;user&amp;quot;: &amp;quot;root&amp;quot;, &amp;quot;host&amp;quot;: &amp;quot;localhost&amp;quot; &amp;#125;, &amp;quot;login&amp;quot;: &amp;#123; &amp;quot;user&amp;quot;: &amp;quot;root&amp;quot;, &amp;quot;os&amp;quot;: &amp;quot;&amp;quot;, &amp;quot;ip&amp;quot;: &amp;quot;&amp;quot;, &amp;quot;proxy&amp;quot;: &amp;quot;&amp;quot; &amp;#125;, &amp;quot;connection_data&amp;quot;: &amp;#123; &amp;quot;connection_type&amp;quot;: &amp;quot;socket&amp;quot;, &amp;quot;status&amp;quot;: 0, &amp;quot;db&amp;quot;: &amp;quot;&amp;quot;, &amp;quot;connection_attributes&amp;quot;: &amp;#123; &amp;quot;_pid&amp;quot;: &amp;quot;67&amp;quot;, &amp;quot;_platform&amp;quot;: &amp;quot;x86_64&amp;quot;, &amp;quot;_os&amp;quot;: &amp;quot;Linux&amp;quot;, &amp;quot;_client_name&amp;quot;: &amp;quot;libmysql&amp;quot;, &amp;quot;os_user&amp;quot;: &amp;quot;root&amp;quot;, &amp;quot;_client_version&amp;quot;: &amp;quot;8.4.4&amp;quot;, &amp;quot;program_name&amp;quot;: &amp;quot;mysql&amp;quot; &amp;#125; &amp;#125; &amp;#125;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#123; &amp;quot;timestamp&amp;quot;: &amp;quot;2025-03-08 06:05:19&amp;quot;, &amp;quot;id&amp;quot;: 1, &amp;quot;class&amp;quot;: &amp;quot;general&amp;quot;, &amp;quot;event&amp;quot;: &amp;quot;status&amp;quot;, &amp;quot;connection_id&amp;quot;: 9, &amp;quot;account&amp;quot;: &amp;#123; &amp;quot;user&amp;quot;: &amp;quot;root&amp;quot;, &amp;quot;host&amp;quot;: &amp;quot;localhost&amp;quot; &amp;#125;, &amp;quot;login&amp;quot;: &amp;#123; &amp;quot;user&amp;quot;: &amp;quot;root&amp;quot;, &amp;quot;os&amp;quot;: &amp;quot;&amp;quot;, &amp;quot;ip&amp;quot;: &amp;quot;&amp;quot;, &amp;quot;proxy&amp;quot;: &amp;quot;&amp;quot; &amp;#125;, &amp;quot;general_data&amp;quot;: &amp;#123; &amp;quot;command&amp;quot;: &amp;quot;Query&amp;quot;, &amp;quot;sql_command&amp;quot;: &amp;quot;select&amp;quot;, &amp;quot;query&amp;quot;: &amp;quot;select @@version_comment limit 1&amp;quot;, &amp;quot;status&amp;quot;: 0 &amp;#125; &amp;#125;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;禁用审计功能&#34;&gt;禁用审计功能&lt;/h2&gt;
+&lt;p&gt;audit_log_disable 变量允许禁用所有连接和已连接会话的审计日志记录。例如:&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; set global audit_log_disable = true;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, 0 rows affected (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;当 audit_log_disable 设置为 false 时，会重新启用这个插件。&lt;/p&gt;
+&lt;p&gt;以 audit_log_disable 设置为 true 时，会产生如下警告。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;2025-03-08T06:25:56.055951Z 12 [Warning] [MY-013834] [Server] Plugin audit_log reported: &amp;#x27;Audit Log is disabled. Enable it with audit_log_disable = false.&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;使用审计注意事项&#34;&gt;使用审计注意事项&lt;/h2&gt;
+&lt;p&gt;使用企业级审计时有几点注意事项。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;只有SQL语句被记录。非 SQL API（如memcached、Node.JS和NDB API）所做的更改不会被记录到日志中。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;只有顶级语句被记录，存储程序中的语句、触发器不只被记录。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;LOAD DATA 等语句引用的文件内容不会被记录。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;本文介绍了 MySQL 企业版的安全特性：审计插件。及其一般使用方式和注意事项。更多企业级特性我们后面逐一介绍。&lt;/p&gt;
+&lt;p&gt;Have a nice day ~&lt;/p&gt;
+&lt;p&gt;– / END / –&lt;/p&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/oracle/" class="category-badge">
+                                    Oracle
+                                </a>
+                            
+                                <a href="/categories/oracle/mysql/" class="category-badge">
+                                    MySQL
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">MySQL 企业级特性：安全审计</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2025-03-08
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                1.5k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                6 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <p>MySQL企业版中的审计功能（MySQL Enterprise Audit）是MySQL Enterprise Security的重要组成部分，主要用于记录、监控和分析所有数据库活动。它对于满足严格行业法规合规性要求很关键。本文将对该特性进行具体介绍。</p>
+<h2 id="企业级审计的主要特性">企业级审计的主要特性</h2>
+<p>MySQL Enterprise Audit 为数据库管理员（DBA）提供了必备工具，以便在新旧应用程序中添加审计合规功能，其主要特性如下：</p>
+<ul>
+<li>自定义审计日志事件。可以在 MySQL 审计日志中添加自定义事件，从而提供与 SQL 调用相关的额外信息</li>
+<li>加密。审计文件现在可以使用标准的 AES - 256 加密算法进行加密。</li>
+<li>压缩。使用压缩技术可以将审计存储空间减少高达 10 倍。</li>
+<li>JSON 审计数据格式。在审计日志配置中指定所需的输出格式为 JSON 或 XML。</li>
+<li>过滤功能以保护敏感数据。您可以使用模板定义要审计的内容，或者使用简单的 JSON 过滤器定义来设计高度自定义的过滤器。</li>
+<li>满足监管合规标准。确保按照相关法规的要求正确配置审计日志，记录所有必要的数据库活动。</li>
+<li>动态且易于管理。可以动态地启用、禁用审计流，更改过滤规则等，并且无需停机。</li>
+<li>移除敏感数据。在审计日志配置中，设置敏感数据掩码规则。</li>
+</ul>
+<img alt="1.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20250512-1921600521572462592_3351.png" referrerpolicy="no-referrer"/>
+<h2 id="启用企业级审计">启用企业级审计</h2>
+<p>安装审计插件 ：在数据库服务器上，使用以下 SQL 命令动态安装审计插件。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; INSTALL PLUGIN audit_log SONAME &#x27;audit_log.so&#x27;;</span><br><span class="line">Query OK, 0 rows affected (0.01 sec)</span><br></pre></td></tr></table></figure>
+<p>查看插件信息。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; select * from information_schema.plugins where plugin_name = &#x27;audit_log&#x27;\G</span><br><span class="line">*************************** 1. row ***************************</span><br><span class="line">           PLUGIN_NAME: audit_log</span><br><span class="line">        PLUGIN_VERSION: 1.1</span><br><span class="line">         PLUGIN_STATUS: ACTIVE</span><br><span class="line">           PLUGIN_TYPE: AUDIT</span><br><span class="line">   PLUGIN_TYPE_VERSION: 4.1</span><br><span class="line">        PLUGIN_LIBRARY: audit_log.so</span><br><span class="line">PLUGIN_LIBRARY_VERSION: 1.11</span><br><span class="line">         PLUGIN_AUTHOR: Oracle Corporation</span><br><span class="line">    PLUGIN_DESCRIPTION: Auditing events logger</span><br><span class="line">        PLUGIN_LICENSE: PROPRIETARY</span><br><span class="line">           LOAD_OPTION: ON</span><br><span class="line">1 row in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<p>持久化配置需要修改 MySQL 配置文件 <code>my.cnf</code>。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">audit_log=FORCE_PLUS_PERMANENT</span><br></pre></td></tr></table></figure>
+<p>该参数值表示，服务器加载插件，并在服务器运行时防止它被删除。</p>
+<p>启用了审计日志插件，它会增加几个系统变量，允许控制日志记录：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SHOW VARIABLES LIKE &#x27;audit_log%&#x27;;</span><br><span class="line">+--------------------------------------+--------------+</span><br><span class="line">| Variable_name                        | Value        |</span><br><span class="line">+--------------------------------------+--------------+</span><br><span class="line">| audit_log_buffer_size                | 1048576      |</span><br><span class="line">| audit_log_compression                | NONE         |</span><br><span class="line">| audit_log_connection_policy          | ALL          |</span><br><span class="line">| audit_log_current_session            | OFF          |</span><br><span class="line">| audit_log_database                   | mysql        |</span><br><span class="line">| audit_log_disable                    | OFF          |</span><br><span class="line">| audit_log_encryption                 | NONE         |</span><br><span class="line">| audit_log_exclude_accounts           |              |</span><br><span class="line">| audit_log_file                       | audit.log    |</span><br><span class="line">| audit_log_filter_id                  | 0            |</span><br><span class="line">| audit_log_flush                      | OFF          |</span><br><span class="line">| audit_log_flush_interval_seconds     | 0            |</span><br><span class="line">| audit_log_format                     | NEW          |</span><br><span class="line">| audit_log_format_unix_timestamp      | OFF          |</span><br><span class="line">| audit_log_include_accounts           |              |</span><br><span class="line">| audit_log_max_size                   | 0            |</span><br><span class="line">| audit_log_password_history_keep_days | 0            |</span><br><span class="line">| audit_log_policy                     | ALL          |</span><br><span class="line">| audit_log_prune_seconds              | 0            |</span><br><span class="line">| audit_log_read_buffer_size           | 32768        |</span><br><span class="line">| audit_log_rotate_on_size             | 0            |</span><br><span class="line">| audit_log_statement_policy           | ALL          |</span><br><span class="line">| audit_log_strategy                   | ASYNCHRONOUS |</span><br><span class="line">+--------------------------------------+--------------+</span><br><span class="line">23 rows in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<h2 id="企业级审计的日志格式">企业级审计的日志格式</h2>
+<p>日志格式由参数 audit_log_format 进行控制，目前支持三种格式：</p>
+<ul>
+<li>NEW，新 XML 格式：与旧式 XML 格式相比，这种 XML 格式与 Oracle Audit Vault 的兼容性更好。MySQL 8.4 默认使用 new-style XML 格式。</li>
+<li>OLD，旧 XML 格式：在旧的 MySQL 系列中默认使用的原始审计日志格式。</li>
+<li>JSON 格式：将审计日志写入 JSON 数组。只有这种格式支持可选的查询时间和大小统计。</li>
+</ul>
+<p>默认情况下，审计日志文件内容以新 XML 格式写入，不压缩或加密。</p>
+<p>我们将日志格式调整为 JSON。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; set persist_only audit_log_format = json;</span><br><span class="line">Query OK, 0 rows affected (0.01 sec)</span><br></pre></td></tr></table></figure>
+<p>该参数需要重启后生效。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; restart;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br></pre></td></tr></table></figure>
+<p>查看审计日志。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">bash-5.1# cat audit.log </span><br><span class="line">[</span><br><span class="line">&#123; &quot;timestamp&quot;: &quot;2025-03-08 06:05:12&quot;, &quot;id&quot;: 0, &quot;class&quot;: &quot;audit&quot;, &quot;event&quot;: &quot;startup&quot;, &quot;connection_id&quot;: 0, &quot;account&quot;: &#123; &quot;user&quot;: &quot;skip-grants user&quot;, &quot;host&quot;: &quot;&quot; &#125;, &quot;login&quot;: &#123; &quot;user&quot;: &quot;&quot;, &quot;os&quot;: &quot;&quot;, &quot;ip&quot;: &quot;&quot;, &quot;proxy&quot;: &quot;&quot; &#125;, &quot;startup_data&quot;: &#123; &quot;server_id&quot;: 1, &quot;os_version&quot;: &quot;x86_64-Linux&quot;, &quot;mysql_version&quot;: &quot;8.4.4-commercial&quot;, &quot;args&quot;: [&quot;/usr/sbin/mysqld&quot;, &quot;--user=mysql&quot; ] &#125; &#125;,</span><br><span class="line">&#123; &quot;timestamp&quot;: &quot;2025-03-08 06:05:19&quot;, &quot;id&quot;: 0, &quot;class&quot;: &quot;connection&quot;, &quot;event&quot;: &quot;connect&quot;, &quot;connection_id&quot;: 9, &quot;account&quot;: &#123; &quot;user&quot;: &quot;root&quot;, &quot;host&quot;: &quot;localhost&quot; &#125;, &quot;login&quot;: &#123; &quot;user&quot;: &quot;root&quot;, &quot;os&quot;: &quot;&quot;, &quot;ip&quot;: &quot;&quot;, &quot;proxy&quot;: &quot;&quot; &#125;, &quot;connection_data&quot;: &#123; &quot;connection_type&quot;: &quot;socket&quot;, &quot;status&quot;: 0, &quot;db&quot;: &quot;&quot;, &quot;connection_attributes&quot;: &#123; &quot;_pid&quot;: &quot;67&quot;, &quot;_platform&quot;: &quot;x86_64&quot;, &quot;_os&quot;: &quot;Linux&quot;, &quot;_client_name&quot;: &quot;libmysql&quot;, &quot;os_user&quot;: &quot;root&quot;, &quot;_client_version&quot;: &quot;8.4.4&quot;, &quot;program_name&quot;: &quot;mysql&quot; &#125; &#125; &#125;,</span><br><span class="line">&#123; &quot;timestamp&quot;: &quot;2025-03-08 06:05:19&quot;, &quot;id&quot;: 1, &quot;class&quot;: &quot;general&quot;, &quot;event&quot;: &quot;status&quot;, &quot;connection_id&quot;: 9, &quot;account&quot;: &#123; &quot;user&quot;: &quot;root&quot;, &quot;host&quot;: &quot;localhost&quot; &#125;, &quot;login&quot;: &#123; &quot;user&quot;: &quot;root&quot;, &quot;os&quot;: &quot;&quot;, &quot;ip&quot;: &quot;&quot;, &quot;proxy&quot;: &quot;&quot; &#125;, &quot;general_data&quot;: &#123; &quot;command&quot;: &quot;Query&quot;, &quot;sql_command&quot;: &quot;select&quot;, &quot;query&quot;: &quot;select @@version_comment limit 1&quot;, &quot;status&quot;: 0 &#125; &#125;,</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+<h2 id="禁用审计功能">禁用审计功能</h2>
+<p>audit_log_disable 变量允许禁用所有连接和已连接会话的审计日志记录。例如:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; set global audit_log_disable = true;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br></pre></td></tr></table></figure>
+<p>当 audit_log_disable 设置为 false 时，会重新启用这个插件。</p>
+<p>以 audit_log_disable 设置为 true 时，会产生如下警告。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">2025-03-08T06:25:56.055951Z 12 [Warning] [MY-013834] [Server] Plugin audit_log reported: &#x27;Audit Log is disabled. Enable it with audit_log_disable = false.&#x27;</span><br></pre></td></tr></table></figure>
+<h2 id="使用审计注意事项">使用审计注意事项</h2>
+<p>使用企业级审计时有几点注意事项。</p>
+<ol>
+<li>
+<p>只有SQL语句被记录。非 SQL API（如memcached、Node.JS和NDB API）所做的更改不会被记录到日志中。</p>
+</li>
+<li>
+<p>只有顶级语句被记录，存储程序中的语句、触发器不只被记录。</p>
+</li>
+<li>
+<p>LOAD DATA 等语句引用的文件内容不会被记录。</p>
+</li>
+</ol>
+<h2 id="总结">总结</h2>
+<p>本文介绍了 MySQL 企业版的安全特性：审计插件。及其一般使用方式和注意事项。更多企业级特性我们后面逐一介绍。</p>
+<p>Have a nice day ~</p>
+<p>– / END / –</p>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/oracle/" class="tag-link">
+                                oracle
+                            </a>
+                        
+                            <a href="/tags/mysql/" class="tag-link">
+                                mysql
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2025/mysql/mysql-ee-audit/index.html">https://shawnyan.cn/2025/mysql/mysql-ee-audit/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2025/mysql/mysql-ee-mysqlbackup/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">有 mysqldump 为什么还需要 MySQL Enterprise Backup</span>
+        </a>
+    
+
+    
+        <a href="/2025/mysql/mysql-ee-install-with-docker/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">MySQL 企业版的 Docker 安装方式</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BC%81%E4%B8%9A%E7%BA%A7%E5%AE%A1%E8%AE%A1%E7%9A%84%E4%B8%BB%E8%A6%81%E7%89%B9%E6%80%A7"><span class="toc-text">企业级审计的主要特性</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%90%AF%E7%94%A8%E4%BC%81%E4%B8%9A%E7%BA%A7%E5%AE%A1%E8%AE%A1"><span class="toc-text">启用企业级审计</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BC%81%E4%B8%9A%E7%BA%A7%E5%AE%A1%E8%AE%A1%E7%9A%84%E6%97%A5%E5%BF%97%E6%A0%BC%E5%BC%8F"><span class="toc-text">企业级审计的日志格式</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%A6%81%E7%94%A8%E5%AE%A1%E8%AE%A1%E5%8A%9F%E8%83%BD"><span class="toc-text">禁用审计功能</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8%E5%AE%A1%E8%AE%A1%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9"><span class="toc-text">使用审计注意事项</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

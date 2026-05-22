@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        MySQL 8.4 LTS 性能调优:执行计划深度解读 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="MySQL 8.4 LTS Performance Tuning: An In-Depth Analysis of Execution Plans">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="MySQL 8.4 LTS 性能调优:执行计划深度解读">
+    <meta property="og:url" content="https://shawnyan.cn/2026/mysql/mysql-8-4-lts-explain-details/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="MySQL 8.4 LTS Performance Tuning: An In-Depth Analysis of Execution Plans">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/mysql/" class="category-badge">
+                                    MySQL
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">MySQL 8.4 LTS 性能调优:执行计划深度解读</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2026-02-08
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                2.3k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                10 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <p>上期内容我们介绍了 <a href="">MySQL 8.4 LTS 性能调优:索引优化策略</a> ，接下来我们继续聊聊如何在 MySQL 8.4 LTS 中精准读懂查询计划。</p>
+<h2 id="01-EXPLAIN三剑客：从传统表格到现代树形">01. EXPLAIN三剑客：从传统表格到现代树形</h2>
+<p>MySQL的执行计划输出格式经历了三代演进，每种格式都有其独特的适用场景。</p>
+<p>三种格式对比：</p>
+<table>
+<thead>
+<tr>
+<th>格式</th>
+<th>命令</th>
+<th>核心优势</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>传统表格</td>
+<td>EXPLAIN</td>
+<td>简洁直观，兼容所有版本</td>
+<td>快速索引检查</td>
+</tr>
+<tr>
+<td>JSON格式</td>
+<td>EXPLAIN FORMAT=JSON</td>
+<td>成本信息详细，可编程解析</td>
+<td>自动化性能分析</td>
+</tr>
+<tr>
+<td>TREE格式</td>
+<td>EXPLAIN FORMAT=TREE</td>
+<td>执行顺序清晰，操作层级分明</td>
+<td>复杂JOIN分析</td>
+</tr>
+<tr>
+<td>ANALYZE</td>
+<td>EXPLAIN ANALYZE</td>
+<td>实际执行时间，真实行数</td>
+<td>精确性能诊断</td>
+</tr>
+</tbody>
+</table>
+<p>请注意，<code>EXPLAIN ANALYZE</code> 会实际执行查询，因此如果用于非常复杂的查询，可能需要很长时间才能产生结果。</p>
+<p>案例：JSON格式的成本信息</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 准备测试数据</span></span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> country (</span><br><span class="line">    code <span class="type">CHAR</span>(<span class="number">3</span>) <span class="keyword">NOT</span> <span class="keyword">NULL</span>,</span><br><span class="line">    name <span class="type">VARCHAR</span>(<span class="number">100</span>) <span class="keyword">NOT</span> <span class="keyword">NULL</span>,</span><br><span class="line">    continent <span class="type">VARCHAR</span>(<span class="number">50</span>),</span><br><span class="line">    population <span class="type">INT</span> UNSIGNED <span class="keyword">DEFAULT</span> <span class="number">0</span>,</span><br><span class="line">    <span class="keyword">PRIMARY</span> KEY (code)</span><br><span class="line">) ENGINE<span class="operator">=</span>InnoDB <span class="keyword">DEFAULT</span> CHARSET<span class="operator">=</span>utf8mb4 <span class="keyword">COLLATE</span><span class="operator">=</span>utf8mb4_0900_ai_ci;</span><br><span class="line"></span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> country (code, name, continent, population) <span class="keyword">VALUES</span></span><br><span class="line">(<span class="string">&#x27;JPN&#x27;</span>, <span class="string">&#x27;Japan&#x27;</span>, <span class="string">&#x27;Asia&#x27;</span>, <span class="number">125000000</span>),</span><br><span class="line">(<span class="string">&#x27;USA&#x27;</span>, <span class="string">&#x27;United States&#x27;</span>, <span class="string">&#x27;North America&#x27;</span>, <span class="number">331000000</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 查看执行计划</span></span><br><span class="line">mysql<span class="operator">&gt;</span> EXPLAIN FORMAT<span class="operator">=</span>JSON <span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> country\G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">EXPLAIN: &#123;</span><br><span class="line">  &quot;query_block&quot;: &#123;</span><br><span class="line">    &quot;select_id&quot;: <span class="number">1</span>,</span><br><span class="line">    &quot;cost_info&quot;: &#123;</span><br><span class="line">      &quot;query_cost&quot;: &quot;0.45&quot;  <span class="comment">-- 总查询成本</span></span><br><span class="line">    &#125;,</span><br><span class="line">    &quot;table&quot;: &#123;</span><br><span class="line">      &quot;table_name&quot;: &quot;country&quot;,</span><br><span class="line">      &quot;access_type&quot;: &quot;ALL&quot;, <span class="comment">-- 全表扫描</span></span><br><span class="line">      &quot;rows_examined_per_scan&quot;: <span class="number">2</span>,</span><br><span class="line">      &quot;rows_produced_per_join&quot;: <span class="number">2</span>,</span><br><span class="line">      &quot;filtered&quot;: &quot;100.00&quot;,</span><br><span class="line">      &quot;cost_info&quot;: &#123;</span><br><span class="line">        &quot;read_cost&quot;: &quot;0.25&quot;,</span><br><span class="line">        &quot;eval_cost&quot;: &quot;0.20&quot;,</span><br><span class="line">        &quot;prefix_cost&quot;: &quot;0.45&quot;,</span><br><span class="line">        &quot;data_read_per_join&quot;: &quot;1K&quot;</span><br><span class="line">      &#125;,</span><br><span class="line">      &quot;used_columns&quot;: [</span><br><span class="line">        &quot;code&quot;,</span><br><span class="line">        &quot;name&quot;,</span><br><span class="line">        &quot;continent&quot;,</span><br><span class="line">        &quot;population&quot;</span><br><span class="line">      ]</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span>, <span class="number">1</span> warning (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure>
+<p>案例：ANALYZE的实际执行</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- EXPLAIN ANALYZE 显示实际执行时间和行数</span></span><br><span class="line">mysql<span class="operator">&gt;</span> EXPLAIN ANALYZE <span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> country\G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">EXPLAIN: <span class="operator">-</span><span class="operator">&gt;</span> <span class="keyword">Table</span> scan <span class="keyword">on</span> country  (cost<span class="operator">=</span><span class="number">0.45</span> <span class="keyword">rows</span><span class="operator">=</span><span class="number">2</span>) (actual <span class="type">time</span><span class="operator">=</span><span class="number">0.0245</span>.<span class="number">.0</span><span class="number">.0285</span> <span class="keyword">rows</span><span class="operator">=</span><span class="number">2</span> loops<span class="operator">=</span><span class="number">1</span>)</span><br><span class="line"></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure>
+<p>注意：actual time是实际执行时间，cost是优化器估算.</p>
+<h2 id="02-核心字段解读：type、key-len与Extra的陷阱">02. 核心字段解读：type、key_len与Extra的陷阱</h2>
+<p>在数据库实际管理过程中，需要明确知晓执行计划字段的精确含义，这些细节往往决定着索引是否被正确使用。</p>
+<h3 id="案例：key-len-的计算奥秘">案例：key_len 的计算奥秘</h3>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 准备测试数据</span></span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> City (</span><br><span class="line">    ID <span class="type">INT</span> AUTO_INCREMENT <span class="keyword">PRIMARY</span> KEY,</span><br><span class="line">    Name <span class="type">VARCHAR</span>(<span class="number">100</span>) <span class="keyword">NOT</span> <span class="keyword">NULL</span>,</span><br><span class="line">    Population <span class="type">INT</span> <span class="keyword">NOT</span> <span class="keyword">NULL</span>,</span><br><span class="line">    INDEX pop_idx (Population)</span><br><span class="line">) ENGINE<span class="operator">=</span>InnoDB <span class="keyword">DEFAULT</span> CHARSET<span class="operator">=</span>utf8mb4 <span class="keyword">COLLATE</span><span class="operator">=</span>utf8mb4_0900_ai_ci;</span><br><span class="line"></span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> City (Name, Population) <span class="keyword">VALUES</span></span><br><span class="line">(<span class="string">&#x27;Target City&#x27;</span>, <span class="number">10023</span>),</span><br><span class="line">(<span class="string">&#x27;Small Town&#x27;</span>, <span class="number">500</span>),</span><br><span class="line">(<span class="string">&#x27;Big Metropolis&#x27;</span>, <span class="number">5000000</span>),</span><br><span class="line">(<span class="string">&#x27;Old Village&#x27;</span>, <span class="number">10023</span>),</span><br><span class="line">(<span class="string">&#x27;Other City&#x27;</span>, <span class="number">25000</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 查看执行计划</span></span><br><span class="line">mysql<span class="operator">&gt;</span> EXPLAIN <span class="keyword">SELECT</span> Name, Population <span class="keyword">FROM</span> City <span class="keyword">WHERE</span> Population<span class="operator">=</span><span class="number">10023</span>\G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">           id: <span class="number">1</span></span><br><span class="line">  select_type: SIMPLE</span><br><span class="line">        <span class="keyword">table</span>: City</span><br><span class="line">   partitions: <span class="keyword">NULL</span></span><br><span class="line">         type: <span class="keyword">ref</span></span><br><span class="line">possible_keys: pop_idx</span><br><span class="line">          key: pop_idx</span><br><span class="line">      key_len: <span class="number">4</span></span><br><span class="line">          <span class="keyword">ref</span>: const</span><br><span class="line">         <span class="keyword">rows</span>: <span class="number">2</span></span><br><span class="line">     filtered: <span class="number">100.00</span></span><br><span class="line">        Extra: <span class="keyword">NULL</span></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span>, <span class="number">1</span> warning (<span class="number">0.01</span> sec)</span><br></pre></td></tr></table></figure>
+<p>输出结果可以观察到：key: pop_idx ， key_len: 4 ， 这里的 key_len 表示 INT 类型占4字节</p>
+<p>如果是 NULL 列，key_len = 4 + 1（NULL标记位）</p>
+<p>如果是 VARCHAR(n)， 在utf8mb4下：n x 3 + 2（长度前缀）+ 1（如果允许NULL）</p>
+<p>Extra字段的深层含义：</p>
+<table>
+<thead>
+<tr>
+<th>Extra值 [1, 2, 3, 4, 5]</th>
+<th>含义</th>
+<th>性能影响</th>
+<th>优化建议</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Using where</td>
+<td>使用 WHERE 句进行过滤</td>
+<td>需检查是否有效利用索引</td>
+<td>确保过滤列已建立索引，减少扫描行数</td>
+</tr>
+<tr>
+<td>Using index</td>
+<td>覆盖索引（Covering Index）</td>
+<td>优！ 无需访问表数据（回表）</td>
+<td>尽量让查询列都包含在索引中</td>
+</tr>
+<tr>
+<td>Using temporary</td>
+<td>使用临时表保存中间结果</td>
+<td>差！ 可能触发磁盘 I/O</td>
+<td>优化 GROUP BY 或 DISTINCT 涉及的列，匹配索引顺序</td>
+</tr>
+<tr>
+<td>Using filesort</td>
+<td>文件排序（无法利用索引排序）</td>
+<td>差！ 消耗 CPU 和内存</td>
+<td>为 ORDER BY 的列添加索引</td>
+</tr>
+<tr>
+<td>Using index condition</td>
+<td>索引下推（ICP 优化）</td>
+<td>良！ 在存储引擎层过滤数据</td>
+<td>MySQL 5.6+ 默认开启，尽量利用复合索引的前缀</td>
+</tr>
+<tr>
+<td>Using join buffer</td>
+<td>使用连接缓冲（通常是 BNL 算法）</td>
+<td>中！ 常见于无索引的表连接</td>
+<td>为 JOIN 关联条件的列添加索引</td>
+</tr>
+</tbody>
+</table>
+<p>补充说明:</p>
+<ul>
+<li>Using temporary; Using filesort：这两个值同时出现通常意味着性能严重下滑，需要关注改进。</li>
+<li>Using index condition：在高并发场景下非常有用，因为它减少了存储引擎（InnoDB）向 MySQL 服务器层传递的数据量。</li>
+</ul>
+<h3 id="案例：聚簇索引识别">案例：聚簇索引识别</h3>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 表结构</span></span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> employees (</span><br><span class="line">  emp_no <span class="type">int</span> <span class="keyword">NOT</span> <span class="keyword">NULL</span>,</span><br><span class="line">  birth_date <span class="type">date</span> <span class="keyword">NOT</span> <span class="keyword">NULL</span>,</span><br><span class="line">  first_name <span class="type">varchar</span>(<span class="number">14</span>) <span class="keyword">NOT</span> <span class="keyword">NULL</span>,</span><br><span class="line">  last_name <span class="type">varchar</span>(<span class="number">16</span>) <span class="keyword">NOT</span> <span class="keyword">NULL</span>,</span><br><span class="line">  network_name <span class="type">varchar</span>(<span class="number">15</span>) <span class="keyword">NOT</span> <span class="keyword">NULL</span>,</span><br><span class="line">  gender enum(<span class="string">&#x27;M&#x27;</span>,<span class="string">&#x27;F&#x27;</span>) <span class="keyword">NOT</span> <span class="keyword">NULL</span>,</span><br><span class="line">  hire_date <span class="type">date</span> <span class="keyword">NOT</span> <span class="keyword">NULL</span>,</span><br><span class="line">  <span class="keyword">PRIMARY</span> KEY (emp_no),</span><br><span class="line">  <span class="keyword">UNIQUE</span> KEY network_name (network_name),</span><br><span class="line">  KEY hire_date (hire_date)</span><br><span class="line">) ENGINE<span class="operator">=</span>InnoDB;</span><br></pre></td></tr></table></figure>
+<p>PRIMARY KEY (emp_no), 这就是聚簇索引. hire_date 是二级索引.</p>
+<h2 id="03-视图算法与执行计划优化">03. 视图算法与执行计划优化</h2>
+<p>升级 MySQL 版本时，SQL 性能波动也是需要重点关注的对象。</p>
+<h3 id="案例：-TEMPTABLE-算法的影响">案例： TEMPTABLE 算法的影响</h3>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 创建视图（隐含TEMPTABLE算法的情况）</span></span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">VIEW</span> myview <span class="keyword">AS</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> city <span class="keyword">WHERE</span> Name<span class="operator">=</span><span class="string">&#x27;Rome&#x27;</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 执行计划显示</span></span><br><span class="line">mysql<span class="operator">&gt;</span> EXPLAIN <span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> mydb.myview <span class="keyword">WHERE</span> Name<span class="operator">=</span>&quot;Rome&quot;\G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">           id: <span class="number">1</span></span><br><span class="line">  select_type: SIMPLE</span><br><span class="line">        <span class="keyword">table</span>: city</span><br><span class="line">   partitions: <span class="keyword">NULL</span></span><br><span class="line">         type: <span class="keyword">ALL</span></span><br><span class="line">possible_keys: <span class="keyword">NULL</span></span><br><span class="line">          key: <span class="keyword">NULL</span></span><br><span class="line">      key_len: <span class="keyword">NULL</span></span><br><span class="line">          <span class="keyword">ref</span>: <span class="keyword">NULL</span></span><br><span class="line">         <span class="keyword">rows</span>: <span class="number">1</span></span><br><span class="line">     filtered: <span class="number">100.00</span></span><br><span class="line">        Extra: <span class="keyword">Using</span> <span class="keyword">where</span></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span>, <span class="number">1</span> warning (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure>
+<p>原因：myview使用了TEMPTABLE算法，无法合并优化</p>
+<h3 id="案例：AI场景中的视图优化">案例：AI场景中的视图优化</h3>
+<p>在AI特征工程中，经常使用视图封装复杂查询。建议显式指定MERGE算法，确保HeatWave等引擎能下推谓词优化。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- AI特征视图</span></span><br><span class="line"><span class="keyword">CREATE</span> ALGORITHM<span class="operator">=</span><span class="keyword">MERGE</span> <span class="keyword">VIEW</span> v_user_features <span class="keyword">AS</span></span><br><span class="line"><span class="keyword">SELECT</span> </span><br><span class="line">    user_id,</span><br><span class="line">    <span class="built_in">AVG</span>(session_duration) <span class="keyword">as</span> avg_duration,</span><br><span class="line">    <span class="built_in">COUNT</span>(<span class="keyword">DISTINCT</span> session_id) <span class="keyword">as</span> session_count</span><br><span class="line"><span class="keyword">FROM</span> user_behavior</span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> user_id;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 查询时谓词下推</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> v_user_features <span class="keyword">WHERE</span> user_id <span class="operator">=</span> <span class="number">123</span>;</span><br><span class="line"><span class="comment">-- MERGE算法确保WHERE user_id = 123被下推到基表，避免全表扫描</span></span><br></pre></td></tr></table></figure>
+<h2 id="04-MySQL-8-4-新特性：执行计划的现代化演进">04. MySQL 8.4 新特性：执行计划的现代化演进</h2>
+<p>MySQL 8.4 LTS 的执行计划诊断能力有了质的飞跃，特别是JSON格式的版本化和MRR优化的可视化。</p>
+<h3 id="explain-json-format-version-2（MySQL-8-4）">explain_json_format_version=2（MySQL 8.4）</h3>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 切换到新版JSON格式（基于Access Paths）</span></span><br><span class="line"><span class="keyword">SET</span> SESSION explain_json_format_version <span class="operator">=</span> <span class="number">2</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 对比版本1和版本2的输出差异</span></span><br><span class="line">EXPLAIN FORMAT<span class="operator">=</span>JSON <span class="keyword">SELECT</span> <span class="number">1</span>\G</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 版本1（传统）：</span></span><br><span class="line">mysql<span class="operator">&gt;</span> EXPLAIN FORMAT<span class="operator">=</span>JSON <span class="keyword">SELECT</span> <span class="number">1</span>\G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">EXPLAIN: &#123;</span><br><span class="line">  &quot;query_block&quot;: &#123;</span><br><span class="line">    &quot;select_id&quot;: <span class="number">1</span>,</span><br><span class="line">    &quot;message&quot;: &quot;No tables used&quot;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span>, <span class="number">1</span> warning (<span class="number">0.00</span> sec)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 版本2（8.4+）：</span></span><br><span class="line">mysql<span class="operator">&gt;</span> EXPLAIN FORMAT<span class="operator">=</span>JSON <span class="keyword">SELECT</span> <span class="number">1</span>\G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">EXPLAIN: &#123;</span><br><span class="line">  &quot;query&quot;: &quot;/* select#1 */ select 1 AS `1`&quot;,</span><br><span class="line">  &quot;operation&quot;: &quot;Rows fetched before execution&quot;,</span><br><span class="line">  &quot;query_type&quot;: &quot;select&quot;,</span><br><span class="line">  &quot;access_type&quot;: &quot;rows_fetched_before_execution&quot;,</span><br><span class="line">  &quot;estimated_rows&quot;: <span class="number">1.0</span>,</span><br><span class="line">  &quot;estimated_total_cost&quot;: <span class="number">0.0</span>,</span><br><span class="line">  &quot;estimated_first_row_cost&quot;: <span class="number">0.0</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<h3 id="FOR-SCHEMA-子句（MySQL-8-4）">FOR SCHEMA 子句（MySQL 8.4）</h3>
+<p>在不切换默认数据库的情况下查看其他schema的执行计划，无需USE切换即可诊断跨库查询</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">EXPLAIN FORMAT=TREE FOR SCHEMA mydb SELECT * FROM t WHERE c2 &gt; 50\G</span><br></pre></td></tr></table></figure>
+<h3 id="Multi-Range-Read-可视化（MySQL-9-1-0）">Multi-Range Read 可视化（MySQL 9.1.0）</h3>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 创建测试表（来自资料中的MySQL 9.1.0示例）</span></span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> orders (</span><br><span class="line">  id <span class="type">int</span> <span class="keyword">NOT</span> <span class="keyword">NULL</span> AUTO_INCREMENT,</span><br><span class="line">  key_column <span class="type">int</span> <span class="keyword">DEFAULT</span> <span class="keyword">NULL</span>,</span><br><span class="line">  order_no <span class="type">varchar</span>(<span class="number">50</span>) <span class="keyword">DEFAULT</span> <span class="keyword">NULL</span>,</span><br><span class="line">  description text,</span><br><span class="line">  <span class="keyword">PRIMARY</span> KEY (id),</span><br><span class="line">  KEY idx_key (key_column)</span><br><span class="line">) ENGINE<span class="operator">=</span>InnoDB;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 强制开启MRR（忽略成本评估）</span></span><br><span class="line"><span class="keyword">SET</span> optimizer_switch<span class="operator">=</span><span class="string">&#x27;mrr=on,mrr_cost_based=off&#x27;</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 执行查询并获取JSON计划</span></span><br><span class="line">EXPLAIN FORMAT<span class="operator">=</span>JSON <span class="keyword">INTO</span> <span class="variable">@myq</span> </span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> orders </span><br><span class="line"><span class="keyword">WHERE</span> key_column <span class="keyword">BETWEEN</span> <span class="number">10</span> <span class="keyword">AND</span> <span class="number">100</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 查看结果（MySQL 9.1.0+新特性）</span></span><br><span class="line"><span class="keyword">SELECT</span> JSON_EXTRACT(<span class="variable">@myq</span>, &quot;$.query_plan.multi_range_read&quot;);</span><br><span class="line"><span class="comment">-- 结果</span></span><br><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">SELECT</span> JSON_EXTRACT(<span class="variable">@myq</span>, &quot;$.query_plan.multi_range_read&quot;);</span><br><span class="line"><span class="operator">+</span><span class="comment">-----------------------------------------------------+</span></span><br><span class="line"><span class="operator">|</span> JSON_EXTRACT(<span class="variable">@myq</span>, &quot;$.query_plan.multi_range_read&quot;) <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-----------------------------------------------------+</span></span><br><span class="line"><span class="operator">|</span> <span class="literal">true</span>                                                <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-----------------------------------------------------+</span></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.000</span> sec)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 完整执行计划包含：</span></span><br><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">SELECT</span> JSON_EXTRACT(<span class="variable">@myq</span>, &quot;$.query_plan.operation&quot;)\G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">JSON_EXTRACT(<span class="variable">@myq</span>, &quot;$.query_plan.operation&quot;): &quot;Index range scan (Multi-Range Read) on orders using idx_key over (10 &lt;= key_column &lt;= 100), with index condition: (orders.key_column between 10 and 100)&quot;</span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.000</span> sec)</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>MySQL 8.4 对成本估算的数字格式进行了优化，0.001到999999.5范围内的数字以十进制形式输出，不再使用科学计数法，这让执行计划的可读性大幅提升。</p>
+<h2 id="总结">总结</h2>
+<p>今天内容就到这里，我们做个总结。</p>
+<ol>
+<li>格式选择策略：快速检查用传统EXPLAIN，自动化监控用FORMAT=JSON（8.4+推荐version=2），复杂JOIN用FORMAT=TREE，真实性能用EXPLAIN ANALYZE。</li>
+<li>字段精读要点：key_len计算决定索引使用效率，Extra中的Using filesort和Using temporary是优化红灯，尽量优化消除。</li>
+<li>视图算法警觉：TEMPTABLE算法阻碍优化，且导致视图不可更新，AI特征视图应显式声明 ALGORITHM=MERGE 确保谓词下推。</li>
+<li>版本新特性落地：MySQL 8.4的 explain_json_format_version=2 提供更精确的成本分解，9.1.0 的 multi_range_read 字段可视化帮助确认MRR优化生效。</li>
+<li>索引提示慎用：USE INDEX 是优化器建议而非强制，生产环境优先通过 ANALYZE TABLE 更新统计信息，而非依赖 hints，避免数据分布变化后的执行计划退化。</li>
+</ol>
+<hr>
+<p>Have a nice day ~ ☕</p>
+<p>🌻 近期内容 ▼</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/GMqlICHS2dlmPQxPAx7cow">Oracle Skills开源：AI工程正在进入&quot;技能时代&quot;</a></li>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/0Q6UA0DweisX1alj4d7oZQ">苦等三年！Oracle AI Database 26ai本地服务器版终于来了</a></li>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/pR_XAlklbbUY0ckFYFMOvw">MySQL 8.0结束生命周期，8.4.9 LTS、9.7.0发版上线：一个时代的交接与新生</a></li>
+</ul>
+<p>👉 这里有得聊</p>
+<p>如果对国产基础软件（操作系统、数据库、中间件）、AI、Vibe Coding、OpenClaw 、Hermes Agent 等感兴趣，可以加群一起聊聊。关注微信公众号：(少安事务所)，后台回复[群]，即可看到入口。如果这篇文章为你带来了灵感或启发，请帮忙『点赞、推荐、转发』吧，感谢！ღ( ´･ᴗ･` )~</p>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/oracle/" class="tag-link">
+                                oracle
+                            </a>
+                        
+                            <a href="/tags/mysql/" class="tag-link">
+                                mysql
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2026/mysql/mysql-8-4-lts-explain-details/index.html">https://shawnyan.cn/2026/mysql/mysql-8-4-lts-explain-details/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2026/mysql/mysql-8-4-lts-sql-mode-details/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">MySQL升级必查项：SQL Mode对数据的隐形掌控</span>
+        </a>
+    
+
+    
+        <a href="/2026/oracle/oracle-26ai-installation-notes/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">Oracle AI Database 26ai 安装记录</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#01-EXPLAIN%E4%B8%89%E5%89%91%E5%AE%A2%EF%BC%9A%E4%BB%8E%E4%BC%A0%E7%BB%9F%E8%A1%A8%E6%A0%BC%E5%88%B0%E7%8E%B0%E4%BB%A3%E6%A0%91%E5%BD%A2"><span class="toc-text">01. EXPLAIN三剑客：从传统表格到现代树形</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#02-%E6%A0%B8%E5%BF%83%E5%AD%97%E6%AE%B5%E8%A7%A3%E8%AF%BB%EF%BC%9Atype%E3%80%81key-len%E4%B8%8EExtra%E7%9A%84%E9%99%B7%E9%98%B1"><span class="toc-text">02. 核心字段解读：type、key_len与Extra的陷阱</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A1%88%E4%BE%8B%EF%BC%9Akey-len-%E7%9A%84%E8%AE%A1%E7%AE%97%E5%A5%A5%E7%A7%98"><span class="toc-text">案例：key_len 的计算奥秘</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A1%88%E4%BE%8B%EF%BC%9A%E8%81%9A%E7%B0%87%E7%B4%A2%E5%BC%95%E8%AF%86%E5%88%AB"><span class="toc-text">案例：聚簇索引识别</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#03-%E8%A7%86%E5%9B%BE%E7%AE%97%E6%B3%95%E4%B8%8E%E6%89%A7%E8%A1%8C%E8%AE%A1%E5%88%92%E4%BC%98%E5%8C%96"><span class="toc-text">03. 视图算法与执行计划优化</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A1%88%E4%BE%8B%EF%BC%9A-TEMPTABLE-%E7%AE%97%E6%B3%95%E7%9A%84%E5%BD%B1%E5%93%8D"><span class="toc-text">案例： TEMPTABLE 算法的影响</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A1%88%E4%BE%8B%EF%BC%9AAI%E5%9C%BA%E6%99%AF%E4%B8%AD%E7%9A%84%E8%A7%86%E5%9B%BE%E4%BC%98%E5%8C%96"><span class="toc-text">案例：AI场景中的视图优化</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#04-MySQL-8-4-%E6%96%B0%E7%89%B9%E6%80%A7%EF%BC%9A%E6%89%A7%E8%A1%8C%E8%AE%A1%E5%88%92%E7%9A%84%E7%8E%B0%E4%BB%A3%E5%8C%96%E6%BC%94%E8%BF%9B"><span class="toc-text">04. MySQL 8.4 新特性：执行计划的现代化演进</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#explain-json-format-version-2%EF%BC%88MySQL-8-4%EF%BC%89"><span class="toc-text">explain_json_format_version&#x3D;2（MySQL 8.4）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#FOR-SCHEMA-%E5%AD%90%E5%8F%A5%EF%BC%88MySQL-8-4%EF%BC%89"><span class="toc-text">FOR SCHEMA 子句（MySQL 8.4）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Multi-Range-Read-%E5%8F%AF%E8%A7%86%E5%8C%96%EF%BC%88MySQL-9-1-0%EF%BC%89"><span class="toc-text">Multi-Range Read 可视化（MySQL 9.1.0）</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

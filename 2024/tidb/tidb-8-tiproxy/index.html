@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        震惊！数据库小白装国产数据库只需10分钟！ | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;p&gt;网传，&lt;a href=&#34;https://mp.weixin.qq.com/s/tyPN7VGNMLdwLeM5TJD2Rg&#34;&gt;ACE 装国产数据库花了两周&lt;/a&gt; ，吃瓜群众纷纷表示惊讶，&lt;/p&gt;
+&lt;p&gt;都 4202 年了，DBaaS 概念已经不热了，安装数据库怎么还跟 10 年前一样需要持久战~&lt;/p&gt;
+&lt;p&gt;…&lt;/p&gt;
+&lt;h2 id=&#34;使用-TiUP-部署-TiDB-v8-0-0-集群&#34;&gt;使用 TiUP 部署 TiDB v8.0.0 集群&lt;/h2&gt;
+&lt;p&gt;回看两年前发的文章， &lt;a href=&#34;https://mp.weixin.qq.com/s/k742U5qbdBL_EJ51GcHgBg&#34;&gt;TiUP：TiDBAer 必备利器&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;现在更加肯定 TiUP 真乃神器也，使用 TiUP 在本地模拟部署 TiDB v8.0.0 集群仅需 10 分钟。&lt;/p&gt;
+&lt;p&gt;具体演示如下：&lt;/p&gt;
+&lt;h3 id=&#34;1-下载并安装-TiUP&#34;&gt;1. 下载并安装 TiUP&lt;/h3&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 11:57:40]$ curl --proto &amp;#x27;=https&amp;#x27; --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                 Dload  Upload   Total   Spent    Left  Speed&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;100 5095k  100 5095k    0     0  5065k      0  0:00:01  0:00:01 --:--:-- 5069k&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Successfully set mirror to https://tiup-mirrors.pingcap.com&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Detected shell: bash&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Shell profile:  /root/.bash_profile&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Installed path: /root/.tiup/bin/tiup&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;===============================================&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Have a try:     tiup playground&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;===============================================&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 11:57:46]$ source /root/.bash_profile&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;2-调大-sshd-服务的连接数限制&#34;&gt;2. 调大 sshd 服务的连接数限制&lt;/h3&gt;
+&lt;p&gt;由于是本地安装集群，会并发连接，调整最大会话数量到 20。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;vi /etc/ssh/sshd_config&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;MaxSessions = 20&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;并重启 sshd 服务。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;systemctl restart sshd&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;3-创建集群拓扑文件&#34;&gt;3. 创建集群拓扑文件&lt;/h3&gt;
+&lt;p&gt;可用 &lt;code&gt;tiup cluster template&lt;/code&gt; 命令生成拓扑模板。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 11:59:00]$ vi topo.yaml&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;4-部署集群&#34;&gt;4. 部署集群&lt;/h3&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 12:00:40]$ tiup cluster deploy mytidb v8.0.0 ./topo.yaml --user root -p&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Input SSH password: &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Detect CPU Arch Name&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Detect CPU OS Name&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Please confirm your topology:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster type:    tidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster name:    mytidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster version: v8.0.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Role        Host           Ports                            OS/Arch       Directories&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;----        ----           -----                            -------       -----------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;pd          192.168.8.161  2379/2380                        linux/x86_64  /tidb-deploy/pd-2379,/tidb-data/pd-2379&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tikv        192.168.8.161  20160/20180                      linux/x86_64  /tidb-deploy/tikv-20160,/tidb-data/tikv-20160&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tikv        192.168.8.161  20161/20181                      linux/x86_64  /tidb-deploy/tikv-20161,/tidb-data/tikv-20161&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tidb        192.168.8.161  4000/10080                       linux/x86_64  /tidb-deploy/tidb-4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tiflash     192.168.8.161  9000/8123/3930/20170/20292/8234  linux/x86_64  /tidb-deploy/tiflash-9000,/tidb-data/tiflash-9000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;prometheus  192.168.8.161  9090/12020                       linux/x86_64  /tidb-deploy/prometheus-9090,/tidb-data/prometheus-9090&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;grafana     192.168.8.161  3000                             linux/x86_64  /tidb-deploy/grafana-3000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Attention:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    1. If the topology is not what you expected, check your yaml file.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    2. Please confirm there is no port/directory conflicts in same host.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Do you want to continue? [y/N]: (default=N) y&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Generate SSH keys ... Done&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Download TiDB components&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Initialize target host environments&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Deploy TiDB instance&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Copy certificate to remote host&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Init instance configs&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Init monitor configs&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enabling component pd&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enabling component tikv&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enabling component tidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enabling component tiflash&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enabling component prometheus&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enabling component grafana&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enabling component node_exporter&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enabling component blackbox_exporter&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster `mytidb` deployed successfully, you can start it with command: `tiup cluster start mytidb --init`&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;集群安装完成，接下来启动集群。&lt;/p&gt;
+&lt;h3 id=&#34;5-启动集群&#34;&gt;5. 启动集群&lt;/h3&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 12:04:17]$ tiup cluster start mytidb --init&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting cluster mytidb...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ [ Serial ] - SSHKeySet: privateKey=/root/.tiup/storage/cluster/clusters/mytidb/ssh/id_rsa, publicKey=/root/.tiup/storage/cluster/clusters/mytidb/ssh/id_rsa.pub&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ [Parallel] - UserSSH: user=tidb, host=192.168.8.161&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ [ Serial ] - StartCluster&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component pd&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component tikv&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component tidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component tiflash&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component prometheus&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component grafana&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component node_exporter&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component blackbox_exporter&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ [ Serial ] - UpdateTopology: cluster=mytidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Started cluster `mytidb` successfully&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The root password of TiDB database has been changed.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The new password is: &amp;#x27;2mKNM_976^-+1h8BEL&amp;#x27;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copy and record it to somewhere safe, it is only displayed once, and will not be stored.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The generated password can NOT be get and shown again.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;此时，TiDB 集群已启动成功，并且自动创建了 root 账号密码。&lt;/p&gt;
+&lt;h3 id=&#34;6-查看-TiDB-集群状态&#34;&gt;6. 查看 TiDB 集群状态&lt;/h3&gt;
+&lt;p&gt;连接 TiDB，查看版本号。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 12:05:20]$ mysql -h 192.168.8.161 -P 4000 -u root -p&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enter password: &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Welcome to the MySQL monitor.  Commands end with ; or \g.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Your MySQL connection id is 3290431496&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Server version: 8.0.11-TiDB-v8.0.0 TiDB Server (Apache License 2.0) Community Edition, MySQL 8.0 compatible&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copyright (c) 2000, 2024, Oracle and/or its affiliates.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Oracle is a registered trademark of Oracle Corporation and/or its&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;affiliates. Other names may be trademarks of their respective&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;owners.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;#x27;help;&amp;#x27; or &amp;#x27;\h&amp;#x27; for help. Type &amp;#x27;\c&amp;#x27; to clear the current input statement.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; select tidb_version()\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tidb_version(): Release Version: v8.0.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Edition: Community&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Git Commit Hash: 8ba1fa452b1ccdbfb85879ea94b9254aabba2916&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Git Branch: HEAD&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;UTC Build Time: 2024-03-28 14:22:15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GoVersion: go1.21.4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Race Enabled: false&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Check Table Before Drop: false&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Store: tikv&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; \q&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Bye&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看 TiDB 集群列表。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 12:05:46]$ tiup cluster list&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Name    User  Version  Path                                         PrivateKey&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;----    ----  -------  ----                                         ----------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mytidb  tidb  v8.0.0   /root/.tiup/storage/cluster/clusters/mytidb  /root/.tiup/storage/cluster/clusters/mytidb/ssh/id_rsa&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看集群拓扑结构和状态。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 12:05:54]$ tiup cluster display mytidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster type:       tidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster name:       mytidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster version:    v8.0.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Deploy user:        tidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SSH type:           builtin&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Dashboard URL:      http://192.168.8.161:2379/dashboard&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Grafana URL:        http://192.168.8.161:3000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ID                   Role        Host           Ports                            OS/Arch       Status   Data Dir                    Deploy Dir&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--                   ----        ----           -----                            -------       ------   --------                    ----------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:3000   grafana     192.168.8.161  3000                             linux/x86_64  Up       -                           /tidb-deploy/grafana-3000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:2379   pd          192.168.8.161  2379/2380                        linux/x86_64  Up|L|UI  /tidb-data/pd-2379          /tidb-deploy/pd-2379&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:9090   prometheus  192.168.8.161  9090/12020                       linux/x86_64  Up       /tidb-data/prometheus-9090  /tidb-deploy/prometheus-9090&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:4000   tidb        192.168.8.161  4000/10080                       linux/x86_64  Up       -                           /tidb-deploy/tidb-4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:9000   tiflash     192.168.8.161  9000/8123/3930/20170/20292/8234  linux/x86_64  Up       /tidb-data/tiflash-9000     /tidb-deploy/tiflash-9000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:20160  tikv        192.168.8.161  20160/20180                      linux/x86_64  Up       /tidb-data/tikv-20160       /tidb-deploy/tikv-20160&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:20161  tikv        192.168.8.161  20161/20181                      linux/x86_64  Up       /tidb-data/tikv-20161       /tidb-deploy/tikv-20161&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Total nodes: 7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 12:06:04]$ &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;到此，仅用了不到 10 分钟，就部署完成了一套 TiDB 集群。&lt;/p&gt;
+&lt;p&gt;遥想当年写 Shell 脚本和 Ansible 脚本的岁月，有 TiUP 助力简直不要 Ti 幸福。&lt;/p&gt;
+&lt;h2 id=&#34;恭喜-TiProxy-组件-GA！&#34;&gt;恭喜 TiProxy 组件 GA！&lt;/h2&gt;
+&lt;p&gt;之前发文 《 &lt;a href=&#34;https://tidb.net/blog/3d57f54d&#34;&gt;TiDB 7.x 源码编译之 TiProxy 篇，及尝鲜体验&lt;/a&gt; 》 介绍过 TiProxy，接下来看看有什么新变化。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;TiProxy 是 TiDB 的官方代理组件，位于客户端和 TiDB server 之间，为 TiDB 提供负载均衡、连接保持功能，让 TiDB 集群的负载更加均衡，并在维护操作期间不影响用户对数据库的连接访问。&lt;/p&gt;
+&lt;p&gt;在 v8.0.0 中，TiProxy 成为正式功能，完善了签名证书自动生成、监控等功能。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;TiProxy 的应用场景如下：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;在 TiDB 集群进行滚动重启、滚动升级、缩容等维护操作时，TiDB server 会发生变动，导致客户端与发生变化的 TiDB server 的连接中断。通过使用 TiProxy，可以在这些维护操作过程中平滑地将连接迁移至其他 TiDB server，从而让客户端不受影响。&lt;/li&gt;
+&lt;li&gt;所有客户端对 TiDB server 的连接都无法动态迁移至其他 TiDB server。当多个 TiDB server 的负载不均衡时，可能出现整体集群资源充足，但某些 TiDB server 资源耗尽导致延迟大幅度增加的情况。为解决此问题，TiProxy 提供连接动态迁移功能，在客户端无感的前提下，将连接从一个 TiDB server 迁移至其他 TiDB server，从而实现 TiDB 集群的负载均衡。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;延续上文的 TiDB v8.0.0 集群话题，接下来演示如何增加 TiProxy 服务。&lt;/p&gt;
+&lt;h3 id=&#34;1-创建-TiProxy-拓扑文件&#34;&gt;1. 创建 TiProxy 拓扑文件&lt;/h3&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 12:48:48]$ vi tiproxy.toml&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;文件中指定 IP 地址。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;tiproxy_servers:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  - host: 192.168.8.161&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;2-使用-TiUP-命令部署-TiProxy-服务&#34;&gt;2. 使用 TiUP 命令部署 TiProxy 服务&lt;/h3&gt;
+&lt;p&gt;使用 tiup cluster scale-out 命令对集群进行扩容。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 12:49:12]$ tiup cluster scale-out mytidb ./tiproxy.toml --user root -p&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Input SSH password: &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Please confirm your topology:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster type:    tidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster name:    mytidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster version: v8.0.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Role     Host           Ports      OS/Arch       Directories&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;----     ----           -----      -------       -----------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tiproxy  192.168.8.161  6000/3080  linux/x86_64  /tidb-deploy/tiproxy-6000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Attention:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    1. If the topology is not what you expected, check your yaml file.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    2. Please confirm there is no port/directory conflicts in same host.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Do you want to continue? [y/N]: (default=N) y&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Download TiDB components&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  - Download tiproxy: (linux/amd64) ... Done&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Initialize target host environments&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Deploy TiDB instance&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  - Deploy instance tiproxy -&amp;gt; 192.168.8.161:6000 ... Done&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Copy certificate to remote host&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Generate scale-out config&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  - Generate scale-out config tiproxy -&amp;gt; 192.168.8.161:6000 ... Done&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Init monitor config&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ [ Serial ] - Save meta&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ [ Serial ] - Start new instances&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component tiproxy&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component node_exporter&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component blackbox_exporter&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Refresh components conifgs&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  - Generate config tiproxy -&amp;gt; 192.168.8.161:6000 ... Done&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Reload prometheus and grafana&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  - Reload prometheus -&amp;gt; 192.168.8.161:9090 ... Done&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  - Reload grafana -&amp;gt; 192.168.8.161:3000 ... Done&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ [ Serial ] - UpdateTopology: cluster=mytidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Scaled cluster `mytidb` out successfully&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看集群状态。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 12:49:35]$ tiup cluster list&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Name    User  Version  Path                                         PrivateKey&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;----    ----  -------  ----                                         ----------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mytidb  tidb  v8.0.0   /root/.tiup/storage/cluster/clusters/mytidb  /root/.tiup/storage/cluster/clusters/mytidb/ssh/id_rsa&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 12:49:49]$ tiup cluster display mytidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster type:       tidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster name:       mytidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster version:    v8.0.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Deploy user:        tidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SSH type:           builtin&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Dashboard URL:      http://192.168.8.161:2379/dashboard&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Grafana URL:        http://192.168.8.161:3000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ID                   Role        Host           Ports                            OS/Arch       Status   Data Dir                    Deploy Dir&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--                   ----        ----           -----                            -------       ------   --------                    ----------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:3000   grafana     192.168.8.161  3000                             linux/x86_64  Up       -                           /tidb-deploy/grafana-3000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:2379   pd          192.168.8.161  2379/2380                        linux/x86_64  Up|L|UI  /tidb-data/pd-2379          /tidb-deploy/pd-2379&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:9090   prometheus  192.168.8.161  9090/12020                       linux/x86_64  Up       /tidb-data/prometheus-9090  /tidb-deploy/prometheus-9090&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:4000   tidb        192.168.8.161  4000/10080                       linux/x86_64  Up       -                           /tidb-deploy/tidb-4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:9000   tiflash     192.168.8.161  9000/8123/3930/20170/20292/8234  linux/x86_64  Up       /tidb-data/tiflash-9000     /tidb-deploy/tiflash-9000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:20160  tikv        192.168.8.161  20160/20180                      linux/x86_64  Up       /tidb-data/tikv-20160       /tidb-deploy/tikv-20160&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:20161  tikv        192.168.8.161  20161/20181                      linux/x86_64  Up       /tidb-data/tikv-20161       /tidb-deploy/tikv-20161&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:6000   tiproxy     192.168.8.161  6000/3080                        linux/x86_64  Up       -                           /tidb-deploy/tiproxy-6000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Total nodes: 8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;可以看到，已经增加了 TiProxy 服务，监听 6000/3080 端口。&lt;/p&gt;
+&lt;h3 id=&#34;3-通过-TiProxy-连接-TiDB-数据库&#34;&gt;3. 通过 TiProxy 连接 TiDB 数据库&lt;/h3&gt;
+&lt;p&gt;通过 6000 端口连接 TiDB 数据库。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 12:54:46]$ mysql -h 192.168.8.161 -P 6000 -u root -p&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enter password: &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Welcome to the MySQL monitor.  Commands end with ; or \g.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Your MySQL connection id is 0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Server version: 8.0.11-TiDB-v8.0.0 TiDB Server (Apache License 2.0) Community Edition, MySQL 8.0 compatible&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copyright (c) 2000, 2024, Oracle and/or its affiliates.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Oracle is a registered trademark of Oracle Corporation and/or its&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;affiliates. Other names may be trademarks of their respective&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;owners.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;#x27;help;&amp;#x27; or &amp;#x27;\h&amp;#x27; for help. Type &amp;#x27;\c&amp;#x27; to clear the current input statement.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; select version();&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| version()          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| 8.0.11-TiDB-v8.0.0 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.01 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; \q&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Bye&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;测试-TiProxy-在集群缩容时对客户端的影响&#34;&gt;测试 TiProxy 在集群缩容时对客户端的影响&lt;/h2&gt;
+&lt;p&gt;一般情况下，在使用 TiProxy 时，对 TiDB Server 进行缩容操作，TiProxy 可以将客户端平滑迁移到其他 TiDB Server。&lt;/p&gt;
+&lt;p&gt;下面通过一个小案例进行演示。&lt;/p&gt;
+&lt;p&gt;当前 TiDB 集群有 1 个 TiProxy 和 2 个 TiDB Server。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 22:54:11]$ tiup cluster display mytidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ID                   Role        Host           Ports                            OS/Arch       Status   Data Dir                    Deploy Dir&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--                   ----        ----           -----                            -------       ------   --------                    ----------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:4000   tidb        192.168.8.161  4000/10080                       linux/x86_64  Up       -                           /tidb-deploy/tidb-4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:4001   tidb        192.168.8.161  4001/10081                       linux/x86_64  Up       -                           /tidb-deploy/tidb-4001&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:6000   tiproxy     192.168.8.161  6000/3080                        linux/x86_64  Up       -                           /tidb-deploy/tiproxy-6000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Total nodes: 9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;编写一个 Go 语言的小程序，连接到 TiProxy，并查询当前时间和端口号。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~/mygo 23:37:31]$ ./mygo &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:37:35.008276 3290458852 4000&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;对 TiDB Server 进行缩容，观察连接状态。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 23:54:02]$ date; tiup cluster scale-in mytidb -N 192.168.8.161:4001&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Tue Apr  9 23:54:28 CST 2024&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;This operation will delete the 192.168.8.161:4001 nodes in `mytidb` and all their data.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Do you want to continue? [y/N]:(default=N) y&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Scale-in nodes...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Scaled cluster `mytidb` in successfully&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 23:54:42]$ &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;小程序打印的连接信息如下，在 &lt;code&gt;31.702979&lt;/code&gt; 之后，4001 端口就无法连接了。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:31.628317 3290470616 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:31.644864 190842836 4001&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:31.658394 3290470618 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:31.671760 190842838 4001&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:31.685303 3290470620 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:31.702979 190842840 4001&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:31.715786 3290470622 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:31.940418 3290470624 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:32.155463 3290470626 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:32.368296 3290470628 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:32.579094 3290470630 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:32.792323 3290470634 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:32.803430 3290470636 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:32.814547 3290470638 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:32.824227 3290470640 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:32.833193 3290470642 4000&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;4001 端口的 tidb server 日志如下。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[2024/04/09 23:54:31.725 +08:00] [INFO] [signal_posix.go:54] [&amp;quot;got signal to exit&amp;quot;] [signal=terminated]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2024/04/09 23:54:31.725 +08:00] [INFO] [server.go:584] [&amp;quot;setting tidb-server to report unhealthy (shutting-down)&amp;quot;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2024/04/09 23:54:31.725 +08:00] [ERROR] [http_status.go:530] [&amp;quot;start status/rpc server error&amp;quot;] [error=&amp;quot;accept tcp [::]:10081: use of closed network connection&amp;quot;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2024/04/09 23:54:31.725 +08:00] [ERROR] [http_status.go:520] [&amp;quot;grpc server error&amp;quot;] [error=&amp;quot;mux: server closed&amp;quot;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2024/04/09 23:54:31.725 +08:00] [ERROR] [http_status.go:525] [&amp;quot;http server error&amp;quot;] [error=&amp;quot;http: Server closed&amp;quot;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2024/04/09 23:54:31.733 +08:00] [INFO] [server.go:990] [&amp;quot;start drain clients&amp;quot;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2024/04/09 23:54:31.733 +08:00] [INFO] [server.go:1019] [&amp;quot;all sessions quit in drain wait time&amp;quot;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2024/04/09 23:54:31.733 +08:00] [INFO] [server.go:971] [&amp;quot;kill all connections.&amp;quot;] [category=server]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;小测验到此先告一段落。&lt;/p&gt;
+&lt;p&gt;通过上面的小案例，可以看到使用 TiProxy 的集群在缩容时，流量会切到其他 Up 的节点，过程还是平滑的。&lt;/p&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;无论国产非国产，数据库不仅仅是一个 OS 里的 Service，更需要好的 Support Service。&lt;/p&gt;
+&lt;p&gt;好的生态工具，可以提升开发者和 DBA 的生产效率，并降低运营成本。&lt;/p&gt;
+&lt;p&gt;总之，更容易上手的数据库才是好产品。&lt;/p&gt;
+&lt;h2 id=&#34;欢迎讨论&#34;&gt;欢迎讨论&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://asktug.com/t/topic/1024233&#34;&gt;TiProxy 问题解答 &amp;amp; 未来规划&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;– END –&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;如果这篇文章为你带来了灵感或启发，就请帮忙点『赞』or『在看』or『转发』吧，感谢！(๑˃̵ᴗ˂̵)&lt;/p&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="震惊！数据库小白装国产数据库只需10分钟！">
+    <meta property="og:url" content="https://shawnyan.cn/2024/tidb/tidb-8-tiproxy/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;p&gt;网传，&lt;a href=&#34;https://mp.weixin.qq.com/s/tyPN7VGNMLdwLeM5TJD2Rg&#34;&gt;ACE 装国产数据库花了两周&lt;/a&gt; ，吃瓜群众纷纷表示惊讶，&lt;/p&gt;
+&lt;p&gt;都 4202 年了，DBaaS 概念已经不热了，安装数据库怎么还跟 10 年前一样需要持久战~&lt;/p&gt;
+&lt;p&gt;…&lt;/p&gt;
+&lt;h2 id=&#34;使用-TiUP-部署-TiDB-v8-0-0-集群&#34;&gt;使用 TiUP 部署 TiDB v8.0.0 集群&lt;/h2&gt;
+&lt;p&gt;回看两年前发的文章， &lt;a href=&#34;https://mp.weixin.qq.com/s/k742U5qbdBL_EJ51GcHgBg&#34;&gt;TiUP：TiDBAer 必备利器&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;现在更加肯定 TiUP 真乃神器也，使用 TiUP 在本地模拟部署 TiDB v8.0.0 集群仅需 10 分钟。&lt;/p&gt;
+&lt;p&gt;具体演示如下：&lt;/p&gt;
+&lt;h3 id=&#34;1-下载并安装-TiUP&#34;&gt;1. 下载并安装 TiUP&lt;/h3&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 11:57:40]$ curl --proto &amp;#x27;=https&amp;#x27; --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                 Dload  Upload   Total   Spent    Left  Speed&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;100 5095k  100 5095k    0     0  5065k      0  0:00:01  0:00:01 --:--:-- 5069k&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Successfully set mirror to https://tiup-mirrors.pingcap.com&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Detected shell: bash&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Shell profile:  /root/.bash_profile&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Installed path: /root/.tiup/bin/tiup&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;===============================================&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Have a try:     tiup playground&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;===============================================&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 11:57:46]$ source /root/.bash_profile&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;2-调大-sshd-服务的连接数限制&#34;&gt;2. 调大 sshd 服务的连接数限制&lt;/h3&gt;
+&lt;p&gt;由于是本地安装集群，会并发连接，调整最大会话数量到 20。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;vi /etc/ssh/sshd_config&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;MaxSessions = 20&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;并重启 sshd 服务。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;systemctl restart sshd&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;3-创建集群拓扑文件&#34;&gt;3. 创建集群拓扑文件&lt;/h3&gt;
+&lt;p&gt;可用 &lt;code&gt;tiup cluster template&lt;/code&gt; 命令生成拓扑模板。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 11:59:00]$ vi topo.yaml&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;4-部署集群&#34;&gt;4. 部署集群&lt;/h3&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 12:00:40]$ tiup cluster deploy mytidb v8.0.0 ./topo.yaml --user root -p&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Input SSH password: &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Detect CPU Arch Name&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Detect CPU OS Name&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Please confirm your topology:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster type:    tidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster name:    mytidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster version: v8.0.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Role        Host           Ports                            OS/Arch       Directories&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;----        ----           -----                            -------       -----------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;pd          192.168.8.161  2379/2380                        linux/x86_64  /tidb-deploy/pd-2379,/tidb-data/pd-2379&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tikv        192.168.8.161  20160/20180                      linux/x86_64  /tidb-deploy/tikv-20160,/tidb-data/tikv-20160&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tikv        192.168.8.161  20161/20181                      linux/x86_64  /tidb-deploy/tikv-20161,/tidb-data/tikv-20161&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tidb        192.168.8.161  4000/10080                       linux/x86_64  /tidb-deploy/tidb-4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tiflash     192.168.8.161  9000/8123/3930/20170/20292/8234  linux/x86_64  /tidb-deploy/tiflash-9000,/tidb-data/tiflash-9000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;prometheus  192.168.8.161  9090/12020                       linux/x86_64  /tidb-deploy/prometheus-9090,/tidb-data/prometheus-9090&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;grafana     192.168.8.161  3000                             linux/x86_64  /tidb-deploy/grafana-3000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Attention:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    1. If the topology is not what you expected, check your yaml file.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    2. Please confirm there is no port/directory conflicts in same host.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Do you want to continue? [y/N]: (default=N) y&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Generate SSH keys ... Done&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Download TiDB components&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Initialize target host environments&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Deploy TiDB instance&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Copy certificate to remote host&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Init instance configs&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Init monitor configs&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enabling component pd&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enabling component tikv&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enabling component tidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enabling component tiflash&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enabling component prometheus&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enabling component grafana&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enabling component node_exporter&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enabling component blackbox_exporter&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster `mytidb` deployed successfully, you can start it with command: `tiup cluster start mytidb --init`&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;集群安装完成，接下来启动集群。&lt;/p&gt;
+&lt;h3 id=&#34;5-启动集群&#34;&gt;5. 启动集群&lt;/h3&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 12:04:17]$ tiup cluster start mytidb --init&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting cluster mytidb...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ [ Serial ] - SSHKeySet: privateKey=/root/.tiup/storage/cluster/clusters/mytidb/ssh/id_rsa, publicKey=/root/.tiup/storage/cluster/clusters/mytidb/ssh/id_rsa.pub&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ [Parallel] - UserSSH: user=tidb, host=192.168.8.161&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ [ Serial ] - StartCluster&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component pd&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component tikv&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component tidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component tiflash&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component prometheus&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component grafana&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component node_exporter&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component blackbox_exporter&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ [ Serial ] - UpdateTopology: cluster=mytidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Started cluster `mytidb` successfully&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The root password of TiDB database has been changed.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The new password is: &amp;#x27;2mKNM_976^-+1h8BEL&amp;#x27;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copy and record it to somewhere safe, it is only displayed once, and will not be stored.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The generated password can NOT be get and shown again.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;此时，TiDB 集群已启动成功，并且自动创建了 root 账号密码。&lt;/p&gt;
+&lt;h3 id=&#34;6-查看-TiDB-集群状态&#34;&gt;6. 查看 TiDB 集群状态&lt;/h3&gt;
+&lt;p&gt;连接 TiDB，查看版本号。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 12:05:20]$ mysql -h 192.168.8.161 -P 4000 -u root -p&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enter password: &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Welcome to the MySQL monitor.  Commands end with ; or \g.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Your MySQL connection id is 3290431496&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Server version: 8.0.11-TiDB-v8.0.0 TiDB Server (Apache License 2.0) Community Edition, MySQL 8.0 compatible&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copyright (c) 2000, 2024, Oracle and/or its affiliates.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Oracle is a registered trademark of Oracle Corporation and/or its&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;affiliates. Other names may be trademarks of their respective&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;owners.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;#x27;help;&amp;#x27; or &amp;#x27;\h&amp;#x27; for help. Type &amp;#x27;\c&amp;#x27; to clear the current input statement.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; select tidb_version()\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tidb_version(): Release Version: v8.0.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Edition: Community&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Git Commit Hash: 8ba1fa452b1ccdbfb85879ea94b9254aabba2916&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Git Branch: HEAD&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;UTC Build Time: 2024-03-28 14:22:15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GoVersion: go1.21.4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Race Enabled: false&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Check Table Before Drop: false&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Store: tikv&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; \q&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Bye&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看 TiDB 集群列表。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 12:05:46]$ tiup cluster list&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Name    User  Version  Path                                         PrivateKey&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;----    ----  -------  ----                                         ----------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mytidb  tidb  v8.0.0   /root/.tiup/storage/cluster/clusters/mytidb  /root/.tiup/storage/cluster/clusters/mytidb/ssh/id_rsa&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看集群拓扑结构和状态。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 12:05:54]$ tiup cluster display mytidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster type:       tidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster name:       mytidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster version:    v8.0.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Deploy user:        tidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SSH type:           builtin&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Dashboard URL:      http://192.168.8.161:2379/dashboard&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Grafana URL:        http://192.168.8.161:3000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ID                   Role        Host           Ports                            OS/Arch       Status   Data Dir                    Deploy Dir&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--                   ----        ----           -----                            -------       ------   --------                    ----------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:3000   grafana     192.168.8.161  3000                             linux/x86_64  Up       -                           /tidb-deploy/grafana-3000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:2379   pd          192.168.8.161  2379/2380                        linux/x86_64  Up|L|UI  /tidb-data/pd-2379          /tidb-deploy/pd-2379&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:9090   prometheus  192.168.8.161  9090/12020                       linux/x86_64  Up       /tidb-data/prometheus-9090  /tidb-deploy/prometheus-9090&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:4000   tidb        192.168.8.161  4000/10080                       linux/x86_64  Up       -                           /tidb-deploy/tidb-4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:9000   tiflash     192.168.8.161  9000/8123/3930/20170/20292/8234  linux/x86_64  Up       /tidb-data/tiflash-9000     /tidb-deploy/tiflash-9000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:20160  tikv        192.168.8.161  20160/20180                      linux/x86_64  Up       /tidb-data/tikv-20160       /tidb-deploy/tikv-20160&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:20161  tikv        192.168.8.161  20161/20181                      linux/x86_64  Up       /tidb-data/tikv-20161       /tidb-deploy/tikv-20161&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Total nodes: 7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 12:06:04]$ &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;到此，仅用了不到 10 分钟，就部署完成了一套 TiDB 集群。&lt;/p&gt;
+&lt;p&gt;遥想当年写 Shell 脚本和 Ansible 脚本的岁月，有 TiUP 助力简直不要 Ti 幸福。&lt;/p&gt;
+&lt;h2 id=&#34;恭喜-TiProxy-组件-GA！&#34;&gt;恭喜 TiProxy 组件 GA！&lt;/h2&gt;
+&lt;p&gt;之前发文 《 &lt;a href=&#34;https://tidb.net/blog/3d57f54d&#34;&gt;TiDB 7.x 源码编译之 TiProxy 篇，及尝鲜体验&lt;/a&gt; 》 介绍过 TiProxy，接下来看看有什么新变化。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;TiProxy 是 TiDB 的官方代理组件，位于客户端和 TiDB server 之间，为 TiDB 提供负载均衡、连接保持功能，让 TiDB 集群的负载更加均衡，并在维护操作期间不影响用户对数据库的连接访问。&lt;/p&gt;
+&lt;p&gt;在 v8.0.0 中，TiProxy 成为正式功能，完善了签名证书自动生成、监控等功能。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;TiProxy 的应用场景如下：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;在 TiDB 集群进行滚动重启、滚动升级、缩容等维护操作时，TiDB server 会发生变动，导致客户端与发生变化的 TiDB server 的连接中断。通过使用 TiProxy，可以在这些维护操作过程中平滑地将连接迁移至其他 TiDB server，从而让客户端不受影响。&lt;/li&gt;
+&lt;li&gt;所有客户端对 TiDB server 的连接都无法动态迁移至其他 TiDB server。当多个 TiDB server 的负载不均衡时，可能出现整体集群资源充足，但某些 TiDB server 资源耗尽导致延迟大幅度增加的情况。为解决此问题，TiProxy 提供连接动态迁移功能，在客户端无感的前提下，将连接从一个 TiDB server 迁移至其他 TiDB server，从而实现 TiDB 集群的负载均衡。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;延续上文的 TiDB v8.0.0 集群话题，接下来演示如何增加 TiProxy 服务。&lt;/p&gt;
+&lt;h3 id=&#34;1-创建-TiProxy-拓扑文件&#34;&gt;1. 创建 TiProxy 拓扑文件&lt;/h3&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 12:48:48]$ vi tiproxy.toml&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;文件中指定 IP 地址。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;tiproxy_servers:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  - host: 192.168.8.161&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;2-使用-TiUP-命令部署-TiProxy-服务&#34;&gt;2. 使用 TiUP 命令部署 TiProxy 服务&lt;/h3&gt;
+&lt;p&gt;使用 tiup cluster scale-out 命令对集群进行扩容。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 12:49:12]$ tiup cluster scale-out mytidb ./tiproxy.toml --user root -p&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Input SSH password: &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Please confirm your topology:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster type:    tidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster name:    mytidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster version: v8.0.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Role     Host           Ports      OS/Arch       Directories&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;----     ----           -----      -------       -----------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tiproxy  192.168.8.161  6000/3080  linux/x86_64  /tidb-deploy/tiproxy-6000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Attention:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    1. If the topology is not what you expected, check your yaml file.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    2. Please confirm there is no port/directory conflicts in same host.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Do you want to continue? [y/N]: (default=N) y&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Download TiDB components&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  - Download tiproxy: (linux/amd64) ... Done&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Initialize target host environments&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Deploy TiDB instance&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  - Deploy instance tiproxy -&amp;gt; 192.168.8.161:6000 ... Done&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Copy certificate to remote host&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Generate scale-out config&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  - Generate scale-out config tiproxy -&amp;gt; 192.168.8.161:6000 ... Done&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Init monitor config&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ [ Serial ] - Save meta&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ [ Serial ] - Start new instances&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component tiproxy&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component node_exporter&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component blackbox_exporter&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Refresh components conifgs&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  - Generate config tiproxy -&amp;gt; 192.168.8.161:6000 ... Done&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ Reload prometheus and grafana&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  - Reload prometheus -&amp;gt; 192.168.8.161:9090 ... Done&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  - Reload grafana -&amp;gt; 192.168.8.161:3000 ... Done&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+ [ Serial ] - UpdateTopology: cluster=mytidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Scaled cluster `mytidb` out successfully&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看集群状态。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 12:49:35]$ tiup cluster list&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Name    User  Version  Path                                         PrivateKey&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;----    ----  -------  ----                                         ----------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mytidb  tidb  v8.0.0   /root/.tiup/storage/cluster/clusters/mytidb  /root/.tiup/storage/cluster/clusters/mytidb/ssh/id_rsa&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 12:49:49]$ tiup cluster display mytidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster type:       tidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster name:       mytidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Cluster version:    v8.0.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Deploy user:        tidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;SSH type:           builtin&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Dashboard URL:      http://192.168.8.161:2379/dashboard&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Grafana URL:        http://192.168.8.161:3000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ID                   Role        Host           Ports                            OS/Arch       Status   Data Dir                    Deploy Dir&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--                   ----        ----           -----                            -------       ------   --------                    ----------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:3000   grafana     192.168.8.161  3000                             linux/x86_64  Up       -                           /tidb-deploy/grafana-3000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:2379   pd          192.168.8.161  2379/2380                        linux/x86_64  Up|L|UI  /tidb-data/pd-2379          /tidb-deploy/pd-2379&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:9090   prometheus  192.168.8.161  9090/12020                       linux/x86_64  Up       /tidb-data/prometheus-9090  /tidb-deploy/prometheus-9090&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:4000   tidb        192.168.8.161  4000/10080                       linux/x86_64  Up       -                           /tidb-deploy/tidb-4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:9000   tiflash     192.168.8.161  9000/8123/3930/20170/20292/8234  linux/x86_64  Up       /tidb-data/tiflash-9000     /tidb-deploy/tiflash-9000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:20160  tikv        192.168.8.161  20160/20180                      linux/x86_64  Up       /tidb-data/tikv-20160       /tidb-deploy/tikv-20160&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:20161  tikv        192.168.8.161  20161/20181                      linux/x86_64  Up       /tidb-data/tikv-20161       /tidb-deploy/tikv-20161&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:6000   tiproxy     192.168.8.161  6000/3080                        linux/x86_64  Up       -                           /tidb-deploy/tiproxy-6000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Total nodes: 8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;可以看到，已经增加了 TiProxy 服务，监听 6000/3080 端口。&lt;/p&gt;
+&lt;h3 id=&#34;3-通过-TiProxy-连接-TiDB-数据库&#34;&gt;3. 通过 TiProxy 连接 TiDB 数据库&lt;/h3&gt;
+&lt;p&gt;通过 6000 端口连接 TiDB 数据库。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 12:54:46]$ mysql -h 192.168.8.161 -P 6000 -u root -p&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enter password: &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Welcome to the MySQL monitor.  Commands end with ; or \g.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Your MySQL connection id is 0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Server version: 8.0.11-TiDB-v8.0.0 TiDB Server (Apache License 2.0) Community Edition, MySQL 8.0 compatible&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copyright (c) 2000, 2024, Oracle and/or its affiliates.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Oracle is a registered trademark of Oracle Corporation and/or its&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;affiliates. Other names may be trademarks of their respective&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;owners.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;#x27;help;&amp;#x27; or &amp;#x27;\h&amp;#x27; for help. Type &amp;#x27;\c&amp;#x27; to clear the current input statement.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; select version();&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| version()          |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| 8.0.11-TiDB-v8.0.0 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+--------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.01 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; \q&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Bye&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;测试-TiProxy-在集群缩容时对客户端的影响&#34;&gt;测试 TiProxy 在集群缩容时对客户端的影响&lt;/h2&gt;
+&lt;p&gt;一般情况下，在使用 TiProxy 时，对 TiDB Server 进行缩容操作，TiProxy 可以将客户端平滑迁移到其他 TiDB Server。&lt;/p&gt;
+&lt;p&gt;下面通过一个小案例进行演示。&lt;/p&gt;
+&lt;p&gt;当前 TiDB 集群有 1 个 TiProxy 和 2 个 TiDB Server。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 22:54:11]$ tiup cluster display mytidb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ID                   Role        Host           Ports                            OS/Arch       Status   Data Dir                    Deploy Dir&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--                   ----        ----           -----                            -------       ------   --------                    ----------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:4000   tidb        192.168.8.161  4000/10080                       linux/x86_64  Up       -                           /tidb-deploy/tidb-4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:4001   tidb        192.168.8.161  4001/10081                       linux/x86_64  Up       -                           /tidb-deploy/tidb-4001&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;192.168.8.161:6000   tiproxy     192.168.8.161  6000/3080                        linux/x86_64  Up       -                           /tidb-deploy/tiproxy-6000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Total nodes: 9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;编写一个 Go 语言的小程序，连接到 TiProxy，并查询当前时间和端口号。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~/mygo 23:37:31]$ ./mygo &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:37:35.008276 3290458852 4000&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;对 TiDB Server 进行缩容，观察连接状态。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 23:54:02]$ date; tiup cluster scale-in mytidb -N 192.168.8.161:4001&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Tue Apr  9 23:54:28 CST 2024&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;This operation will delete the 192.168.8.161:4001 nodes in `mytidb` and all their data.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Do you want to continue? [y/N]:(default=N) y&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Scale-in nodes...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Scaled cluster `mytidb` in successfully&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan ~ 23:54:42]$ &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;小程序打印的连接信息如下，在 &lt;code&gt;31.702979&lt;/code&gt; 之后，4001 端口就无法连接了。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:31.628317 3290470616 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:31.644864 190842836 4001&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:31.658394 3290470618 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:31.671760 190842838 4001&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:31.685303 3290470620 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:31.702979 190842840 4001&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:31.715786 3290470622 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:31.940418 3290470624 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:32.155463 3290470626 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:32.368296 3290470628 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:32.579094 3290470630 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:32.792323 3290470634 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:32.803430 3290470636 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:32.814547 3290470638 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:32.824227 3290470640 4000&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2024-04-09 23:54:32.833193 3290470642 4000&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;4001 端口的 tidb server 日志如下。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[2024/04/09 23:54:31.725 +08:00] [INFO] [signal_posix.go:54] [&amp;quot;got signal to exit&amp;quot;] [signal=terminated]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2024/04/09 23:54:31.725 +08:00] [INFO] [server.go:584] [&amp;quot;setting tidb-server to report unhealthy (shutting-down)&amp;quot;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2024/04/09 23:54:31.725 +08:00] [ERROR] [http_status.go:530] [&amp;quot;start status/rpc server error&amp;quot;] [error=&amp;quot;accept tcp [::]:10081: use of closed network connection&amp;quot;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2024/04/09 23:54:31.725 +08:00] [ERROR] [http_status.go:520] [&amp;quot;grpc server error&amp;quot;] [error=&amp;quot;mux: server closed&amp;quot;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2024/04/09 23:54:31.725 +08:00] [ERROR] [http_status.go:525] [&amp;quot;http server error&amp;quot;] [error=&amp;quot;http: Server closed&amp;quot;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2024/04/09 23:54:31.733 +08:00] [INFO] [server.go:990] [&amp;quot;start drain clients&amp;quot;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2024/04/09 23:54:31.733 +08:00] [INFO] [server.go:1019] [&amp;quot;all sessions quit in drain wait time&amp;quot;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[2024/04/09 23:54:31.733 +08:00] [INFO] [server.go:971] [&amp;quot;kill all connections.&amp;quot;] [category=server]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;小测验到此先告一段落。&lt;/p&gt;
+&lt;p&gt;通过上面的小案例，可以看到使用 TiProxy 的集群在缩容时，流量会切到其他 Up 的节点，过程还是平滑的。&lt;/p&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;无论国产非国产，数据库不仅仅是一个 OS 里的 Service，更需要好的 Support Service。&lt;/p&gt;
+&lt;p&gt;好的生态工具，可以提升开发者和 DBA 的生产效率，并降低运营成本。&lt;/p&gt;
+&lt;p&gt;总之，更容易上手的数据库才是好产品。&lt;/p&gt;
+&lt;h2 id=&#34;欢迎讨论&#34;&gt;欢迎讨论&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://asktug.com/t/topic/1024233&#34;&gt;TiProxy 问题解答 &amp;amp; 未来规划&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;– END –&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;如果这篇文章为你带来了灵感或启发，就请帮忙点『赞』or『在看』or『转发』吧，感谢！(๑˃̵ᴗ˂̵)&lt;/p&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/tidb/" class="category-badge">
+                                    TiDB
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">震惊！数据库小白装国产数据库只需10分钟！</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2024-04-09
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                3k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                15 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <p>网传，<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/tyPN7VGNMLdwLeM5TJD2Rg">ACE 装国产数据库花了两周</a> ，吃瓜群众纷纷表示惊讶，</p>
+<p>都 4202 年了，DBaaS 概念已经不热了，安装数据库怎么还跟 10 年前一样需要持久战~</p>
+<p>…</p>
+<h2 id="使用-TiUP-部署-TiDB-v8-0-0-集群">使用 TiUP 部署 TiDB v8.0.0 集群</h2>
+<p>回看两年前发的文章， <a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/k742U5qbdBL_EJ51GcHgBg">TiUP：TiDBAer 必备利器</a></p>
+<p>现在更加肯定 TiUP 真乃神器也，使用 TiUP 在本地模拟部署 TiDB v8.0.0 集群仅需 10 分钟。</p>
+<p>具体演示如下：</p>
+<h3 id="1-下载并安装-TiUP">1. 下载并安装 TiUP</h3>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~ 11:57:40]$ curl --proto &#x27;=https&#x27; --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh</span><br><span class="line">  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current</span><br><span class="line">                                 Dload  Upload   Total   Spent    Left  Speed</span><br><span class="line">100 5095k  100 5095k    0     0  5065k      0  0:00:01  0:00:01 --:--:-- 5069k</span><br><span class="line">Successfully set mirror to https://tiup-mirrors.pingcap.com</span><br><span class="line">Detected shell: bash</span><br><span class="line">Shell profile:  /root/.bash_profile</span><br><span class="line">Installed path: /root/.tiup/bin/tiup</span><br><span class="line">===============================================</span><br><span class="line">Have a try:     tiup playground</span><br><span class="line">===============================================</span><br><span class="line">[root@shawnyan ~ 11:57:46]$ source /root/.bash_profile</span><br></pre></td></tr></table></figure>
+<h3 id="2-调大-sshd-服务的连接数限制">2. 调大 sshd 服务的连接数限制</h3>
+<p>由于是本地安装集群，会并发连接，调整最大会话数量到 20。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">vi /etc/ssh/sshd_config</span><br><span class="line">MaxSessions = 20</span><br></pre></td></tr></table></figure>
+<p>并重启 sshd 服务。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">systemctl restart sshd</span><br></pre></td></tr></table></figure>
+<h3 id="3-创建集群拓扑文件">3. 创建集群拓扑文件</h3>
+<p>可用 <code>tiup cluster template</code> 命令生成拓扑模板。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~ 11:59:00]$ vi topo.yaml</span><br></pre></td></tr></table></figure>
+<h3 id="4-部署集群">4. 部署集群</h3>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~ 12:00:40]$ tiup cluster deploy mytidb v8.0.0 ./topo.yaml --user root -p</span><br><span class="line">Input SSH password: </span><br><span class="line"></span><br><span class="line">+ Detect CPU Arch Name</span><br><span class="line">+ Detect CPU OS Name</span><br><span class="line">Please confirm your topology:</span><br><span class="line">Cluster type:    tidb</span><br><span class="line">Cluster name:    mytidb</span><br><span class="line">Cluster version: v8.0.0</span><br><span class="line">Role        Host           Ports                            OS/Arch       Directories</span><br><span class="line">----        ----           -----                            -------       -----------</span><br><span class="line">pd          192.168.8.161  2379/2380                        linux/x86_64  /tidb-deploy/pd-2379,/tidb-data/pd-2379</span><br><span class="line">tikv        192.168.8.161  20160/20180                      linux/x86_64  /tidb-deploy/tikv-20160,/tidb-data/tikv-20160</span><br><span class="line">tikv        192.168.8.161  20161/20181                      linux/x86_64  /tidb-deploy/tikv-20161,/tidb-data/tikv-20161</span><br><span class="line">tidb        192.168.8.161  4000/10080                       linux/x86_64  /tidb-deploy/tidb-4000</span><br><span class="line">tiflash     192.168.8.161  9000/8123/3930/20170/20292/8234  linux/x86_64  /tidb-deploy/tiflash-9000,/tidb-data/tiflash-9000</span><br><span class="line">prometheus  192.168.8.161  9090/12020                       linux/x86_64  /tidb-deploy/prometheus-9090,/tidb-data/prometheus-9090</span><br><span class="line">grafana     192.168.8.161  3000                             linux/x86_64  /tidb-deploy/grafana-3000</span><br><span class="line">Attention:</span><br><span class="line">    1. If the topology is not what you expected, check your yaml file.</span><br><span class="line">    2. Please confirm there is no port/directory conflicts in same host.</span><br><span class="line">Do you want to continue? [y/N]: (default=N) y</span><br><span class="line">+ Generate SSH keys ... Done</span><br><span class="line">+ Download TiDB components</span><br><span class="line">+ Initialize target host environments</span><br><span class="line">+ Deploy TiDB instance</span><br><span class="line">+ Copy certificate to remote host</span><br><span class="line">+ Init instance configs</span><br><span class="line">+ Init monitor configs</span><br><span class="line">Enabling component pd</span><br><span class="line">Enabling component tikv</span><br><span class="line">Enabling component tidb</span><br><span class="line">Enabling component tiflash</span><br><span class="line">Enabling component prometheus</span><br><span class="line">Enabling component grafana</span><br><span class="line">Enabling component node_exporter</span><br><span class="line">Enabling component blackbox_exporter</span><br><span class="line">Cluster `mytidb` deployed successfully, you can start it with command: `tiup cluster start mytidb --init`</span><br></pre></td></tr></table></figure>
+<p>集群安装完成，接下来启动集群。</p>
+<h3 id="5-启动集群">5. 启动集群</h3>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~ 12:04:17]$ tiup cluster start mytidb --init</span><br><span class="line">Starting cluster mytidb...</span><br><span class="line">+ [ Serial ] - SSHKeySet: privateKey=/root/.tiup/storage/cluster/clusters/mytidb/ssh/id_rsa, publicKey=/root/.tiup/storage/cluster/clusters/mytidb/ssh/id_rsa.pub</span><br><span class="line">+ [Parallel] - UserSSH: user=tidb, host=192.168.8.161</span><br><span class="line">...</span><br><span class="line">+ [ Serial ] - StartCluster</span><br><span class="line">Starting component pd</span><br><span class="line">Starting component tikv</span><br><span class="line">Starting component tidb</span><br><span class="line">Starting component tiflash</span><br><span class="line">Starting component prometheus</span><br><span class="line">Starting component grafana</span><br><span class="line">Starting component node_exporter</span><br><span class="line">Starting component blackbox_exporter</span><br><span class="line">+ [ Serial ] - UpdateTopology: cluster=mytidb</span><br><span class="line">Started cluster `mytidb` successfully</span><br><span class="line">The root password of TiDB database has been changed.</span><br><span class="line">The new password is: &#x27;2mKNM_976^-+1h8BEL&#x27;.</span><br><span class="line">Copy and record it to somewhere safe, it is only displayed once, and will not be stored.</span><br><span class="line">The generated password can NOT be get and shown again.</span><br></pre></td></tr></table></figure>
+<p>此时，TiDB 集群已启动成功，并且自动创建了 root 账号密码。</p>
+<h3 id="6-查看-TiDB-集群状态">6. 查看 TiDB 集群状态</h3>
+<p>连接 TiDB，查看版本号。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~ 12:05:20]$ mysql -h 192.168.8.161 -P 4000 -u root -p</span><br><span class="line">Enter password: </span><br><span class="line">Welcome to the MySQL monitor.  Commands end with ; or \g.</span><br><span class="line">Your MySQL connection id is 3290431496</span><br><span class="line">Server version: 8.0.11-TiDB-v8.0.0 TiDB Server (Apache License 2.0) Community Edition, MySQL 8.0 compatible</span><br><span class="line"></span><br><span class="line">Copyright (c) 2000, 2024, Oracle and/or its affiliates.</span><br><span class="line"></span><br><span class="line">Oracle is a registered trademark of Oracle Corporation and/or its</span><br><span class="line">affiliates. Other names may be trademarks of their respective</span><br><span class="line">owners.</span><br><span class="line"></span><br><span class="line">Type &#x27;help;&#x27; or &#x27;\h&#x27; for help. Type &#x27;\c&#x27; to clear the current input statement.</span><br><span class="line"></span><br><span class="line">mysql&gt; select tidb_version()\G</span><br><span class="line">*************************** 1. row ***************************</span><br><span class="line">tidb_version(): Release Version: v8.0.0</span><br><span class="line">Edition: Community</span><br><span class="line">Git Commit Hash: 8ba1fa452b1ccdbfb85879ea94b9254aabba2916</span><br><span class="line">Git Branch: HEAD</span><br><span class="line">UTC Build Time: 2024-03-28 14:22:15</span><br><span class="line">GoVersion: go1.21.4</span><br><span class="line">Race Enabled: false</span><br><span class="line">Check Table Before Drop: false</span><br><span class="line">Store: tikv</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; \q</span><br><span class="line">Bye</span><br></pre></td></tr></table></figure>
+<p>查看 TiDB 集群列表。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~ 12:05:46]$ tiup cluster list</span><br><span class="line">Name    User  Version  Path                                         PrivateKey</span><br><span class="line">----    ----  -------  ----                                         ----------</span><br><span class="line">mytidb  tidb  v8.0.0   /root/.tiup/storage/cluster/clusters/mytidb  /root/.tiup/storage/cluster/clusters/mytidb/ssh/id_rsa</span><br></pre></td></tr></table></figure>
+<p>查看集群拓扑结构和状态。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~ 12:05:54]$ tiup cluster display mytidb</span><br><span class="line">Cluster type:       tidb</span><br><span class="line">Cluster name:       mytidb</span><br><span class="line">Cluster version:    v8.0.0</span><br><span class="line">Deploy user:        tidb</span><br><span class="line">SSH type:           builtin</span><br><span class="line">Dashboard URL:      http://192.168.8.161:2379/dashboard</span><br><span class="line">Grafana URL:        http://192.168.8.161:3000</span><br><span class="line">ID                   Role        Host           Ports                            OS/Arch       Status   Data Dir                    Deploy Dir</span><br><span class="line">--                   ----        ----           -----                            -------       ------   --------                    ----------</span><br><span class="line">192.168.8.161:3000   grafana     192.168.8.161  3000                             linux/x86_64  Up       -                           /tidb-deploy/grafana-3000</span><br><span class="line">192.168.8.161:2379   pd          192.168.8.161  2379/2380                        linux/x86_64  Up|L|UI  /tidb-data/pd-2379          /tidb-deploy/pd-2379</span><br><span class="line">192.168.8.161:9090   prometheus  192.168.8.161  9090/12020                       linux/x86_64  Up       /tidb-data/prometheus-9090  /tidb-deploy/prometheus-9090</span><br><span class="line">192.168.8.161:4000   tidb        192.168.8.161  4000/10080                       linux/x86_64  Up       -                           /tidb-deploy/tidb-4000</span><br><span class="line">192.168.8.161:9000   tiflash     192.168.8.161  9000/8123/3930/20170/20292/8234  linux/x86_64  Up       /tidb-data/tiflash-9000     /tidb-deploy/tiflash-9000</span><br><span class="line">192.168.8.161:20160  tikv        192.168.8.161  20160/20180                      linux/x86_64  Up       /tidb-data/tikv-20160       /tidb-deploy/tikv-20160</span><br><span class="line">192.168.8.161:20161  tikv        192.168.8.161  20161/20181                      linux/x86_64  Up       /tidb-data/tikv-20161       /tidb-deploy/tikv-20161</span><br><span class="line">Total nodes: 7</span><br><span class="line">[root@shawnyan ~ 12:06:04]$ </span><br></pre></td></tr></table></figure>
+<p>到此，仅用了不到 10 分钟，就部署完成了一套 TiDB 集群。</p>
+<p>遥想当年写 Shell 脚本和 Ansible 脚本的岁月，有 TiUP 助力简直不要 Ti 幸福。</p>
+<h2 id="恭喜-TiProxy-组件-GA！">恭喜 TiProxy 组件 GA！</h2>
+<p>之前发文 《 <a target="_blank" rel="noopener" href="https://tidb.net/blog/3d57f54d">TiDB 7.x 源码编译之 TiProxy 篇，及尝鲜体验</a> 》 介绍过 TiProxy，接下来看看有什么新变化。</p>
+<blockquote>
+<p>TiProxy 是 TiDB 的官方代理组件，位于客户端和 TiDB server 之间，为 TiDB 提供负载均衡、连接保持功能，让 TiDB 集群的负载更加均衡，并在维护操作期间不影响用户对数据库的连接访问。</p>
+<p>在 v8.0.0 中，TiProxy 成为正式功能，完善了签名证书自动生成、监控等功能。</p>
+</blockquote>
+<p>TiProxy 的应用场景如下：</p>
+<ul>
+<li>在 TiDB 集群进行滚动重启、滚动升级、缩容等维护操作时，TiDB server 会发生变动，导致客户端与发生变化的 TiDB server 的连接中断。通过使用 TiProxy，可以在这些维护操作过程中平滑地将连接迁移至其他 TiDB server，从而让客户端不受影响。</li>
+<li>所有客户端对 TiDB server 的连接都无法动态迁移至其他 TiDB server。当多个 TiDB server 的负载不均衡时，可能出现整体集群资源充足，但某些 TiDB server 资源耗尽导致延迟大幅度增加的情况。为解决此问题，TiProxy 提供连接动态迁移功能，在客户端无感的前提下，将连接从一个 TiDB server 迁移至其他 TiDB server，从而实现 TiDB 集群的负载均衡。</li>
+</ul>
+<p>延续上文的 TiDB v8.0.0 集群话题，接下来演示如何增加 TiProxy 服务。</p>
+<h3 id="1-创建-TiProxy-拓扑文件">1. 创建 TiProxy 拓扑文件</h3>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~ 12:48:48]$ vi tiproxy.toml</span><br></pre></td></tr></table></figure>
+<p>文件中指定 IP 地址。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">tiproxy_servers:</span><br><span class="line">  - host: 192.168.8.161</span><br></pre></td></tr></table></figure>
+<h3 id="2-使用-TiUP-命令部署-TiProxy-服务">2. 使用 TiUP 命令部署 TiProxy 服务</h3>
+<p>使用 tiup cluster scale-out 命令对集群进行扩容。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~ 12:49:12]$ tiup cluster scale-out mytidb ./tiproxy.toml --user root -p</span><br><span class="line">Input SSH password: </span><br><span class="line">...</span><br><span class="line">Please confirm your topology:</span><br><span class="line">Cluster type:    tidb</span><br><span class="line">Cluster name:    mytidb</span><br><span class="line">Cluster version: v8.0.0</span><br><span class="line">Role     Host           Ports      OS/Arch       Directories</span><br><span class="line">----     ----           -----      -------       -----------</span><br><span class="line">tiproxy  192.168.8.161  6000/3080  linux/x86_64  /tidb-deploy/tiproxy-6000</span><br><span class="line">Attention:</span><br><span class="line">    1. If the topology is not what you expected, check your yaml file.</span><br><span class="line">    2. Please confirm there is no port/directory conflicts in same host.</span><br><span class="line">Do you want to continue? [y/N]: (default=N) y</span><br><span class="line">...</span><br><span class="line">+ Download TiDB components</span><br><span class="line">  - Download tiproxy: (linux/amd64) ... Done</span><br><span class="line">+ Initialize target host environments</span><br><span class="line">+ Deploy TiDB instance</span><br><span class="line">  - Deploy instance tiproxy -&gt; 192.168.8.161:6000 ... Done</span><br><span class="line">+ Copy certificate to remote host</span><br><span class="line">+ Generate scale-out config</span><br><span class="line">  - Generate scale-out config tiproxy -&gt; 192.168.8.161:6000 ... Done</span><br><span class="line">+ Init monitor config</span><br><span class="line">...</span><br><span class="line">+ [ Serial ] - Save meta</span><br><span class="line">+ [ Serial ] - Start new instances</span><br><span class="line">Starting component tiproxy</span><br><span class="line">Starting component node_exporter</span><br><span class="line">Starting component blackbox_exporter</span><br><span class="line">+ Refresh components conifgs</span><br><span class="line">  - Generate config tiproxy -&gt; 192.168.8.161:6000 ... Done</span><br><span class="line">...</span><br><span class="line">+ Reload prometheus and grafana</span><br><span class="line">  - Reload prometheus -&gt; 192.168.8.161:9090 ... Done</span><br><span class="line">  - Reload grafana -&gt; 192.168.8.161:3000 ... Done</span><br><span class="line">+ [ Serial ] - UpdateTopology: cluster=mytidb</span><br><span class="line">Scaled cluster `mytidb` out successfully</span><br></pre></td></tr></table></figure>
+<p>查看集群状态。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~ 12:49:35]$ tiup cluster list</span><br><span class="line">Name    User  Version  Path                                         PrivateKey</span><br><span class="line">----    ----  -------  ----                                         ----------</span><br><span class="line">mytidb  tidb  v8.0.0   /root/.tiup/storage/cluster/clusters/mytidb  /root/.tiup/storage/cluster/clusters/mytidb/ssh/id_rsa</span><br><span class="line">[root@shawnyan ~ 12:49:49]$ tiup cluster display mytidb</span><br><span class="line">Cluster type:       tidb</span><br><span class="line">Cluster name:       mytidb</span><br><span class="line">Cluster version:    v8.0.0</span><br><span class="line">Deploy user:        tidb</span><br><span class="line">SSH type:           builtin</span><br><span class="line">Dashboard URL:      http://192.168.8.161:2379/dashboard</span><br><span class="line">Grafana URL:        http://192.168.8.161:3000</span><br><span class="line">ID                   Role        Host           Ports                            OS/Arch       Status   Data Dir                    Deploy Dir</span><br><span class="line">--                   ----        ----           -----                            -------       ------   --------                    ----------</span><br><span class="line">192.168.8.161:3000   grafana     192.168.8.161  3000                             linux/x86_64  Up       -                           /tidb-deploy/grafana-3000</span><br><span class="line">192.168.8.161:2379   pd          192.168.8.161  2379/2380                        linux/x86_64  Up|L|UI  /tidb-data/pd-2379          /tidb-deploy/pd-2379</span><br><span class="line">192.168.8.161:9090   prometheus  192.168.8.161  9090/12020                       linux/x86_64  Up       /tidb-data/prometheus-9090  /tidb-deploy/prometheus-9090</span><br><span class="line">192.168.8.161:4000   tidb        192.168.8.161  4000/10080                       linux/x86_64  Up       -                           /tidb-deploy/tidb-4000</span><br><span class="line">192.168.8.161:9000   tiflash     192.168.8.161  9000/8123/3930/20170/20292/8234  linux/x86_64  Up       /tidb-data/tiflash-9000     /tidb-deploy/tiflash-9000</span><br><span class="line">192.168.8.161:20160  tikv        192.168.8.161  20160/20180                      linux/x86_64  Up       /tidb-data/tikv-20160       /tidb-deploy/tikv-20160</span><br><span class="line">192.168.8.161:20161  tikv        192.168.8.161  20161/20181                      linux/x86_64  Up       /tidb-data/tikv-20161       /tidb-deploy/tikv-20161</span><br><span class="line">192.168.8.161:6000   tiproxy     192.168.8.161  6000/3080                        linux/x86_64  Up       -                           /tidb-deploy/tiproxy-6000</span><br><span class="line">Total nodes: 8</span><br></pre></td></tr></table></figure>
+<p>可以看到，已经增加了 TiProxy 服务，监听 6000/3080 端口。</p>
+<h3 id="3-通过-TiProxy-连接-TiDB-数据库">3. 通过 TiProxy 连接 TiDB 数据库</h3>
+<p>通过 6000 端口连接 TiDB 数据库。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~ 12:54:46]$ mysql -h 192.168.8.161 -P 6000 -u root -p</span><br><span class="line">Enter password: </span><br><span class="line">Welcome to the MySQL monitor.  Commands end with ; or \g.</span><br><span class="line">Your MySQL connection id is 0</span><br><span class="line">Server version: 8.0.11-TiDB-v8.0.0 TiDB Server (Apache License 2.0) Community Edition, MySQL 8.0 compatible</span><br><span class="line"></span><br><span class="line">Copyright (c) 2000, 2024, Oracle and/or its affiliates.</span><br><span class="line"></span><br><span class="line">Oracle is a registered trademark of Oracle Corporation and/or its</span><br><span class="line">affiliates. Other names may be trademarks of their respective</span><br><span class="line">owners.</span><br><span class="line"></span><br><span class="line">Type &#x27;help;&#x27; or &#x27;\h&#x27; for help. Type &#x27;\c&#x27; to clear the current input statement.</span><br><span class="line"></span><br><span class="line">mysql&gt; select version();</span><br><span class="line">+--------------------+</span><br><span class="line">| version()          |</span><br><span class="line">+--------------------+</span><br><span class="line">| 8.0.11-TiDB-v8.0.0 |</span><br><span class="line">+--------------------+</span><br><span class="line">1 row in set (0.01 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; \q</span><br><span class="line">Bye</span><br></pre></td></tr></table></figure>
+<h2 id="测试-TiProxy-在集群缩容时对客户端的影响">测试 TiProxy 在集群缩容时对客户端的影响</h2>
+<p>一般情况下，在使用 TiProxy 时，对 TiDB Server 进行缩容操作，TiProxy 可以将客户端平滑迁移到其他 TiDB Server。</p>
+<p>下面通过一个小案例进行演示。</p>
+<p>当前 TiDB 集群有 1 个 TiProxy 和 2 个 TiDB Server。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~ 22:54:11]$ tiup cluster display mytidb</span><br><span class="line">...</span><br><span class="line">ID                   Role        Host           Ports                            OS/Arch       Status   Data Dir                    Deploy Dir</span><br><span class="line">--                   ----        ----           -----                            -------       ------   --------                    ----------</span><br><span class="line">192.168.8.161:4000   tidb        192.168.8.161  4000/10080                       linux/x86_64  Up       -                           /tidb-deploy/tidb-4000</span><br><span class="line">192.168.8.161:4001   tidb        192.168.8.161  4001/10081                       linux/x86_64  Up       -                           /tidb-deploy/tidb-4001</span><br><span class="line">192.168.8.161:6000   tiproxy     192.168.8.161  6000/3080                        linux/x86_64  Up       -                           /tidb-deploy/tiproxy-6000</span><br><span class="line">...</span><br><span class="line">Total nodes: 9</span><br></pre></td></tr></table></figure>
+<p>编写一个 Go 语言的小程序，连接到 TiProxy，并查询当前时间和端口号。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~/mygo 23:37:31]$ ./mygo </span><br><span class="line">2024-04-09 23:37:35.008276 3290458852 4000</span><br></pre></td></tr></table></figure>
+<p>对 TiDB Server 进行缩容，观察连接状态。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan ~ 23:54:02]$ date; tiup cluster scale-in mytidb -N 192.168.8.161:4001</span><br><span class="line">Tue Apr  9 23:54:28 CST 2024</span><br><span class="line">This operation will delete the 192.168.8.161:4001 nodes in `mytidb` and all their data.</span><br><span class="line">Do you want to continue? [y/N]:(default=N) y</span><br><span class="line">Scale-in nodes...</span><br><span class="line">...</span><br><span class="line">Scaled cluster `mytidb` in successfully</span><br><span class="line">[root@shawnyan ~ 23:54:42]$ </span><br></pre></td></tr></table></figure>
+<p>小程序打印的连接信息如下，在 <code>31.702979</code> 之后，4001 端口就无法连接了。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">2024-04-09 23:54:31.628317 3290470616 4000</span><br><span class="line">2024-04-09 23:54:31.644864 190842836 4001</span><br><span class="line">2024-04-09 23:54:31.658394 3290470618 4000</span><br><span class="line">2024-04-09 23:54:31.671760 190842838 4001</span><br><span class="line">2024-04-09 23:54:31.685303 3290470620 4000</span><br><span class="line">2024-04-09 23:54:31.702979 190842840 4001</span><br><span class="line">2024-04-09 23:54:31.715786 3290470622 4000</span><br><span class="line">2024-04-09 23:54:31.940418 3290470624 4000</span><br><span class="line">2024-04-09 23:54:32.155463 3290470626 4000</span><br><span class="line">2024-04-09 23:54:32.368296 3290470628 4000</span><br><span class="line">2024-04-09 23:54:32.579094 3290470630 4000</span><br><span class="line">2024-04-09 23:54:32.792323 3290470634 4000</span><br><span class="line">2024-04-09 23:54:32.803430 3290470636 4000</span><br><span class="line">2024-04-09 23:54:32.814547 3290470638 4000</span><br><span class="line">2024-04-09 23:54:32.824227 3290470640 4000</span><br><span class="line">2024-04-09 23:54:32.833193 3290470642 4000</span><br></pre></td></tr></table></figure>
+<p>4001 端口的 tidb server 日志如下。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">[2024/04/09 23:54:31.725 +08:00] [INFO] [signal_posix.go:54] [&quot;got signal to exit&quot;] [signal=terminated]</span><br><span class="line">[2024/04/09 23:54:31.725 +08:00] [INFO] [server.go:584] [&quot;setting tidb-server to report unhealthy (shutting-down)&quot;]</span><br><span class="line">[2024/04/09 23:54:31.725 +08:00] [ERROR] [http_status.go:530] [&quot;start status/rpc server error&quot;] [error=&quot;accept tcp [::]:10081: use of closed network connection&quot;]</span><br><span class="line">[2024/04/09 23:54:31.725 +08:00] [ERROR] [http_status.go:520] [&quot;grpc server error&quot;] [error=&quot;mux: server closed&quot;]</span><br><span class="line">[2024/04/09 23:54:31.725 +08:00] [ERROR] [http_status.go:525] [&quot;http server error&quot;] [error=&quot;http: Server closed&quot;]</span><br><span class="line">[2024/04/09 23:54:31.733 +08:00] [INFO] [server.go:990] [&quot;start drain clients&quot;]</span><br><span class="line">[2024/04/09 23:54:31.733 +08:00] [INFO] [server.go:1019] [&quot;all sessions quit in drain wait time&quot;]</span><br><span class="line">[2024/04/09 23:54:31.733 +08:00] [INFO] [server.go:971] [&quot;kill all connections.&quot;] [category=server]</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+<p>小测验到此先告一段落。</p>
+<p>通过上面的小案例，可以看到使用 TiProxy 的集群在缩容时，流量会切到其他 Up 的节点，过程还是平滑的。</p>
+<h2 id="总结">总结</h2>
+<p>无论国产非国产，数据库不仅仅是一个 OS 里的 Service，更需要好的 Support Service。</p>
+<p>好的生态工具，可以提升开发者和 DBA 的生产效率，并降低运营成本。</p>
+<p>总之，更容易上手的数据库才是好产品。</p>
+<h2 id="欢迎讨论">欢迎讨论</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://asktug.com/t/topic/1024233">TiProxy 问题解答 &amp; 未来规划</a></li>
+</ul>
+<p>– END –</p>
+<img alt="logo.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg" referrerpolicy="no-referrer"/>
+<p>如果这篇文章为你带来了灵感或启发，就请帮忙点『赞』or『在看』or『转发』吧，感谢！(๑˃̵ᴗ˂̵)</p>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/tidb/" class="tag-link">
+                                tidb
+                            </a>
+                        
+                            <a href="/tags/tiproxy/" class="tag-link">
+                                tiproxy
+                            </a>
+                        
+                            <a href="/tags/tidb-8-x/" class="tag-link">
+                                tidb 8.x
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2024/tidb/tidb-8-tiproxy/index.html">https://shawnyan.cn/2024/tidb/tidb-8-tiproxy/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2024/linux/oracle-linux-9-install-with-vbox-7/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">如何使用 Oracle VirtualBox 7.0 安装 Oracle Linux 9.3</span>
+        </a>
+    
+
+    
+        <a href="/2024/oracle/oracle-23ai-go-ora-demo/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">使用 Go-Ora 连接到 Oracle 23ai 数据库</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8-TiUP-%E9%83%A8%E7%BD%B2-TiDB-v8-0-0-%E9%9B%86%E7%BE%A4"><span class="toc-text">使用 TiUP 部署 TiDB v8.0.0 集群</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E4%B8%8B%E8%BD%BD%E5%B9%B6%E5%AE%89%E8%A3%85-TiUP"><span class="toc-text">1. 下载并安装 TiUP</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E8%B0%83%E5%A4%A7-sshd-%E6%9C%8D%E5%8A%A1%E7%9A%84%E8%BF%9E%E6%8E%A5%E6%95%B0%E9%99%90%E5%88%B6"><span class="toc-text">2. 调大 sshd 服务的连接数限制</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E5%88%9B%E5%BB%BA%E9%9B%86%E7%BE%A4%E6%8B%93%E6%89%91%E6%96%87%E4%BB%B6"><span class="toc-text">3. 创建集群拓扑文件</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-%E9%83%A8%E7%BD%B2%E9%9B%86%E7%BE%A4"><span class="toc-text">4. 部署集群</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-%E5%90%AF%E5%8A%A8%E9%9B%86%E7%BE%A4"><span class="toc-text">5. 启动集群</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-%E6%9F%A5%E7%9C%8B-TiDB-%E9%9B%86%E7%BE%A4%E7%8A%B6%E6%80%81"><span class="toc-text">6. 查看 TiDB 集群状态</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%81%AD%E5%96%9C-TiProxy-%E7%BB%84%E4%BB%B6-GA%EF%BC%81"><span class="toc-text">恭喜 TiProxy 组件 GA！</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E5%88%9B%E5%BB%BA-TiProxy-%E6%8B%93%E6%89%91%E6%96%87%E4%BB%B6"><span class="toc-text">1. 创建 TiProxy 拓扑文件</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E4%BD%BF%E7%94%A8-TiUP-%E5%91%BD%E4%BB%A4%E9%83%A8%E7%BD%B2-TiProxy-%E6%9C%8D%E5%8A%A1"><span class="toc-text">2. 使用 TiUP 命令部署 TiProxy 服务</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E9%80%9A%E8%BF%87-TiProxy-%E8%BF%9E%E6%8E%A5-TiDB-%E6%95%B0%E6%8D%AE%E5%BA%93"><span class="toc-text">3. 通过 TiProxy 连接 TiDB 数据库</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95-TiProxy-%E5%9C%A8%E9%9B%86%E7%BE%A4%E7%BC%A9%E5%AE%B9%E6%97%B6%E5%AF%B9%E5%AE%A2%E6%88%B7%E7%AB%AF%E7%9A%84%E5%BD%B1%E5%93%8D"><span class="toc-text">测试 TiProxy 在集群缩容时对客户端的影响</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%AC%A2%E8%BF%8E%E8%AE%A8%E8%AE%BA"><span class="toc-text">欢迎讨论</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

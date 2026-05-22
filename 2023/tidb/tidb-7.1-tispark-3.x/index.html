@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        TiDB 7.1.0 LTS 特性解读 | 浅析 TiSpark v3.x 新变化 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;img alt=&#34;tidb-7.x-new-feature-banner.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;&lt;a href=&#34;https://tidb.net/book/book-rush&#34;&gt;TiDB 6.x in Action&lt;/a&gt; 已经发布一年了，去年撰写的 &lt;a href=&#34;https://tidb.net/book/book-rush/best-practice/tispark-practice/&#34;&gt;TiSpark 实践&lt;/a&gt; 文章便有一篇收录其中，一年时间过去了，TiSpark 版本也从当时的 v3.0.0 升到了现在的 v3.2.2，本文将综合浅析这些版本带来的诸多变化。&lt;/p&gt;
+&lt;img alt=&#34;02.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/02-1690214631542.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+图 -- TiSpark v3.x New Feature Mind Map
+&lt;h2 id=&#34;发版时间表&#34;&gt;发版时间表&lt;/h2&gt;
+&lt;p&gt;从去年六月至今，TiSpark v3.x 系列已经发布了 11 个版本。目前，最新版本为 TiSpark v3.2.2。从 TiSpark 3.0 开始，全部使用 Scala 2.12 (2.12.10) 版本，不再支持 Scala 2.11。具体各版本的发版时间参见下表。&lt;/p&gt;
+&lt;img alt=&#34;03.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/03-1690214637246.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;TiSpark-新变化&#34;&gt;TiSpark 新变化&lt;/h2&gt;
+&lt;h3 id=&#34;Spark-兼容性&#34;&gt;Spark 兼容性&lt;/h3&gt;
+&lt;p&gt;从 TiSpark 3.1 开始，支持 Spark 3.0 ~ 3.3。不过各个小版本对 Spark 的依赖还是有略微区别，主要在于 Spark 的版本升级和安全威胁 (Vulnerabilities) 解决情况。具体信息参加下表。&lt;/p&gt;
+&lt;img alt=&#34;04.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/04-1690214643114.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;对比最新 Spark 的 Release 和 Vulnerability 信息，笔者推测近期 TiSpark 或将支持 Spark v3.4.1 及 Scala 2.13.x，并升级大版本号到 TiSpark v3.3.x。&lt;/p&gt;
+&lt;img alt=&#34;05.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/05-1690214648656.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;需要注意的是，在开始使用 TiSpark 之前，建议检查各组件的版本匹配情况，例如，目前尚不建议使用更高版本的 Scala 和 Spark，不然或可看到如下报错信息。(&lt;a href=&#34;https://asktug.com/t/topic/1009677&#34;&gt;1009677&lt;/a&gt;)&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;shawnyan@centos7:~/spark-3.3.2-bin-hadoop3-scala2.13/conf$ pyspark&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Python 3.6.8 (default, Nov 16 2020, 16:55:22)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[GCC 4.8.5 20150623 (Red Hat 4.8.5-44)] on linux&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;quot;help&amp;quot;, &amp;quot;copyright&amp;quot;, &amp;quot;credits&amp;quot; or &amp;quot;license&amp;quot; for more information.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Setting default log level to &amp;quot;WARN&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;To adjust logging level use sc.setLogLevel(newLevel). For SparkR, use setLogLevel(newLevel).&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23/07/18 17:18:15 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23/07/18 17:18:16 WARN SparkSession: Cannot use org.apache.spark.sql.TiExtensions to configure session extensions.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;java.lang.NoClassDefFoundError: Could not initialize class com.pingcap.tispark.TiSparkInfo$&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        at org.apache.spark.sql.TiExtensions.apply(TiExtensions.scala:39)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        at org.apache.spark.sql.TiExtensions.apply(TiExtensions.scala:35)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;Jar-包命名&#34;&gt;Jar 包命名&lt;/h3&gt;
+&lt;p&gt;从 TiSpark v3.0.0 (&lt;a href=&#34;https://github.com/pingcap/tispark/pull/2370&#34;&gt;#2370&lt;/a&gt;) 开始，对 TiSpark Jar 包的命名格式做了调整，更加规范，也便于选择。&lt;/p&gt;
+&lt;p&gt;// 题外话，放心地直接选择最新版本的 TiSpark 就好了。&lt;/p&gt;
+&lt;p&gt;变更后的格式为 &lt;code&gt;tispark-assembly-${spark.version.release}_${scala.version.release}&lt;/code&gt;，例如 &lt;code&gt;tispark-assembly-3.3_2.12-3.2.2.jar&lt;/code&gt; 表示 TiSpark v3.2.2 版本，支持 Spark v3.3.x，使用 Scala 2.12.x。&lt;/p&gt;
+&lt;h3 id=&#34;Jar-包大小-tikv-client-java&#34;&gt;Jar 包大小 &amp;amp; tikv-client-java&lt;/h3&gt;
+&lt;p&gt;在查看 TiSpark 的 Release Notes 过程中发现，Assets 里 TiSpark v3.1.3 的 Jar 包大小还是 34 M，但是 v3.2.0 的 Jar 包大小已经变成了 50 M，关于此问题还开贴记录了一下 &lt;a href=&#34;https://asktug.com/t/topic/1008839&#34;&gt;tispark package size 问题&lt;/a&gt; 。&lt;br&gt;
+后来倒推了一下 commit 记录，发现了对应的 PR &lt;a href=&#34;https://github.com/pingcap/tispark/pull/2491&#34;&gt;[GSOC2022]REFACTOR—Normalize pdclient to client-java #2491&lt;/a&gt; 。又仔细盘点 Release Notes 才发现与之对应的记录。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;v3.2.2: uprade client-java version to 3.3.5 to fix fail to query from TiFlash in (#2715) by @ti-chi-bot in #2716&lt;br&gt;
+v3.2.1: update client-java version to 3.3.4 (#2695) by @ti-chi-bot in #2696&lt;br&gt;
+v3.2.0: Normalize the Java client in TiSpark and use the official client-java #2491&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;也就是说，TiSpark 从 v3.2 开始，直接引入了完整的 &lt;a href=&#34;https://github.com/tikv/client-java&#34;&gt;client-java&lt;/a&gt; 作为依赖，而且在 TiSpark v3.2.2 中使用的是最新版本 TiKV client-java &lt;a href=&#34;https://github.com/tikv/client-java/releases/tag/v3.3.5&#34;&gt;v3.3.5&lt;/a&gt;&lt;br&gt;
+关于这项变更，在代码的设计文档里有专门说明：&lt;a href=&#34;https://github.com/pingcap/tispark/blob/master/docs/design/2022-08-11-normalize-client.md&#34;&gt;2022-08-11-normalize-client&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id=&#34;mysql-connector-java&#34;&gt;mysql-connector-java&lt;/h3&gt;
+&lt;p&gt;与 tikv-client-java 的情况相反，由于 mysql-connector-java 所使用的 License (GPLv2) 的特殊性 ，被从 TiSpark 的依赖中移除了，使用时需要自行导入。&lt;br&gt;
+以本文为例，&lt;code&gt;mysql-connector-j.jar&lt;/code&gt; 放在 &lt;code&gt;~/spark-3.3.1-bin-hadoop2/jars&lt;/code&gt; 路径下。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;v3.1.0, v3.0.2&lt;br&gt;
+We will not provide the mysql-connector-java dependency because of the limit of the GPL license #2457, #2460&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;相关内容在官方文档中也有表述：&lt;a href=&#34;https://docs.pingcap.com/zh/tidb/dev/tispark-overview#%E8%8E%B7%E5%8F%96-mysql-connector-j&#34;&gt;获取 mysql-connector-j&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;！Tips:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;在最新版的 TiSpark v3.2.2 中，引用的依赖是 &lt;a href=&#34;https://github.com/pingcap/tispark/blob/v3.2.2/pom.xml#L87C17&#34;&gt;mysql-connector-java 8.0.29&lt;/a&gt; ，而 MySQL Connector/J 最新版为 &lt;a href=&#34;https://dev.mysql.com/downloads/connector/j/&#34;&gt;8.0.33&lt;/a&gt; 。实际测试过程中直接使用 8.0.33 也没有问题。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;MySQL Connector/J 的 Class 名由 &lt;code&gt;com.mysql.jdbc.Driver&lt;/code&gt; 改为 &lt;code&gt;com.mysql.cj.jdbc.Driver&lt;/code&gt;，如果依旧使用旧名称 Connector 会弹出告警信息，不过基本没影响，毕竟这告警已经存在 8 年了。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;Loading class `com.mysql.jdbc.Driver&amp;#x27;. This is deprecated. The new driver class is `com.mysql.cj.jdbc.Driver&amp;#x27;. &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The driver is automatically registered via the SPI and manual loading of the driver class is generally unnecessary.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;如果没导入 jdbc 会报错：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta&#34;&gt;&amp;gt;&amp;gt;&amp;gt; &lt;/span&gt;df=spark.read.&lt;span class=&#34;built_in&#34;&gt;format&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;quot;jdbc&amp;quot;&lt;/span&gt;).options(url=url,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta&#34;&gt;... &lt;/span&gt;  driver=&lt;span class=&#34;string&#34;&gt;&amp;quot;com.mysql.jdbc.Driver&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta&#34;&gt;... &lt;/span&gt;  dbtable=&lt;span class=&#34;string&#34;&gt;&amp;quot;t1&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta&#34;&gt;... &lt;/span&gt;  ).load()&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Traceback (most recent call last):&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  File &lt;span class=&#34;string&#34;&gt;&amp;quot;/home/shawnyan/spark-3.3.1-bin-hadoop2/python/lib/py4j-0.10.9.5-src.zip/py4j/protocol.py&amp;quot;&lt;/span&gt;, line &lt;span class=&#34;number&#34;&gt;328&lt;/span&gt;, &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; get_return_value&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;py4j.protocol.Py4JJavaError: An error occurred &lt;span class=&#34;keyword&#34;&gt;while&lt;/span&gt; calling o51.load.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;: java.lang.ClassNotFoundException: com.mysql.jdbc.Driver&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        at java.net.URLClassLoader.findClass(URLClassLoader.java:&lt;span class=&#34;number&#34;&gt;382&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;TiDB-兼容性&#34;&gt;TiDB 兼容性&lt;/h3&gt;
+&lt;p&gt;在 &lt;a href=&#34;https://shawnyan.cn/2022/tidb/tidb-6.0-tispark-guide/#TiSpark-%E7%89%88%E6%9C%AC%E8%AF%B4%E6%98%8E&#34;&gt;TiSpark v2.5 开发入门实践及 TiSpark v3.0.0 新功能解读&lt;/a&gt; 文中已经提及，从 TiSpark 2.4.0 开始支持 TiDB 5.0，目前 TiDB 版本已发布至 7.1 LTS，下图显示了 TiSpark 对 TiDB 版本的支持情况，数据均来自于 TiSpark Release Notes。&lt;/p&gt;
+&lt;img alt=&#34;06.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/06-1690214656896.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;从 TiDB 6.0 开始有一项非常特殊的变化，默认启用新字符校验规则，具体在文章 &lt;a href=&#34;https://shawnyan.cn/2022/tidb/tidb-6.0-new-collation/&#34;&gt;TiDB 6.0 新特性解读 | Collation 规则&lt;/a&gt; 中有表述。&lt;/p&gt;
+&lt;p&gt;TiSpark 从 v3.1 开始兼容新字符校验规则，换言之，如果使用 TiDB 6.0 及以上版本，并启用了新 Collation 规则，建议将 TiSpark 升级到 v3.1 及以上版本。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;TiDB&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; config &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; name &lt;span class=&#34;keyword&#34;&gt;like&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;new_collations_enabled_on_first_bootstrap&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;------+------------------+-------------------------------------------+-------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Type &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Instance         &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Name                                      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Value&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;------+------------------+-------------------------------------------+-------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; tidb &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;192.168&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.1&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.6&lt;/span&gt;:&lt;span class=&#34;number&#34;&gt;4000&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; new_collations_enabled_on_first_bootstrap &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;literal&#34;&gt;true&lt;/span&gt;  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;------+------------------+-------------------------------------------+-------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.023&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;需要注意的是，当前 TiSpark 尚不完全支持所有字符校验规则，只支持如下几种：utf8_bin, utf8_general_ci, utf8_unicode_ci, utf8mb4_bin, utf8mb4_general_ci and utf8mb4_unicode_ci。 此外，也不支持 GBK 字符集。&lt;/p&gt;
+&lt;h3 id=&#34;TiSpark-参数变化&#34;&gt;TiSpark 参数变化&lt;/h3&gt;
+&lt;h4 id=&#34;1️⃣-新字符集&#34;&gt;1️⃣ 新字符集&lt;/h4&gt;
+&lt;p&gt;TiSpark 新字符集相关参数：&lt;code&gt;spark.tispark.new_collation_enable&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;这在上文已经解释了该参数的作用，不再赘述。这里补充一点，该参数不用刻意配置，TiSpark 会检测所连接的 TiDB 版本，如果是 6.0.0 以上，会设定为 true，否则设置为 false。&lt;/p&gt;
+&lt;h4 id=&#34;2️⃣-健康检查&#34;&gt;2️⃣ 健康检查&lt;/h4&gt;
+&lt;p&gt;TiSpark v3.2.2 新增两个健康检查参数，分别用于检查与 TiKV 和 TiFlash 的 grpc 通信超时情况 (&lt;code&gt;spark.tispark.grpc.health_check_timeout_in_ms&lt;/code&gt;, 2000) ，以及控制监测间隔 (&lt;code&gt;spark.tispark.grpc.health_check_period_in_ms&lt;/code&gt;, 3000) 。&lt;/p&gt;
+&lt;h4 id=&#34;3️⃣-加载到缓存&#34;&gt;3️⃣ 加载到缓存&lt;/h4&gt;
+&lt;p&gt;与上面两个参数相关联的需求背景是， TiSpark v3.0.3/v3.1.3/v3.2.1， 新增参数 &lt;code&gt;spark.tispark.load_tables&lt;/code&gt;，该参数用于控制是否加载表到 Catalog 缓存，默认情况是初始化 catalogCache 时，会加载表到缓存。我们常说 10,000 小时定律，没想到 TiSpark 遇到了反向境况，背景是有用户报告 TiSpark 加载超过 10,000 张表会 hang 住。&lt;/p&gt;
+&lt;h4 id=&#34;4️⃣-TiKV-副本角色&#34;&gt;4️⃣ TiKV 副本角色&lt;/h4&gt;
+&lt;p&gt;TiSpark v3.2 中新增参数 &lt;code&gt;spark.tispark.replica_read&lt;/code&gt; 以支持从 TiKV 的不同副本角色（默认为 Leader，还可选择 Follwer, Learner）读取数据，从而降低 Leader Region 的压力，提升数据读取能力。&lt;/p&gt;
+&lt;p&gt;例如，从 Follower 角色的副本读取数据，只需在配置文件 &lt;code&gt;spark-default.conf&lt;/code&gt; 中增加 &lt;code&gt;spark.tispark.replica_read follower&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;与此相关还有三个新增参数可以控制 follower read 功能：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;spark.tispark.replica_read.label&lt;/code&gt;：只查询 TiKV 上匹配的标签。&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;spark.tispark.replica_read.address_whitelist&lt;/code&gt;：只从给定的 TiKV IP 地址进行查询&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;spark.tispark.replica_read.address_blacklist&lt;/code&gt;：不从给定的 TiKV IP 地址进行查询&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;官方文档中有简单介绍如何启用该功能：&lt;a href=&#34;https://docs.pingcap.com/zh/tidb/stable/readonly-nodes#32-%E5%9C%A8-tispark-%E4%B8%AD%E4%BD%BF%E7%94%A8-follower-read&#34;&gt;在 TiSpark 中使用 Follower Read&lt;/a&gt;&lt;br&gt;
+关于 Label 的内容，请参考 Placement Rules in SQL 相关文档，&lt;a href=&#34;https://docs.pingcap.com/zh/tidb/stable/schedule-replicas-by-topology-labels&#34;&gt;通过拓扑 label 进行副本调度&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id=&#34;TiSpark-功能增强&#34;&gt;TiSpark 功能增强&lt;/h2&gt;
+&lt;h3 id=&#34;CBO-增强&#34;&gt;CBO 增强&lt;/h3&gt;
+&lt;p&gt;TiSpark v3.0.3 提交了一个 PR (&lt;a href=&#34;https://github.com/pingcap/tispark/pull/2563&#34;&gt;#2563&lt;/a&gt;) 来加强 CBO 能力，TiSpark 将分析 TiKV 表扫 (&lt;code&gt;TableReader&lt;/code&gt;)， TiKV 索引扫 (&lt;code&gt;IndexReader&lt;/code&gt;)， TiFlash 表扫 (&lt;code&gt;TableReader&lt;/code&gt;)，并选择一个代价最小的路径来读取数据。&lt;/p&gt;
+&lt;h3 id=&#34;Physical-Plan-增强&#34;&gt;Physical Plan 增强&lt;/h3&gt;
+&lt;p&gt;从 TiSpark v3.1.0 版本开始，物理执行计划 (&lt;a href=&#34;https://github.com/pingcap/tispark/blob/v3.2.2/docs/design/2022-06-15-phyical_plan_explain.md&#34;&gt;Physical Plan&lt;/a&gt;) 也得到了改进 (&lt;a href=&#34;https://github.com/pingcap/tispark/pull/2439&#34;&gt;#2439&lt;/a&gt;) ，表示更加清晰，命名也延续 TiDB 一致性。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;TiKV 表扫 (&lt;code&gt;TableReader&lt;/code&gt;)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta&#34;&gt;&amp;gt;&amp;gt;&amp;gt; &lt;/span&gt;spark.sql(&lt;span class=&#34;string&#34;&gt;&amp;quot;select * from t1&amp;quot;&lt;/span&gt;).explain()&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;== Physical Plan ==&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;) ColumnarToRow&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+- TiKV CoprocessorRDD&amp;#123;[table: t1] TableReader, Columns: &lt;span class=&#34;built_in&#34;&gt;id&lt;/span&gt;@LONG: &amp;#123; TableRangeScan: &amp;#123; RangeFilter: [], Range: [([t\&lt;span class=&#34;number&#34;&gt;200&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;^_r\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;], [t\&lt;span class=&#34;number&#34;&gt;200&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;^_s\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;])] &amp;#125; &amp;#125;, startTs: &lt;span class=&#34;number&#34;&gt;442981720704417794&lt;/span&gt;&amp;#125; EstimatedCount:&lt;span class=&#34;number&#34;&gt;5&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;TiKV 索引扫 (&lt;code&gt;IndexReader&lt;/code&gt;)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta&#34;&gt;&amp;gt;&amp;gt;&amp;gt; &lt;/span&gt;spark.sql(&lt;span class=&#34;string&#34;&gt;&amp;quot;select * from t1 where id &amp;gt; 2&amp;quot;&lt;/span&gt;).explain()&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;== Physical Plan ==&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;) ColumnarToRow&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+- TiKV CoprocessorRDD&amp;#123;[table: t1] IndexReader, Columns: &lt;span class=&#34;built_in&#34;&gt;id&lt;/span&gt;@LONG: &amp;#123; IndexRangeScan(Index:t1_idx_id(&lt;span class=&#34;built_in&#34;&gt;id&lt;/span&gt;)): &amp;#123; RangeFilter: [[&lt;span class=&#34;built_in&#34;&gt;id&lt;/span&gt;@LONG GREATER_THAN &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;]], Range: [([t\&lt;span class=&#34;number&#34;&gt;200&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;^_i\&lt;span class=&#34;number&#34;&gt;200&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\001\003\&lt;span class=&#34;number&#34;&gt;200&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\003], [t\&lt;span class=&#34;number&#34;&gt;200&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;^_i\&lt;span class=&#34;number&#34;&gt;200&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\001\&lt;span class=&#34;number&#34;&gt;372&lt;/span&gt;])] &amp;#125; &amp;#125;, startTs: &lt;span class=&#34;number&#34;&gt;442981723456667650&lt;/span&gt;&amp;#125;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;TiFlash 表扫 (&lt;code&gt;TableReader&lt;/code&gt;)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta&#34;&gt;&amp;gt;&amp;gt;&amp;gt; &lt;/span&gt;spark.sql(&lt;span class=&#34;string&#34;&gt;&amp;quot;select count(*) from t1&amp;quot;&lt;/span&gt;).explain()&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;== Physical Plan ==&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;AdaptiveSparkPlan isFinalPlan=false&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+- HashAggregate(keys=[], functions=[specialsum(count(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;)&lt;span class=&#34;comment&#34;&gt;#14L, LongType, 0)])&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=&lt;span class=&#34;number&#34;&gt;25&lt;/span&gt;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      +- HashAggregate(keys=[], functions=[partial_specialsum(count(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;)&lt;span class=&#34;comment&#34;&gt;#14L, LongType, 0)])&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;         +- TiFlash CoprocessorRDD&amp;#123;[table: t1] TableReader, Columns: &lt;span class=&#34;built_in&#34;&gt;id&lt;/span&gt;@LONG: &amp;#123; TableRangeSca&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;n: &amp;#123; RangeFilter: [], Range: [([t\&lt;span class=&#34;number&#34;&gt;200&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;^_r\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;], [t\&lt;span class=&#34;number&#34;&gt;200&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;^_s\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;])] &amp;#125;, Aggregates: Count(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;) &amp;#125;, startTs: &lt;span class=&#34;number&#34;&gt;442981759370657793&lt;/span&gt;&amp;#125; EstimatedCount:&lt;span class=&#34;number&#34;&gt;5&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;TiFlash-轮转&#34;&gt;TiFlash 轮转&lt;/h3&gt;
+&lt;p&gt;从 TiSpark v3.0.3/v3.1.2/v3.2.0 开始，支持在读取 TiFlash 时采用 Round-Robin 策略的负载均衡 (&lt;a href=&#34;https://github.com/tikv/client-java/pull/662&#34;&gt;client-java #662&lt;/a&gt;) ，以此来提升 TiFlash 的利用率，如果有 2 个 TiFlash，不再总将所有负载发送到其中某个 TiFlash 上。&lt;/p&gt;
+&lt;h3 id=&#34;TiSpark-应用开发&#34;&gt;TiSpark 应用开发&lt;/h3&gt;
+&lt;h4 id=&#34;DELETE&#34;&gt;DELETE&lt;/h4&gt;
+&lt;p&gt;从 TiSpark v3.0.0 开始，支持 &lt;code&gt;DELETE&lt;/code&gt; 操作，这部分内容也已在 &lt;a href=&#34;https://shawnyan.cn/2022/tidb/tidb-6.0-tispark-guide/#TiSpark-%E7%89%88%E6%9C%AC%E8%AF%B4%E6%98%8E&#34;&gt;TiSpark v2.5 开发入门实践及 TiSpark v3.0.0 新功能解读&lt;/a&gt; 文中提及，不再多言。&lt;/p&gt;
+&lt;h4 id=&#34;INSERT&#34;&gt;INSERT&lt;/h4&gt;
+&lt;p&gt;之前的版本(TiSpark v2.4)中，TiSpark 只能调用 datasource api 来写数据。现在，从 TiSpark v3.1.0 开始支持 &lt;code&gt;INSERT&lt;/code&gt; SQL 语句，并在 TiSpark v3.2.0 中写入功能得到增强：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;支持写入带有 &lt;code&gt;AUTO_RANDOM&lt;/code&gt; 为主键的表。(&lt;a href=&#34;https://github.com/pingcap/tispark/pull/2545&#34;&gt;#2545&lt;/a&gt;)&lt;/li&gt;
+&lt;/ol&gt;
+&lt;img alt=&#34;07.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/07-1690214668408.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;img alt=&#34;08.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/08-1690214673674.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;支持写入带有新字符集的分区表。(&lt;a href=&#34;https://github.com/pingcap/tispark/pull/2565&#34;&gt;#2565&lt;/a&gt;)&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;更多内容可参阅 &lt;a href=&#34;https://github.com/pingcap/tispark/blob/master/docs/features/datasource_api_userguide.md&#34;&gt;TiDB Data Source API User Guide&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id=&#34;TiSpark-安全&#34;&gt;TiSpark 安全&lt;/h2&gt;
+&lt;h3 id=&#34;Telemetry&#34;&gt;Telemetry&lt;/h3&gt;
+&lt;p&gt;TiSpark 的&lt;a href=&#34;https://docs.pingcap.com/zh/tidb/stable/telemetry&#34;&gt;遥测 (Telemetry)&lt;/a&gt; 功能是从 v3.0.0 开始支持的，由参数 &lt;code&gt;spark.tispark.telemetry.enable&lt;/code&gt; 进行开关控制。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;自 2023 年 2 月 20 日起，新发布的 TiDB 和 TiDB Dashboard 版本（含 v6.6.0），默认关闭遥测功能，即默认不再收集使用情况信息分享给 PingCAP。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;从 TiSpark v3.0.3/v3.1.3/v3.2.1/v3.3.0 起，默认关闭遥测功能，即，默认 &lt;code&gt;spark.tispark.telemetry.enable = false&lt;/code&gt;。(&lt;a href=&#34;https://github.com/pingcap/tispark/pull/2621&#34;&gt;#2621&lt;/a&gt;)&lt;/p&gt;
+&lt;h3 id=&#34;log4j2&#34;&gt;log4j2&lt;/h3&gt;
+&lt;p&gt;很多人到现在或许还对 21 年 log4j2 的“炒鸡”严重漏洞 (&lt;a href=&#34;https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-44228&#34;&gt;CVE-2021-44228&lt;/a&gt;) “念念不忘”。主要考虑到安全因素 Spark 对 log4j2 进行版本升级。&lt;br&gt;
+Spark v3.3.0 中的 log4j2 版本升至 2.17.2 (&lt;a href=&#34;https://issues.apache.org/jira/browse/SPARK-38544&#34;&gt;SPARK-38544&lt;/a&gt;) 。&lt;br&gt;
+Spark v3.4.0 中的 log4j2 版本升至 2.19.0 (&lt;a href=&#34;https://issues.apache.org/jira/browse/SPARK-40484&#34;&gt;SPARK-40484&lt;/a&gt;) 。&lt;br&gt;
+Spark v3.5.0 中的 log4j2 版本升至 2.20.0 (&lt;a href=&#34;https://issues.apache.org/jira/browse/SPARK-42536&#34;&gt;SPARK-42536&lt;/a&gt;) 。&lt;/p&gt;
+&lt;h2 id=&#34;遗留问题&#34;&gt;遗留问题&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;pyspark 可以选择直接从 TiFlash 读取数据，在文档 &lt;a href=&#34;https://docs.pingcap.com/zh/tidb/stable/use-tispark-to-read-tiflash&#34;&gt;使用 TiSpark 读取 TiFlash&lt;/a&gt; 中有所介绍。但是，无法动态调整 TiSpark 选择哪个 storage (TiKV or TiFlash)，可以修改 &lt;code&gt;conf.set(&amp;quot;spark.tispark.isolation_read_engines&amp;quot;, &amp;quot;tiflash&amp;quot;)&lt;/code&gt;，但不生效。只能修改配置文件 &lt;code&gt;spark-defaults.conf&lt;/code&gt;，比如限定只从 TiFlash 读取数据 &lt;code&gt;spark.tispark.isolation_read_engines tiflash&lt;/code&gt;，然后重启 worker 才能生效。(&lt;a href=&#34;https://asktug.com/t/topic/1009913&#34;&gt;1009913&lt;/a&gt;)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;每次使用 pyspark/spark-shell 都会遇到 &lt;code&gt;WARN TiConfiguration: Unable to find tikv.properties&lt;/code&gt;，虽无伤大雅，嗯~ (&lt;a href=&#34;https://asktug.com/t/topic/1009954&#34;&gt;1009954&lt;/a&gt;)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;无法在 pyspark 中使用 &lt;code&gt;explain analyze&lt;/code&gt; 语法，所以无法直接看到发出的语句在 TiKV 上消耗的 RU (&lt;a href=&#34;https://shawnyan.cn/2023/tidb/tidb-7.1-resource-control/&#34;&gt;资源管控&lt;/a&gt;相关概念) 是多少。不过，Spark 中的 explain 和 TiDB 中的 explain 本就不一样。(&lt;a href=&#34;https://asktug.com/t/topic/1009929&#34;&gt;1009929&lt;/a&gt;)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;在测试新参数 &lt;code&gt;spark.tispark.replica_read&lt;/code&gt; 时发现该参数会影响写操作。(&lt;a href=&#34;https://asktug.com/t/topic/1010197&#34;&gt;1010197&lt;/a&gt;)&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;本文归纳总结了 TiSpark v3.0.0 以来的大部分新特性，相信对 TiSpark 爱好者或开发者会有所帮助。对 TiSpark 感兴趣、有需求的伙伴们，建议直接使用最新版 TiSpark，如果遇到 TiDB 升级 case，也建议对 TiSpark 进行版本升级。&lt;/p&gt;
+&lt;p&gt;在使用 TiSpark 过程中如果遇到任何问题，推荐先来 &lt;a href=&#34;https://search.asktug.com/&#34;&gt;AskTUG Search&lt;/a&gt; 一下，没有匹配的帖子可以提一个新的，相信很快会收到回应，AskTUG 社区可是拥有 &lt;strong&gt;30,000+&lt;/strong&gt; 活跃用户的哦，是国产数据库厂商自建论坛里顶尖的存在。&lt;/p&gt;
+&lt;p&gt;随着 TiSpark 版本更新，新特性的引入，Bug 的修复，我们期待看到更高效、更灵活和更可靠的数据处理体验。&lt;/p&gt;
+&lt;p&gt;Ps.&lt;br&gt;
+本文开始编辑于 7/5，测试环境也搭建于当日，这期间 &lt;a href=&#34;https://shawnyan.cn/2023/mysql/mysql-8.1.0-release/&#34;&gt;MySQL 8.1 发布了&lt;/a&gt;，文中的版本信息以 7/5 为基准。&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="TiDB 7.1.0 LTS 特性解读 | 浅析 TiSpark v3.x 新变化">
+    <meta property="og:url" content="https://shawnyan.cn/2023/tidb/tidb-7.1-tispark-3.x/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;img alt=&#34;tidb-7.x-new-feature-banner.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;&lt;a href=&#34;https://tidb.net/book/book-rush&#34;&gt;TiDB 6.x in Action&lt;/a&gt; 已经发布一年了，去年撰写的 &lt;a href=&#34;https://tidb.net/book/book-rush/best-practice/tispark-practice/&#34;&gt;TiSpark 实践&lt;/a&gt; 文章便有一篇收录其中，一年时间过去了，TiSpark 版本也从当时的 v3.0.0 升到了现在的 v3.2.2，本文将综合浅析这些版本带来的诸多变化。&lt;/p&gt;
+&lt;img alt=&#34;02.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/02-1690214631542.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+图 -- TiSpark v3.x New Feature Mind Map
+&lt;h2 id=&#34;发版时间表&#34;&gt;发版时间表&lt;/h2&gt;
+&lt;p&gt;从去年六月至今，TiSpark v3.x 系列已经发布了 11 个版本。目前，最新版本为 TiSpark v3.2.2。从 TiSpark 3.0 开始，全部使用 Scala 2.12 (2.12.10) 版本，不再支持 Scala 2.11。具体各版本的发版时间参见下表。&lt;/p&gt;
+&lt;img alt=&#34;03.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/03-1690214637246.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;TiSpark-新变化&#34;&gt;TiSpark 新变化&lt;/h2&gt;
+&lt;h3 id=&#34;Spark-兼容性&#34;&gt;Spark 兼容性&lt;/h3&gt;
+&lt;p&gt;从 TiSpark 3.1 开始，支持 Spark 3.0 ~ 3.3。不过各个小版本对 Spark 的依赖还是有略微区别，主要在于 Spark 的版本升级和安全威胁 (Vulnerabilities) 解决情况。具体信息参加下表。&lt;/p&gt;
+&lt;img alt=&#34;04.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/04-1690214643114.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;对比最新 Spark 的 Release 和 Vulnerability 信息，笔者推测近期 TiSpark 或将支持 Spark v3.4.1 及 Scala 2.13.x，并升级大版本号到 TiSpark v3.3.x。&lt;/p&gt;
+&lt;img alt=&#34;05.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/05-1690214648656.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;需要注意的是，在开始使用 TiSpark 之前，建议检查各组件的版本匹配情况，例如，目前尚不建议使用更高版本的 Scala 和 Spark，不然或可看到如下报错信息。(&lt;a href=&#34;https://asktug.com/t/topic/1009677&#34;&gt;1009677&lt;/a&gt;)&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;shawnyan@centos7:~/spark-3.3.2-bin-hadoop3-scala2.13/conf$ pyspark&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Python 3.6.8 (default, Nov 16 2020, 16:55:22)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[GCC 4.8.5 20150623 (Red Hat 4.8.5-44)] on linux&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;quot;help&amp;quot;, &amp;quot;copyright&amp;quot;, &amp;quot;credits&amp;quot; or &amp;quot;license&amp;quot; for more information.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Setting default log level to &amp;quot;WARN&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;To adjust logging level use sc.setLogLevel(newLevel). For SparkR, use setLogLevel(newLevel).&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23/07/18 17:18:15 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23/07/18 17:18:16 WARN SparkSession: Cannot use org.apache.spark.sql.TiExtensions to configure session extensions.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;java.lang.NoClassDefFoundError: Could not initialize class com.pingcap.tispark.TiSparkInfo$&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        at org.apache.spark.sql.TiExtensions.apply(TiExtensions.scala:39)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        at org.apache.spark.sql.TiExtensions.apply(TiExtensions.scala:35)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;Jar-包命名&#34;&gt;Jar 包命名&lt;/h3&gt;
+&lt;p&gt;从 TiSpark v3.0.0 (&lt;a href=&#34;https://github.com/pingcap/tispark/pull/2370&#34;&gt;#2370&lt;/a&gt;) 开始，对 TiSpark Jar 包的命名格式做了调整，更加规范，也便于选择。&lt;/p&gt;
+&lt;p&gt;// 题外话，放心地直接选择最新版本的 TiSpark 就好了。&lt;/p&gt;
+&lt;p&gt;变更后的格式为 &lt;code&gt;tispark-assembly-${spark.version.release}_${scala.version.release}&lt;/code&gt;，例如 &lt;code&gt;tispark-assembly-3.3_2.12-3.2.2.jar&lt;/code&gt; 表示 TiSpark v3.2.2 版本，支持 Spark v3.3.x，使用 Scala 2.12.x。&lt;/p&gt;
+&lt;h3 id=&#34;Jar-包大小-tikv-client-java&#34;&gt;Jar 包大小 &amp;amp; tikv-client-java&lt;/h3&gt;
+&lt;p&gt;在查看 TiSpark 的 Release Notes 过程中发现，Assets 里 TiSpark v3.1.3 的 Jar 包大小还是 34 M，但是 v3.2.0 的 Jar 包大小已经变成了 50 M，关于此问题还开贴记录了一下 &lt;a href=&#34;https://asktug.com/t/topic/1008839&#34;&gt;tispark package size 问题&lt;/a&gt; 。&lt;br&gt;
+后来倒推了一下 commit 记录，发现了对应的 PR &lt;a href=&#34;https://github.com/pingcap/tispark/pull/2491&#34;&gt;[GSOC2022]REFACTOR—Normalize pdclient to client-java #2491&lt;/a&gt; 。又仔细盘点 Release Notes 才发现与之对应的记录。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;v3.2.2: uprade client-java version to 3.3.5 to fix fail to query from TiFlash in (#2715) by @ti-chi-bot in #2716&lt;br&gt;
+v3.2.1: update client-java version to 3.3.4 (#2695) by @ti-chi-bot in #2696&lt;br&gt;
+v3.2.0: Normalize the Java client in TiSpark and use the official client-java #2491&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;也就是说，TiSpark 从 v3.2 开始，直接引入了完整的 &lt;a href=&#34;https://github.com/tikv/client-java&#34;&gt;client-java&lt;/a&gt; 作为依赖，而且在 TiSpark v3.2.2 中使用的是最新版本 TiKV client-java &lt;a href=&#34;https://github.com/tikv/client-java/releases/tag/v3.3.5&#34;&gt;v3.3.5&lt;/a&gt;&lt;br&gt;
+关于这项变更，在代码的设计文档里有专门说明：&lt;a href=&#34;https://github.com/pingcap/tispark/blob/master/docs/design/2022-08-11-normalize-client.md&#34;&gt;2022-08-11-normalize-client&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id=&#34;mysql-connector-java&#34;&gt;mysql-connector-java&lt;/h3&gt;
+&lt;p&gt;与 tikv-client-java 的情况相反，由于 mysql-connector-java 所使用的 License (GPLv2) 的特殊性 ，被从 TiSpark 的依赖中移除了，使用时需要自行导入。&lt;br&gt;
+以本文为例，&lt;code&gt;mysql-connector-j.jar&lt;/code&gt; 放在 &lt;code&gt;~/spark-3.3.1-bin-hadoop2/jars&lt;/code&gt; 路径下。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;v3.1.0, v3.0.2&lt;br&gt;
+We will not provide the mysql-connector-java dependency because of the limit of the GPL license #2457, #2460&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;相关内容在官方文档中也有表述：&lt;a href=&#34;https://docs.pingcap.com/zh/tidb/dev/tispark-overview#%E8%8E%B7%E5%8F%96-mysql-connector-j&#34;&gt;获取 mysql-connector-j&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;！Tips:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;在最新版的 TiSpark v3.2.2 中，引用的依赖是 &lt;a href=&#34;https://github.com/pingcap/tispark/blob/v3.2.2/pom.xml#L87C17&#34;&gt;mysql-connector-java 8.0.29&lt;/a&gt; ，而 MySQL Connector/J 最新版为 &lt;a href=&#34;https://dev.mysql.com/downloads/connector/j/&#34;&gt;8.0.33&lt;/a&gt; 。实际测试过程中直接使用 8.0.33 也没有问题。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;MySQL Connector/J 的 Class 名由 &lt;code&gt;com.mysql.jdbc.Driver&lt;/code&gt; 改为 &lt;code&gt;com.mysql.cj.jdbc.Driver&lt;/code&gt;，如果依旧使用旧名称 Connector 会弹出告警信息，不过基本没影响，毕竟这告警已经存在 8 年了。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;Loading class `com.mysql.jdbc.Driver&amp;#x27;. This is deprecated. The new driver class is `com.mysql.cj.jdbc.Driver&amp;#x27;. &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The driver is automatically registered via the SPI and manual loading of the driver class is generally unnecessary.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;如果没导入 jdbc 会报错：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta&#34;&gt;&amp;gt;&amp;gt;&amp;gt; &lt;/span&gt;df=spark.read.&lt;span class=&#34;built_in&#34;&gt;format&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;quot;jdbc&amp;quot;&lt;/span&gt;).options(url=url,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta&#34;&gt;... &lt;/span&gt;  driver=&lt;span class=&#34;string&#34;&gt;&amp;quot;com.mysql.jdbc.Driver&amp;quot;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta&#34;&gt;... &lt;/span&gt;  dbtable=&lt;span class=&#34;string&#34;&gt;&amp;quot;t1&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta&#34;&gt;... &lt;/span&gt;  ).load()&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Traceback (most recent call last):&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  File &lt;span class=&#34;string&#34;&gt;&amp;quot;/home/shawnyan/spark-3.3.1-bin-hadoop2/python/lib/py4j-0.10.9.5-src.zip/py4j/protocol.py&amp;quot;&lt;/span&gt;, line &lt;span class=&#34;number&#34;&gt;328&lt;/span&gt;, &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; get_return_value&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;py4j.protocol.Py4JJavaError: An error occurred &lt;span class=&#34;keyword&#34;&gt;while&lt;/span&gt; calling o51.load.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;: java.lang.ClassNotFoundException: com.mysql.jdbc.Driver&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        at java.net.URLClassLoader.findClass(URLClassLoader.java:&lt;span class=&#34;number&#34;&gt;382&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;TiDB-兼容性&#34;&gt;TiDB 兼容性&lt;/h3&gt;
+&lt;p&gt;在 &lt;a href=&#34;https://shawnyan.cn/2022/tidb/tidb-6.0-tispark-guide/#TiSpark-%E7%89%88%E6%9C%AC%E8%AF%B4%E6%98%8E&#34;&gt;TiSpark v2.5 开发入门实践及 TiSpark v3.0.0 新功能解读&lt;/a&gt; 文中已经提及，从 TiSpark 2.4.0 开始支持 TiDB 5.0，目前 TiDB 版本已发布至 7.1 LTS，下图显示了 TiSpark 对 TiDB 版本的支持情况，数据均来自于 TiSpark Release Notes。&lt;/p&gt;
+&lt;img alt=&#34;06.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/06-1690214656896.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;从 TiDB 6.0 开始有一项非常特殊的变化，默认启用新字符校验规则，具体在文章 &lt;a href=&#34;https://shawnyan.cn/2022/tidb/tidb-6.0-new-collation/&#34;&gt;TiDB 6.0 新特性解读 | Collation 规则&lt;/a&gt; 中有表述。&lt;/p&gt;
+&lt;p&gt;TiSpark 从 v3.1 开始兼容新字符校验规则，换言之，如果使用 TiDB 6.0 及以上版本，并启用了新 Collation 规则，建议将 TiSpark 升级到 v3.1 及以上版本。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;TiDB&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; config &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; name &lt;span class=&#34;keyword&#34;&gt;like&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;new_collations_enabled_on_first_bootstrap&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;------+------------------+-------------------------------------------+-------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Type &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Instance         &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Name                                      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Value&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;------+------------------+-------------------------------------------+-------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; tidb &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;192.168&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.1&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.6&lt;/span&gt;:&lt;span class=&#34;number&#34;&gt;4000&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; new_collations_enabled_on_first_bootstrap &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;literal&#34;&gt;true&lt;/span&gt;  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;------+------------------+-------------------------------------------+-------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.023&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;需要注意的是，当前 TiSpark 尚不完全支持所有字符校验规则，只支持如下几种：utf8_bin, utf8_general_ci, utf8_unicode_ci, utf8mb4_bin, utf8mb4_general_ci and utf8mb4_unicode_ci。 此外，也不支持 GBK 字符集。&lt;/p&gt;
+&lt;h3 id=&#34;TiSpark-参数变化&#34;&gt;TiSpark 参数变化&lt;/h3&gt;
+&lt;h4 id=&#34;1️⃣-新字符集&#34;&gt;1️⃣ 新字符集&lt;/h4&gt;
+&lt;p&gt;TiSpark 新字符集相关参数：&lt;code&gt;spark.tispark.new_collation_enable&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;这在上文已经解释了该参数的作用，不再赘述。这里补充一点，该参数不用刻意配置，TiSpark 会检测所连接的 TiDB 版本，如果是 6.0.0 以上，会设定为 true，否则设置为 false。&lt;/p&gt;
+&lt;h4 id=&#34;2️⃣-健康检查&#34;&gt;2️⃣ 健康检查&lt;/h4&gt;
+&lt;p&gt;TiSpark v3.2.2 新增两个健康检查参数，分别用于检查与 TiKV 和 TiFlash 的 grpc 通信超时情况 (&lt;code&gt;spark.tispark.grpc.health_check_timeout_in_ms&lt;/code&gt;, 2000) ，以及控制监测间隔 (&lt;code&gt;spark.tispark.grpc.health_check_period_in_ms&lt;/code&gt;, 3000) 。&lt;/p&gt;
+&lt;h4 id=&#34;3️⃣-加载到缓存&#34;&gt;3️⃣ 加载到缓存&lt;/h4&gt;
+&lt;p&gt;与上面两个参数相关联的需求背景是， TiSpark v3.0.3/v3.1.3/v3.2.1， 新增参数 &lt;code&gt;spark.tispark.load_tables&lt;/code&gt;，该参数用于控制是否加载表到 Catalog 缓存，默认情况是初始化 catalogCache 时，会加载表到缓存。我们常说 10,000 小时定律，没想到 TiSpark 遇到了反向境况，背景是有用户报告 TiSpark 加载超过 10,000 张表会 hang 住。&lt;/p&gt;
+&lt;h4 id=&#34;4️⃣-TiKV-副本角色&#34;&gt;4️⃣ TiKV 副本角色&lt;/h4&gt;
+&lt;p&gt;TiSpark v3.2 中新增参数 &lt;code&gt;spark.tispark.replica_read&lt;/code&gt; 以支持从 TiKV 的不同副本角色（默认为 Leader，还可选择 Follwer, Learner）读取数据，从而降低 Leader Region 的压力，提升数据读取能力。&lt;/p&gt;
+&lt;p&gt;例如，从 Follower 角色的副本读取数据，只需在配置文件 &lt;code&gt;spark-default.conf&lt;/code&gt; 中增加 &lt;code&gt;spark.tispark.replica_read follower&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;与此相关还有三个新增参数可以控制 follower read 功能：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;spark.tispark.replica_read.label&lt;/code&gt;：只查询 TiKV 上匹配的标签。&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;spark.tispark.replica_read.address_whitelist&lt;/code&gt;：只从给定的 TiKV IP 地址进行查询&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;spark.tispark.replica_read.address_blacklist&lt;/code&gt;：不从给定的 TiKV IP 地址进行查询&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;官方文档中有简单介绍如何启用该功能：&lt;a href=&#34;https://docs.pingcap.com/zh/tidb/stable/readonly-nodes#32-%E5%9C%A8-tispark-%E4%B8%AD%E4%BD%BF%E7%94%A8-follower-read&#34;&gt;在 TiSpark 中使用 Follower Read&lt;/a&gt;&lt;br&gt;
+关于 Label 的内容，请参考 Placement Rules in SQL 相关文档，&lt;a href=&#34;https://docs.pingcap.com/zh/tidb/stable/schedule-replicas-by-topology-labels&#34;&gt;通过拓扑 label 进行副本调度&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id=&#34;TiSpark-功能增强&#34;&gt;TiSpark 功能增强&lt;/h2&gt;
+&lt;h3 id=&#34;CBO-增强&#34;&gt;CBO 增强&lt;/h3&gt;
+&lt;p&gt;TiSpark v3.0.3 提交了一个 PR (&lt;a href=&#34;https://github.com/pingcap/tispark/pull/2563&#34;&gt;#2563&lt;/a&gt;) 来加强 CBO 能力，TiSpark 将分析 TiKV 表扫 (&lt;code&gt;TableReader&lt;/code&gt;)， TiKV 索引扫 (&lt;code&gt;IndexReader&lt;/code&gt;)， TiFlash 表扫 (&lt;code&gt;TableReader&lt;/code&gt;)，并选择一个代价最小的路径来读取数据。&lt;/p&gt;
+&lt;h3 id=&#34;Physical-Plan-增强&#34;&gt;Physical Plan 增强&lt;/h3&gt;
+&lt;p&gt;从 TiSpark v3.1.0 版本开始，物理执行计划 (&lt;a href=&#34;https://github.com/pingcap/tispark/blob/v3.2.2/docs/design/2022-06-15-phyical_plan_explain.md&#34;&gt;Physical Plan&lt;/a&gt;) 也得到了改进 (&lt;a href=&#34;https://github.com/pingcap/tispark/pull/2439&#34;&gt;#2439&lt;/a&gt;) ，表示更加清晰，命名也延续 TiDB 一致性。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;TiKV 表扫 (&lt;code&gt;TableReader&lt;/code&gt;)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta&#34;&gt;&amp;gt;&amp;gt;&amp;gt; &lt;/span&gt;spark.sql(&lt;span class=&#34;string&#34;&gt;&amp;quot;select * from t1&amp;quot;&lt;/span&gt;).explain()&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;== Physical Plan ==&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;) ColumnarToRow&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+- TiKV CoprocessorRDD&amp;#123;[table: t1] TableReader, Columns: &lt;span class=&#34;built_in&#34;&gt;id&lt;/span&gt;@LONG: &amp;#123; TableRangeScan: &amp;#123; RangeFilter: [], Range: [([t\&lt;span class=&#34;number&#34;&gt;200&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;^_r\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;], [t\&lt;span class=&#34;number&#34;&gt;200&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;^_s\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;])] &amp;#125; &amp;#125;, startTs: &lt;span class=&#34;number&#34;&gt;442981720704417794&lt;/span&gt;&amp;#125; EstimatedCount:&lt;span class=&#34;number&#34;&gt;5&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;TiKV 索引扫 (&lt;code&gt;IndexReader&lt;/code&gt;)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta&#34;&gt;&amp;gt;&amp;gt;&amp;gt; &lt;/span&gt;spark.sql(&lt;span class=&#34;string&#34;&gt;&amp;quot;select * from t1 where id &amp;gt; 2&amp;quot;&lt;/span&gt;).explain()&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;== Physical Plan ==&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;) ColumnarToRow&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+- TiKV CoprocessorRDD&amp;#123;[table: t1] IndexReader, Columns: &lt;span class=&#34;built_in&#34;&gt;id&lt;/span&gt;@LONG: &amp;#123; IndexRangeScan(Index:t1_idx_id(&lt;span class=&#34;built_in&#34;&gt;id&lt;/span&gt;)): &amp;#123; RangeFilter: [[&lt;span class=&#34;built_in&#34;&gt;id&lt;/span&gt;@LONG GREATER_THAN &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;]], Range: [([t\&lt;span class=&#34;number&#34;&gt;200&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;^_i\&lt;span class=&#34;number&#34;&gt;200&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\001\003\&lt;span class=&#34;number&#34;&gt;200&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\003], [t\&lt;span class=&#34;number&#34;&gt;200&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;^_i\&lt;span class=&#34;number&#34;&gt;200&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\001\&lt;span class=&#34;number&#34;&gt;372&lt;/span&gt;])] &amp;#125; &amp;#125;, startTs: &lt;span class=&#34;number&#34;&gt;442981723456667650&lt;/span&gt;&amp;#125;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;TiFlash 表扫 (&lt;code&gt;TableReader&lt;/code&gt;)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta&#34;&gt;&amp;gt;&amp;gt;&amp;gt; &lt;/span&gt;spark.sql(&lt;span class=&#34;string&#34;&gt;&amp;quot;select count(*) from t1&amp;quot;&lt;/span&gt;).explain()&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;== Physical Plan ==&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;AdaptiveSparkPlan isFinalPlan=false&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+- HashAggregate(keys=[], functions=[specialsum(count(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;)&lt;span class=&#34;comment&#34;&gt;#14L, LongType, 0)])&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=&lt;span class=&#34;number&#34;&gt;25&lt;/span&gt;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      +- HashAggregate(keys=[], functions=[partial_specialsum(count(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;)&lt;span class=&#34;comment&#34;&gt;#14L, LongType, 0)])&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;         +- TiFlash CoprocessorRDD&amp;#123;[table: t1] TableReader, Columns: &lt;span class=&#34;built_in&#34;&gt;id&lt;/span&gt;@LONG: &amp;#123; TableRangeSca&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;n: &amp;#123; RangeFilter: [], Range: [([t\&lt;span class=&#34;number&#34;&gt;200&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;^_r\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;], [t\&lt;span class=&#34;number&#34;&gt;200&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;^_s\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;\&lt;span class=&#34;number&#34;&gt;000&lt;/span&gt;])] &amp;#125;, Aggregates: Count(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;) &amp;#125;, startTs: &lt;span class=&#34;number&#34;&gt;442981759370657793&lt;/span&gt;&amp;#125; EstimatedCount:&lt;span class=&#34;number&#34;&gt;5&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;TiFlash-轮转&#34;&gt;TiFlash 轮转&lt;/h3&gt;
+&lt;p&gt;从 TiSpark v3.0.3/v3.1.2/v3.2.0 开始，支持在读取 TiFlash 时采用 Round-Robin 策略的负载均衡 (&lt;a href=&#34;https://github.com/tikv/client-java/pull/662&#34;&gt;client-java #662&lt;/a&gt;) ，以此来提升 TiFlash 的利用率，如果有 2 个 TiFlash，不再总将所有负载发送到其中某个 TiFlash 上。&lt;/p&gt;
+&lt;h3 id=&#34;TiSpark-应用开发&#34;&gt;TiSpark 应用开发&lt;/h3&gt;
+&lt;h4 id=&#34;DELETE&#34;&gt;DELETE&lt;/h4&gt;
+&lt;p&gt;从 TiSpark v3.0.0 开始，支持 &lt;code&gt;DELETE&lt;/code&gt; 操作，这部分内容也已在 &lt;a href=&#34;https://shawnyan.cn/2022/tidb/tidb-6.0-tispark-guide/#TiSpark-%E7%89%88%E6%9C%AC%E8%AF%B4%E6%98%8E&#34;&gt;TiSpark v2.5 开发入门实践及 TiSpark v3.0.0 新功能解读&lt;/a&gt; 文中提及，不再多言。&lt;/p&gt;
+&lt;h4 id=&#34;INSERT&#34;&gt;INSERT&lt;/h4&gt;
+&lt;p&gt;之前的版本(TiSpark v2.4)中，TiSpark 只能调用 datasource api 来写数据。现在，从 TiSpark v3.1.0 开始支持 &lt;code&gt;INSERT&lt;/code&gt; SQL 语句，并在 TiSpark v3.2.0 中写入功能得到增强：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;支持写入带有 &lt;code&gt;AUTO_RANDOM&lt;/code&gt; 为主键的表。(&lt;a href=&#34;https://github.com/pingcap/tispark/pull/2545&#34;&gt;#2545&lt;/a&gt;)&lt;/li&gt;
+&lt;/ol&gt;
+&lt;img alt=&#34;07.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/07-1690214668408.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;img alt=&#34;08.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/08-1690214673674.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;支持写入带有新字符集的分区表。(&lt;a href=&#34;https://github.com/pingcap/tispark/pull/2565&#34;&gt;#2565&lt;/a&gt;)&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;更多内容可参阅 &lt;a href=&#34;https://github.com/pingcap/tispark/blob/master/docs/features/datasource_api_userguide.md&#34;&gt;TiDB Data Source API User Guide&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id=&#34;TiSpark-安全&#34;&gt;TiSpark 安全&lt;/h2&gt;
+&lt;h3 id=&#34;Telemetry&#34;&gt;Telemetry&lt;/h3&gt;
+&lt;p&gt;TiSpark 的&lt;a href=&#34;https://docs.pingcap.com/zh/tidb/stable/telemetry&#34;&gt;遥测 (Telemetry)&lt;/a&gt; 功能是从 v3.0.0 开始支持的，由参数 &lt;code&gt;spark.tispark.telemetry.enable&lt;/code&gt; 进行开关控制。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;自 2023 年 2 月 20 日起，新发布的 TiDB 和 TiDB Dashboard 版本（含 v6.6.0），默认关闭遥测功能，即默认不再收集使用情况信息分享给 PingCAP。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;从 TiSpark v3.0.3/v3.1.3/v3.2.1/v3.3.0 起，默认关闭遥测功能，即，默认 &lt;code&gt;spark.tispark.telemetry.enable = false&lt;/code&gt;。(&lt;a href=&#34;https://github.com/pingcap/tispark/pull/2621&#34;&gt;#2621&lt;/a&gt;)&lt;/p&gt;
+&lt;h3 id=&#34;log4j2&#34;&gt;log4j2&lt;/h3&gt;
+&lt;p&gt;很多人到现在或许还对 21 年 log4j2 的“炒鸡”严重漏洞 (&lt;a href=&#34;https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-44228&#34;&gt;CVE-2021-44228&lt;/a&gt;) “念念不忘”。主要考虑到安全因素 Spark 对 log4j2 进行版本升级。&lt;br&gt;
+Spark v3.3.0 中的 log4j2 版本升至 2.17.2 (&lt;a href=&#34;https://issues.apache.org/jira/browse/SPARK-38544&#34;&gt;SPARK-38544&lt;/a&gt;) 。&lt;br&gt;
+Spark v3.4.0 中的 log4j2 版本升至 2.19.0 (&lt;a href=&#34;https://issues.apache.org/jira/browse/SPARK-40484&#34;&gt;SPARK-40484&lt;/a&gt;) 。&lt;br&gt;
+Spark v3.5.0 中的 log4j2 版本升至 2.20.0 (&lt;a href=&#34;https://issues.apache.org/jira/browse/SPARK-42536&#34;&gt;SPARK-42536&lt;/a&gt;) 。&lt;/p&gt;
+&lt;h2 id=&#34;遗留问题&#34;&gt;遗留问题&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;pyspark 可以选择直接从 TiFlash 读取数据，在文档 &lt;a href=&#34;https://docs.pingcap.com/zh/tidb/stable/use-tispark-to-read-tiflash&#34;&gt;使用 TiSpark 读取 TiFlash&lt;/a&gt; 中有所介绍。但是，无法动态调整 TiSpark 选择哪个 storage (TiKV or TiFlash)，可以修改 &lt;code&gt;conf.set(&amp;quot;spark.tispark.isolation_read_engines&amp;quot;, &amp;quot;tiflash&amp;quot;)&lt;/code&gt;，但不生效。只能修改配置文件 &lt;code&gt;spark-defaults.conf&lt;/code&gt;，比如限定只从 TiFlash 读取数据 &lt;code&gt;spark.tispark.isolation_read_engines tiflash&lt;/code&gt;，然后重启 worker 才能生效。(&lt;a href=&#34;https://asktug.com/t/topic/1009913&#34;&gt;1009913&lt;/a&gt;)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;每次使用 pyspark/spark-shell 都会遇到 &lt;code&gt;WARN TiConfiguration: Unable to find tikv.properties&lt;/code&gt;，虽无伤大雅，嗯~ (&lt;a href=&#34;https://asktug.com/t/topic/1009954&#34;&gt;1009954&lt;/a&gt;)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;无法在 pyspark 中使用 &lt;code&gt;explain analyze&lt;/code&gt; 语法，所以无法直接看到发出的语句在 TiKV 上消耗的 RU (&lt;a href=&#34;https://shawnyan.cn/2023/tidb/tidb-7.1-resource-control/&#34;&gt;资源管控&lt;/a&gt;相关概念) 是多少。不过，Spark 中的 explain 和 TiDB 中的 explain 本就不一样。(&lt;a href=&#34;https://asktug.com/t/topic/1009929&#34;&gt;1009929&lt;/a&gt;)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;在测试新参数 &lt;code&gt;spark.tispark.replica_read&lt;/code&gt; 时发现该参数会影响写操作。(&lt;a href=&#34;https://asktug.com/t/topic/1010197&#34;&gt;1010197&lt;/a&gt;)&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;本文归纳总结了 TiSpark v3.0.0 以来的大部分新特性，相信对 TiSpark 爱好者或开发者会有所帮助。对 TiSpark 感兴趣、有需求的伙伴们，建议直接使用最新版 TiSpark，如果遇到 TiDB 升级 case，也建议对 TiSpark 进行版本升级。&lt;/p&gt;
+&lt;p&gt;在使用 TiSpark 过程中如果遇到任何问题，推荐先来 &lt;a href=&#34;https://search.asktug.com/&#34;&gt;AskTUG Search&lt;/a&gt; 一下，没有匹配的帖子可以提一个新的，相信很快会收到回应，AskTUG 社区可是拥有 &lt;strong&gt;30,000+&lt;/strong&gt; 活跃用户的哦，是国产数据库厂商自建论坛里顶尖的存在。&lt;/p&gt;
+&lt;p&gt;随着 TiSpark 版本更新，新特性的引入，Bug 的修复，我们期待看到更高效、更灵活和更可靠的数据处理体验。&lt;/p&gt;
+&lt;p&gt;Ps.&lt;br&gt;
+本文开始编辑于 7/5，测试环境也搭建于当日，这期间 &lt;a href=&#34;https://shawnyan.cn/2023/mysql/mysql-8.1.0-release/&#34;&gt;MySQL 8.1 发布了&lt;/a&gt;，文中的版本信息以 7/5 为基准。&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/tidb/" class="category-badge">
+                                    TiDB
+                                </a>
+                            
+                                <a href="/categories/tidb/tidb-7-x/" class="category-badge">
+                                    TiDB 7.x
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">TiDB 7.1.0 LTS 特性解读 | 浅析 TiSpark v3.x 新变化</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2023-07-24
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                3.1k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                14 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <img alt="tidb-7.x-new-feature-banner.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png" referrerpolicy="no-referrer"/>
+<p><a target="_blank" rel="noopener" href="https://tidb.net/book/book-rush">TiDB 6.x in Action</a> 已经发布一年了，去年撰写的 <a target="_blank" rel="noopener" href="https://tidb.net/book/book-rush/best-practice/tispark-practice/">TiSpark 实践</a> 文章便有一篇收录其中，一年时间过去了，TiSpark 版本也从当时的 v3.0.0 升到了现在的 v3.2.2，本文将综合浅析这些版本带来的诸多变化。</p>
+<img alt="02.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/02-1690214631542.png" referrerpolicy="no-referrer"/>
+图 -- TiSpark v3.x New Feature Mind Map
+<h2 id="发版时间表">发版时间表</h2>
+<p>从去年六月至今，TiSpark v3.x 系列已经发布了 11 个版本。目前，最新版本为 TiSpark v3.2.2。从 TiSpark 3.0 开始，全部使用 Scala 2.12 (2.12.10) 版本，不再支持 Scala 2.11。具体各版本的发版时间参见下表。</p>
+<img alt="03.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/03-1690214637246.png" referrerpolicy="no-referrer"/>
+<h2 id="TiSpark-新变化">TiSpark 新变化</h2>
+<h3 id="Spark-兼容性">Spark 兼容性</h3>
+<p>从 TiSpark 3.1 开始，支持 Spark 3.0 ~ 3.3。不过各个小版本对 Spark 的依赖还是有略微区别，主要在于 Spark 的版本升级和安全威胁 (Vulnerabilities) 解决情况。具体信息参加下表。</p>
+<img alt="04.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/04-1690214643114.png" referrerpolicy="no-referrer"/>
+<p>对比最新 Spark 的 Release 和 Vulnerability 信息，笔者推测近期 TiSpark 或将支持 Spark v3.4.1 及 Scala 2.13.x，并升级大版本号到 TiSpark v3.3.x。</p>
+<img alt="05.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/05-1690214648656.png" referrerpolicy="no-referrer"/>
+<p>需要注意的是，在开始使用 TiSpark 之前，建议检查各组件的版本匹配情况，例如，目前尚不建议使用更高版本的 Scala 和 Spark，不然或可看到如下报错信息。(<a target="_blank" rel="noopener" href="https://asktug.com/t/topic/1009677">1009677</a>)</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">shawnyan@centos7:~/spark-3.3.2-bin-hadoop3-scala2.13/conf$ pyspark</span><br><span class="line">Python 3.6.8 (default, Nov 16 2020, 16:55:22)</span><br><span class="line">[GCC 4.8.5 20150623 (Red Hat 4.8.5-44)] on linux</span><br><span class="line">Type &quot;help&quot;, &quot;copyright&quot;, &quot;credits&quot; or &quot;license&quot; for more information.</span><br><span class="line">Setting default log level to &quot;WARN&quot;.</span><br><span class="line">To adjust logging level use sc.setLogLevel(newLevel). For SparkR, use setLogLevel(newLevel).</span><br><span class="line">23/07/18 17:18:15 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable</span><br><span class="line">23/07/18 17:18:16 WARN SparkSession: Cannot use org.apache.spark.sql.TiExtensions to configure session extensions.</span><br><span class="line">java.lang.NoClassDefFoundError: Could not initialize class com.pingcap.tispark.TiSparkInfo$</span><br><span class="line">        at org.apache.spark.sql.TiExtensions.apply(TiExtensions.scala:39)</span><br><span class="line">        at org.apache.spark.sql.TiExtensions.apply(TiExtensions.scala:35)</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+<h3 id="Jar-包命名">Jar 包命名</h3>
+<p>从 TiSpark v3.0.0 (<a target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/pull/2370">#2370</a>) 开始，对 TiSpark Jar 包的命名格式做了调整，更加规范，也便于选择。</p>
+<p>// 题外话，放心地直接选择最新版本的 TiSpark 就好了。</p>
+<p>变更后的格式为 <code>tispark-assembly-${spark.version.release}_${scala.version.release}</code>，例如 <code>tispark-assembly-3.3_2.12-3.2.2.jar</code> 表示 TiSpark v3.2.2 版本，支持 Spark v3.3.x，使用 Scala 2.12.x。</p>
+<h3 id="Jar-包大小-tikv-client-java">Jar 包大小 &amp; tikv-client-java</h3>
+<p>在查看 TiSpark 的 Release Notes 过程中发现，Assets 里 TiSpark v3.1.3 的 Jar 包大小还是 34 M，但是 v3.2.0 的 Jar 包大小已经变成了 50 M，关于此问题还开贴记录了一下 <a target="_blank" rel="noopener" href="https://asktug.com/t/topic/1008839">tispark package size 问题</a> 。<br>
+后来倒推了一下 commit 记录，发现了对应的 PR <a target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/pull/2491">[GSOC2022]REFACTOR—Normalize pdclient to client-java #2491</a> 。又仔细盘点 Release Notes 才发现与之对应的记录。</p>
+<blockquote>
+<p>v3.2.2: uprade client-java version to 3.3.5 to fix fail to query from TiFlash in (#2715) by @ti-chi-bot in #2716<br>
+v3.2.1: update client-java version to 3.3.4 (#2695) by @ti-chi-bot in #2696<br>
+v3.2.0: Normalize the Java client in TiSpark and use the official client-java #2491</p>
+</blockquote>
+<p>也就是说，TiSpark 从 v3.2 开始，直接引入了完整的 <a target="_blank" rel="noopener" href="https://github.com/tikv/client-java">client-java</a> 作为依赖，而且在 TiSpark v3.2.2 中使用的是最新版本 TiKV client-java <a target="_blank" rel="noopener" href="https://github.com/tikv/client-java/releases/tag/v3.3.5">v3.3.5</a><br>
+关于这项变更，在代码的设计文档里有专门说明：<a target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/blob/master/docs/design/2022-08-11-normalize-client.md">2022-08-11-normalize-client</a></p>
+<h3 id="mysql-connector-java">mysql-connector-java</h3>
+<p>与 tikv-client-java 的情况相反，由于 mysql-connector-java 所使用的 License (GPLv2) 的特殊性 ，被从 TiSpark 的依赖中移除了，使用时需要自行导入。<br>
+以本文为例，<code>mysql-connector-j.jar</code> 放在 <code>~/spark-3.3.1-bin-hadoop2/jars</code> 路径下。</p>
+<blockquote>
+<p>v3.1.0, v3.0.2<br>
+We will not provide the mysql-connector-java dependency because of the limit of the GPL license #2457, #2460</p>
+</blockquote>
+<p>相关内容在官方文档中也有表述：<a target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/dev/tispark-overview#%E8%8E%B7%E5%8F%96-mysql-connector-j">获取 mysql-connector-j</a></p>
+<p>！Tips:</p>
+<ol>
+<li>
+<p>在最新版的 TiSpark v3.2.2 中，引用的依赖是 <a target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/blob/v3.2.2/pom.xml#L87C17">mysql-connector-java 8.0.29</a> ，而 MySQL Connector/J 最新版为 <a target="_blank" rel="noopener" href="https://dev.mysql.com/downloads/connector/j/">8.0.33</a> 。实际测试过程中直接使用 8.0.33 也没有问题。</p>
+</li>
+<li>
+<p>MySQL Connector/J 的 Class 名由 <code>com.mysql.jdbc.Driver</code> 改为 <code>com.mysql.cj.jdbc.Driver</code>，如果依旧使用旧名称 Connector 会弹出告警信息，不过基本没影响，毕竟这告警已经存在 8 年了。</p>
+</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Loading class `com.mysql.jdbc.Driver&#x27;. This is deprecated. The new driver class is `com.mysql.cj.jdbc.Driver&#x27;. </span><br><span class="line">The driver is automatically registered via the SPI and manual loading of the driver class is generally unnecessary.</span><br></pre></td></tr></table></figure>
+<ol start="3">
+<li>如果没导入 jdbc 会报错：</li>
+</ol>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;&gt;&gt; </span>df=spark.read.<span class="built_in">format</span>(<span class="string">&quot;jdbc&quot;</span>).options(url=url,</span><br><span class="line"><span class="meta">... </span>  driver=<span class="string">&quot;com.mysql.jdbc.Driver&quot;</span>,</span><br><span class="line"><span class="meta">... </span>  dbtable=<span class="string">&quot;t1&quot;</span></span><br><span class="line"><span class="meta">... </span>  ).load()</span><br><span class="line">Traceback (most recent call last):</span><br><span class="line">...</span><br><span class="line">  File <span class="string">&quot;/home/shawnyan/spark-3.3.1-bin-hadoop2/python/lib/py4j-0.10.9.5-src.zip/py4j/protocol.py&quot;</span>, line <span class="number">328</span>, <span class="keyword">in</span> get_return_value</span><br><span class="line">py4j.protocol.Py4JJavaError: An error occurred <span class="keyword">while</span> calling o51.load.</span><br><span class="line">: java.lang.ClassNotFoundException: com.mysql.jdbc.Driver</span><br><span class="line">        at java.net.URLClassLoader.findClass(URLClassLoader.java:<span class="number">382</span>)</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+<h3 id="TiDB-兼容性">TiDB 兼容性</h3>
+<p>在 <a href="https://shawnyan.cn/2022/tidb/tidb-6.0-tispark-guide/#TiSpark-%E7%89%88%E6%9C%AC%E8%AF%B4%E6%98%8E">TiSpark v2.5 开发入门实践及 TiSpark v3.0.0 新功能解读</a> 文中已经提及，从 TiSpark 2.4.0 开始支持 TiDB 5.0，目前 TiDB 版本已发布至 7.1 LTS，下图显示了 TiSpark 对 TiDB 版本的支持情况，数据均来自于 TiSpark Release Notes。</p>
+<img alt="06.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/06-1690214656896.png" referrerpolicy="no-referrer"/>
+<p>从 TiDB 6.0 开始有一项非常特殊的变化，默认启用新字符校验规则，具体在文章 <a href="https://shawnyan.cn/2022/tidb/tidb-6.0-new-collation/">TiDB 6.0 新特性解读 | Collation 规则</a> 中有表述。</p>
+<p>TiSpark 从 v3.1 开始兼容新字符校验规则，换言之，如果使用 TiDB 6.0 及以上版本，并启用了新 Collation 规则，建议将 TiSpark 升级到 v3.1 及以上版本。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">TiDB<span class="operator">&gt;</span> <span class="keyword">show</span> config <span class="keyword">where</span> name <span class="keyword">like</span> <span class="string">&#x27;new_collations_enabled_on_first_bootstrap&#x27;</span>;</span><br><span class="line"><span class="operator">+</span><span class="comment">------+------------------+-------------------------------------------+-------+</span></span><br><span class="line"><span class="operator">|</span> Type <span class="operator">|</span> Instance         <span class="operator">|</span> Name                                      <span class="operator">|</span> <span class="keyword">Value</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">------+------------------+-------------------------------------------+-------+</span></span><br><span class="line"><span class="operator">|</span> tidb <span class="operator">|</span> <span class="number">192.168</span><span class="number">.1</span><span class="number">.6</span>:<span class="number">4000</span> <span class="operator">|</span> new_collations_enabled_on_first_bootstrap <span class="operator">|</span> <span class="literal">true</span>  <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">------+------------------+-------------------------------------------+-------+</span></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.023</span> sec)</span><br></pre></td></tr></table></figure>
+<p>需要注意的是，当前 TiSpark 尚不完全支持所有字符校验规则，只支持如下几种：utf8_bin, utf8_general_ci, utf8_unicode_ci, utf8mb4_bin, utf8mb4_general_ci and utf8mb4_unicode_ci。 此外，也不支持 GBK 字符集。</p>
+<h3 id="TiSpark-参数变化">TiSpark 参数变化</h3>
+<h4 id="1️⃣-新字符集">1️⃣ 新字符集</h4>
+<p>TiSpark 新字符集相关参数：<code>spark.tispark.new_collation_enable</code></p>
+<p>这在上文已经解释了该参数的作用，不再赘述。这里补充一点，该参数不用刻意配置，TiSpark 会检测所连接的 TiDB 版本，如果是 6.0.0 以上，会设定为 true，否则设置为 false。</p>
+<h4 id="2️⃣-健康检查">2️⃣ 健康检查</h4>
+<p>TiSpark v3.2.2 新增两个健康检查参数，分别用于检查与 TiKV 和 TiFlash 的 grpc 通信超时情况 (<code>spark.tispark.grpc.health_check_timeout_in_ms</code>, 2000) ，以及控制监测间隔 (<code>spark.tispark.grpc.health_check_period_in_ms</code>, 3000) 。</p>
+<h4 id="3️⃣-加载到缓存">3️⃣ 加载到缓存</h4>
+<p>与上面两个参数相关联的需求背景是， TiSpark v3.0.3/v3.1.3/v3.2.1， 新增参数 <code>spark.tispark.load_tables</code>，该参数用于控制是否加载表到 Catalog 缓存，默认情况是初始化 catalogCache 时，会加载表到缓存。我们常说 10,000 小时定律，没想到 TiSpark 遇到了反向境况，背景是有用户报告 TiSpark 加载超过 10,000 张表会 hang 住。</p>
+<h4 id="4️⃣-TiKV-副本角色">4️⃣ TiKV 副本角色</h4>
+<p>TiSpark v3.2 中新增参数 <code>spark.tispark.replica_read</code> 以支持从 TiKV 的不同副本角色（默认为 Leader，还可选择 Follwer, Learner）读取数据，从而降低 Leader Region 的压力，提升数据读取能力。</p>
+<p>例如，从 Follower 角色的副本读取数据，只需在配置文件 <code>spark-default.conf</code> 中增加 <code>spark.tispark.replica_read follower</code>。</p>
+<p>与此相关还有三个新增参数可以控制 follower read 功能：</p>
+<ul>
+<li><code>spark.tispark.replica_read.label</code>：只查询 TiKV 上匹配的标签。</li>
+<li><code>spark.tispark.replica_read.address_whitelist</code>：只从给定的 TiKV IP 地址进行查询</li>
+<li><code>spark.tispark.replica_read.address_blacklist</code>：不从给定的 TiKV IP 地址进行查询</li>
+</ul>
+<p>官方文档中有简单介绍如何启用该功能：<a target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/readonly-nodes#32-%E5%9C%A8-tispark-%E4%B8%AD%E4%BD%BF%E7%94%A8-follower-read">在 TiSpark 中使用 Follower Read</a><br>
+关于 Label 的内容，请参考 Placement Rules in SQL 相关文档，<a target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/schedule-replicas-by-topology-labels">通过拓扑 label 进行副本调度</a></p>
+<h2 id="TiSpark-功能增强">TiSpark 功能增强</h2>
+<h3 id="CBO-增强">CBO 增强</h3>
+<p>TiSpark v3.0.3 提交了一个 PR (<a target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/pull/2563">#2563</a>) 来加强 CBO 能力，TiSpark 将分析 TiKV 表扫 (<code>TableReader</code>)， TiKV 索引扫 (<code>IndexReader</code>)， TiFlash 表扫 (<code>TableReader</code>)，并选择一个代价最小的路径来读取数据。</p>
+<h3 id="Physical-Plan-增强">Physical Plan 增强</h3>
+<p>从 TiSpark v3.1.0 版本开始，物理执行计划 (<a target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/blob/v3.2.2/docs/design/2022-06-15-phyical_plan_explain.md">Physical Plan</a>) 也得到了改进 (<a target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/pull/2439">#2439</a>) ，表示更加清晰，命名也延续 TiDB 一致性。</p>
+<ul>
+<li>TiKV 表扫 (<code>TableReader</code>)</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;&gt;&gt; </span>spark.sql(<span class="string">&quot;select * from t1&quot;</span>).explain()</span><br><span class="line">== Physical Plan ==</span><br><span class="line">*(<span class="number">1</span>) ColumnarToRow</span><br><span class="line">+- TiKV CoprocessorRDD&#123;[table: t1] TableReader, Columns: <span class="built_in">id</span>@LONG: &#123; TableRangeScan: &#123; RangeFilter: [], Range: [([t\<span class="number">200</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>^_r\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>], [t\<span class="number">200</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>^_s\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>])] &#125; &#125;, startTs: <span class="number">442981720704417794</span>&#125; EstimatedCount:<span class="number">5</span></span><br></pre></td></tr></table></figure>
+<ul>
+<li>TiKV 索引扫 (<code>IndexReader</code>)</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;&gt;&gt; </span>spark.sql(<span class="string">&quot;select * from t1 where id &gt; 2&quot;</span>).explain()</span><br><span class="line">== Physical Plan ==</span><br><span class="line">*(<span class="number">1</span>) ColumnarToRow</span><br><span class="line">+- TiKV CoprocessorRDD&#123;[table: t1] IndexReader, Columns: <span class="built_in">id</span>@LONG: &#123; IndexRangeScan(Index:t1_idx_id(<span class="built_in">id</span>)): &#123; RangeFilter: [[<span class="built_in">id</span>@LONG GREATER_THAN <span class="number">2</span>]], Range: [([t\<span class="number">200</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>^_i\<span class="number">200</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\001\003\<span class="number">200</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\003], [t\<span class="number">200</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>^_i\<span class="number">200</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\001\<span class="number">372</span>])] &#125; &#125;, startTs: <span class="number">442981723456667650</span>&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>TiFlash 表扫 (<code>TableReader</code>)</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;&gt;&gt; </span>spark.sql(<span class="string">&quot;select count(*) from t1&quot;</span>).explain()</span><br><span class="line">== Physical Plan ==</span><br><span class="line">AdaptiveSparkPlan isFinalPlan=false</span><br><span class="line">+- HashAggregate(keys=[], functions=[specialsum(count(<span class="number">1</span>)<span class="comment">#14L, LongType, 0)])</span></span><br><span class="line">   +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=<span class="number">25</span>]</span><br><span class="line">      +- HashAggregate(keys=[], functions=[partial_specialsum(count(<span class="number">1</span>)<span class="comment">#14L, LongType, 0)])</span></span><br><span class="line">         +- TiFlash CoprocessorRDD&#123;[table: t1] TableReader, Columns: <span class="built_in">id</span>@LONG: &#123; TableRangeSca</span><br><span class="line">n: &#123; RangeFilter: [], Range: [([t\<span class="number">200</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>^_r\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>], [t\<span class="number">200</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>^_s\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>\<span class="number">000</span>])] &#125;, Aggregates: Count(<span class="number">1</span>) &#125;, startTs: <span class="number">442981759370657793</span>&#125; EstimatedCount:<span class="number">5</span></span><br></pre></td></tr></table></figure>
+<h3 id="TiFlash-轮转">TiFlash 轮转</h3>
+<p>从 TiSpark v3.0.3/v3.1.2/v3.2.0 开始，支持在读取 TiFlash 时采用 Round-Robin 策略的负载均衡 (<a target="_blank" rel="noopener" href="https://github.com/tikv/client-java/pull/662">client-java #662</a>) ，以此来提升 TiFlash 的利用率，如果有 2 个 TiFlash，不再总将所有负载发送到其中某个 TiFlash 上。</p>
+<h3 id="TiSpark-应用开发">TiSpark 应用开发</h3>
+<h4 id="DELETE">DELETE</h4>
+<p>从 TiSpark v3.0.0 开始，支持 <code>DELETE</code> 操作，这部分内容也已在 <a href="https://shawnyan.cn/2022/tidb/tidb-6.0-tispark-guide/#TiSpark-%E7%89%88%E6%9C%AC%E8%AF%B4%E6%98%8E">TiSpark v2.5 开发入门实践及 TiSpark v3.0.0 新功能解读</a> 文中提及，不再多言。</p>
+<h4 id="INSERT">INSERT</h4>
+<p>之前的版本(TiSpark v2.4)中，TiSpark 只能调用 datasource api 来写数据。现在，从 TiSpark v3.1.0 开始支持 <code>INSERT</code> SQL 语句，并在 TiSpark v3.2.0 中写入功能得到增强：</p>
+<ol>
+<li>支持写入带有 <code>AUTO_RANDOM</code> 为主键的表。(<a target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/pull/2545">#2545</a>)</li>
+</ol>
+<img alt="07.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/07-1690214668408.png" referrerpolicy="no-referrer"/>
+<img alt="08.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/08-1690214673674.png" referrerpolicy="no-referrer"/>
+<ol start="2">
+<li>支持写入带有新字符集的分区表。(<a target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/pull/2565">#2565</a>)</li>
+</ol>
+<p>更多内容可参阅 <a target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/blob/master/docs/features/datasource_api_userguide.md">TiDB Data Source API User Guide</a></p>
+<h2 id="TiSpark-安全">TiSpark 安全</h2>
+<h3 id="Telemetry">Telemetry</h3>
+<p>TiSpark 的<a target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/telemetry">遥测 (Telemetry)</a> 功能是从 v3.0.0 开始支持的，由参数 <code>spark.tispark.telemetry.enable</code> 进行开关控制。</p>
+<blockquote>
+<p>自 2023 年 2 月 20 日起，新发布的 TiDB 和 TiDB Dashboard 版本（含 v6.6.0），默认关闭遥测功能，即默认不再收集使用情况信息分享给 PingCAP。</p>
+</blockquote>
+<p>从 TiSpark v3.0.3/v3.1.3/v3.2.1/v3.3.0 起，默认关闭遥测功能，即，默认 <code>spark.tispark.telemetry.enable = false</code>。(<a target="_blank" rel="noopener" href="https://github.com/pingcap/tispark/pull/2621">#2621</a>)</p>
+<h3 id="log4j2">log4j2</h3>
+<p>很多人到现在或许还对 21 年 log4j2 的“炒鸡”严重漏洞 (<a target="_blank" rel="noopener" href="https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-44228">CVE-2021-44228</a>) “念念不忘”。主要考虑到安全因素 Spark 对 log4j2 进行版本升级。<br>
+Spark v3.3.0 中的 log4j2 版本升至 2.17.2 (<a target="_blank" rel="noopener" href="https://issues.apache.org/jira/browse/SPARK-38544">SPARK-38544</a>) 。<br>
+Spark v3.4.0 中的 log4j2 版本升至 2.19.0 (<a target="_blank" rel="noopener" href="https://issues.apache.org/jira/browse/SPARK-40484">SPARK-40484</a>) 。<br>
+Spark v3.5.0 中的 log4j2 版本升至 2.20.0 (<a target="_blank" rel="noopener" href="https://issues.apache.org/jira/browse/SPARK-42536">SPARK-42536</a>) 。</p>
+<h2 id="遗留问题">遗留问题</h2>
+<ol>
+<li>
+<p>pyspark 可以选择直接从 TiFlash 读取数据，在文档 <a target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/use-tispark-to-read-tiflash">使用 TiSpark 读取 TiFlash</a> 中有所介绍。但是，无法动态调整 TiSpark 选择哪个 storage (TiKV or TiFlash)，可以修改 <code>conf.set(&quot;spark.tispark.isolation_read_engines&quot;, &quot;tiflash&quot;)</code>，但不生效。只能修改配置文件 <code>spark-defaults.conf</code>，比如限定只从 TiFlash 读取数据 <code>spark.tispark.isolation_read_engines tiflash</code>，然后重启 worker 才能生效。(<a target="_blank" rel="noopener" href="https://asktug.com/t/topic/1009913">1009913</a>)</p>
+</li>
+<li>
+<p>每次使用 pyspark/spark-shell 都会遇到 <code>WARN TiConfiguration: Unable to find tikv.properties</code>，虽无伤大雅，嗯~ (<a target="_blank" rel="noopener" href="https://asktug.com/t/topic/1009954">1009954</a>)</p>
+</li>
+<li>
+<p>无法在 pyspark 中使用 <code>explain analyze</code> 语法，所以无法直接看到发出的语句在 TiKV 上消耗的 RU (<a href="https://shawnyan.cn/2023/tidb/tidb-7.1-resource-control/">资源管控</a>相关概念) 是多少。不过，Spark 中的 explain 和 TiDB 中的 explain 本就不一样。(<a target="_blank" rel="noopener" href="https://asktug.com/t/topic/1009929">1009929</a>)</p>
+</li>
+<li>
+<p>在测试新参数 <code>spark.tispark.replica_read</code> 时发现该参数会影响写操作。(<a target="_blank" rel="noopener" href="https://asktug.com/t/topic/1010197">1010197</a>)</p>
+</li>
+</ol>
+<h2 id="总结">总结</h2>
+<p>本文归纳总结了 TiSpark v3.0.0 以来的大部分新特性，相信对 TiSpark 爱好者或开发者会有所帮助。对 TiSpark 感兴趣、有需求的伙伴们，建议直接使用最新版 TiSpark，如果遇到 TiDB 升级 case，也建议对 TiSpark 进行版本升级。</p>
+<p>在使用 TiSpark 过程中如果遇到任何问题，推荐先来 <a target="_blank" rel="noopener" href="https://search.asktug.com/">AskTUG Search</a> 一下，没有匹配的帖子可以提一个新的，相信很快会收到回应，AskTUG 社区可是拥有 <strong>30,000+</strong> 活跃用户的哦，是国产数据库厂商自建论坛里顶尖的存在。</p>
+<p>随着 TiSpark 版本更新，新特性的引入，Bug 的修复，我们期待看到更高效、更灵活和更可靠的数据处理体验。</p>
+<p>Ps.<br>
+本文开始编辑于 7/5，测试环境也搭建于当日，这期间 <a href="https://shawnyan.cn/2023/mysql/mysql-8.1.0-release/">MySQL 8.1 发布了</a>，文中的版本信息以 7/5 为基准。</p>
+<img alt="logo.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg" referrerpolicy="no-referrer"/>
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/python/" class="tag-link">
+                                python
+                            </a>
+                        
+                            <a href="/tags/tidb/" class="tag-link">
+                                tidb
+                            </a>
+                        
+                            <a href="/tags/tidb-7-x/" class="tag-link">
+                                tidb 7.x
+                            </a>
+                        
+                            <a href="/tags/tispark/" class="tag-link">
+                                tispark
+                            </a>
+                        
+                            <a href="/tags/spark/" class="tag-link">
+                                spark
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2023/tidb/tidb-7.1-tispark-3.x/index.html">https://shawnyan.cn/2023/tidb/tidb-7.1-tispark-3.x/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2023/mysql/mysql-8.0.26-bug-crash/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">再遇 MySQL “一招必杀” Bug</span>
+        </a>
+    
+
+    
+        <a href="/2023/mysql/mysql-8.1.0-release/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">【MySQL 8.x】重磅！MySQL 8.1.0 已来！有彩蛋~</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%91%E7%89%88%E6%97%B6%E9%97%B4%E8%A1%A8"><span class="toc-text">发版时间表</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#TiSpark-%E6%96%B0%E5%8F%98%E5%8C%96"><span class="toc-text">TiSpark 新变化</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Spark-%E5%85%BC%E5%AE%B9%E6%80%A7"><span class="toc-text">Spark 兼容性</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Jar-%E5%8C%85%E5%91%BD%E5%90%8D"><span class="toc-text">Jar 包命名</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Jar-%E5%8C%85%E5%A4%A7%E5%B0%8F-tikv-client-java"><span class="toc-text">Jar 包大小 &amp; tikv-client-java</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#mysql-connector-java"><span class="toc-text">mysql-connector-java</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#TiDB-%E5%85%BC%E5%AE%B9%E6%80%A7"><span class="toc-text">TiDB 兼容性</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#TiSpark-%E5%8F%82%E6%95%B0%E5%8F%98%E5%8C%96"><span class="toc-text">TiSpark 参数变化</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#TiSpark-%E5%8A%9F%E8%83%BD%E5%A2%9E%E5%BC%BA"><span class="toc-text">TiSpark 功能增强</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#CBO-%E5%A2%9E%E5%BC%BA"><span class="toc-text">CBO 增强</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Physical-Plan-%E5%A2%9E%E5%BC%BA"><span class="toc-text">Physical Plan 增强</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#TiFlash-%E8%BD%AE%E8%BD%AC"><span class="toc-text">TiFlash 轮转</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#TiSpark-%E5%BA%94%E7%94%A8%E5%BC%80%E5%8F%91"><span class="toc-text">TiSpark 应用开发</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#TiSpark-%E5%AE%89%E5%85%A8"><span class="toc-text">TiSpark 安全</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Telemetry"><span class="toc-text">Telemetry</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#log4j2"><span class="toc-text">log4j2</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%81%97%E7%95%99%E9%97%AE%E9%A2%98"><span class="toc-text">遗留问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

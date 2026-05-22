@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        [译] 记一次 MySQL Galera 集群的小版本升级 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;blockquote&gt;
+&lt;p&gt;原文地址：&lt;a href=&#34;https://galeracluster.com/2022/01/minor-version-upgrade-of-a-galera-cluster-for-mysql/&#34;&gt;https://galeracluster.com/2022/01/minor-version-upgrade-of-a-galera-cluster-for-mysql/&lt;/a&gt;&lt;br&gt;
+原文作者：&lt;a href=&#34;http://galeracluster.com&#34;&gt;galeracluster.com&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;最近，我们遇到了一个关于如何执行Galera集群小版本升级的问题，今天我们只想说它是相当简单的。虽然升级是&lt;a href=&#34;https://galeracluster.com/galera-mgr/&#34;&gt;Galera管理器&lt;/a&gt; 的一个特性，我们很高兴看到即将它到来，今天，在命令行上手动完成它是非常简单的! 在这篇文章中，我们将升级一个9节点的集群，从MySQL 8.0.23升级到8.0.26。 我们也有大量的文档: &lt;a href=&#34;https://galeracluster.com/library/documentation/upgrading.html&#34;&gt;升级Galera集群&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;我们在新加坡、伦敦和旧金山分别有三个节点，共9个节点组成的集群，我们可以通过执行&lt;code&gt;show status like &#39;wsrep_cluster_size&#39;;&lt;/code&gt;来确认它。&lt;/p&gt;
+&lt;p&gt;由于我们在CentOS 7上通过向配置中添加YUM仓库，并使用RPM包管理器来安装的，所以我们只需执行&lt;code&gt;yum -y update&lt;/code&gt;。当然，我们计划先升级旧金山的三个节点，逐个节点升级（如滚动升级），这样就不会同时有多个节点停机。然后我们在伦敦重复这一过程，最后是新加坡。只要按计划升级，顺序并不重要。这次升级的过程中，并没有停止事务，就是说，数据库持续提供服务。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;yum update&lt;/code&gt;所做的就是为我们安装MySQL和&lt;code&gt;Galera wsrep provider&lt;/code&gt;，由于我们不打算更改配置文件，我们只需让程序自动运行。RPM包中有一些钩子，可以确保自动运行&lt;code&gt;mysql_upgrade&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;当然，在升级过程中，我们能看到集群大小会暂时从9个节点减少到8个节点，但这是意料之中的。升级过程中，需要确保&lt;code&gt;gcache&lt;/code&gt;配置的足够大，但仍可能出现 &lt;a href=&#34;https://galeracluster.com/library/documentation/state-transfer.html#state-transfer-ist&#34;&gt;IST&lt;/a&gt; 。&lt;/p&gt;
+&lt;p&gt;可以用下面这些查询语句来验证所有节点均已更新：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;41&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;42&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;43&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;44&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; version();&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; version() &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;8.0&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.23&lt;/span&gt;    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.00&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; status &lt;span class=&#34;keyword&#34;&gt;like&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;wsrep_cluster_size&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;--------------------+-------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Variable_name      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Value&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;--------------------+-------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; wsrep_cluster_size &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;9&lt;/span&gt;     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;--------------------+-------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.00&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  Updating   : mysql&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;wsrep&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;server&lt;span class=&#34;number&#34;&gt;-8.0&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.26&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt; [######################     ]  &lt;span class=&#34;number&#34;&gt;67&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;/&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;258&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  Cleanup    : mysql&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;wsrep&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;common&lt;span class=&#34;number&#34;&gt;-8.0&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.23&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-26.6&lt;/span&gt;.el7.x86_64                &lt;span class=&#34;number&#34;&gt;240&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;/&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;258&lt;/span&gt; &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; status &lt;span class=&#34;keyword&#34;&gt;like&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;wsrep_cluster_size&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;--------------------+-------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Variable_name      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Value&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;--------------------+-------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; wsrep_cluster_size &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;8&lt;/span&gt;     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;--------------------+-------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.01&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; mysql.wsrep_cluster_members;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;--------------------------------------+--------------------------------------+--------------+-----------------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; node_uuid                            &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; cluster_uuid                         &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; node_name    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; node_incoming_address &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;--------------------------------------+--------------------------------------+--------------+-----------------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;ff4e95&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;dfd8&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-9&lt;/span&gt;cd8&lt;span class=&#34;number&#34;&gt;-7&lt;/span&gt;ed190657de9 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; d04a1319&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;d89d&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-86&lt;/span&gt;c2&lt;span class=&#34;number&#34;&gt;-3&lt;/span&gt;fe756007e90 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; galerasf&lt;span class=&#34;number&#34;&gt;-03&lt;/span&gt;  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; AUTO                  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;113&lt;/span&gt;a4bb9&lt;span class=&#34;number&#34;&gt;-8010&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;ec&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;bbe1&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;c38d9738c824 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; d04a1319&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;d89d&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-86&lt;/span&gt;c2&lt;span class=&#34;number&#34;&gt;-3&lt;/span&gt;fe756007e90 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; galerasf&lt;span class=&#34;number&#34;&gt;-02&lt;/span&gt;  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; AUTO                  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;d13b29e&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;dfcd&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-8108&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-133e852022&lt;/span&gt;df &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; d04a1319&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;d89d&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-86&lt;/span&gt;c2&lt;span class=&#34;number&#34;&gt;-3&lt;/span&gt;fe756007e90 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; galera&lt;span class=&#34;number&#34;&gt;-03&lt;/span&gt;    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; AUTO                  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;ec352d5&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;e00a&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-93&lt;/span&gt;c3&lt;span class=&#34;number&#34;&gt;-4746e95&lt;/span&gt;e5d89 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; d04a1319&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;d89d&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-86&lt;/span&gt;c2&lt;span class=&#34;number&#34;&gt;-3&lt;/span&gt;fe756007e90 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; galerasf     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; AUTO                  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;6644&lt;/span&gt;b74f&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;dfcd&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-82&lt;/span&gt;cf&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;ca20c5363b91 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; d04a1319&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;d89d&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-86&lt;/span&gt;c2&lt;span class=&#34;number&#34;&gt;-3&lt;/span&gt;fe756007e90 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; galera&lt;span class=&#34;number&#34;&gt;-02&lt;/span&gt;    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; AUTO                  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;7&lt;/span&gt;a7edaa1&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;dfcd&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;b5e1&lt;span class=&#34;number&#34;&gt;-23&lt;/span&gt;b77330d3d5 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; d04a1319&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;d89d&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-86&lt;/span&gt;c2&lt;span class=&#34;number&#34;&gt;-3&lt;/span&gt;fe756007e90 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; galera       &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; AUTO                  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; a5cc9925&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;dfd7&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-9831&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;b76bc19aa3a4 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; d04a1319&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;d89d&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-86&lt;/span&gt;c2&lt;span class=&#34;number&#34;&gt;-3&lt;/span&gt;fe756007e90 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; galeralon&lt;span class=&#34;number&#34;&gt;-02&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; AUTO                  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; c0078cbd&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;dfd7&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-8877&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-7e671&lt;/span&gt;c4d3a89 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; d04a1319&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;d89d&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-86&lt;/span&gt;c2&lt;span class=&#34;number&#34;&gt;-3&lt;/span&gt;fe756007e90 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; galeralon&lt;span class=&#34;number&#34;&gt;-03&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; AUTO                  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; e7fe42fd&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;dfce&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-9675&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-36&lt;/span&gt;d358e01b8d &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; d04a1319&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;d89d&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-86&lt;/span&gt;c2&lt;span class=&#34;number&#34;&gt;-3&lt;/span&gt;fe756007e90 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; galeralon    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; AUTO                  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;--------------------------------------+--------------------------------------+--------------+-----------------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;9&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.00&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;现在您会发现，只要您使用包管理，一次小版本升级真的很简单。而且升级过程中不需要停机。&lt;/p&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="[译] 记一次 MySQL Galera 集群的小版本升级">
+    <meta property="og:url" content="https://shawnyan.cn/2022/mysql/fanyi-minor-version-upgrade-of-a-galera-cluster-for-mysql/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;blockquote&gt;
+&lt;p&gt;原文地址：&lt;a href=&#34;https://galeracluster.com/2022/01/minor-version-upgrade-of-a-galera-cluster-for-mysql/&#34;&gt;https://galeracluster.com/2022/01/minor-version-upgrade-of-a-galera-cluster-for-mysql/&lt;/a&gt;&lt;br&gt;
+原文作者：&lt;a href=&#34;http://galeracluster.com&#34;&gt;galeracluster.com&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;最近，我们遇到了一个关于如何执行Galera集群小版本升级的问题，今天我们只想说它是相当简单的。虽然升级是&lt;a href=&#34;https://galeracluster.com/galera-mgr/&#34;&gt;Galera管理器&lt;/a&gt; 的一个特性，我们很高兴看到即将它到来，今天，在命令行上手动完成它是非常简单的! 在这篇文章中，我们将升级一个9节点的集群，从MySQL 8.0.23升级到8.0.26。 我们也有大量的文档: &lt;a href=&#34;https://galeracluster.com/library/documentation/upgrading.html&#34;&gt;升级Galera集群&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;我们在新加坡、伦敦和旧金山分别有三个节点，共9个节点组成的集群，我们可以通过执行&lt;code&gt;show status like &#39;wsrep_cluster_size&#39;;&lt;/code&gt;来确认它。&lt;/p&gt;
+&lt;p&gt;由于我们在CentOS 7上通过向配置中添加YUM仓库，并使用RPM包管理器来安装的，所以我们只需执行&lt;code&gt;yum -y update&lt;/code&gt;。当然，我们计划先升级旧金山的三个节点，逐个节点升级（如滚动升级），这样就不会同时有多个节点停机。然后我们在伦敦重复这一过程，最后是新加坡。只要按计划升级，顺序并不重要。这次升级的过程中，并没有停止事务，就是说，数据库持续提供服务。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;yum update&lt;/code&gt;所做的就是为我们安装MySQL和&lt;code&gt;Galera wsrep provider&lt;/code&gt;，由于我们不打算更改配置文件，我们只需让程序自动运行。RPM包中有一些钩子，可以确保自动运行&lt;code&gt;mysql_upgrade&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;当然，在升级过程中，我们能看到集群大小会暂时从9个节点减少到8个节点，但这是意料之中的。升级过程中，需要确保&lt;code&gt;gcache&lt;/code&gt;配置的足够大，但仍可能出现 &lt;a href=&#34;https://galeracluster.com/library/documentation/state-transfer.html#state-transfer-ist&#34;&gt;IST&lt;/a&gt; 。&lt;/p&gt;
+&lt;p&gt;可以用下面这些查询语句来验证所有节点均已更新：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;41&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;42&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;43&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;44&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; version();&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; version() &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;8.0&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.23&lt;/span&gt;    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.00&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; status &lt;span class=&#34;keyword&#34;&gt;like&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;wsrep_cluster_size&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;--------------------+-------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Variable_name      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Value&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;--------------------+-------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; wsrep_cluster_size &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;9&lt;/span&gt;     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;--------------------+-------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.00&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  Updating   : mysql&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;wsrep&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;server&lt;span class=&#34;number&#34;&gt;-8.0&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.26&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt; [######################     ]  &lt;span class=&#34;number&#34;&gt;67&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;/&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;258&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  Cleanup    : mysql&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;wsrep&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;common&lt;span class=&#34;number&#34;&gt;-8.0&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.23&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-26.6&lt;/span&gt;.el7.x86_64                &lt;span class=&#34;number&#34;&gt;240&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;/&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;258&lt;/span&gt; &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; status &lt;span class=&#34;keyword&#34;&gt;like&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;wsrep_cluster_size&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;--------------------+-------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Variable_name      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Value&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;--------------------+-------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; wsrep_cluster_size &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;8&lt;/span&gt;     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;--------------------+-------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.01&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; mysql.wsrep_cluster_members;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;--------------------------------------+--------------------------------------+--------------+-----------------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; node_uuid                            &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; cluster_uuid                         &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; node_name    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; node_incoming_address &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;--------------------------------------+--------------------------------------+--------------+-----------------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;ff4e95&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;dfd8&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-9&lt;/span&gt;cd8&lt;span class=&#34;number&#34;&gt;-7&lt;/span&gt;ed190657de9 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; d04a1319&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;d89d&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-86&lt;/span&gt;c2&lt;span class=&#34;number&#34;&gt;-3&lt;/span&gt;fe756007e90 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; galerasf&lt;span class=&#34;number&#34;&gt;-03&lt;/span&gt;  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; AUTO                  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;113&lt;/span&gt;a4bb9&lt;span class=&#34;number&#34;&gt;-8010&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;ec&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;bbe1&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;c38d9738c824 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; d04a1319&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;d89d&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-86&lt;/span&gt;c2&lt;span class=&#34;number&#34;&gt;-3&lt;/span&gt;fe756007e90 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; galerasf&lt;span class=&#34;number&#34;&gt;-02&lt;/span&gt;  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; AUTO                  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;d13b29e&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;dfcd&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-8108&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-133e852022&lt;/span&gt;df &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; d04a1319&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;d89d&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-86&lt;/span&gt;c2&lt;span class=&#34;number&#34;&gt;-3&lt;/span&gt;fe756007e90 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; galera&lt;span class=&#34;number&#34;&gt;-03&lt;/span&gt;    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; AUTO                  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;ec352d5&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;e00a&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-93&lt;/span&gt;c3&lt;span class=&#34;number&#34;&gt;-4746e95&lt;/span&gt;e5d89 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; d04a1319&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;d89d&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-86&lt;/span&gt;c2&lt;span class=&#34;number&#34;&gt;-3&lt;/span&gt;fe756007e90 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; galerasf     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; AUTO                  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;6644&lt;/span&gt;b74f&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;dfcd&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-82&lt;/span&gt;cf&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;ca20c5363b91 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; d04a1319&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;d89d&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-86&lt;/span&gt;c2&lt;span class=&#34;number&#34;&gt;-3&lt;/span&gt;fe756007e90 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; galera&lt;span class=&#34;number&#34;&gt;-02&lt;/span&gt;    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; AUTO                  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;7&lt;/span&gt;a7edaa1&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;dfcd&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;b5e1&lt;span class=&#34;number&#34;&gt;-23&lt;/span&gt;b77330d3d5 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; d04a1319&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;d89d&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-86&lt;/span&gt;c2&lt;span class=&#34;number&#34;&gt;-3&lt;/span&gt;fe756007e90 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; galera       &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; AUTO                  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; a5cc9925&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;dfd7&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-9831&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;b76bc19aa3a4 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; d04a1319&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;d89d&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-86&lt;/span&gt;c2&lt;span class=&#34;number&#34;&gt;-3&lt;/span&gt;fe756007e90 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; galeralon&lt;span class=&#34;number&#34;&gt;-02&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; AUTO                  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; c0078cbd&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;dfd7&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-8877&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-7e671&lt;/span&gt;c4d3a89 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; d04a1319&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;d89d&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-86&lt;/span&gt;c2&lt;span class=&#34;number&#34;&gt;-3&lt;/span&gt;fe756007e90 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; galeralon&lt;span class=&#34;number&#34;&gt;-03&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; AUTO                  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; e7fe42fd&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;dfce&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-9675&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-36&lt;/span&gt;d358e01b8d &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; d04a1319&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;d89d&lt;span class=&#34;number&#34;&gt;-11&lt;/span&gt;eb&lt;span class=&#34;number&#34;&gt;-86&lt;/span&gt;c2&lt;span class=&#34;number&#34;&gt;-3&lt;/span&gt;fe756007e90 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; galeralon    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; AUTO                  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;--------------------------------------+--------------------------------------+--------------+-----------------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;9&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.00&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;现在您会发现，只要您使用包管理，一次小版本升级真的很简单。而且升级过程中不需要停机。&lt;/p&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/mysql/" class="category-badge">
+                                    MySQL
+                                </a>
+                            
+                                <a href="/categories/mysql/translate/" class="category-badge">
+                                    Translate
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">[译] 记一次 MySQL Galera 集群的小版本升级</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2022-03-10
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                722 words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                3 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <blockquote>
+<p>原文地址：<a target="_blank" rel="noopener" href="https://galeracluster.com/2022/01/minor-version-upgrade-of-a-galera-cluster-for-mysql/">https://galeracluster.com/2022/01/minor-version-upgrade-of-a-galera-cluster-for-mysql/</a><br>
+原文作者：<a target="_blank" rel="noopener" href="http://galeracluster.com">galeracluster.com</a></p>
+</blockquote>
+<p>最近，我们遇到了一个关于如何执行Galera集群小版本升级的问题，今天我们只想说它是相当简单的。虽然升级是<a target="_blank" rel="noopener" href="https://galeracluster.com/galera-mgr/">Galera管理器</a> 的一个特性，我们很高兴看到即将它到来，今天，在命令行上手动完成它是非常简单的! 在这篇文章中，我们将升级一个9节点的集群，从MySQL 8.0.23升级到8.0.26。 我们也有大量的文档: <a target="_blank" rel="noopener" href="https://galeracluster.com/library/documentation/upgrading.html">升级Galera集群</a></p>
+<p>我们在新加坡、伦敦和旧金山分别有三个节点，共9个节点组成的集群，我们可以通过执行<code>show status like 'wsrep_cluster_size';</code>来确认它。</p>
+<p>由于我们在CentOS 7上通过向配置中添加YUM仓库，并使用RPM包管理器来安装的，所以我们只需执行<code>yum -y update</code>。当然，我们计划先升级旧金山的三个节点，逐个节点升级（如滚动升级），这样就不会同时有多个节点停机。然后我们在伦敦重复这一过程，最后是新加坡。只要按计划升级，顺序并不重要。这次升级的过程中，并没有停止事务，就是说，数据库持续提供服务。</p>
+<p><code>yum update</code>所做的就是为我们安装MySQL和<code>Galera wsrep provider</code>，由于我们不打算更改配置文件，我们只需让程序自动运行。RPM包中有一些钩子，可以确保自动运行<code>mysql_upgrade</code>。</p>
+<p>当然，在升级过程中，我们能看到集群大小会暂时从9个节点减少到8个节点，但这是意料之中的。升级过程中，需要确保<code>gcache</code>配置的足够大，但仍可能出现 <a target="_blank" rel="noopener" href="https://galeracluster.com/library/documentation/state-transfer.html#state-transfer-ist">IST</a> 。</p>
+<p>可以用下面这些查询语句来验证所有节点均已更新：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">select</span> version();</span><br><span class="line"><span class="operator">+</span><span class="comment">-----------+</span></span><br><span class="line"><span class="operator">|</span> version() <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-----------+</span></span><br><span class="line"><span class="operator">|</span> <span class="number">8.0</span><span class="number">.23</span>    <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-----------+</span></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">show</span> status <span class="keyword">like</span> <span class="string">&#x27;wsrep_cluster_size&#x27;</span>;</span><br><span class="line"><span class="operator">+</span><span class="comment">--------------------+-------+</span></span><br><span class="line"><span class="operator">|</span> Variable_name      <span class="operator">|</span> <span class="keyword">Value</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">--------------------+-------+</span></span><br><span class="line"><span class="operator">|</span> wsrep_cluster_size <span class="operator">|</span> <span class="number">9</span>     <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">--------------------+-------+</span></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br><span class="line"></span><br><span class="line">  Updating   : mysql<span class="operator">-</span>wsrep<span class="operator">-</span>server<span class="number">-8.0</span><span class="number">.26</span><span class="operator">-</span> [######################     ]  <span class="number">67</span><span class="operator">/</span><span class="number">258</span></span><br><span class="line">  Cleanup    : mysql<span class="operator">-</span>wsrep<span class="operator">-</span>common<span class="number">-8.0</span><span class="number">.23</span><span class="number">-26.6</span>.el7.x86_64                <span class="number">240</span><span class="operator">/</span><span class="number">258</span> </span><br><span class="line"></span><br><span class="line"></span><br><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">show</span> status <span class="keyword">like</span> <span class="string">&#x27;wsrep_cluster_size&#x27;</span>;</span><br><span class="line"><span class="operator">+</span><span class="comment">--------------------+-------+</span></span><br><span class="line"><span class="operator">|</span> Variable_name      <span class="operator">|</span> <span class="keyword">Value</span> <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">--------------------+-------+</span></span><br><span class="line"><span class="operator">|</span> wsrep_cluster_size <span class="operator">|</span> <span class="number">8</span>     <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">--------------------+-------+</span></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.01</span> sec)</span><br><span class="line"></span><br><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> mysql.wsrep_cluster_members;</span><br><span class="line"><span class="operator">+</span><span class="comment">--------------------------------------+--------------------------------------+--------------+-----------------------+</span></span><br><span class="line"><span class="operator">|</span> node_uuid                            <span class="operator">|</span> cluster_uuid                         <span class="operator">|</span> node_name    <span class="operator">|</span> node_incoming_address <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">--------------------------------------+--------------------------------------+--------------+-----------------------+</span></span><br><span class="line"><span class="operator">|</span> <span class="number">10</span>ff4e95<span class="operator">-</span>dfd8<span class="number">-11</span>eb<span class="number">-9</span>cd8<span class="number">-7</span>ed190657de9 <span class="operator">|</span> d04a1319<span class="operator">-</span>d89d<span class="number">-11</span>eb<span class="number">-86</span>c2<span class="number">-3</span>fe756007e90 <span class="operator">|</span> galerasf<span class="number">-03</span>  <span class="operator">|</span> AUTO                  <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> <span class="number">113</span>a4bb9<span class="number">-8010</span><span class="number">-11</span>ec<span class="operator">-</span>bbe1<span class="operator">-</span>c38d9738c824 <span class="operator">|</span> d04a1319<span class="operator">-</span>d89d<span class="number">-11</span>eb<span class="number">-86</span>c2<span class="number">-3</span>fe756007e90 <span class="operator">|</span> galerasf<span class="number">-02</span>  <span class="operator">|</span> AUTO                  <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> <span class="number">4</span>d13b29e<span class="operator">-</span>dfcd<span class="number">-11</span>eb<span class="number">-8108</span><span class="number">-133e852022</span>df <span class="operator">|</span> d04a1319<span class="operator">-</span>d89d<span class="number">-11</span>eb<span class="number">-86</span>c2<span class="number">-3</span>fe756007e90 <span class="operator">|</span> galera<span class="number">-03</span>    <span class="operator">|</span> AUTO                  <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> <span class="number">4</span>ec352d5<span class="operator">-</span>e00a<span class="number">-11</span>eb<span class="number">-93</span>c3<span class="number">-4746e95</span>e5d89 <span class="operator">|</span> d04a1319<span class="operator">-</span>d89d<span class="number">-11</span>eb<span class="number">-86</span>c2<span class="number">-3</span>fe756007e90 <span class="operator">|</span> galerasf     <span class="operator">|</span> AUTO                  <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> <span class="number">6644</span>b74f<span class="operator">-</span>dfcd<span class="number">-11</span>eb<span class="number">-82</span>cf<span class="operator">-</span>ca20c5363b91 <span class="operator">|</span> d04a1319<span class="operator">-</span>d89d<span class="number">-11</span>eb<span class="number">-86</span>c2<span class="number">-3</span>fe756007e90 <span class="operator">|</span> galera<span class="number">-02</span>    <span class="operator">|</span> AUTO                  <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> <span class="number">7</span>a7edaa1<span class="operator">-</span>dfcd<span class="number">-11</span>eb<span class="operator">-</span>b5e1<span class="number">-23</span>b77330d3d5 <span class="operator">|</span> d04a1319<span class="operator">-</span>d89d<span class="number">-11</span>eb<span class="number">-86</span>c2<span class="number">-3</span>fe756007e90 <span class="operator">|</span> galera       <span class="operator">|</span> AUTO                  <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> a5cc9925<span class="operator">-</span>dfd7<span class="number">-11</span>eb<span class="number">-9831</span><span class="operator">-</span>b76bc19aa3a4 <span class="operator">|</span> d04a1319<span class="operator">-</span>d89d<span class="number">-11</span>eb<span class="number">-86</span>c2<span class="number">-3</span>fe756007e90 <span class="operator">|</span> galeralon<span class="number">-02</span> <span class="operator">|</span> AUTO                  <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> c0078cbd<span class="operator">-</span>dfd7<span class="number">-11</span>eb<span class="number">-8877</span><span class="number">-7e671</span>c4d3a89 <span class="operator">|</span> d04a1319<span class="operator">-</span>d89d<span class="number">-11</span>eb<span class="number">-86</span>c2<span class="number">-3</span>fe756007e90 <span class="operator">|</span> galeralon<span class="number">-03</span> <span class="operator">|</span> AUTO                  <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> e7fe42fd<span class="operator">-</span>dfce<span class="number">-11</span>eb<span class="number">-9675</span><span class="number">-36</span>d358e01b8d <span class="operator">|</span> d04a1319<span class="operator">-</span>d89d<span class="number">-11</span>eb<span class="number">-86</span>c2<span class="number">-3</span>fe756007e90 <span class="operator">|</span> galeralon    <span class="operator">|</span> AUTO                  <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">--------------------------------------+--------------------------------------+--------------+-----------------------+</span></span><br><span class="line"><span class="number">9</span> <span class="keyword">rows</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure>
+<p>现在您会发现，只要您使用包管理，一次小版本升级真的很简单。而且升级过程中不需要停机。</p>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/upgrade/" class="tag-link">
+                                upgrade
+                            </a>
+                        
+                            <a href="/tags/mysql/" class="tag-link">
+                                mysql
+                            </a>
+                        
+                            <a href="/tags/galera/" class="tag-link">
+                                galera
+                            </a>
+                        
+                            <a href="/tags/mysql-8-0/" class="tag-link">
+                                mysql 8.0
+                            </a>
+                        
+                            <a href="/tags/%E8%AF%91%E6%96%87/" class="tag-link">
+                                译文
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2022/mysql/fanyi-minor-version-upgrade-of-a-galera-cluster-for-mysql/index.html">https://shawnyan.cn/2022/mysql/fanyi-minor-version-upgrade-of-a-galera-cluster-for-mysql/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2022/postgresql/fanyi-pg-15-jsonb-toaster/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">[译] 一个TOAST适配所有：JSONB TOASTER | PG 15 特性预览</span>
+        </a>
+    
+
+    
+        <a href="/2022/mysql/fanyi-time-to-check-galera-cluster-security/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">[译] 是时候该检查 Galera 集群的安全了？</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        再遇 MySQL “一招必杀” Bug | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;h2 id=&#34;TL-DR&#34;&gt;TL;DR&lt;/h2&gt;
+&lt;p&gt;该 Bug 与 &lt;a href=&#34;https://dev.mysql.com/doc/refman/8.0/en/derived-condition-pushdown-optimization.html&#34;&gt;Derived Condition Pushdown Optimization&lt;/a&gt; 相关，从 MySQL 8.0.26 引入，8.0.27 和 8.0.28 仍受影响，直到 MySQL 8.0.29 被修复。&lt;br&gt;
+但是，MySQL 8.0.29 有其他致命缺陷，官网已经移除下载链接，建议升级到新版本 MySQL 8.0.33 或 MySQL 8.0.34。&lt;/p&gt;
+&lt;img alt=&#34;1.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20230725-b8b3c862-8a54-40e9-b90f-5f215e9e3161.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;img alt=&#34;2.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20230725-afb101f2-7b35-426c-bd73-0919cf7ca243.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;问题现象&#34;&gt;问题现象&lt;/h2&gt;
+&lt;p&gt;该问题是 vx 群里的好友发现的，在 MySQL 5.7、TiDB 中并未发现该问题，但当应用程序运行在 MySQL 8.0.27 时，问题出现，最终定位到具体 SQL，并提炼出最小化复现步骤，诱发问题的 SQL 如下。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; (&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; bb.c_int&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; c_int111&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; (&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; aa.c_int &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; c_int&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; (&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; c_int&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    ) aa&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  ) bb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;) cc&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;WHERE&lt;/span&gt; c_int111 &lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;经过多版本实验比对，发现该 SQL 在较低版本（8.0.25 及以下）或较高版本（8.0.29 及以上）的 MySQL 中执行正常，在&lt;a href=&#34;https://docs.pingcap.com/zh/tidb/stable/mysql-compatibility&#34;&gt;兼容 MySQL 5.7 协议的 TiDB&lt;/a&gt; 中执行正常，在 MariaDB 中也执行正常。&lt;/p&gt;
+&lt;img alt=&#34;3.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20230725-c916c471-6aee-4cd9-9e09-ecb919503d3a.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;但是在 MySQL 8.0.27 / 8.0.28 中，该 SQL 执行异常。&lt;/p&gt;
+&lt;img alt=&#34;4.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20230725-f81193e2-9d7a-4a8f-b83d-37a469c8b6e0.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;But again, 在 MySQL 8.0.26 中，该 SQL 将导致 DB Crash，“一招致命”。&lt;/p&gt;
+&lt;img alt=&#34;5.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20230725-a70f417e-529d-460f-b294-d361a9a275d1.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;到此，可以确定，这是 MySQL 8.0.26 的一个 Bug，并对 MySQL 8.0.27 和 8.0.28 持续产生影响，直到 MySQL 8.0.29 被完整修复，恢复可用态。&lt;/p&gt;
+&lt;h2 id=&#34;Bug-确认&#34;&gt;Bug 确认&lt;/h2&gt;
+&lt;p&gt;知道了 Bug 影响和被修复的版本，以及 crash log 就降低了寻找 Bug 号的难度。&lt;br&gt;
+对于 MySQL 社区版，除了搜索引擎，通常有三个途径可以用来找寻 Bug 号，分别是 MySQL 官网的 Release Notes，MySQL Bug 系统，以及 MySQL 社区版源码。&lt;/p&gt;
+&lt;p&gt;对于此案例，可以通过错误日志来快速定位，摘取重要日志如下。&lt;/p&gt;
+&lt;figure class=&#34;highlight c&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;/usr/sbin/mysqld(Condition_pushdown::replace_columns_in_cond(Item**, &lt;span class=&#34;type&#34;&gt;bool&lt;/span&gt;)+&lt;span class=&#34;number&#34;&gt;0x74&lt;/span&gt;) [&lt;span class=&#34;number&#34;&gt;0x55715b87c6e4&lt;/span&gt;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/usr/sbin/mysqld(Condition_pushdown::make_cond_for_derived()+&lt;span class=&#34;number&#34;&gt;0x2a3&lt;/span&gt;) [&lt;span class=&#34;number&#34;&gt;0x55715b87d7f3&lt;/span&gt;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/usr/sbin/mysqld(Query_block::push_conditions_to_derived_tables(THD*)+&lt;span class=&#34;number&#34;&gt;0xda&lt;/span&gt;) [&lt;span class=&#34;number&#34;&gt;0x558385bda21a&lt;/span&gt;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/usr/sbin/mysqld(Query_block::prepare(THD*, mem_root_deque&amp;lt;Item*&amp;gt;*)+&lt;span class=&#34;number&#34;&gt;0xd7c&lt;/span&gt;) [&lt;span class=&#34;number&#34;&gt;0x558385bef7fc&lt;/span&gt;]&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;简单解释上面四个方法的含义：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;code&gt;Condition_pushdown::replace_columns_in_cond&lt;/code&gt;:&lt;br&gt;
+用派生表表达式替换将推入此派生表的条件中的列。&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;Condition_pushdown::make_cond_for_derived&lt;/code&gt;：创建一个可以下推到派生表的条件，并将其下推。&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;Query_block::push_conditions_to_derived_tables&lt;/code&gt;：将此查询块的WHERE条件的部分推送到物化派生表。&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;Query_block::prepare&lt;/code&gt;：准备查询块进行优化。解析表和列信息。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;在公开的 Bug 系统中找到了一条记录 (Bug #104574)，S2 严重级别。&lt;/p&gt;
+&lt;img alt=&#34;6.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20230725-601c8f58-ead6-49cc-97b9-3ee368835db5.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;与之对应的 commit 记录为：&lt;a href=&#34;https://github.com/mysql/mysql-server/commit/518c2ae85b55f78565908567a02de55d0a8a477a&#34;&gt;518c2ae85b55f78565908567a02de55d0a8a477a&lt;/a&gt;&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;Bug#33197276: regression: Assertion `cur_query_block != select&amp;#x27; failed.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;and segfault in Condition_pushdown::replace_columns_in_cond&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Bug#33209907: condition seems not correct&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;继续排查 &lt;a href=&#34;https://github.com/mysql/mysql-server/commits/mysql-8.0.29/sql/sql_derived.cc&#34;&gt;&lt;code&gt;sql_derived.cc&lt;/code&gt;&lt;/a&gt; 这个文件在 8.0.29 发版之前的提交信息，找到可能与之相关的 commit 记录。&lt;/p&gt;
+&lt;p&gt;顺藤摸瓜，找到了 MySQL 8.0.29 修复的那条 commit 记录 (3ca1c67dfdbc9e2972810773474fbfe70fdabaa8)。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;WL#13730 - Condition pushdown to materialized derived tables&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;with set operations&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;回头再看 Release Notes，可以找到如下记录：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;MySQL 8.0.27&lt;br&gt;
+In certain cases, the view reference cloned when pushing a condition down to a derived table was not always resolved in the desired context. In addition, a check for a null condition was not performed correctly. (Bug #104574, Bug #33209907, Bug #33197276)&lt;/p&gt;
+&lt;p&gt;MySQL 8.0.29&lt;br&gt;
+The derived materialized table condition pushdown optimization can now be used with most unions. This means that an outer WHERE condition can now be pushed down to every query block of the query expression of the materialized derived table or view.&lt;br&gt;
+…&lt;br&gt;
+This can now be done for most UNION queries. For exceptions, and additional information, see Derived Condition Pushdown Optimization. (Bug #24012, Bug #36802, Bug #106006, Bug #11746156, Bug #11748590, Bug #13650627, Bug #30587347, Bug #33318096, Bug #33738597, WL #13730)&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;到此，可以初步判定，这个 Bug 是由 MySQL 8.0.22 新引入的变量 &lt;code&gt;derived_condition_pushdown&lt;/code&gt; 及其相关代码逻辑处理不恰引起的。&lt;/p&gt;
+&lt;h2 id=&#34;解决办法&#34;&gt;解决办法&lt;/h2&gt;
+&lt;p&gt;找到原因，解决起来就很简单了。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;(workaround) 参数 &lt;code&gt;derived_condition_pushdown&lt;/code&gt; 默认值为 ON，修改全局变量将其改为 OFF，并将其进行持久化设定。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;GLOBAL&lt;/span&gt; optimizer_switch&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;...,derived_condition_pushdown=off&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt; PERSIST optimizer_switch&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;...,derived_condition_pushdown=off&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;7.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20230725-0b1db1ce-3f27-46b3-ac96-67ca59a09737.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;跳过问题版本，升级到更高版本，如 MySQL 8.0.33 或 MySQL 8.0.34。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;Ps.&lt;/p&gt;
+&lt;p&gt;在查阅资料过程中，发现在新版本还有关于 &lt;code&gt;derived_condition_pushdown&lt;/code&gt; 的 Bug，比如 &lt;a href=&#34;https://bugs.mysql.com/bug.php?id=109699&#34;&gt;Bug#109699&lt;/a&gt; , &lt;a href=&#34;https://bugs.mysql.com/bug.php?id=110228&#34;&gt;Bug#110228&lt;/a&gt; 影响到 MySQL 8.0.32，在 MySQL 8.0.33 得到修复。看来这还是个有故事的 feature。&lt;/p&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;在修复一个 Bug 时，可能引入新的 Bug，所以功能测试、版本适配很重要。&lt;br&gt;
+DBA 需要有不同版本、不同架构，甚至不同类型数据库的测试环境，用来测试或验证各种概念、问题。&lt;br&gt;
+没想到一个新特性影响了那么多版本，希望 &lt;a href=&#34;https://dev.mysql.com/doc/refman/8.1/en/&#34;&gt;MySQL 8.1&lt;/a&gt; 之后会带来不一样的感受~&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="再遇 MySQL “一招必杀” Bug">
+    <meta property="og:url" content="https://shawnyan.cn/2023/mysql/mysql-8.0.26-bug-crash/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;h2 id=&#34;TL-DR&#34;&gt;TL;DR&lt;/h2&gt;
+&lt;p&gt;该 Bug 与 &lt;a href=&#34;https://dev.mysql.com/doc/refman/8.0/en/derived-condition-pushdown-optimization.html&#34;&gt;Derived Condition Pushdown Optimization&lt;/a&gt; 相关，从 MySQL 8.0.26 引入，8.0.27 和 8.0.28 仍受影响，直到 MySQL 8.0.29 被修复。&lt;br&gt;
+但是，MySQL 8.0.29 有其他致命缺陷，官网已经移除下载链接，建议升级到新版本 MySQL 8.0.33 或 MySQL 8.0.34。&lt;/p&gt;
+&lt;img alt=&#34;1.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20230725-b8b3c862-8a54-40e9-b90f-5f215e9e3161.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;img alt=&#34;2.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20230725-afb101f2-7b35-426c-bd73-0919cf7ca243.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;问题现象&#34;&gt;问题现象&lt;/h2&gt;
+&lt;p&gt;该问题是 vx 群里的好友发现的，在 MySQL 5.7、TiDB 中并未发现该问题，但当应用程序运行在 MySQL 8.0.27 时，问题出现，最终定位到具体 SQL，并提炼出最小化复现步骤，诱发问题的 SQL 如下。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; (&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; bb.c_int&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; c_int111&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; (&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; aa.c_int &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; c_int&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; (&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; c_int&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    ) aa&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  ) bb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;) cc&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;WHERE&lt;/span&gt; c_int111 &lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;经过多版本实验比对，发现该 SQL 在较低版本（8.0.25 及以下）或较高版本（8.0.29 及以上）的 MySQL 中执行正常，在&lt;a href=&#34;https://docs.pingcap.com/zh/tidb/stable/mysql-compatibility&#34;&gt;兼容 MySQL 5.7 协议的 TiDB&lt;/a&gt; 中执行正常，在 MariaDB 中也执行正常。&lt;/p&gt;
+&lt;img alt=&#34;3.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20230725-c916c471-6aee-4cd9-9e09-ecb919503d3a.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;但是在 MySQL 8.0.27 / 8.0.28 中，该 SQL 执行异常。&lt;/p&gt;
+&lt;img alt=&#34;4.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20230725-f81193e2-9d7a-4a8f-b83d-37a469c8b6e0.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;But again, 在 MySQL 8.0.26 中，该 SQL 将导致 DB Crash，“一招致命”。&lt;/p&gt;
+&lt;img alt=&#34;5.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20230725-a70f417e-529d-460f-b294-d361a9a275d1.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;到此，可以确定，这是 MySQL 8.0.26 的一个 Bug，并对 MySQL 8.0.27 和 8.0.28 持续产生影响，直到 MySQL 8.0.29 被完整修复，恢复可用态。&lt;/p&gt;
+&lt;h2 id=&#34;Bug-确认&#34;&gt;Bug 确认&lt;/h2&gt;
+&lt;p&gt;知道了 Bug 影响和被修复的版本，以及 crash log 就降低了寻找 Bug 号的难度。&lt;br&gt;
+对于 MySQL 社区版，除了搜索引擎，通常有三个途径可以用来找寻 Bug 号，分别是 MySQL 官网的 Release Notes，MySQL Bug 系统，以及 MySQL 社区版源码。&lt;/p&gt;
+&lt;p&gt;对于此案例，可以通过错误日志来快速定位，摘取重要日志如下。&lt;/p&gt;
+&lt;figure class=&#34;highlight c&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;/usr/sbin/mysqld(Condition_pushdown::replace_columns_in_cond(Item**, &lt;span class=&#34;type&#34;&gt;bool&lt;/span&gt;)+&lt;span class=&#34;number&#34;&gt;0x74&lt;/span&gt;) [&lt;span class=&#34;number&#34;&gt;0x55715b87c6e4&lt;/span&gt;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/usr/sbin/mysqld(Condition_pushdown::make_cond_for_derived()+&lt;span class=&#34;number&#34;&gt;0x2a3&lt;/span&gt;) [&lt;span class=&#34;number&#34;&gt;0x55715b87d7f3&lt;/span&gt;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/usr/sbin/mysqld(Query_block::push_conditions_to_derived_tables(THD*)+&lt;span class=&#34;number&#34;&gt;0xda&lt;/span&gt;) [&lt;span class=&#34;number&#34;&gt;0x558385bda21a&lt;/span&gt;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/usr/sbin/mysqld(Query_block::prepare(THD*, mem_root_deque&amp;lt;Item*&amp;gt;*)+&lt;span class=&#34;number&#34;&gt;0xd7c&lt;/span&gt;) [&lt;span class=&#34;number&#34;&gt;0x558385bef7fc&lt;/span&gt;]&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;简单解释上面四个方法的含义：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;code&gt;Condition_pushdown::replace_columns_in_cond&lt;/code&gt;:&lt;br&gt;
+用派生表表达式替换将推入此派生表的条件中的列。&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;Condition_pushdown::make_cond_for_derived&lt;/code&gt;：创建一个可以下推到派生表的条件，并将其下推。&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;Query_block::push_conditions_to_derived_tables&lt;/code&gt;：将此查询块的WHERE条件的部分推送到物化派生表。&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;Query_block::prepare&lt;/code&gt;：准备查询块进行优化。解析表和列信息。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;在公开的 Bug 系统中找到了一条记录 (Bug #104574)，S2 严重级别。&lt;/p&gt;
+&lt;img alt=&#34;6.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20230725-601c8f58-ead6-49cc-97b9-3ee368835db5.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;与之对应的 commit 记录为：&lt;a href=&#34;https://github.com/mysql/mysql-server/commit/518c2ae85b55f78565908567a02de55d0a8a477a&#34;&gt;518c2ae85b55f78565908567a02de55d0a8a477a&lt;/a&gt;&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;Bug#33197276: regression: Assertion `cur_query_block != select&amp;#x27; failed.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;and segfault in Condition_pushdown::replace_columns_in_cond&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Bug#33209907: condition seems not correct&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;继续排查 &lt;a href=&#34;https://github.com/mysql/mysql-server/commits/mysql-8.0.29/sql/sql_derived.cc&#34;&gt;&lt;code&gt;sql_derived.cc&lt;/code&gt;&lt;/a&gt; 这个文件在 8.0.29 发版之前的提交信息，找到可能与之相关的 commit 记录。&lt;/p&gt;
+&lt;p&gt;顺藤摸瓜，找到了 MySQL 8.0.29 修复的那条 commit 记录 (3ca1c67dfdbc9e2972810773474fbfe70fdabaa8)。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;WL#13730 - Condition pushdown to materialized derived tables&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;with set operations&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;回头再看 Release Notes，可以找到如下记录：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;MySQL 8.0.27&lt;br&gt;
+In certain cases, the view reference cloned when pushing a condition down to a derived table was not always resolved in the desired context. In addition, a check for a null condition was not performed correctly. (Bug #104574, Bug #33209907, Bug #33197276)&lt;/p&gt;
+&lt;p&gt;MySQL 8.0.29&lt;br&gt;
+The derived materialized table condition pushdown optimization can now be used with most unions. This means that an outer WHERE condition can now be pushed down to every query block of the query expression of the materialized derived table or view.&lt;br&gt;
+…&lt;br&gt;
+This can now be done for most UNION queries. For exceptions, and additional information, see Derived Condition Pushdown Optimization. (Bug #24012, Bug #36802, Bug #106006, Bug #11746156, Bug #11748590, Bug #13650627, Bug #30587347, Bug #33318096, Bug #33738597, WL #13730)&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;到此，可以初步判定，这个 Bug 是由 MySQL 8.0.22 新引入的变量 &lt;code&gt;derived_condition_pushdown&lt;/code&gt; 及其相关代码逻辑处理不恰引起的。&lt;/p&gt;
+&lt;h2 id=&#34;解决办法&#34;&gt;解决办法&lt;/h2&gt;
+&lt;p&gt;找到原因，解决起来就很简单了。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;(workaround) 参数 &lt;code&gt;derived_condition_pushdown&lt;/code&gt; 默认值为 ON，修改全局变量将其改为 OFF，并将其进行持久化设定。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;GLOBAL&lt;/span&gt; optimizer_switch&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;...,derived_condition_pushdown=off&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt; PERSIST optimizer_switch&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;...,derived_condition_pushdown=off&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;7.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20230725-0b1db1ce-3f27-46b3-ac96-67ca59a09737.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;跳过问题版本，升级到更高版本，如 MySQL 8.0.33 或 MySQL 8.0.34。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;Ps.&lt;/p&gt;
+&lt;p&gt;在查阅资料过程中，发现在新版本还有关于 &lt;code&gt;derived_condition_pushdown&lt;/code&gt; 的 Bug，比如 &lt;a href=&#34;https://bugs.mysql.com/bug.php?id=109699&#34;&gt;Bug#109699&lt;/a&gt; , &lt;a href=&#34;https://bugs.mysql.com/bug.php?id=110228&#34;&gt;Bug#110228&lt;/a&gt; 影响到 MySQL 8.0.32，在 MySQL 8.0.33 得到修复。看来这还是个有故事的 feature。&lt;/p&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;在修复一个 Bug 时，可能引入新的 Bug，所以功能测试、版本适配很重要。&lt;br&gt;
+DBA 需要有不同版本、不同架构，甚至不同类型数据库的测试环境，用来测试或验证各种概念、问题。&lt;br&gt;
+没想到一个新特性影响了那么多版本，希望 &lt;a href=&#34;https://dev.mysql.com/doc/refman/8.1/en/&#34;&gt;MySQL 8.1&lt;/a&gt; 之后会带来不一样的感受~&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/mysql/" class="category-badge">
+                                    MySQL
+                                </a>
+                            
+                                <a href="/categories/mysql/mysql-8-0/" class="category-badge">
+                                    MySQL 8.0
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">再遇 MySQL “一招必杀” Bug</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2023-07-25
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                1.1k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                4 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <h2 id="TL-DR">TL;DR</h2>
+<p>该 Bug 与 <a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/8.0/en/derived-condition-pushdown-optimization.html">Derived Condition Pushdown Optimization</a> 相关，从 MySQL 8.0.26 引入，8.0.27 和 8.0.28 仍受影响，直到 MySQL 8.0.29 被修复。<br>
+但是，MySQL 8.0.29 有其他致命缺陷，官网已经移除下载链接，建议升级到新版本 MySQL 8.0.33 或 MySQL 8.0.34。</p>
+<img alt="1.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20230725-b8b3c862-8a54-40e9-b90f-5f215e9e3161.png" referrerpolicy="no-referrer"/>
+<img alt="2.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20230725-afb101f2-7b35-426c-bd73-0919cf7ca243.png" referrerpolicy="no-referrer"/>
+<h2 id="问题现象">问题现象</h2>
+<p>该问题是 vx 群里的好友发现的，在 MySQL 5.7、TiDB 中并未发现该问题，但当应用程序运行在 MySQL 8.0.27 时，问题出现，最终定位到具体 SQL，并提炼出最小化复现步骤，诱发问题的 SQL 如下。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="number">1</span></span><br><span class="line"><span class="keyword">FROM</span> (</span><br><span class="line">  <span class="keyword">SELECT</span> bb.c_int<span class="operator">+</span><span class="number">1</span> <span class="keyword">AS</span> c_int111</span><br><span class="line">  <span class="keyword">FROM</span> (</span><br><span class="line">    <span class="keyword">SELECT</span> aa.c_int <span class="keyword">AS</span> c_int</span><br><span class="line">    <span class="keyword">FROM</span> (</span><br><span class="line">      <span class="keyword">SELECT</span> <span class="number">0</span> <span class="keyword">AS</span> c_int</span><br><span class="line">    ) aa</span><br><span class="line">  ) bb</span><br><span class="line">) cc</span><br><span class="line"><span class="keyword">WHERE</span> c_int111 <span class="operator">&gt;</span> <span class="number">1</span></span><br><span class="line">;</span><br></pre></td></tr></table></figure>
+<p>经过多版本实验比对，发现该 SQL 在较低版本（8.0.25 及以下）或较高版本（8.0.29 及以上）的 MySQL 中执行正常，在<a target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/mysql-compatibility">兼容 MySQL 5.7 协议的 TiDB</a> 中执行正常，在 MariaDB 中也执行正常。</p>
+<img alt="3.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20230725-c916c471-6aee-4cd9-9e09-ecb919503d3a.png" referrerpolicy="no-referrer"/>
+<p>但是在 MySQL 8.0.27 / 8.0.28 中，该 SQL 执行异常。</p>
+<img alt="4.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20230725-f81193e2-9d7a-4a8f-b83d-37a469c8b6e0.png" referrerpolicy="no-referrer"/>
+<p>But again, 在 MySQL 8.0.26 中，该 SQL 将导致 DB Crash，“一招致命”。</p>
+<img alt="5.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20230725-a70f417e-529d-460f-b294-d361a9a275d1.png" referrerpolicy="no-referrer"/>
+<p>到此，可以确定，这是 MySQL 8.0.26 的一个 Bug，并对 MySQL 8.0.27 和 8.0.28 持续产生影响，直到 MySQL 8.0.29 被完整修复，恢复可用态。</p>
+<h2 id="Bug-确认">Bug 确认</h2>
+<p>知道了 Bug 影响和被修复的版本，以及 crash log 就降低了寻找 Bug 号的难度。<br>
+对于 MySQL 社区版，除了搜索引擎，通常有三个途径可以用来找寻 Bug 号，分别是 MySQL 官网的 Release Notes，MySQL Bug 系统，以及 MySQL 社区版源码。</p>
+<p>对于此案例，可以通过错误日志来快速定位，摘取重要日志如下。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">/usr/sbin/mysqld(Condition_pushdown::replace_columns_in_cond(Item**, <span class="type">bool</span>)+<span class="number">0x74</span>) [<span class="number">0x55715b87c6e4</span>]</span><br><span class="line">/usr/sbin/mysqld(Condition_pushdown::make_cond_for_derived()+<span class="number">0x2a3</span>) [<span class="number">0x55715b87d7f3</span>]</span><br><span class="line">/usr/sbin/mysqld(Query_block::push_conditions_to_derived_tables(THD*)+<span class="number">0xda</span>) [<span class="number">0x558385bda21a</span>]</span><br><span class="line">/usr/sbin/mysqld(Query_block::prepare(THD*, mem_root_deque&lt;Item*&gt;*)+<span class="number">0xd7c</span>) [<span class="number">0x558385bef7fc</span>]</span><br></pre></td></tr></table></figure>
+<p>简单解释上面四个方法的含义：</p>
+<ol>
+<li><code>Condition_pushdown::replace_columns_in_cond</code>:<br>
+用派生表表达式替换将推入此派生表的条件中的列。</li>
+<li><code>Condition_pushdown::make_cond_for_derived</code>：创建一个可以下推到派生表的条件，并将其下推。</li>
+<li><code>Query_block::push_conditions_to_derived_tables</code>：将此查询块的WHERE条件的部分推送到物化派生表。</li>
+<li><code>Query_block::prepare</code>：准备查询块进行优化。解析表和列信息。</li>
+</ol>
+<p>在公开的 Bug 系统中找到了一条记录 (Bug #104574)，S2 严重级别。</p>
+<img alt="6.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20230725-601c8f58-ead6-49cc-97b9-3ee368835db5.png" referrerpolicy="no-referrer"/>
+<p>与之对应的 commit 记录为：<a target="_blank" rel="noopener" href="https://github.com/mysql/mysql-server/commit/518c2ae85b55f78565908567a02de55d0a8a477a">518c2ae85b55f78565908567a02de55d0a8a477a</a></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Bug#33197276: regression: Assertion `cur_query_block != select&#x27; failed.</span><br><span class="line">and segfault in Condition_pushdown::replace_columns_in_cond</span><br><span class="line">Bug#33209907: condition seems not correct</span><br></pre></td></tr></table></figure>
+<p>继续排查 <a target="_blank" rel="noopener" href="https://github.com/mysql/mysql-server/commits/mysql-8.0.29/sql/sql_derived.cc"><code>sql_derived.cc</code></a> 这个文件在 8.0.29 发版之前的提交信息，找到可能与之相关的 commit 记录。</p>
+<p>顺藤摸瓜，找到了 MySQL 8.0.29 修复的那条 commit 记录 (3ca1c67dfdbc9e2972810773474fbfe70fdabaa8)。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">WL#13730 - Condition pushdown to materialized derived tables</span><br><span class="line">with set operations</span><br></pre></td></tr></table></figure>
+<p>回头再看 Release Notes，可以找到如下记录：</p>
+<blockquote>
+<p>MySQL 8.0.27<br>
+In certain cases, the view reference cloned when pushing a condition down to a derived table was not always resolved in the desired context. In addition, a check for a null condition was not performed correctly. (Bug #104574, Bug #33209907, Bug #33197276)</p>
+<p>MySQL 8.0.29<br>
+The derived materialized table condition pushdown optimization can now be used with most unions. This means that an outer WHERE condition can now be pushed down to every query block of the query expression of the materialized derived table or view.<br>
+…<br>
+This can now be done for most UNION queries. For exceptions, and additional information, see Derived Condition Pushdown Optimization. (Bug #24012, Bug #36802, Bug #106006, Bug #11746156, Bug #11748590, Bug #13650627, Bug #30587347, Bug #33318096, Bug #33738597, WL #13730)</p>
+</blockquote>
+<p>到此，可以初步判定，这个 Bug 是由 MySQL 8.0.22 新引入的变量 <code>derived_condition_pushdown</code> 及其相关代码逻辑处理不恰引起的。</p>
+<h2 id="解决办法">解决办法</h2>
+<p>找到原因，解决起来就很简单了。</p>
+<ol>
+<li>(workaround) 参数 <code>derived_condition_pushdown</code> 默认值为 ON，修改全局变量将其改为 OFF，并将其进行持久化设定。</li>
+</ol>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SET</span> <span class="keyword">GLOBAL</span> optimizer_switch<span class="operator">=</span><span class="string">&#x27;...,derived_condition_pushdown=off&#x27;</span>;</span><br><span class="line"><span class="keyword">SET</span> PERSIST optimizer_switch<span class="operator">=</span><span class="string">&#x27;...,derived_condition_pushdown=off&#x27;</span>;</span><br></pre></td></tr></table></figure>
+<img alt="7.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20230725-0b1db1ce-3f27-46b3-ac96-67ca59a09737.png" referrerpolicy="no-referrer"/>
+<ol start="2">
+<li>跳过问题版本，升级到更高版本，如 MySQL 8.0.33 或 MySQL 8.0.34。</li>
+</ol>
+<p>Ps.</p>
+<p>在查阅资料过程中，发现在新版本还有关于 <code>derived_condition_pushdown</code> 的 Bug，比如 <a target="_blank" rel="noopener" href="https://bugs.mysql.com/bug.php?id=109699">Bug#109699</a> , <a target="_blank" rel="noopener" href="https://bugs.mysql.com/bug.php?id=110228">Bug#110228</a> 影响到 MySQL 8.0.32，在 MySQL 8.0.33 得到修复。看来这还是个有故事的 feature。</p>
+<h2 id="总结">总结</h2>
+<p>在修复一个 Bug 时，可能引入新的 Bug，所以功能测试、版本适配很重要。<br>
+DBA 需要有不同版本、不同架构，甚至不同类型数据库的测试环境，用来测试或验证各种概念、问题。<br>
+没想到一个新特性影响了那么多版本，希望 <a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/8.1/en/">MySQL 8.1</a> 之后会带来不一样的感受~</p>
+<img alt="logo.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg" referrerpolicy="no-referrer"/>
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/oracle/" class="tag-link">
+                                oracle
+                            </a>
+                        
+                            <a href="/tags/mysql/" class="tag-link">
+                                mysql
+                            </a>
+                        
+                            <a href="/tags/mysql-8-0/" class="tag-link">
+                                mysql 8.0
+                            </a>
+                        
+                            <a href="/tags/bug/" class="tag-link">
+                                bug
+                            </a>
+                        
+                            <a href="/tags/sql%E4%BC%98%E5%8C%96/" class="tag-link">
+                                sql优化
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2023/mysql/mysql-8.0.26-bug-crash/index.html">https://shawnyan.cn/2023/mysql/mysql-8.0.26-bug-crash/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2023/ivorysql/ivorysql-v2.3-feature/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">象牙数据库 IvorySQL v2.3 特性浅析</span>
+        </a>
+    
+
+    
+        <a href="/2023/tidb/tidb-7.1-tispark-3.x/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">TiDB 7.1.0 LTS 特性解读 | 浅析 TiSpark v3.x 新变化</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#TL-DR"><span class="toc-text">TL;DR</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%97%AE%E9%A2%98%E7%8E%B0%E8%B1%A1"><span class="toc-text">问题现象</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Bug-%E7%A1%AE%E8%AE%A4"><span class="toc-text">Bug 确认</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%A7%A3%E5%86%B3%E5%8A%9E%E6%B3%95"><span class="toc-text">解决办法</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

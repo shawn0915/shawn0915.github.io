@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        Oracle 监控 SQL 精选 （一） | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;p&gt;Oracle数据库的监控通常涉及性能、空间、会话、对象、备份、安全等多个层面。&lt;/p&gt;
+&lt;p&gt;有效的监控可以帮助 DBA 及时发现和解决问题，提高数据库的稳定性和性能，保障企业的数据安全和业务连续性。&lt;/p&gt;
+&lt;p&gt;常用的监控指标有：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;性能指标：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;查询响应时间：衡量查询执行的速度。&lt;/li&gt;
+&lt;li&gt;CPU利用率：监控CPU的使用率，以确保没有过载。&lt;/li&gt;
+&lt;li&gt;内存利用率：跟踪内存使用情况，包括PGA和SGA的使用。&lt;/li&gt;
+&lt;li&gt;磁盘I/O活动：监控磁盘读写操作的频率和数据量。&lt;/li&gt;
+&lt;li&gt;网络吞吐量：衡量网络数据传输的速率，通常在网络设备上监控。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;空间管理：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;表空间使用率：监控各个表空间的使用情况和增长趋势。&lt;/li&gt;
+&lt;li&gt;数据文件增长情况：跟踪数据文件的大小变化。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;会话和连接：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;活跃会话数：统计当前活动的会话数量。&lt;/li&gt;
+&lt;li&gt;等待事件监控：分析会话正在等待的资源。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ol start=&#34;4&#34;&gt;
+&lt;li&gt;日志和警报：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;数据库错误日志：监控错误日志以快速响应问题。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;等。&lt;/p&gt;
+&lt;p&gt;接下来，介绍三个实用SQL语句，覆盖Oracle监控的基本场景。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;查询PGA内存使用情况的语句&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;第一条SQL语句用于查询Oracle数据库中PGA（Program Global Area）内存的使用情况。&lt;/p&gt;
+&lt;p&gt;PGA是Oracle为每个会话分配的非共享内存区域，用于存储会话级的数据和控制信息。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT PID, PROGRAM, PGA_USED_MEM, PGA_ALLOC_MEM, PGA_FREEABLE_MEM, PGA_MAX_MEM &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;FROM GV$PROCESS;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;1.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240425-62af5d85-5d2e-4661-8793-dc6409e81453.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ul&gt;
+&lt;li&gt;PID ：进程ID，标识Oracle服务器进程的唯一数字。&lt;/li&gt;
+&lt;li&gt;PROGRAM ：正在运行的程序名称，通常用于标识会话正在执行的操作。&lt;/li&gt;
+&lt;li&gt;PGA_USED_MEM ：当前进程使用的PGA内存量。&lt;/li&gt;
+&lt;li&gt;PGA_ALLOC_MEM ： 为当前进程分配的PGA内存总量。&lt;/li&gt;
+&lt;li&gt;PGA_FREEABLE_MEM ：当前进程可以释放回SGA（System Global Area）的PGA内存量。&lt;/li&gt;
+&lt;li&gt;PGA_MAX_MEM ：为当前进程分配的PGA内存的最大值。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这条语句从动态性能视图 GV$PROCESS 中选择相关信息，GV$PROCESS提供了关于Oracle进程的详细信息，包括PGA内存的使用情况。&lt;/p&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;查询系统度量的语句&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;第二条SQL语句用于查询Oracle数据库的系统度量，包括各种性能指标。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT METRIC_NAME, VALUE &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;FROM GV$SYSMETRIC &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ORDER BY BEGIN_TIME;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;2.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240425-61b4c453-c838-451d-82c1-48a53cfa129b.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ul&gt;
+&lt;li&gt;METRIC_NAME ： 系统度量的名称，如CPU使用率、物理内存使用率等。&lt;/li&gt;
+&lt;li&gt;VALUE ： 对应度量的值。&lt;/li&gt;
+&lt;li&gt;BEGIN_TIME ： 度量开始的时间。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这条语句从动态性能视图 GV$SYSMETRIC 中选择所有系统度量的名称和值，并按照BEGIN_TIME排序。&lt;/p&gt;
+&lt;p&gt;GV$SYSMETRIC视图包含了Oracle数据库的实时性能度量，对于数据库管理员来说，这些信息对于监控和优化数据库性能至关重要。&lt;/p&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;查询表空间使用情况的语句&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;第三条SQL语句用于查询Oracle数据库中各个表空间的使用情况，包括已使用空间、总空间、使用百分比等。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  m.tablespace_name,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  NVL(m.used_space * t.block_size, 0),&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  m.tablespace_size * t.block_size,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  NVL(m.used_percent, 0),&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  NVL2(m.used_space, 0, 1)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;FROM&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  dba_tablespace_usage_metrics m&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;JOIN dba_tablespaces t &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  ON m.tablespace_name = t.tablespace_name&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;3.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240425-11fde8d8-ef17-480d-9ba4-35bc716e0df6.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ul&gt;
+&lt;li&gt;tablespace_name ： 表空间的名称。&lt;/li&gt;
+&lt;li&gt;used_space ： 表空间中已使用的区块数。&lt;/li&gt;
+&lt;li&gt;block_size ： 表空间中每个区块的大小，单位通常是字节。&lt;/li&gt;
+&lt;li&gt;tablespace_size ： 表空间的总区块数。&lt;/li&gt;
+&lt;li&gt;used_percent ： 表空间的使用百分比。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这条语句通过连接 dba_tablespace_usage_metrics 和 dba_tablespaces 两个数据字典视图来获取表空间的使用信息。&lt;/p&gt;
+&lt;p&gt;dba_tablespace_usage_metrics 提供了表空间的使用度量，而 dba_tablespaces 提供了表空间的详细信息。&lt;/p&gt;
+&lt;p&gt;通过这些信息， DBA 可以了解每个表空间的当前使用情况，从而进行合理的空间管理和规划。&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;这三条SQL语句是 Oracle DBA 在进行数据库性能监控和空间管理时常用的查询语句。&lt;/p&gt;
+&lt;p&gt;希望对你有所帮助。&lt;/p&gt;
+&lt;p&gt;– END. –&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;如果这篇文章为你带来了灵感或启发，就请帮忙点『赞』or『在看』or『转发』吧，感谢！(๑˃̵ᴗ˂̵)&lt;/p&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="Oracle 监控 SQL 精选 （一）">
+    <meta property="og:url" content="https://shawnyan.cn/2024/oracle/oracle-monitor-sql-1/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;p&gt;Oracle数据库的监控通常涉及性能、空间、会话、对象、备份、安全等多个层面。&lt;/p&gt;
+&lt;p&gt;有效的监控可以帮助 DBA 及时发现和解决问题，提高数据库的稳定性和性能，保障企业的数据安全和业务连续性。&lt;/p&gt;
+&lt;p&gt;常用的监控指标有：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;性能指标：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;查询响应时间：衡量查询执行的速度。&lt;/li&gt;
+&lt;li&gt;CPU利用率：监控CPU的使用率，以确保没有过载。&lt;/li&gt;
+&lt;li&gt;内存利用率：跟踪内存使用情况，包括PGA和SGA的使用。&lt;/li&gt;
+&lt;li&gt;磁盘I/O活动：监控磁盘读写操作的频率和数据量。&lt;/li&gt;
+&lt;li&gt;网络吞吐量：衡量网络数据传输的速率，通常在网络设备上监控。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;空间管理：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;表空间使用率：监控各个表空间的使用情况和增长趋势。&lt;/li&gt;
+&lt;li&gt;数据文件增长情况：跟踪数据文件的大小变化。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;会话和连接：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;活跃会话数：统计当前活动的会话数量。&lt;/li&gt;
+&lt;li&gt;等待事件监控：分析会话正在等待的资源。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ol start=&#34;4&#34;&gt;
+&lt;li&gt;日志和警报：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;数据库错误日志：监控错误日志以快速响应问题。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;等。&lt;/p&gt;
+&lt;p&gt;接下来，介绍三个实用SQL语句，覆盖Oracle监控的基本场景。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;查询PGA内存使用情况的语句&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;第一条SQL语句用于查询Oracle数据库中PGA（Program Global Area）内存的使用情况。&lt;/p&gt;
+&lt;p&gt;PGA是Oracle为每个会话分配的非共享内存区域，用于存储会话级的数据和控制信息。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT PID, PROGRAM, PGA_USED_MEM, PGA_ALLOC_MEM, PGA_FREEABLE_MEM, PGA_MAX_MEM &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;FROM GV$PROCESS;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;1.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240425-62af5d85-5d2e-4661-8793-dc6409e81453.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ul&gt;
+&lt;li&gt;PID ：进程ID，标识Oracle服务器进程的唯一数字。&lt;/li&gt;
+&lt;li&gt;PROGRAM ：正在运行的程序名称，通常用于标识会话正在执行的操作。&lt;/li&gt;
+&lt;li&gt;PGA_USED_MEM ：当前进程使用的PGA内存量。&lt;/li&gt;
+&lt;li&gt;PGA_ALLOC_MEM ： 为当前进程分配的PGA内存总量。&lt;/li&gt;
+&lt;li&gt;PGA_FREEABLE_MEM ：当前进程可以释放回SGA（System Global Area）的PGA内存量。&lt;/li&gt;
+&lt;li&gt;PGA_MAX_MEM ：为当前进程分配的PGA内存的最大值。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这条语句从动态性能视图 GV$PROCESS 中选择相关信息，GV$PROCESS提供了关于Oracle进程的详细信息，包括PGA内存的使用情况。&lt;/p&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;查询系统度量的语句&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;第二条SQL语句用于查询Oracle数据库的系统度量，包括各种性能指标。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT METRIC_NAME, VALUE &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;FROM GV$SYSMETRIC &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ORDER BY BEGIN_TIME;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;2.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240425-61b4c453-c838-451d-82c1-48a53cfa129b.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ul&gt;
+&lt;li&gt;METRIC_NAME ： 系统度量的名称，如CPU使用率、物理内存使用率等。&lt;/li&gt;
+&lt;li&gt;VALUE ： 对应度量的值。&lt;/li&gt;
+&lt;li&gt;BEGIN_TIME ： 度量开始的时间。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这条语句从动态性能视图 GV$SYSMETRIC 中选择所有系统度量的名称和值，并按照BEGIN_TIME排序。&lt;/p&gt;
+&lt;p&gt;GV$SYSMETRIC视图包含了Oracle数据库的实时性能度量，对于数据库管理员来说，这些信息对于监控和优化数据库性能至关重要。&lt;/p&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;查询表空间使用情况的语句&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;第三条SQL语句用于查询Oracle数据库中各个表空间的使用情况，包括已使用空间、总空间、使用百分比等。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;SELECT&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  m.tablespace_name,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  NVL(m.used_space * t.block_size, 0),&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  m.tablespace_size * t.block_size,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  NVL(m.used_percent, 0),&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  NVL2(m.used_space, 0, 1)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;FROM&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  dba_tablespace_usage_metrics m&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;JOIN dba_tablespaces t &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  ON m.tablespace_name = t.tablespace_name&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;3.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240425-11fde8d8-ef17-480d-9ba4-35bc716e0df6.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ul&gt;
+&lt;li&gt;tablespace_name ： 表空间的名称。&lt;/li&gt;
+&lt;li&gt;used_space ： 表空间中已使用的区块数。&lt;/li&gt;
+&lt;li&gt;block_size ： 表空间中每个区块的大小，单位通常是字节。&lt;/li&gt;
+&lt;li&gt;tablespace_size ： 表空间的总区块数。&lt;/li&gt;
+&lt;li&gt;used_percent ： 表空间的使用百分比。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这条语句通过连接 dba_tablespace_usage_metrics 和 dba_tablespaces 两个数据字典视图来获取表空间的使用信息。&lt;/p&gt;
+&lt;p&gt;dba_tablespace_usage_metrics 提供了表空间的使用度量，而 dba_tablespaces 提供了表空间的详细信息。&lt;/p&gt;
+&lt;p&gt;通过这些信息， DBA 可以了解每个表空间的当前使用情况，从而进行合理的空间管理和规划。&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;这三条SQL语句是 Oracle DBA 在进行数据库性能监控和空间管理时常用的查询语句。&lt;/p&gt;
+&lt;p&gt;希望对你有所帮助。&lt;/p&gt;
+&lt;p&gt;– END. –&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;如果这篇文章为你带来了灵感或启发，就请帮忙点『赞』or『在看』or『转发』吧，感谢！(๑˃̵ᴗ˂̵)&lt;/p&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/oracle/" class="category-badge">
+                                    Oracle
+                                </a>
+                            
+                                <a href="/categories/oracle/23ai/" class="category-badge">
+                                    23ai
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">Oracle 监控 SQL 精选 （一）</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2024-04-25
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                1k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                3 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <p>Oracle数据库的监控通常涉及性能、空间、会话、对象、备份、安全等多个层面。</p>
+<p>有效的监控可以帮助 DBA 及时发现和解决问题，提高数据库的稳定性和性能，保障企业的数据安全和业务连续性。</p>
+<p>常用的监控指标有：</p>
+<ol>
+<li>性能指标：</li>
+</ol>
+<ul>
+<li>查询响应时间：衡量查询执行的速度。</li>
+<li>CPU利用率：监控CPU的使用率，以确保没有过载。</li>
+<li>内存利用率：跟踪内存使用情况，包括PGA和SGA的使用。</li>
+<li>磁盘I/O活动：监控磁盘读写操作的频率和数据量。</li>
+<li>网络吞吐量：衡量网络数据传输的速率，通常在网络设备上监控。</li>
+</ul>
+<ol start="2">
+<li>空间管理：</li>
+</ol>
+<ul>
+<li>表空间使用率：监控各个表空间的使用情况和增长趋势。</li>
+<li>数据文件增长情况：跟踪数据文件的大小变化。</li>
+</ul>
+<ol start="3">
+<li>会话和连接：</li>
+</ol>
+<ul>
+<li>活跃会话数：统计当前活动的会话数量。</li>
+<li>等待事件监控：分析会话正在等待的资源。</li>
+</ul>
+<ol start="4">
+<li>日志和警报：</li>
+</ol>
+<ul>
+<li>数据库错误日志：监控错误日志以快速响应问题。</li>
+</ul>
+<p>等。</p>
+<p>接下来，介绍三个实用SQL语句，覆盖Oracle监控的基本场景。</p>
+<ol>
+<li>查询PGA内存使用情况的语句</li>
+</ol>
+<p>第一条SQL语句用于查询Oracle数据库中PGA（Program Global Area）内存的使用情况。</p>
+<p>PGA是Oracle为每个会话分配的非共享内存区域，用于存储会话级的数据和控制信息。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">SELECT PID, PROGRAM, PGA_USED_MEM, PGA_ALLOC_MEM, PGA_FREEABLE_MEM, PGA_MAX_MEM </span><br><span class="line">FROM GV$PROCESS;</span><br></pre></td></tr></table></figure>
+<img alt="1.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20240425-62af5d85-5d2e-4661-8793-dc6409e81453.png" referrerpolicy="no-referrer"/>
+<ul>
+<li>PID ：进程ID，标识Oracle服务器进程的唯一数字。</li>
+<li>PROGRAM ：正在运行的程序名称，通常用于标识会话正在执行的操作。</li>
+<li>PGA_USED_MEM ：当前进程使用的PGA内存量。</li>
+<li>PGA_ALLOC_MEM ： 为当前进程分配的PGA内存总量。</li>
+<li>PGA_FREEABLE_MEM ：当前进程可以释放回SGA（System Global Area）的PGA内存量。</li>
+<li>PGA_MAX_MEM ：为当前进程分配的PGA内存的最大值。</li>
+</ul>
+<p>这条语句从动态性能视图 GV$PROCESS 中选择相关信息，GV$PROCESS提供了关于Oracle进程的详细信息，包括PGA内存的使用情况。</p>
+<ol start="2">
+<li>查询系统度量的语句</li>
+</ol>
+<p>第二条SQL语句用于查询Oracle数据库的系统度量，包括各种性能指标。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">SELECT METRIC_NAME, VALUE </span><br><span class="line">FROM GV$SYSMETRIC </span><br><span class="line">ORDER BY BEGIN_TIME;</span><br></pre></td></tr></table></figure>
+<img alt="2.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20240425-61b4c453-c838-451d-82c1-48a53cfa129b.png" referrerpolicy="no-referrer"/>
+<ul>
+<li>METRIC_NAME ： 系统度量的名称，如CPU使用率、物理内存使用率等。</li>
+<li>VALUE ： 对应度量的值。</li>
+<li>BEGIN_TIME ： 度量开始的时间。</li>
+</ul>
+<p>这条语句从动态性能视图 GV$SYSMETRIC 中选择所有系统度量的名称和值，并按照BEGIN_TIME排序。</p>
+<p>GV$SYSMETRIC视图包含了Oracle数据库的实时性能度量，对于数据库管理员来说，这些信息对于监控和优化数据库性能至关重要。</p>
+<ol start="3">
+<li>查询表空间使用情况的语句</li>
+</ol>
+<p>第三条SQL语句用于查询Oracle数据库中各个表空间的使用情况，包括已使用空间、总空间、使用百分比等。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">SELECT</span><br><span class="line">  m.tablespace_name,</span><br><span class="line">  NVL(m.used_space * t.block_size, 0),</span><br><span class="line">  m.tablespace_size * t.block_size,</span><br><span class="line">  NVL(m.used_percent, 0),</span><br><span class="line">  NVL2(m.used_space, 0, 1)</span><br><span class="line">FROM</span><br><span class="line">  dba_tablespace_usage_metrics m</span><br><span class="line">JOIN dba_tablespaces t </span><br><span class="line">  ON m.tablespace_name = t.tablespace_name</span><br><span class="line">;</span><br></pre></td></tr></table></figure>
+<img alt="3.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20240425-11fde8d8-ef17-480d-9ba4-35bc716e0df6.png" referrerpolicy="no-referrer"/>
+<ul>
+<li>tablespace_name ： 表空间的名称。</li>
+<li>used_space ： 表空间中已使用的区块数。</li>
+<li>block_size ： 表空间中每个区块的大小，单位通常是字节。</li>
+<li>tablespace_size ： 表空间的总区块数。</li>
+<li>used_percent ： 表空间的使用百分比。</li>
+</ul>
+<p>这条语句通过连接 dba_tablespace_usage_metrics 和 dba_tablespaces 两个数据字典视图来获取表空间的使用信息。</p>
+<p>dba_tablespace_usage_metrics 提供了表空间的使用度量，而 dba_tablespaces 提供了表空间的详细信息。</p>
+<p>通过这些信息， DBA 可以了解每个表空间的当前使用情况，从而进行合理的空间管理和规划。</p>
+<hr>
+<p>这三条SQL语句是 Oracle DBA 在进行数据库性能监控和空间管理时常用的查询语句。</p>
+<p>希望对你有所帮助。</p>
+<p>– END. –</p>
+<img alt="logo.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg" referrerpolicy="no-referrer"/>
+<p>如果这篇文章为你带来了灵感或启发，就请帮忙点『赞』or『在看』or『转发』吧，感谢！(๑˃̵ᴗ˂̵)</p>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/oracle/" class="tag-link">
+                                oracle
+                            </a>
+                        
+                            <a href="/tags/monitor/" class="tag-link">
+                                monitor
+                            </a>
+                        
+                            <a href="/tags/oracle-23ai/" class="tag-link">
+                                oracle 23ai
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2024/oracle/oracle-monitor-sql-1/index.html">https://shawnyan.cn/2024/oracle/oracle-monitor-sql-1/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2024/oracle/oracle-monitor-sql-1-en/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">Oracle Monitoring SQL Selection (1)</span>
+        </a>
+    
+
+    
+        <a href="/2024/linux/oracle-linux-9-install-with-vbox-7/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">如何使用 Oracle VirtualBox 7.0 安装 Oracle Linux 9.3</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

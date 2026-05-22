@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        [译] Percona XtraBackup 示例 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;blockquote&gt;
+&lt;p&gt;原文链接：&lt;a href=&#34;https://www.virtual-dba.com/blog/percona-xtrabackup-example/&#34;&gt;https://www.virtual-dba.com/blog/percona-xtrabackup-example/&lt;/a&gt;&lt;br&gt;
+原文作者：Steve Champion&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;img alt=&#34;1.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-478f570c-b29e-4271-aaee-732e7a9c007a.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;在这个示例中，将使用如下软件版本：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;Ubuntu v20.04.3&lt;/li&gt;
+&lt;li&gt;MySQL server v5.7.35&lt;/li&gt;
+&lt;li&gt;Percona XtraBackup v2.4.24&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;需要重点注意的是 Percona XtraBackup 8.0 的引入是为了在 MySQL 8.0 版本上使用，与 MySQL 5.7 版本不兼容。在写本文时，不存在与 MySQL 的最新版本(8.0.28)兼容的 Percona XtraBackup 版本。详情请参阅 &lt;a href=&#34;https://www.percona.com/doc/percona-xtrabackup/8.0/index.html&#34;&gt;https://www.percona.com/doc/percona-xtrabackup/8.0/index.html&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;本文将逐步展示在 MySQL 5.7 上使用 Percona XtraBackup 建立和恢复增量备份。&lt;/p&gt;
+&lt;p&gt;本文将使用“$”表示操作系统终端中的命令，并使用“&amp;gt;”表示MySQL客户端命令行中的任何命令。&lt;/p&gt;
+&lt;h2 id=&#34;权限&#34;&gt;权限&lt;/h2&gt;
+&lt;p&gt;执行 Percona XtraBackup 所需的权限可以很容易地在 &lt;a href=&#34;https://www.percona.com/doc/percona-xtrabackup/2.1/innobackupex/privileges.html&#34;&gt;Percona网站&lt;/a&gt; 上找到，如下所示(在这个例子中，所有的操作系统权限都使用了root权限):&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;#&lt;/th&gt;
+&lt;th&gt;权限列表&lt;/th&gt;
+&lt;th&gt;示例&lt;/th&gt;
+&lt;th&gt;权限使用示例&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;操作系统&lt;/td&gt;
+&lt;td&gt;MySQL数据文件夹的文件系统级权限：READ, WRITE, EXECUTE&lt;/td&gt;
+&lt;td&gt;$sudo xtrabackup&lt;/td&gt;
+&lt;td&gt;$sudo -i&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MySQL&lt;/td&gt;
+&lt;td&gt;RELOAD, LOCK TABLES, REPLICATION CLIENT, CREATE TABLESPACE, PROCESS, SUPER&lt;/td&gt;
+&lt;td&gt;&amp;gt;GRANT RELOAD, LOCK TABLES, REPLICATION CLIENT ON &lt;em&gt;.&lt;/em&gt; TO ‘user’@’localhost’;&lt;/td&gt;
+&lt;td&gt;&amp;gt;GRANT ALL ON &lt;em&gt;.&lt;/em&gt; TO ‘user’@’localhost’;(root user)&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;表1: Percona XtraBackup 所需的最小权限。注意:&lt;code&gt;$&lt;/code&gt;用于表示操作系统命令行，而&lt;code&gt;&amp;gt;&lt;/code&gt;用于表示MySQL客户端命令行。&lt;/p&gt;
+&lt;h2 id=&#34;备份&#34;&gt;备份&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;全量备份：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;增量备份必须先从一个全量备份开始。命令如此：&lt;code&gt;$xtrabackup --backup --user=bkupusr --password --target-dir=/home/user/fullBackupDestination&lt;/code&gt;，这里&lt;code&gt;target-dir&lt;/code&gt;是全备的目标文件夹，在这个示例中，目标文件夹是&lt;code&gt;/home/bkupusr/xtra/full&lt;/code&gt;。如果目标文件夹不存在，将会被创建。（如图2和图3）&lt;/p&gt;
+&lt;img alt=&#34;2.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-e4fcfb68-953b-43ce-bb86-45cedf592406.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;图1: 使用 Percona XtraBackup 完成全备。注意，这个例子没有使用&lt;code&gt;--user&lt;/code&gt;或&lt;code&gt;--password&lt;/code&gt;选项，因为已经使用mysql_config_editor程序设置了&lt;code&gt;login-path&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;图1显示了正在进行的全备，但是没有&lt;code&gt;--user&lt;/code&gt;或&lt;code&gt;--password&lt;/code&gt;选项，因为登录凭证是使用&lt;code&gt;$mysql_config_editor&lt;/code&gt;设置的。关于这个主题的教程可以在这里找到: &lt;a href=&#34;https://www.virtual-dba.com/blog/how-to-use-mysql-config-editor/&#34;&gt;https://www.virtual-dba.com/blog/how-to-use-mysql-config-editor/&lt;/a&gt;&lt;/p&gt;
+&lt;img alt=&#34;3.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-658c6621-9ca8-4a1c-945a-354ce3241cf1.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;图2：当目标文件夹不存在时进行备份&lt;/p&gt;
+&lt;img alt=&#34;4.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-d46b9e09-358b-481c-9059-cb66d7d58589.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;图3：指定的目标文件夹被新建&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;增量备份：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;在建立了初始的全备之后，接下来是增备。增备的命令与全备的命令非常相似，但是需要一个额外的目录。现在，&lt;code&gt;target-dir&lt;/code&gt;将是新的增量文件存放的地方，选项&lt;code&gt;--incremental-basedir&lt;/code&gt;是最近进行备份(在本例中是全备份)的位置; 图4展示了一个全备后的第一次增备。&lt;/p&gt;
+&lt;img alt=&#34;5.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-da8be021-86c7-45c9-912e-77c64334497f.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+图4: 第一个增量备份。使用incremental-basedir作为全备，并将target-dir选为新的目标来存储增备。
+&lt;p&gt;对于下一个增量备份，命令是相同的，但是现在target-dir将指定为下一个增备的位置，而incremental-basedir将指向最近的增备，如图5所示。&lt;/p&gt;
+&lt;img alt=&#34;6.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-03cbe15e-0e64-41c5-ab08-229ee6a121e8.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+图5: 第二次增备，使用第一次增备作为incremental-basedir。
+&lt;p&gt;现在，存在三个备份（图6-8）：一个全备和两个增备。&lt;/p&gt;
+&lt;img alt=&#34;7.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-5fe38148-7351-43d1-aa5a-59cc6cd5cede.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;图6：包含全量备份的目录&lt;/p&gt;
+&lt;img alt=&#34;8.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-52949f20-4933-40bc-bd41-435168a62fdb.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;图7：包含第一次增备的目录&lt;/p&gt;
+&lt;img alt=&#34;9.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-bbc37389-ff8d-4ec0-9b30-93df19d64096.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;图8：包含第二次增备的目录&lt;/p&gt;
+&lt;p&gt;对于额外的增备，继续以这种方式，将之前的&lt;code&gt;target-dir&lt;/code&gt;移动到当前的&lt;code&gt;incremental-basedir&lt;/code&gt;。&lt;/p&gt;
+&lt;h2 id=&#34;恢复&#34;&gt;恢复&lt;/h2&gt;
+&lt;p&gt;最后一步是还原备份。在实际执行恢复之前有一些设置:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;MySQL 服务必须停止。&lt;/li&gt;
+&lt;li&gt;MySQL 数据目录必须为空。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;img alt=&#34;10.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-235acf8d-03b1-43d7-934a-c4e08100d519.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;图9：恢复准备步骤1 – 停止mysql服务&lt;/p&gt;
+&lt;img alt=&#34;11.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-3e72532e-138b-48b8-98f9-bee24db1cf4a.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;图10：恢复准备步骤2 – 清空MySQL数据目录&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;首先准备备份：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;$xtrabackup --prepare --target-dir=/home/usr/full_bkup_directory&lt;/code&gt;
+&lt;ul&gt;
+&lt;li&gt;注意&lt;code&gt;--prepare&lt;/code&gt;选项&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;全量备份恢复到空数据路径：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;$xtrabackup --copy-back --target-dir=/home/usr/full_bkup_directory&lt;/code&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;--copy-back&lt;/code&gt;是恢复的命令&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;必须检查或设定新的恢复备份集的权限：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;$chown mysql:mysql mysql&lt;/code&gt;
+&lt;ul&gt;
+&lt;li&gt;这将递归应用到数据目录的所有文件&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;恢复MySQL服务：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;$service mysql start&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;img alt=&#34;12.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-bdf11e6d-6cbf-4067-a91a-158bf6bc5655.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+图11： 准备恢复全量备份
+&lt;img alt=&#34;13.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-7d2e9d23-dcc4-417b-b444-e1e2534857fe.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+图12： 实际恢复完全备份
+&lt;img alt=&#34;14.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-047efa8d-90e1-4290-96b4-f344656fb334.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+图13：恢复后变更权限
+&lt;img alt=&#34;15.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-eab08265-68a9-435b-bd86-528efcbe7c64.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+图14：恢复MySQL服务
+&lt;p&gt;对于增备设定和copy-back的步骤是一样的，但是准备步骤不同；出最后一个增备外，需要在语句中增加参数&lt;code&gt;–-apply-log-only&lt;/code&gt;和&lt;code&gt;--prepare&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;增备的准备步骤如下：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;准备全备：&lt;br&gt;
+&lt;code&gt;$xtrabackup --prepare --apply-log-only --target-dir=/data/backups/full&lt;/code&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;向全备应用第一个增备：&lt;br&gt;
+&lt;code&gt;$xtrabackup --prepare --apply-log-only --target-dir=/data/backups/full --incremental-dir=/data/backups/inc1&lt;/code&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;向全备应用第二个增备：&lt;br&gt;
+&lt;code&gt;$xtrabackup --prepare --apply-log-only --target-dir=/data/backups/full --incremental-dir=/data/backups/inc2&lt;/code&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;img alt=&#34;16.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-4478de7b-d66c-4b8b-9b9b-68a6b8801109.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+图15：为恢复增备准备全备
+&lt;img alt=&#34;17.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-3328a942-3e7c-44d2-835a-fbf201c7569c.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+图16：为恢复准备第一个增备
+&lt;img alt=&#34;18.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-72b7d873-acd8-499b-adb9-19dc025dce7f.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+图17：为恢复准备第二个增备
+&lt;p&gt;同样的，复制回步骤将与全量备份一样，使用唯一的准备好的全备。在复制回步骤完成后，恢复完成。&lt;/p&gt;
+&lt;hr&gt;
+&lt;blockquote&gt;
+&lt;p&gt;译者注&lt;br&gt;
+考虑到兼容性问题，在使用 PXB 时需要注意 MySQL 的版本，如果使用的是 MariaDB，则建议使用 mariabackup。&lt;/p&gt;
+&lt;/blockquote&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="[译] Percona XtraBackup 示例">
+    <meta property="og:url" content="https://shawnyan.cn/2022/mysql/fanyi-percona-xtrabackup-example/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;blockquote&gt;
+&lt;p&gt;原文链接：&lt;a href=&#34;https://www.virtual-dba.com/blog/percona-xtrabackup-example/&#34;&gt;https://www.virtual-dba.com/blog/percona-xtrabackup-example/&lt;/a&gt;&lt;br&gt;
+原文作者：Steve Champion&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;img alt=&#34;1.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-478f570c-b29e-4271-aaee-732e7a9c007a.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;在这个示例中，将使用如下软件版本：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;Ubuntu v20.04.3&lt;/li&gt;
+&lt;li&gt;MySQL server v5.7.35&lt;/li&gt;
+&lt;li&gt;Percona XtraBackup v2.4.24&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;需要重点注意的是 Percona XtraBackup 8.0 的引入是为了在 MySQL 8.0 版本上使用，与 MySQL 5.7 版本不兼容。在写本文时，不存在与 MySQL 的最新版本(8.0.28)兼容的 Percona XtraBackup 版本。详情请参阅 &lt;a href=&#34;https://www.percona.com/doc/percona-xtrabackup/8.0/index.html&#34;&gt;https://www.percona.com/doc/percona-xtrabackup/8.0/index.html&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;本文将逐步展示在 MySQL 5.7 上使用 Percona XtraBackup 建立和恢复增量备份。&lt;/p&gt;
+&lt;p&gt;本文将使用“$”表示操作系统终端中的命令，并使用“&amp;gt;”表示MySQL客户端命令行中的任何命令。&lt;/p&gt;
+&lt;h2 id=&#34;权限&#34;&gt;权限&lt;/h2&gt;
+&lt;p&gt;执行 Percona XtraBackup 所需的权限可以很容易地在 &lt;a href=&#34;https://www.percona.com/doc/percona-xtrabackup/2.1/innobackupex/privileges.html&#34;&gt;Percona网站&lt;/a&gt; 上找到，如下所示(在这个例子中，所有的操作系统权限都使用了root权限):&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;#&lt;/th&gt;
+&lt;th&gt;权限列表&lt;/th&gt;
+&lt;th&gt;示例&lt;/th&gt;
+&lt;th&gt;权限使用示例&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;操作系统&lt;/td&gt;
+&lt;td&gt;MySQL数据文件夹的文件系统级权限：READ, WRITE, EXECUTE&lt;/td&gt;
+&lt;td&gt;$sudo xtrabackup&lt;/td&gt;
+&lt;td&gt;$sudo -i&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MySQL&lt;/td&gt;
+&lt;td&gt;RELOAD, LOCK TABLES, REPLICATION CLIENT, CREATE TABLESPACE, PROCESS, SUPER&lt;/td&gt;
+&lt;td&gt;&amp;gt;GRANT RELOAD, LOCK TABLES, REPLICATION CLIENT ON &lt;em&gt;.&lt;/em&gt; TO ‘user’@’localhost’;&lt;/td&gt;
+&lt;td&gt;&amp;gt;GRANT ALL ON &lt;em&gt;.&lt;/em&gt; TO ‘user’@’localhost’;(root user)&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;表1: Percona XtraBackup 所需的最小权限。注意:&lt;code&gt;$&lt;/code&gt;用于表示操作系统命令行，而&lt;code&gt;&amp;gt;&lt;/code&gt;用于表示MySQL客户端命令行。&lt;/p&gt;
+&lt;h2 id=&#34;备份&#34;&gt;备份&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;全量备份：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;增量备份必须先从一个全量备份开始。命令如此：&lt;code&gt;$xtrabackup --backup --user=bkupusr --password --target-dir=/home/user/fullBackupDestination&lt;/code&gt;，这里&lt;code&gt;target-dir&lt;/code&gt;是全备的目标文件夹，在这个示例中，目标文件夹是&lt;code&gt;/home/bkupusr/xtra/full&lt;/code&gt;。如果目标文件夹不存在，将会被创建。（如图2和图3）&lt;/p&gt;
+&lt;img alt=&#34;2.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-e4fcfb68-953b-43ce-bb86-45cedf592406.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;图1: 使用 Percona XtraBackup 完成全备。注意，这个例子没有使用&lt;code&gt;--user&lt;/code&gt;或&lt;code&gt;--password&lt;/code&gt;选项，因为已经使用mysql_config_editor程序设置了&lt;code&gt;login-path&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;图1显示了正在进行的全备，但是没有&lt;code&gt;--user&lt;/code&gt;或&lt;code&gt;--password&lt;/code&gt;选项，因为登录凭证是使用&lt;code&gt;$mysql_config_editor&lt;/code&gt;设置的。关于这个主题的教程可以在这里找到: &lt;a href=&#34;https://www.virtual-dba.com/blog/how-to-use-mysql-config-editor/&#34;&gt;https://www.virtual-dba.com/blog/how-to-use-mysql-config-editor/&lt;/a&gt;&lt;/p&gt;
+&lt;img alt=&#34;3.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-658c6621-9ca8-4a1c-945a-354ce3241cf1.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;图2：当目标文件夹不存在时进行备份&lt;/p&gt;
+&lt;img alt=&#34;4.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-d46b9e09-358b-481c-9059-cb66d7d58589.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;图3：指定的目标文件夹被新建&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;增量备份：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;在建立了初始的全备之后，接下来是增备。增备的命令与全备的命令非常相似，但是需要一个额外的目录。现在，&lt;code&gt;target-dir&lt;/code&gt;将是新的增量文件存放的地方，选项&lt;code&gt;--incremental-basedir&lt;/code&gt;是最近进行备份(在本例中是全备份)的位置; 图4展示了一个全备后的第一次增备。&lt;/p&gt;
+&lt;img alt=&#34;5.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-da8be021-86c7-45c9-912e-77c64334497f.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+图4: 第一个增量备份。使用incremental-basedir作为全备，并将target-dir选为新的目标来存储增备。
+&lt;p&gt;对于下一个增量备份，命令是相同的，但是现在target-dir将指定为下一个增备的位置，而incremental-basedir将指向最近的增备，如图5所示。&lt;/p&gt;
+&lt;img alt=&#34;6.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-03cbe15e-0e64-41c5-ab08-229ee6a121e8.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+图5: 第二次增备，使用第一次增备作为incremental-basedir。
+&lt;p&gt;现在，存在三个备份（图6-8）：一个全备和两个增备。&lt;/p&gt;
+&lt;img alt=&#34;7.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-5fe38148-7351-43d1-aa5a-59cc6cd5cede.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;图6：包含全量备份的目录&lt;/p&gt;
+&lt;img alt=&#34;8.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-52949f20-4933-40bc-bd41-435168a62fdb.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;图7：包含第一次增备的目录&lt;/p&gt;
+&lt;img alt=&#34;9.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-bbc37389-ff8d-4ec0-9b30-93df19d64096.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;图8：包含第二次增备的目录&lt;/p&gt;
+&lt;p&gt;对于额外的增备，继续以这种方式，将之前的&lt;code&gt;target-dir&lt;/code&gt;移动到当前的&lt;code&gt;incremental-basedir&lt;/code&gt;。&lt;/p&gt;
+&lt;h2 id=&#34;恢复&#34;&gt;恢复&lt;/h2&gt;
+&lt;p&gt;最后一步是还原备份。在实际执行恢复之前有一些设置:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;MySQL 服务必须停止。&lt;/li&gt;
+&lt;li&gt;MySQL 数据目录必须为空。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;img alt=&#34;10.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-235acf8d-03b1-43d7-934a-c4e08100d519.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;图9：恢复准备步骤1 – 停止mysql服务&lt;/p&gt;
+&lt;img alt=&#34;11.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-3e72532e-138b-48b8-98f9-bee24db1cf4a.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;图10：恢复准备步骤2 – 清空MySQL数据目录&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;首先准备备份：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;$xtrabackup --prepare --target-dir=/home/usr/full_bkup_directory&lt;/code&gt;
+&lt;ul&gt;
+&lt;li&gt;注意&lt;code&gt;--prepare&lt;/code&gt;选项&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;全量备份恢复到空数据路径：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;$xtrabackup --copy-back --target-dir=/home/usr/full_bkup_directory&lt;/code&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;--copy-back&lt;/code&gt;是恢复的命令&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;必须检查或设定新的恢复备份集的权限：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;$chown mysql:mysql mysql&lt;/code&gt;
+&lt;ul&gt;
+&lt;li&gt;这将递归应用到数据目录的所有文件&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;恢复MySQL服务：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;$service mysql start&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;img alt=&#34;12.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-bdf11e6d-6cbf-4067-a91a-158bf6bc5655.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+图11： 准备恢复全量备份
+&lt;img alt=&#34;13.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-7d2e9d23-dcc4-417b-b444-e1e2534857fe.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+图12： 实际恢复完全备份
+&lt;img alt=&#34;14.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-047efa8d-90e1-4290-96b4-f344656fb334.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+图13：恢复后变更权限
+&lt;img alt=&#34;15.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-eab08265-68a9-435b-bd86-528efcbe7c64.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+图14：恢复MySQL服务
+&lt;p&gt;对于增备设定和copy-back的步骤是一样的，但是准备步骤不同；出最后一个增备外，需要在语句中增加参数&lt;code&gt;–-apply-log-only&lt;/code&gt;和&lt;code&gt;--prepare&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;增备的准备步骤如下：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;准备全备：&lt;br&gt;
+&lt;code&gt;$xtrabackup --prepare --apply-log-only --target-dir=/data/backups/full&lt;/code&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;向全备应用第一个增备：&lt;br&gt;
+&lt;code&gt;$xtrabackup --prepare --apply-log-only --target-dir=/data/backups/full --incremental-dir=/data/backups/inc1&lt;/code&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;向全备应用第二个增备：&lt;br&gt;
+&lt;code&gt;$xtrabackup --prepare --apply-log-only --target-dir=/data/backups/full --incremental-dir=/data/backups/inc2&lt;/code&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;img alt=&#34;16.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-4478de7b-d66c-4b8b-9b9b-68a6b8801109.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+图15：为恢复增备准备全备
+&lt;img alt=&#34;17.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-3328a942-3e7c-44d2-835a-fbf201c7569c.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+图16：为恢复准备第一个增备
+&lt;img alt=&#34;18.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220407-72b7d873-acd8-499b-adb9-19dc025dce7f.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+图17：为恢复准备第二个增备
+&lt;p&gt;同样的，复制回步骤将与全量备份一样，使用唯一的准备好的全备。在复制回步骤完成后，恢复完成。&lt;/p&gt;
+&lt;hr&gt;
+&lt;blockquote&gt;
+&lt;p&gt;译者注&lt;br&gt;
+考虑到兼容性问题，在使用 PXB 时需要注意 MySQL 的版本，如果使用的是 MariaDB，则建议使用 mariabackup。&lt;/p&gt;
+&lt;/blockquote&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/mysql/" class="category-badge">
+                                    MySQL
+                                </a>
+                            
+                                <a href="/categories/mysql/translate/" class="category-badge">
+                                    Translate
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">[译] Percona XtraBackup 示例</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2022-04-07
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                1.3k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                4 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <blockquote>
+<p>原文链接：<a target="_blank" rel="noopener" href="https://www.virtual-dba.com/blog/percona-xtrabackup-example/">https://www.virtual-dba.com/blog/percona-xtrabackup-example/</a><br>
+原文作者：Steve Champion</p>
+</blockquote>
+<img alt="1.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20220407-478f570c-b29e-4271-aaee-732e7a9c007a.jpg" referrerpolicy="no-referrer"/>
+<p>在这个示例中，将使用如下软件版本：</p>
+<ol>
+<li>Ubuntu v20.04.3</li>
+<li>MySQL server v5.7.35</li>
+<li>Percona XtraBackup v2.4.24</li>
+</ol>
+<p>需要重点注意的是 Percona XtraBackup 8.0 的引入是为了在 MySQL 8.0 版本上使用，与 MySQL 5.7 版本不兼容。在写本文时，不存在与 MySQL 的最新版本(8.0.28)兼容的 Percona XtraBackup 版本。详情请参阅 <a target="_blank" rel="noopener" href="https://www.percona.com/doc/percona-xtrabackup/8.0/index.html">https://www.percona.com/doc/percona-xtrabackup/8.0/index.html</a></p>
+<p>本文将逐步展示在 MySQL 5.7 上使用 Percona XtraBackup 建立和恢复增量备份。</p>
+<p>本文将使用“$”表示操作系统终端中的命令，并使用“&gt;”表示MySQL客户端命令行中的任何命令。</p>
+<h2 id="权限">权限</h2>
+<p>执行 Percona XtraBackup 所需的权限可以很容易地在 <a target="_blank" rel="noopener" href="https://www.percona.com/doc/percona-xtrabackup/2.1/innobackupex/privileges.html">Percona网站</a> 上找到，如下所示(在这个例子中，所有的操作系统权限都使用了root权限):</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>权限列表</th>
+<th>示例</th>
+<th>权限使用示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>操作系统</td>
+<td>MySQL数据文件夹的文件系统级权限：READ, WRITE, EXECUTE</td>
+<td>$sudo xtrabackup</td>
+<td>$sudo -i</td>
+</tr>
+<tr>
+<td>MySQL</td>
+<td>RELOAD, LOCK TABLES, REPLICATION CLIENT, CREATE TABLESPACE, PROCESS, SUPER</td>
+<td>&gt;GRANT RELOAD, LOCK TABLES, REPLICATION CLIENT ON <em>.</em> TO ‘user’@’localhost’;</td>
+<td>&gt;GRANT ALL ON <em>.</em> TO ‘user’@’localhost’;(root user)</td>
+</tr>
+</tbody>
+</table>
+<p>表1: Percona XtraBackup 所需的最小权限。注意:<code>$</code>用于表示操作系统命令行，而<code>&gt;</code>用于表示MySQL客户端命令行。</p>
+<h2 id="备份">备份</h2>
+<p><strong>全量备份：</strong></p>
+<p>增量备份必须先从一个全量备份开始。命令如此：<code>$xtrabackup --backup --user=bkupusr --password --target-dir=/home/user/fullBackupDestination</code>，这里<code>target-dir</code>是全备的目标文件夹，在这个示例中，目标文件夹是<code>/home/bkupusr/xtra/full</code>。如果目标文件夹不存在，将会被创建。（如图2和图3）</p>
+<img alt="2.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20220407-e4fcfb68-953b-43ce-bb86-45cedf592406.png" referrerpolicy="no-referrer"/>
+<p>图1: 使用 Percona XtraBackup 完成全备。注意，这个例子没有使用<code>--user</code>或<code>--password</code>选项，因为已经使用mysql_config_editor程序设置了<code>login-path</code>。</p>
+<p>图1显示了正在进行的全备，但是没有<code>--user</code>或<code>--password</code>选项，因为登录凭证是使用<code>$mysql_config_editor</code>设置的。关于这个主题的教程可以在这里找到: <a target="_blank" rel="noopener" href="https://www.virtual-dba.com/blog/how-to-use-mysql-config-editor/">https://www.virtual-dba.com/blog/how-to-use-mysql-config-editor/</a></p>
+<img alt="3.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20220407-658c6621-9ca8-4a1c-945a-354ce3241cf1.png" referrerpolicy="no-referrer"/>
+<p>图2：当目标文件夹不存在时进行备份</p>
+<img alt="4.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20220407-d46b9e09-358b-481c-9059-cb66d7d58589.png" referrerpolicy="no-referrer"/>
+<p>图3：指定的目标文件夹被新建</p>
+<p><strong>增量备份：</strong></p>
+<p>在建立了初始的全备之后，接下来是增备。增备的命令与全备的命令非常相似，但是需要一个额外的目录。现在，<code>target-dir</code>将是新的增量文件存放的地方，选项<code>--incremental-basedir</code>是最近进行备份(在本例中是全备份)的位置; 图4展示了一个全备后的第一次增备。</p>
+<img alt="5.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20220407-da8be021-86c7-45c9-912e-77c64334497f.png" referrerpolicy="no-referrer"/>
+图4: 第一个增量备份。使用incremental-basedir作为全备，并将target-dir选为新的目标来存储增备。
+<p>对于下一个增量备份，命令是相同的，但是现在target-dir将指定为下一个增备的位置，而incremental-basedir将指向最近的增备，如图5所示。</p>
+<img alt="6.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20220407-03cbe15e-0e64-41c5-ab08-229ee6a121e8.png" referrerpolicy="no-referrer"/>
+图5: 第二次增备，使用第一次增备作为incremental-basedir。
+<p>现在，存在三个备份（图6-8）：一个全备和两个增备。</p>
+<img alt="7.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20220407-5fe38148-7351-43d1-aa5a-59cc6cd5cede.png" referrerpolicy="no-referrer"/>
+<p>图6：包含全量备份的目录</p>
+<img alt="8.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20220407-52949f20-4933-40bc-bd41-435168a62fdb.png" referrerpolicy="no-referrer"/>
+<p>图7：包含第一次增备的目录</p>
+<img alt="9.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20220407-bbc37389-ff8d-4ec0-9b30-93df19d64096.png" referrerpolicy="no-referrer"/>
+<p>图8：包含第二次增备的目录</p>
+<p>对于额外的增备，继续以这种方式，将之前的<code>target-dir</code>移动到当前的<code>incremental-basedir</code>。</p>
+<h2 id="恢复">恢复</h2>
+<p>最后一步是还原备份。在实际执行恢复之前有一些设置:</p>
+<ol>
+<li>MySQL 服务必须停止。</li>
+<li>MySQL 数据目录必须为空。</li>
+</ol>
+<img alt="10.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20220407-235acf8d-03b1-43d7-934a-c4e08100d519.png" referrerpolicy="no-referrer"/>
+<p>图9：恢复准备步骤1 – 停止mysql服务</p>
+<img alt="11.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20220407-3e72532e-138b-48b8-98f9-bee24db1cf4a.png" referrerpolicy="no-referrer"/>
+<p>图10：恢复准备步骤2 – 清空MySQL数据目录</p>
+<ol>
+<li>
+<p>首先准备备份：</p>
+<ul>
+<li><code>$xtrabackup --prepare --target-dir=/home/usr/full_bkup_directory</code>
+<ul>
+<li>注意<code>--prepare</code>选项</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<p>全量备份恢复到空数据路径：</p>
+<ul>
+<li><code>$xtrabackup --copy-back --target-dir=/home/usr/full_bkup_directory</code>
+<ul>
+<li><code>--copy-back</code>是恢复的命令</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<p>必须检查或设定新的恢复备份集的权限：</p>
+<ul>
+<li><code>$chown mysql:mysql mysql</code>
+<ul>
+<li>这将递归应用到数据目录的所有文件</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<p>恢复MySQL服务：</p>
+<ul>
+<li><code>$service mysql start</code></li>
+</ul>
+</li>
+</ol>
+<img alt="12.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20220407-bdf11e6d-6cbf-4067-a91a-158bf6bc5655.png" referrerpolicy="no-referrer"/>
+图11： 准备恢复全量备份
+<img alt="13.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20220407-7d2e9d23-dcc4-417b-b444-e1e2534857fe.png" referrerpolicy="no-referrer"/>
+图12： 实际恢复完全备份
+<img alt="14.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20220407-047efa8d-90e1-4290-96b4-f344656fb334.png" referrerpolicy="no-referrer"/>
+图13：恢复后变更权限
+<img alt="15.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20220407-eab08265-68a9-435b-bd86-528efcbe7c64.png" referrerpolicy="no-referrer"/>
+图14：恢复MySQL服务
+<p>对于增备设定和copy-back的步骤是一样的，但是准备步骤不同；出最后一个增备外，需要在语句中增加参数<code>–-apply-log-only</code>和<code>--prepare</code>。</p>
+<p>增备的准备步骤如下：</p>
+<ol>
+<li>
+<p>准备全备：<br>
+<code>$xtrabackup --prepare --apply-log-only --target-dir=/data/backups/full</code></p>
+</li>
+<li>
+<p>向全备应用第一个增备：<br>
+<code>$xtrabackup --prepare --apply-log-only --target-dir=/data/backups/full --incremental-dir=/data/backups/inc1</code></p>
+</li>
+<li>
+<p>向全备应用第二个增备：<br>
+<code>$xtrabackup --prepare --apply-log-only --target-dir=/data/backups/full --incremental-dir=/data/backups/inc2</code></p>
+</li>
+</ol>
+<img alt="16.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20220407-4478de7b-d66c-4b8b-9b9b-68a6b8801109.png" referrerpolicy="no-referrer"/>
+图15：为恢复增备准备全备
+<img alt="17.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20220407-3328a942-3e7c-44d2-835a-fbf201c7569c.png" referrerpolicy="no-referrer"/>
+图16：为恢复准备第一个增备
+<img alt="18.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20220407-72b7d873-acd8-499b-adb9-19dc025dce7f.png" referrerpolicy="no-referrer"/>
+图17：为恢复准备第二个增备
+<p>同样的，复制回步骤将与全量备份一样，使用唯一的准备好的全备。在复制回步骤完成后，恢复完成。</p>
+<hr>
+<blockquote>
+<p>译者注<br>
+考虑到兼容性问题，在使用 PXB 时需要注意 MySQL 的版本，如果使用的是 MariaDB，则建议使用 mariabackup。</p>
+</blockquote>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/mysql/" class="tag-link">
+                                mysql
+                            </a>
+                        
+                            <a href="/tags/percona/" class="tag-link">
+                                percona
+                            </a>
+                        
+                            <a href="/tags/%E8%AF%91%E6%96%87/" class="tag-link">
+                                译文
+                            </a>
+                        
+                            <a href="/tags/xtrabackup/" class="tag-link">
+                                xtrabackup
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2022/mysql/fanyi-percona-xtrabackup-example/index.html">https://shawnyan.cn/2022/mysql/fanyi-percona-xtrabackup-example/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2022/modb/fanyi-elastic-stack-begining/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">[译] 开始 Elastic (ELK) Stack 之旅</span>
+        </a>
+    
+
+    
+        <a href="/2022/modb/fanyi-centos-7-install-iptables/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">[译] 如何在 CentOS 7上安装 Iptables</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9D%83%E9%99%90"><span class="toc-text">权限</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A4%87%E4%BB%BD"><span class="toc-text">备份</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%81%A2%E5%A4%8D"><span class="toc-text">恢复</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

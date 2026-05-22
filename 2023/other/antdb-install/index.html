@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        AntDB v7.2.0 社区版适配 Rocky 9 及体验笔记 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;h2 id=&#34;关于-AntDB&#34;&gt;关于 AntDB&lt;/h2&gt;
+&lt;p&gt;2023年12月的 墨天轮中国数据库流行度排行 火热出炉，目前，AntDB 排在第十位。&lt;sup class=&#34;footnote-ref&#34;&gt;&lt;a href=&#34;#fn1&#34; id=&#34;fnref1&#34;&gt;[1]&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;AntDB 数据库始于2008年，隶属于亚信科技旗下通用型企业级数据库产品，在运营商的核心系统上，为全国24个省份的10亿多用户提供在线服务，具备高性能、弹性扩展、可靠性等产品特性，峰值每秒可处理百万笔通信核心交易，应用范围包含通信、金融、交通、能源、物联网等行业。&lt;sup class=&#34;footnote-ref&#34;&gt;&lt;a href=&#34;#fn2&#34; id=&#34;fnref2&#34;&gt;[2]&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;img alt=&#34;img.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20231211-b4d45c01-ec47-4a8f-8487-8d9d947eee23.png&#34; width=800px referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;关于-AntDB-社区版&#34;&gt;关于 AntDB 社区版&lt;/h2&gt;
+&lt;p&gt;3月1日，亚信科技AntDB数据库社区版正式开放免费下载。作为AntDB数据库的首个社区版产品，AntDB-CE（Community Edition）V7.2.0具有完整、易用、兼容度高的企业级分布式数据库产品特性。&lt;sup class=&#34;footnote-ref&#34;&gt;&lt;a href=&#34;#fn3&#34; id=&#34;fnref3&#34;&gt;[3]&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;AntDB-CE社区版采用了Share-Nothing的无共享架构，包括计算节点(Coordinator)、数据节点(DB)、全局事务管理器（GTM）和管理节点四种组件。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;计算节点（Coordinator）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;提供SQL解析、优化、路由、结果汇聚、分布式事务控制等功能&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;数据节点(DB)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;真正存储业务数据的组件，通过分库分表实现数据库能力的水平扩展，提供多种分片函数，支持定制开发；支持数据节点的分组管理&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;全局事务管理器(GTMCoordinator）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;分布式事务管理的重要组件；提供事务ID和事务快照以及全局序列号、时间戳，参与2PC提供分布式MVCC 能力，同时提供Coordinator 的能力&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;管理节点（Manager）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;管理整个集群节点的添加、配置、删除、启停、初始化、主备倒换等所有状态。&lt;/p&gt;
+&lt;h2 id=&#34;AntDB-社区版集中式部署安装&#34;&gt;AntDB 社区版集中式部署安装&lt;/h2&gt;
+&lt;p&gt;从官方网站&lt;sup class=&#34;footnote-ref&#34;&gt;&lt;a href=&#34;#fn4&#34; id=&#34;fnref4&#34;&gt;[4]&lt;/a&gt;&lt;/sup&gt; 下载安装包，由于我本地操作系统为 Rocky Linux 9.3，网站并没有提供对应版本的安装包，这里选择了 centos8 作为替代。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ cat /etc/system-release&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Rocky Linux release 9.3 (Blue Onyx)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;官方网站已经给出了安装步骤，可以参考：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;仅需 4 步，完成 AntDB 社区版安装：&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1. 下载在root用户下&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;#&lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;wget http://gz.antdb.net/zip/antdb-ce-7.2.0.centos8.x86_64.tar.gz&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2. 解压&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;#&lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;tar-zxvf antdb-ce-7.2.0.centos8.x86_64.tar.gz&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3. 安装&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;#&lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;cd&lt;/span&gt; antdb-ce-7.2.0.centos8.x86_64&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;#&lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;sh antdb_install.sh -s&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4. 进入客户端&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;#&lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;su - antdb&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;$&lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;psql -d antdb -p 6655&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;//根据部署的结果修改端口号&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;操作系统：CentOS 8 &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;适配-Rocky-9&#34;&gt;适配 Rocky 9&lt;/h3&gt;
+&lt;p&gt;在执行安装脚本时，遇到报错，提示不支持 Rocky 操作系统。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 antdb-ce-7.2.0.centos8.x86_64]$ ./antdb_install.sh -s&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[Info] AntDB install begins&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The current operating system hardware resources are less than the recommended hardware requirements for antdb operation.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Continue the installation.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;It is recommended to improve the hardware configuration to improve the user experience.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;No package was found.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The current operating system needs a package like antdb-.*.rocky.x86_64.tar.gz.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Please check the installation package. Exit.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 antdb-ce-7.2.0.centos8.x86_64]$&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;找到相关的判断逻辑，然后增加 Rocky 部分即可。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;vi ./setup/common/setup-common&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;在第 252 行增加如下判断。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;//:252&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;         Rocky)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;             os_version=8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;             os_name=&amp;quot;CentOS&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;             ;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;再次安装，遇到报错，提示缺少共享库文件。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;/home/shawnyan/app/antdb/bin/initdb: error while loading shared libraries: libcrypto.so.1.1: cannot open shared object file: No such file or directory&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;需要安装 &lt;code&gt;compat-openssl11&lt;/code&gt; 依赖。&lt;/p&gt;
+&lt;p&gt;再次安装，提示成功。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 antdb-ce-7.2.0.centos8.x86_64]$ ./antdb_install.sh -s&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[Info] AntDB install begins&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/data/stonedb/antdb-ce-7.2.0.centos8.x86_64/setup/common/AntDB-license-agreement-Community.txt&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;chown: invalid group: ‘shawnyan:shawnyanwheel’&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[Info] AntDB install succeeds!&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[Info] AntDB init begins&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[Info] AntDB info:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+-----------+------+-------------------------------+-------+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| database |    ip     | port |             data              | user  | password |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+-----------+------+-------------------------------+-------+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| antdb    | localhost | 6655 | /home/shawnyan/app/antdb/data | antdb | antdb    |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+-----------+------+-------------------------------+-------+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[Info] AntDB logon:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;         adb -d &amp;quot;database&amp;quot; -U &amp;quot;user&amp;quot; -p &amp;quot;port&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[Info] AntDB init succeeds&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;!--
+额外增加环境变量
+```
+export PGDATABASE=antdb
+export PGDATA=/home/shawnyan/app/antdb/data
+export PGPORT=6655
+```
+--&gt;
+&lt;p&gt;此时，AntDB 已经初始化成功，并且启动，如上面信息所示，监听端口为 6655。&lt;/p&gt;
+&lt;h3 id=&#34;连接-AntDB&#34;&gt;连接 AntDB&lt;/h3&gt;
+&lt;p&gt;使用 &lt;code&gt;adb&lt;/code&gt; 命令，连接 AntDB，并查看版本信息和数据库信息。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ adb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;adb (13.3)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;quot;help&amp;quot; for help.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb=# select version();&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                   version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-----------------------------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; PostgreSQL 13.3 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 9.5.0, 64-bit&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb=# \l&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                  List of databases&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   Name    |  Owner   | Encoding |   Collate   |    Ctype    |   Access privileges&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-----------+----------+----------+-------------+-------------+-----------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; antdb     | shawnyan | UTF8     | en_US.UTF-8 | en_US.UTF-8 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; postgres  | shawnyan | UTF8     | en_US.UTF-8 | en_US.UTF-8 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; template0 | shawnyan | UTF8     | en_US.UTF-8 | en_US.UTF-8 | =c/shawnyan          +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           |          |          |             |             | shawnyan=CTc/shawnyan&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; template1 | shawnyan | UTF8     | en_US.UTF-8 | en_US.UTF-8 | =c/shawnyan          +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           |          |          |             |             | shawnyan=CTc/shawnyan&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(4 rows)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;开启-Oracle-兼容参数&#34;&gt;开启 Oracle 兼容参数&lt;/h2&gt;
+&lt;p&gt;AntDB 与 Oracle 数据库高度兼容，使得企业现有的基于Oracle数据库开发的应用程序无需做任何修改或只做少量的修改便可以运行在AntDB平台之上，由此降低了程序迁移的风险，减少了重写应用的成本，从而实现高效快捷的应用迁移。AntDB与Oracle数据库的兼容性包括两个大的方面：多模态SQL解析引擎和语法的兼容性。&lt;sup class=&#34;footnote-ref&#34;&gt;&lt;a href=&#34;#fn5&#34; id=&#34;fnref5&#34;&gt;[5]&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;AntDB 中的 Oracle 兼容参数，可以通过全局变量和会话变量进行修改。并支持打印相关调试信息，由参数 &lt;code&gt;debug_print_grammar&lt;/code&gt; 进行控制。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;alter&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;system&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; debug_print_grammar&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;t;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;修改会话变量，并测试 Oracle 语法：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; grammar &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; oracle;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; grammar;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;/*ora*/&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; dual;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;输出：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; grammar &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; oracle;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; grammar;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; grammar&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;---------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; oracle&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;comment&#34;&gt;/*ora*/&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; dual;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; DUMMY&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; X&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看命名空间信息：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; oid, nspname&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; pg_namespace;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  OID  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      NSPNAME&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-------+--------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;number&#34;&gt;99&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; pg_toast&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;number&#34;&gt;11&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; pg_catalog&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;2200&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; public&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;number&#34;&gt;13391&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; information_schema&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;9098&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; oracle&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;number&#34;&gt;13765&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; dbms_output&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;number&#34;&gt;13767&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; dbms_lock&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;number&#34;&gt;13781&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; dbms_random&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;8&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;简单-SQL-测试&#34;&gt;简单 SQL 测试&lt;/h2&gt;
+&lt;h3 id=&#34;创建序列、表&#34;&gt;创建序列、表&lt;/h3&gt;
+&lt;p&gt;创建序列 &lt;code&gt;t1_seq&lt;/code&gt;，创建表 &lt;code&gt;t1&lt;/code&gt;，插入测试数据，并查询表数据。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; SEQUENCE t1_seq;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt; t1 (id &lt;span class=&#34;type&#34;&gt;INTEGER&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;DEFAULT&lt;/span&gt; nextval(&lt;span class=&#34;string&#34;&gt;&amp;#x27;t1_seq&amp;#x27;&lt;/span&gt;), name VARCHAR2(&lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;), c3 NUMBER);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;INSERT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;INTO&lt;/span&gt; t1 (name, c3) &lt;span class=&#34;keyword&#34;&gt;VALUES&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;#x27;A&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;), (&lt;span class=&#34;string&#34;&gt;&amp;#x27;B &amp;#x27;&lt;/span&gt;, &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;),(&lt;span class=&#34;string&#34;&gt;&amp;#x27; c&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;, length(name) &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t1;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;输出：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan&lt;span class=&#34;variable&#34;&gt;@rocky9&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;~&lt;/span&gt;]$ adb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;adb (&lt;span class=&#34;number&#34;&gt;13.3&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;quot;help&amp;quot; &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; help.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; grammar &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; oracle;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; SEQUENCE t1_seq;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; SEQUENCE&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt; t1 (id &lt;span class=&#34;type&#34;&gt;INTEGER&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;DEFAULT&lt;/span&gt; nextval(&lt;span class=&#34;string&#34;&gt;&amp;#x27;t1_seq&amp;#x27;&lt;/span&gt;), name VARCHAR2(&lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;), c3 NUMBER);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;INSERT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;INTO&lt;/span&gt; t1 (name, c3) &lt;span class=&#34;keyword&#34;&gt;VALUES&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;#x27;A&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;), (&lt;span class=&#34;string&#34;&gt;&amp;#x27;B &amp;#x27;&lt;/span&gt;, &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;),(&lt;span class=&#34;string&#34;&gt;&amp;#x27; c&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;INSERT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;, length(name) &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ID &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; NAME &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; C3 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; LENGTH(NAME)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;----+------+----+--------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; A    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;            &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; B    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;            &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  c   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;            &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;创建、刷新物化视图&#34;&gt;创建、刷新物化视图&lt;/h3&gt;
+&lt;p&gt;创建物化视图 &lt;code&gt;mv_t1&lt;/code&gt;，并测试刷新物化视图命令。创建物化视图的同时，导入6条数据，再插入6条数据，刷新物化视图后，物化视图中有12条数据。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; MATERIALIZED &lt;span class=&#34;keyword&#34;&gt;VIEW&lt;/span&gt; mv_t1 &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;REFRESH MATERIALIZED &lt;span class=&#34;keyword&#34;&gt;VIEW&lt;/span&gt; mv_t1;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;输出：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;41&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;42&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;43&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;44&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;45&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;46&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;47&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;48&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;49&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;50&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; MATERIALIZED &lt;span class=&#34;keyword&#34;&gt;VIEW&lt;/span&gt; mv_t1 &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;6&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# \d&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt; mv_t1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                   Materialized &lt;span class=&#34;keyword&#34;&gt;view&lt;/span&gt; &amp;quot;public.mv_t1&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;keyword&#34;&gt;Column&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;        Type         &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Collation&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Nullable &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Default&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Storage  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Stats target &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Description&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;--------+---------------------+-----------+----------+---------+----------+--------------+-------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; id     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;integer&lt;/span&gt;             &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;          &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;         &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; plain    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;              &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; name   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; oracle.varchar2(&lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;) &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;          &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;         &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; extended &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;              &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; c3     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;numeric&lt;/span&gt;             &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;          &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;         &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; main     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;              &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;View&lt;/span&gt; definition:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; t1.id,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    t1.name,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    t1.c3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Access &lt;span class=&#34;keyword&#34;&gt;method&lt;/span&gt;: heap&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;insert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;into&lt;/span&gt; t1(name) &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; name &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;INSERT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;6&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; mv_t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; id &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; name &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; c3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;----+------+----&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; A    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; B    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  c   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;4&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;5&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;5&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;6&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;6&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;6&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# REFRESH MATERIALIZED &lt;span class=&#34;keyword&#34;&gt;VIEW&lt;/span&gt; mv_t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;REFRESH MATERIALIZED &lt;span class=&#34;keyword&#34;&gt;VIEW&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; mv_t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; id &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; name &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; c3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;----+------+----&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; A    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; B    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  c   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;4&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;5&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;5&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;6&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;6&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;7&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; A    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;8&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; B    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;9&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  c   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;number&#34;&gt;10&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;number&#34;&gt;11&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;number&#34;&gt;12&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;12&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;数据类型隐式转换测试&#34;&gt;数据类型隐式转换测试&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;test case&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt; t1 (&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;id &lt;span class=&#34;type&#34;&gt;int&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;not&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;null&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;name &lt;span class=&#34;type&#34;&gt;varchar&lt;/span&gt;(&lt;span class=&#34;number&#34;&gt;255&lt;/span&gt;) &lt;span class=&#34;keyword&#34;&gt;default&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;null&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;primary&lt;/span&gt; key(id)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;insert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;into&lt;/span&gt; t1 &lt;span class=&#34;keyword&#34;&gt;values&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;123456789012345611&amp;#x27;&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;insert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;into&lt;/span&gt; t1 &lt;span class=&#34;keyword&#34;&gt;values&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;123456789012345612&amp;#x27;&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;insert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;into&lt;/span&gt; t1 &lt;span class=&#34;keyword&#34;&gt;values&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;123123&amp;#x27;&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt; t2 (&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;id &lt;span class=&#34;type&#34;&gt;int&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;not&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;null&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;name &lt;span class=&#34;type&#34;&gt;bigint&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;default&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;null&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;primary&lt;/span&gt; key(id)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;insert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;into&lt;/span&gt; t2 &lt;span class=&#34;keyword&#34;&gt;values&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;123456789012345611&amp;#x27;&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;insert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;into&lt;/span&gt; t2 &lt;span class=&#34;keyword&#34;&gt;values&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;123456789012345611&amp;#x27;&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;insert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;into&lt;/span&gt; t2 &lt;span class=&#34;keyword&#34;&gt;values&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;123123&amp;#x27;&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; t1.id id1, t1.name name1, t2.id id2, t2.name name2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t1,t2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; t1.name &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; t2.name;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;output&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; t1.id id1, t1.name name1, t2.id id2, t2.name name2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t1,t2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; t1.name &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; t2.name;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ERROR:  operator does &lt;span class=&#34;keyword&#34;&gt;not&lt;/span&gt; exist: &lt;span class=&#34;type&#34;&gt;character&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;varying&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;bigint&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;LINE &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;: &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; t1.name &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; t2.name;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                      &lt;span class=&#34;operator&#34;&gt;^&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;HINT:  &lt;span class=&#34;keyword&#34;&gt;No&lt;/span&gt; operator &lt;span class=&#34;keyword&#34;&gt;matches&lt;/span&gt; the given name &lt;span class=&#34;keyword&#34;&gt;and&lt;/span&gt; argument types. You might need &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;add&lt;/span&gt; explicit type casts.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; t1.id id1, t1.name name1, t2.id id2, t2.name name2&lt;span class=&#34;operator&#34;&gt;^&lt;/span&gt;Jfrom t1,t2&lt;span class=&#34;operator&#34;&gt;^&lt;/span&gt;Jwhere t1.name &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; t2.name::&lt;span class=&#34;type&#34;&gt;varchar&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; id1 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;       name1        &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; id2 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;       name2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-----+--------------------+-----+--------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;123456789012345611&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;   &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;123456789012345611&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;123456789012345611&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;   &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;123456789012345611&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;123123&lt;/span&gt;             &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;   &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;             &lt;span class=&#34;number&#34;&gt;123123&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; t1.id id1, t1.name name1, t2.id id2, t2.name name2&lt;span class=&#34;operator&#34;&gt;^&lt;/span&gt;Jfrom t1,t2&lt;span class=&#34;operator&#34;&gt;^&lt;/span&gt;Jwhere t1.name::&lt;span class=&#34;type&#34;&gt;bigint&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; t2.name;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; id1 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;       name1        &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; id2 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;       name2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-----+--------------------+-----+--------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;123456789012345611&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;   &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;123456789012345611&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;123456789012345611&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;   &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;123456789012345611&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;123123&lt;/span&gt;             &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;   &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;             &lt;span class=&#34;number&#34;&gt;123123&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;到此，AntDB 社区版 v7.2.0 的安装、适配已介绍完毕，并演示了 Oracle 兼容功能，以及部分 SQL 基础测试。&lt;/p&gt;
+&lt;p&gt;BTW，墨天轮课程中心上架了《AntDB ACA初级认证课程》&lt;sup class=&#34;footnote-ref&#34;&gt;&lt;a href=&#34;#fn6&#34; id=&#34;fnref6&#34;&gt;[6]&lt;/a&gt;&lt;/sup&gt; ，有兴趣的同学可以学起来。&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;&lt;a href=&#34;https://www.modb.pro/db/1734117877862178816&#34;&gt;https://www.modb.pro/db/1734117877862178816&lt;/a&gt;&lt;/p&gt;
+&lt;hr class=&#34;footnotes-sep&#34;&gt;
+&lt;section class=&#34;footnotes&#34;&gt;
+&lt;ol class=&#34;footnotes-list&#34;&gt;
+&lt;li id=&#34;fn1&#34; class=&#34;footnote-item&#34;&gt;&lt;p&gt;&lt;a href=&#34;https://www.modb.pro/db/1731856399742345216&#34;&gt;https://www.modb.pro/db/1731856399742345216&lt;/a&gt; &lt;a href=&#34;#fnref1&#34; class=&#34;footnote-backref&#34;&gt;↩︎&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id=&#34;fn2&#34; class=&#34;footnote-item&#34;&gt;&lt;p&gt;&lt;a href=&#34;https://www.modb.pro/wiki/55&#34;&gt;https://www.modb.pro/wiki/55&lt;/a&gt; &lt;a href=&#34;#fnref2&#34; class=&#34;footnote-backref&#34;&gt;↩︎&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id=&#34;fn3&#34; class=&#34;footnote-item&#34;&gt;&lt;p&gt;&lt;a href=&#34;http://www.antdb.net/news/detail/84&#34;&gt;http://www.antdb.net/news/detail/84&lt;/a&gt; &lt;a href=&#34;#fnref3&#34; class=&#34;footnote-backref&#34;&gt;↩︎&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id=&#34;fn4&#34; class=&#34;footnote-item&#34;&gt;&lt;p&gt;&lt;a href=&#34;http://www.antdb.net/download&#34;&gt;http://www.antdb.net/download&lt;/a&gt; &lt;a href=&#34;#fnref4&#34; class=&#34;footnote-backref&#34;&gt;↩︎&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id=&#34;fn5&#34; class=&#34;footnote-item&#34;&gt;&lt;p&gt;&lt;a href=&#34;http://www.antdb.net/72_benefit&#34;&gt;http://www.antdb.net/72_benefit&lt;/a&gt; &lt;a href=&#34;#fnref5&#34; class=&#34;footnote-backref&#34;&gt;↩︎&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id=&#34;fn6&#34; class=&#34;footnote-item&#34;&gt;&lt;p&gt;&lt;a href=&#34;https://www.modb.pro/course/196&#34;&gt;https://www.modb.pro/course/196&lt;/a&gt; &lt;a href=&#34;#fnref6&#34; class=&#34;footnote-backref&#34;&gt;↩︎&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/section&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="AntDB v7.2.0 社区版适配 Rocky 9 及体验笔记">
+    <meta property="og:url" content="https://shawnyan.cn/2023/other/antdb-install/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;h2 id=&#34;关于-AntDB&#34;&gt;关于 AntDB&lt;/h2&gt;
+&lt;p&gt;2023年12月的 墨天轮中国数据库流行度排行 火热出炉，目前，AntDB 排在第十位。&lt;sup class=&#34;footnote-ref&#34;&gt;&lt;a href=&#34;#fn1&#34; id=&#34;fnref1&#34;&gt;[1]&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;AntDB 数据库始于2008年，隶属于亚信科技旗下通用型企业级数据库产品，在运营商的核心系统上，为全国24个省份的10亿多用户提供在线服务，具备高性能、弹性扩展、可靠性等产品特性，峰值每秒可处理百万笔通信核心交易，应用范围包含通信、金融、交通、能源、物联网等行业。&lt;sup class=&#34;footnote-ref&#34;&gt;&lt;a href=&#34;#fn2&#34; id=&#34;fnref2&#34;&gt;[2]&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;img alt=&#34;img.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20231211-b4d45c01-ec47-4a8f-8487-8d9d947eee23.png&#34; width=800px referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;关于-AntDB-社区版&#34;&gt;关于 AntDB 社区版&lt;/h2&gt;
+&lt;p&gt;3月1日，亚信科技AntDB数据库社区版正式开放免费下载。作为AntDB数据库的首个社区版产品，AntDB-CE（Community Edition）V7.2.0具有完整、易用、兼容度高的企业级分布式数据库产品特性。&lt;sup class=&#34;footnote-ref&#34;&gt;&lt;a href=&#34;#fn3&#34; id=&#34;fnref3&#34;&gt;[3]&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;AntDB-CE社区版采用了Share-Nothing的无共享架构，包括计算节点(Coordinator)、数据节点(DB)、全局事务管理器（GTM）和管理节点四种组件。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;计算节点（Coordinator）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;提供SQL解析、优化、路由、结果汇聚、分布式事务控制等功能&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;数据节点(DB)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;真正存储业务数据的组件，通过分库分表实现数据库能力的水平扩展，提供多种分片函数，支持定制开发；支持数据节点的分组管理&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;全局事务管理器(GTMCoordinator）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;分布式事务管理的重要组件；提供事务ID和事务快照以及全局序列号、时间戳，参与2PC提供分布式MVCC 能力，同时提供Coordinator 的能力&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;管理节点（Manager）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;管理整个集群节点的添加、配置、删除、启停、初始化、主备倒换等所有状态。&lt;/p&gt;
+&lt;h2 id=&#34;AntDB-社区版集中式部署安装&#34;&gt;AntDB 社区版集中式部署安装&lt;/h2&gt;
+&lt;p&gt;从官方网站&lt;sup class=&#34;footnote-ref&#34;&gt;&lt;a href=&#34;#fn4&#34; id=&#34;fnref4&#34;&gt;[4]&lt;/a&gt;&lt;/sup&gt; 下载安装包，由于我本地操作系统为 Rocky Linux 9.3，网站并没有提供对应版本的安装包，这里选择了 centos8 作为替代。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ cat /etc/system-release&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Rocky Linux release 9.3 (Blue Onyx)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;官方网站已经给出了安装步骤，可以参考：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;仅需 4 步，完成 AntDB 社区版安装：&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1. 下载在root用户下&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;#&lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;wget http://gz.antdb.net/zip/antdb-ce-7.2.0.centos8.x86_64.tar.gz&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2. 解压&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;#&lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;tar-zxvf antdb-ce-7.2.0.centos8.x86_64.tar.gz&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3. 安装&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;#&lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;cd&lt;/span&gt; antdb-ce-7.2.0.centos8.x86_64&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;#&lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;sh antdb_install.sh -s&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                  &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4. 进入客户端&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;#&lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;su - antdb&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;$&lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;psql -d antdb -p 6655&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;//根据部署的结果修改端口号&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;操作系统：CentOS 8 &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;适配-Rocky-9&#34;&gt;适配 Rocky 9&lt;/h3&gt;
+&lt;p&gt;在执行安装脚本时，遇到报错，提示不支持 Rocky 操作系统。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 antdb-ce-7.2.0.centos8.x86_64]$ ./antdb_install.sh -s&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[Info] AntDB install begins&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The current operating system hardware resources are less than the recommended hardware requirements for antdb operation.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Continue the installation.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;It is recommended to improve the hardware configuration to improve the user experience.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;No package was found.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The current operating system needs a package like antdb-.*.rocky.x86_64.tar.gz.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Please check the installation package. Exit.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 antdb-ce-7.2.0.centos8.x86_64]$&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;找到相关的判断逻辑，然后增加 Rocky 部分即可。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;vi ./setup/common/setup-common&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;在第 252 行增加如下判断。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;//:252&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;         Rocky)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;             os_version=8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;             os_name=&amp;quot;CentOS&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;             ;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;再次安装，遇到报错，提示缺少共享库文件。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;/home/shawnyan/app/antdb/bin/initdb: error while loading shared libraries: libcrypto.so.1.1: cannot open shared object file: No such file or directory&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;需要安装 &lt;code&gt;compat-openssl11&lt;/code&gt; 依赖。&lt;/p&gt;
+&lt;p&gt;再次安装，提示成功。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 antdb-ce-7.2.0.centos8.x86_64]$ ./antdb_install.sh -s&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[Info] AntDB install begins&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;/data/stonedb/antdb-ce-7.2.0.centos8.x86_64/setup/common/AntDB-license-agreement-Community.txt&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;chown: invalid group: ‘shawnyan:shawnyanwheel’&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[Info] AntDB install succeeds!&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[Info] AntDB init begins&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[Info] AntDB info:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+-----------+------+-------------------------------+-------+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| database |    ip     | port |             data              | user  | password |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+-----------+------+-------------------------------+-------+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| antdb    | localhost | 6655 | /home/shawnyan/app/antdb/data | antdb | antdb    |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+-----------+------+-------------------------------+-------+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[Info] AntDB logon:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;         adb -d &amp;quot;database&amp;quot; -U &amp;quot;user&amp;quot; -p &amp;quot;port&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[Info] AntDB init succeeds&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;!--
+额外增加环境变量
+```
+export PGDATABASE=antdb
+export PGDATA=/home/shawnyan/app/antdb/data
+export PGPORT=6655
+```
+--&gt;
+&lt;p&gt;此时，AntDB 已经初始化成功，并且启动，如上面信息所示，监听端口为 6655。&lt;/p&gt;
+&lt;h3 id=&#34;连接-AntDB&#34;&gt;连接 AntDB&lt;/h3&gt;
+&lt;p&gt;使用 &lt;code&gt;adb&lt;/code&gt; 命令，连接 AntDB，并查看版本信息和数据库信息。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@rocky9 ~]$ adb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;adb (13.3)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;quot;help&amp;quot; for help.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb=# select version();&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                   version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-----------------------------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; PostgreSQL 13.3 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 9.5.0, 64-bit&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(1 row)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb=# \l&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                  List of databases&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   Name    |  Owner   | Encoding |   Collate   |    Ctype    |   Access privileges&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-----------+----------+----------+-------------+-------------+-----------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; antdb     | shawnyan | UTF8     | en_US.UTF-8 | en_US.UTF-8 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; postgres  | shawnyan | UTF8     | en_US.UTF-8 | en_US.UTF-8 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; template0 | shawnyan | UTF8     | en_US.UTF-8 | en_US.UTF-8 | =c/shawnyan          +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           |          |          |             |             | shawnyan=CTc/shawnyan&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; template1 | shawnyan | UTF8     | en_US.UTF-8 | en_US.UTF-8 | =c/shawnyan          +&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           |          |          |             |             | shawnyan=CTc/shawnyan&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(4 rows)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;开启-Oracle-兼容参数&#34;&gt;开启 Oracle 兼容参数&lt;/h2&gt;
+&lt;p&gt;AntDB 与 Oracle 数据库高度兼容，使得企业现有的基于Oracle数据库开发的应用程序无需做任何修改或只做少量的修改便可以运行在AntDB平台之上，由此降低了程序迁移的风险，减少了重写应用的成本，从而实现高效快捷的应用迁移。AntDB与Oracle数据库的兼容性包括两个大的方面：多模态SQL解析引擎和语法的兼容性。&lt;sup class=&#34;footnote-ref&#34;&gt;&lt;a href=&#34;#fn5&#34; id=&#34;fnref5&#34;&gt;[5]&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;AntDB 中的 Oracle 兼容参数，可以通过全局变量和会话变量进行修改。并支持打印相关调试信息，由参数 &lt;code&gt;debug_print_grammar&lt;/code&gt; 进行控制。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;alter&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;system&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; debug_print_grammar&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;t;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;修改会话变量，并测试 Oracle 语法：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; grammar &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; oracle;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; grammar;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;/*ora*/&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; dual;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;输出：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; grammar &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; oracle;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; grammar;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; grammar&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;---------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; oracle&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;comment&#34;&gt;/*ora*/&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; dual;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; DUMMY&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; X&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;查看命名空间信息：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; oid, nspname&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; pg_namespace;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  OID  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      NSPNAME&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-------+--------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;number&#34;&gt;99&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; pg_toast&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;number&#34;&gt;11&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; pg_catalog&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;2200&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; public&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;number&#34;&gt;13391&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; information_schema&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;9098&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; oracle&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;number&#34;&gt;13765&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; dbms_output&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;number&#34;&gt;13767&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; dbms_lock&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;number&#34;&gt;13781&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; dbms_random&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;8&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;简单-SQL-测试&#34;&gt;简单 SQL 测试&lt;/h2&gt;
+&lt;h3 id=&#34;创建序列、表&#34;&gt;创建序列、表&lt;/h3&gt;
+&lt;p&gt;创建序列 &lt;code&gt;t1_seq&lt;/code&gt;，创建表 &lt;code&gt;t1&lt;/code&gt;，插入测试数据，并查询表数据。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; SEQUENCE t1_seq;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt; t1 (id &lt;span class=&#34;type&#34;&gt;INTEGER&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;DEFAULT&lt;/span&gt; nextval(&lt;span class=&#34;string&#34;&gt;&amp;#x27;t1_seq&amp;#x27;&lt;/span&gt;), name VARCHAR2(&lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;), c3 NUMBER);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;INSERT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;INTO&lt;/span&gt; t1 (name, c3) &lt;span class=&#34;keyword&#34;&gt;VALUES&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;#x27;A&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;), (&lt;span class=&#34;string&#34;&gt;&amp;#x27;B &amp;#x27;&lt;/span&gt;, &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;),(&lt;span class=&#34;string&#34;&gt;&amp;#x27; c&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;, length(name) &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t1;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;输出：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan&lt;span class=&#34;variable&#34;&gt;@rocky9&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;~&lt;/span&gt;]$ adb&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;adb (&lt;span class=&#34;number&#34;&gt;13.3&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Type &amp;quot;help&amp;quot; &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; help.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; grammar &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; oracle;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; SEQUENCE t1_seq;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; SEQUENCE&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt; t1 (id &lt;span class=&#34;type&#34;&gt;INTEGER&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NOT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;NULL&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;DEFAULT&lt;/span&gt; nextval(&lt;span class=&#34;string&#34;&gt;&amp;#x27;t1_seq&amp;#x27;&lt;/span&gt;), name VARCHAR2(&lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;), c3 NUMBER);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;INSERT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;INTO&lt;/span&gt; t1 (name, c3) &lt;span class=&#34;keyword&#34;&gt;VALUES&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;#x27;A&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;), (&lt;span class=&#34;string&#34;&gt;&amp;#x27;B &amp;#x27;&lt;/span&gt;, &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;),(&lt;span class=&#34;string&#34;&gt;&amp;#x27; c&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;INSERT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;, length(name) &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ID &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; NAME &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; C3 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; LENGTH(NAME)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;----+------+----+--------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; A    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;            &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; B    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;            &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  c   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;            &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;创建、刷新物化视图&#34;&gt;创建、刷新物化视图&lt;/h3&gt;
+&lt;p&gt;创建物化视图 &lt;code&gt;mv_t1&lt;/code&gt;，并测试刷新物化视图命令。创建物化视图的同时，导入6条数据，再插入6条数据，刷新物化视图后，物化视图中有12条数据。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; MATERIALIZED &lt;span class=&#34;keyword&#34;&gt;VIEW&lt;/span&gt; mv_t1 &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;REFRESH MATERIALIZED &lt;span class=&#34;keyword&#34;&gt;VIEW&lt;/span&gt; mv_t1;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;输出：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;41&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;42&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;43&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;44&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;45&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;46&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;47&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;48&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;49&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;50&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; MATERIALIZED &lt;span class=&#34;keyword&#34;&gt;VIEW&lt;/span&gt; mv_t1 &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;6&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# \d&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt; mv_t1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                                   Materialized &lt;span class=&#34;keyword&#34;&gt;view&lt;/span&gt; &amp;quot;public.mv_t1&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;keyword&#34;&gt;Column&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;        Type         &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Collation&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Nullable &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Default&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Storage  &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Stats target &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Description&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;--------+---------------------+-----------+----------+---------+----------+--------------+-------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; id     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;integer&lt;/span&gt;             &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;          &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;         &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; plain    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;              &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; name   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; oracle.varchar2(&lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;) &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;          &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;         &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; extended &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;              &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; c3     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;numeric&lt;/span&gt;             &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;          &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;         &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; main     &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;              &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;View&lt;/span&gt; definition:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; t1.id,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    t1.name,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    t1.c3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Access &lt;span class=&#34;keyword&#34;&gt;method&lt;/span&gt;: heap&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;insert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;into&lt;/span&gt; t1(name) &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; name &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;INSERT&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;0&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;6&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; mv_t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; id &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; name &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; c3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;----+------+----&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; A    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; B    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  c   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;4&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;5&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;5&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;6&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;6&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;6&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# REFRESH MATERIALIZED &lt;span class=&#34;keyword&#34;&gt;VIEW&lt;/span&gt; mv_t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;REFRESH MATERIALIZED &lt;span class=&#34;keyword&#34;&gt;VIEW&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; mv_t1;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; id &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; name &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; c3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;----+------+----&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; A    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; B    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  c   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;4&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;5&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;5&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;6&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;6&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  &lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;7&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; A    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;8&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; B    &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;number&#34;&gt;9&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;  c   &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;number&#34;&gt;10&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;number&#34;&gt;11&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;number&#34;&gt;12&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;      &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;12&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;数据类型隐式转换测试&#34;&gt;数据类型隐式转换测试&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;test case&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt; t1 (&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;id &lt;span class=&#34;type&#34;&gt;int&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;not&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;null&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;name &lt;span class=&#34;type&#34;&gt;varchar&lt;/span&gt;(&lt;span class=&#34;number&#34;&gt;255&lt;/span&gt;) &lt;span class=&#34;keyword&#34;&gt;default&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;null&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;primary&lt;/span&gt; key(id)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;insert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;into&lt;/span&gt; t1 &lt;span class=&#34;keyword&#34;&gt;values&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;123456789012345611&amp;#x27;&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;insert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;into&lt;/span&gt; t1 &lt;span class=&#34;keyword&#34;&gt;values&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;123456789012345612&amp;#x27;&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;insert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;into&lt;/span&gt; t1 &lt;span class=&#34;keyword&#34;&gt;values&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;123123&amp;#x27;&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt; t2 (&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;id &lt;span class=&#34;type&#34;&gt;int&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;not&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;null&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;name &lt;span class=&#34;type&#34;&gt;bigint&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;default&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;null&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;primary&lt;/span&gt; key(id)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;insert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;into&lt;/span&gt; t2 &lt;span class=&#34;keyword&#34;&gt;values&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;123456789012345611&amp;#x27;&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;insert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;into&lt;/span&gt; t2 &lt;span class=&#34;keyword&#34;&gt;values&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;123456789012345611&amp;#x27;&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;insert&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;into&lt;/span&gt; t2 &lt;span class=&#34;keyword&#34;&gt;values&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;123123&amp;#x27;&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; t1.id id1, t1.name name1, t2.id id2, t2.name name2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t1,t2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; t1.name &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; t2.name;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;output&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; t1.id id1, t1.name name1, t2.id id2, t2.name name2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t1,t2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; t1.name &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; t2.name;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ERROR:  operator does &lt;span class=&#34;keyword&#34;&gt;not&lt;/span&gt; exist: &lt;span class=&#34;type&#34;&gt;character&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;varying&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;bigint&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;LINE &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;: &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; t1.name &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; t2.name;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;                      &lt;span class=&#34;operator&#34;&gt;^&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;HINT:  &lt;span class=&#34;keyword&#34;&gt;No&lt;/span&gt; operator &lt;span class=&#34;keyword&#34;&gt;matches&lt;/span&gt; the given name &lt;span class=&#34;keyword&#34;&gt;and&lt;/span&gt; argument types. You might need &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;add&lt;/span&gt; explicit type casts.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; t1.id id1, t1.name name1, t2.id id2, t2.name name2&lt;span class=&#34;operator&#34;&gt;^&lt;/span&gt;Jfrom t1,t2&lt;span class=&#34;operator&#34;&gt;^&lt;/span&gt;Jwhere t1.name &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; t2.name::&lt;span class=&#34;type&#34;&gt;varchar&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; id1 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;       name1        &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; id2 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;       name2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-----+--------------------+-----+--------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;123456789012345611&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;   &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;123456789012345611&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;123456789012345611&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;   &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;123456789012345611&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;123123&lt;/span&gt;             &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;   &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;             &lt;span class=&#34;number&#34;&gt;123123&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;antdb&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;# &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; t1.id id1, t1.name name1, t2.id id2, t2.name name2&lt;span class=&#34;operator&#34;&gt;^&lt;/span&gt;Jfrom t1,t2&lt;span class=&#34;operator&#34;&gt;^&lt;/span&gt;Jwhere t1.name::&lt;span class=&#34;type&#34;&gt;bigint&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; t2.name;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; id1 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;       name1        &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; id2 &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;       name2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;-----+--------------------+-----+--------------------&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;123456789012345611&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;   &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;123456789012345611&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;123456789012345611&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;   &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;123456789012345611&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;123123&lt;/span&gt;             &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;   &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;             &lt;span class=&#34;number&#34;&gt;123123&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;(&lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;到此，AntDB 社区版 v7.2.0 的安装、适配已介绍完毕，并演示了 Oracle 兼容功能，以及部分 SQL 基础测试。&lt;/p&gt;
+&lt;p&gt;BTW，墨天轮课程中心上架了《AntDB ACA初级认证课程》&lt;sup class=&#34;footnote-ref&#34;&gt;&lt;a href=&#34;#fn6&#34; id=&#34;fnref6&#34;&gt;[6]&lt;/a&gt;&lt;/sup&gt; ，有兴趣的同学可以学起来。&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;&lt;a href=&#34;https://www.modb.pro/db/1734117877862178816&#34;&gt;https://www.modb.pro/db/1734117877862178816&lt;/a&gt;&lt;/p&gt;
+&lt;hr class=&#34;footnotes-sep&#34;&gt;
+&lt;section class=&#34;footnotes&#34;&gt;
+&lt;ol class=&#34;footnotes-list&#34;&gt;
+&lt;li id=&#34;fn1&#34; class=&#34;footnote-item&#34;&gt;&lt;p&gt;&lt;a href=&#34;https://www.modb.pro/db/1731856399742345216&#34;&gt;https://www.modb.pro/db/1731856399742345216&lt;/a&gt; &lt;a href=&#34;#fnref1&#34; class=&#34;footnote-backref&#34;&gt;↩︎&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id=&#34;fn2&#34; class=&#34;footnote-item&#34;&gt;&lt;p&gt;&lt;a href=&#34;https://www.modb.pro/wiki/55&#34;&gt;https://www.modb.pro/wiki/55&lt;/a&gt; &lt;a href=&#34;#fnref2&#34; class=&#34;footnote-backref&#34;&gt;↩︎&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id=&#34;fn3&#34; class=&#34;footnote-item&#34;&gt;&lt;p&gt;&lt;a href=&#34;http://www.antdb.net/news/detail/84&#34;&gt;http://www.antdb.net/news/detail/84&lt;/a&gt; &lt;a href=&#34;#fnref3&#34; class=&#34;footnote-backref&#34;&gt;↩︎&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id=&#34;fn4&#34; class=&#34;footnote-item&#34;&gt;&lt;p&gt;&lt;a href=&#34;http://www.antdb.net/download&#34;&gt;http://www.antdb.net/download&lt;/a&gt; &lt;a href=&#34;#fnref4&#34; class=&#34;footnote-backref&#34;&gt;↩︎&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id=&#34;fn5&#34; class=&#34;footnote-item&#34;&gt;&lt;p&gt;&lt;a href=&#34;http://www.antdb.net/72_benefit&#34;&gt;http://www.antdb.net/72_benefit&lt;/a&gt; &lt;a href=&#34;#fnref5&#34; class=&#34;footnote-backref&#34;&gt;↩︎&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id=&#34;fn6&#34; class=&#34;footnote-item&#34;&gt;&lt;p&gt;&lt;a href=&#34;https://www.modb.pro/course/196&#34;&gt;https://www.modb.pro/course/196&lt;/a&gt; &lt;a href=&#34;#fnref6&#34; class=&#34;footnote-backref&#34;&gt;↩︎&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/section&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/antdb/" class="category-badge">
+                                    AntDB
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">AntDB v7.2.0 社区版适配 Rocky 9 及体验笔记</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2023-12-11
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                2k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                9 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <h2 id="关于-AntDB">关于 AntDB</h2>
+<p>2023年12月的 墨天轮中国数据库流行度排行 火热出炉，目前，AntDB 排在第十位。<sup class="footnote-ref"><a href="#fn1" id="fnref1">[1]</a></sup></p>
+<p>AntDB 数据库始于2008年，隶属于亚信科技旗下通用型企业级数据库产品，在运营商的核心系统上，为全国24个省份的10亿多用户提供在线服务，具备高性能、弹性扩展、可靠性等产品特性，峰值每秒可处理百万笔通信核心交易，应用范围包含通信、金融、交通、能源、物联网等行业。<sup class="footnote-ref"><a href="#fn2" id="fnref2">[2]</a></sup></p>
+<img alt="img.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20231211-b4d45c01-ec47-4a8f-8487-8d9d947eee23.png" width=800px referrerpolicy="no-referrer"/>
+<h2 id="关于-AntDB-社区版">关于 AntDB 社区版</h2>
+<p>3月1日，亚信科技AntDB数据库社区版正式开放免费下载。作为AntDB数据库的首个社区版产品，AntDB-CE（Community Edition）V7.2.0具有完整、易用、兼容度高的企业级分布式数据库产品特性。<sup class="footnote-ref"><a href="#fn3" id="fnref3">[3]</a></sup></p>
+<p>AntDB-CE社区版采用了Share-Nothing的无共享架构，包括计算节点(Coordinator)、数据节点(DB)、全局事务管理器（GTM）和管理节点四种组件。</p>
+<ul>
+<li>计算节点（Coordinator）</li>
+</ul>
+<p>提供SQL解析、优化、路由、结果汇聚、分布式事务控制等功能</p>
+<ul>
+<li>数据节点(DB)</li>
+</ul>
+<p>真正存储业务数据的组件，通过分库分表实现数据库能力的水平扩展，提供多种分片函数，支持定制开发；支持数据节点的分组管理</p>
+<ul>
+<li>全局事务管理器(GTMCoordinator）</li>
+</ul>
+<p>分布式事务管理的重要组件；提供事务ID和事务快照以及全局序列号、时间戳，参与2PC提供分布式MVCC 能力，同时提供Coordinator 的能力</p>
+<ul>
+<li>管理节点（Manager）</li>
+</ul>
+<p>管理整个集群节点的添加、配置、删除、启停、初始化、主备倒换等所有状态。</p>
+<h2 id="AntDB-社区版集中式部署安装">AntDB 社区版集中式部署安装</h2>
+<p>从官方网站<sup class="footnote-ref"><a href="#fn4" id="fnref4">[4]</a></sup> 下载安装包，由于我本地操作系统为 Rocky Linux 9.3，网站并没有提供对应版本的安装包，这里选择了 centos8 作为替代。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ cat /etc/system-release</span><br><span class="line">Rocky Linux release 9.3 (Blue Onyx)</span><br></pre></td></tr></table></figure>
+<p>官方网站已经给出了安装步骤，可以参考：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">仅需 4 步，完成 AntDB 社区版安装：</span><br><span class="line"></span><br><span class="line">1. 下载在root用户下</span><br><span class="line"><span class="meta prompt_">#</span><span class="language-bash">wget http://gz.antdb.net/zip/antdb-ce-7.2.0.centos8.x86_64.tar.gz</span></span><br><span class="line">                  </span><br><span class="line">2. 解压</span><br><span class="line"><span class="meta prompt_">#</span><span class="language-bash">tar-zxvf antdb-ce-7.2.0.centos8.x86_64.tar.gz</span></span><br><span class="line">                  </span><br><span class="line">3. 安装</span><br><span class="line"><span class="meta prompt_">#</span><span class="language-bash"><span class="built_in">cd</span> antdb-ce-7.2.0.centos8.x86_64</span></span><br><span class="line"><span class="meta prompt_">#</span><span class="language-bash">sh antdb_install.sh -s</span></span><br><span class="line">                  </span><br><span class="line">4. 进入客户端</span><br><span class="line"><span class="meta prompt_">#</span><span class="language-bash">su - antdb</span></span><br><span class="line"><span class="meta prompt_">$</span><span class="language-bash">psql -d antdb -p 6655</span></span><br><span class="line">//根据部署的结果修改端口号</span><br><span class="line"></span><br><span class="line">操作系统：CentOS 8 </span><br></pre></td></tr></table></figure>
+<h3 id="适配-Rocky-9">适配 Rocky 9</h3>
+<p>在执行安装脚本时，遇到报错，提示不支持 Rocky 操作系统。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 antdb-ce-7.2.0.centos8.x86_64]$ ./antdb_install.sh -s</span><br><span class="line">[Info] AntDB install begins</span><br><span class="line">The current operating system hardware resources are less than the recommended hardware requirements for antdb operation.</span><br><span class="line">...</span><br><span class="line">Continue the installation.</span><br><span class="line">It is recommended to improve the hardware configuration to improve the user experience.</span><br><span class="line">No package was found.</span><br><span class="line">The current operating system needs a package like antdb-.*.rocky.x86_64.tar.gz.</span><br><span class="line">Please check the installation package. Exit.</span><br><span class="line">[shawnyan@rocky9 antdb-ce-7.2.0.centos8.x86_64]$</span><br></pre></td></tr></table></figure>
+<p>找到相关的判断逻辑，然后增加 Rocky 部分即可。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vi ./setup/common/setup-common</span><br></pre></td></tr></table></figure>
+<p>在第 252 行增加如下判断。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">//:252</span><br><span class="line">         Rocky)</span><br><span class="line">             os_version=8</span><br><span class="line">             os_name=&quot;CentOS&quot;</span><br><span class="line">             ;;</span><br></pre></td></tr></table></figure>
+<p>再次安装，遇到报错，提示缺少共享库文件。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/home/shawnyan/app/antdb/bin/initdb: error while loading shared libraries: libcrypto.so.1.1: cannot open shared object file: No such file or directory</span><br></pre></td></tr></table></figure>
+<p>需要安装 <code>compat-openssl11</code> 依赖。</p>
+<p>再次安装，提示成功。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 antdb-ce-7.2.0.centos8.x86_64]$ ./antdb_install.sh -s</span><br><span class="line">[Info] AntDB install begins</span><br><span class="line">...</span><br><span class="line">/data/stonedb/antdb-ce-7.2.0.centos8.x86_64/setup/common/AntDB-license-agreement-Community.txt</span><br><span class="line">chown: invalid group: ‘shawnyan:shawnyanwheel’</span><br><span class="line">...</span><br><span class="line">[Info] AntDB install succeeds!</span><br><span class="line">[Info] AntDB init begins</span><br><span class="line">[Info] AntDB info:</span><br><span class="line">+----------+-----------+------+-------------------------------+-------+----------+</span><br><span class="line">| database |    ip     | port |             data              | user  | password |</span><br><span class="line">+----------+-----------+------+-------------------------------+-------+----------+</span><br><span class="line">| antdb    | localhost | 6655 | /home/shawnyan/app/antdb/data | antdb | antdb    |</span><br><span class="line">+----------+-----------+------+-------------------------------+-------+----------+</span><br><span class="line"></span><br><span class="line">[Info] AntDB logon:</span><br><span class="line">         adb -d &quot;database&quot; -U &quot;user&quot; -p &quot;port&quot;</span><br><span class="line"></span><br><span class="line">[Info] AntDB init succeeds</span><br></pre></td></tr></table></figure>
+<!--
+额外增加环境变量
+```
+export PGDATABASE=antdb
+export PGDATA=/home/shawnyan/app/antdb/data
+export PGPORT=6655
+```
+-->
+<p>此时，AntDB 已经初始化成功，并且启动，如上面信息所示，监听端口为 6655。</p>
+<h3 id="连接-AntDB">连接 AntDB</h3>
+<p>使用 <code>adb</code> 命令，连接 AntDB，并查看版本信息和数据库信息。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@rocky9 ~]$ adb</span><br><span class="line">adb (13.3)</span><br><span class="line">Type &quot;help&quot; for help.</span><br><span class="line"></span><br><span class="line">antdb=# select version();</span><br><span class="line">                                   version</span><br><span class="line">-----------------------------------------------------------------------------</span><br><span class="line"> PostgreSQL 13.3 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 9.5.0, 64-bit</span><br><span class="line">(1 row)</span><br><span class="line"></span><br><span class="line">antdb=# \l</span><br><span class="line">                                  List of databases</span><br><span class="line">   Name    |  Owner   | Encoding |   Collate   |    Ctype    |   Access privileges</span><br><span class="line">-----------+----------+----------+-------------+-------------+-----------------------</span><br><span class="line"> antdb     | shawnyan | UTF8     | en_US.UTF-8 | en_US.UTF-8 |</span><br><span class="line"> postgres  | shawnyan | UTF8     | en_US.UTF-8 | en_US.UTF-8 |</span><br><span class="line"> template0 | shawnyan | UTF8     | en_US.UTF-8 | en_US.UTF-8 | =c/shawnyan          +</span><br><span class="line">           |          |          |             |             | shawnyan=CTc/shawnyan</span><br><span class="line"> template1 | shawnyan | UTF8     | en_US.UTF-8 | en_US.UTF-8 | =c/shawnyan          +</span><br><span class="line">           |          |          |             |             | shawnyan=CTc/shawnyan</span><br><span class="line">(4 rows)</span><br></pre></td></tr></table></figure>
+<h2 id="开启-Oracle-兼容参数">开启 Oracle 兼容参数</h2>
+<p>AntDB 与 Oracle 数据库高度兼容，使得企业现有的基于Oracle数据库开发的应用程序无需做任何修改或只做少量的修改便可以运行在AntDB平台之上，由此降低了程序迁移的风险，减少了重写应用的成本，从而实现高效快捷的应用迁移。AntDB与Oracle数据库的兼容性包括两个大的方面：多模态SQL解析引擎和语法的兼容性。<sup class="footnote-ref"><a href="#fn5" id="fnref5">[5]</a></sup></p>
+<p>AntDB 中的 Oracle 兼容参数，可以通过全局变量和会话变量进行修改。并支持打印相关调试信息，由参数 <code>debug_print_grammar</code> 进行控制。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">alter</span> <span class="keyword">system</span> <span class="keyword">set</span> debug_print_grammar<span class="operator">=</span>t;</span><br></pre></td></tr></table></figure>
+<p>修改会话变量，并测试 Oracle 语法：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">set</span> grammar <span class="keyword">to</span> oracle;</span><br><span class="line"><span class="keyword">show</span> grammar;</span><br><span class="line"><span class="comment">/*ora*/</span> <span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> dual;</span><br></pre></td></tr></table></figure>
+<p>输出：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">antdb<span class="operator">=</span># <span class="keyword">set</span> grammar <span class="keyword">to</span> oracle;</span><br><span class="line"><span class="keyword">SET</span></span><br><span class="line">antdb<span class="operator">=</span># <span class="keyword">show</span> grammar;</span><br><span class="line"> grammar</span><br><span class="line"><span class="comment">---------</span></span><br><span class="line"> oracle</span><br><span class="line">(<span class="number">1</span> <span class="type">row</span>)</span><br><span class="line"></span><br><span class="line">antdb<span class="operator">=</span># <span class="comment">/*ora*/</span> <span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> dual;</span><br><span class="line"> DUMMY</span><br><span class="line"><span class="comment">-------</span></span><br><span class="line"> X</span><br><span class="line">(<span class="number">1</span> <span class="type">row</span>)</span><br></pre></td></tr></table></figure>
+<p>查看命名空间信息：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">antdb<span class="operator">=</span># <span class="keyword">SELECT</span> oid, nspname</span><br><span class="line">antdb<span class="operator">-</span># <span class="keyword">FROM</span> pg_namespace;</span><br><span class="line">  OID  <span class="operator">|</span>      NSPNAME</span><br><span class="line"><span class="comment">-------+--------------------</span></span><br><span class="line">    <span class="number">99</span> <span class="operator">|</span> pg_toast</span><br><span class="line">    <span class="number">11</span> <span class="operator">|</span> pg_catalog</span><br><span class="line">  <span class="number">2200</span> <span class="operator">|</span> public</span><br><span class="line"> <span class="number">13391</span> <span class="operator">|</span> information_schema</span><br><span class="line">  <span class="number">9098</span> <span class="operator">|</span> oracle</span><br><span class="line"> <span class="number">13765</span> <span class="operator">|</span> dbms_output</span><br><span class="line"> <span class="number">13767</span> <span class="operator">|</span> dbms_lock</span><br><span class="line"> <span class="number">13781</span> <span class="operator">|</span> dbms_random</span><br><span class="line">(<span class="number">8</span> <span class="keyword">rows</span>)</span><br></pre></td></tr></table></figure>
+<h2 id="简单-SQL-测试">简单 SQL 测试</h2>
+<h3 id="创建序列、表">创建序列、表</h3>
+<p>创建序列 <code>t1_seq</code>，创建表 <code>t1</code>，插入测试数据，并查询表数据。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> SEQUENCE t1_seq;</span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> t1 (id <span class="type">INTEGER</span> <span class="keyword">NOT</span> <span class="keyword">NULL</span> <span class="keyword">DEFAULT</span> nextval(<span class="string">&#x27;t1_seq&#x27;</span>), name VARCHAR2(<span class="number">10</span>), c3 NUMBER);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> t1 (name, c3) <span class="keyword">VALUES</span>(<span class="string">&#x27;A&#x27;</span>, <span class="number">1</span>), (<span class="string">&#x27;B &#x27;</span>, <span class="number">2</span>),(<span class="string">&#x27; c&#x27;</span>, <span class="number">3</span>);</span><br><span class="line"><span class="keyword">select</span> <span class="operator">*</span>, length(name) <span class="keyword">from</span> t1;</span><br></pre></td></tr></table></figure>
+<p>输出：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan<span class="variable">@rocky9</span> <span class="operator">~</span>]$ adb</span><br><span class="line">adb (<span class="number">13.3</span>)</span><br><span class="line">Type &quot;help&quot; <span class="keyword">for</span> help.</span><br><span class="line"></span><br><span class="line">antdb<span class="operator">=</span># <span class="keyword">set</span> grammar <span class="keyword">to</span> oracle;</span><br><span class="line"><span class="keyword">SET</span></span><br><span class="line">antdb<span class="operator">=</span># <span class="keyword">CREATE</span> SEQUENCE t1_seq;</span><br><span class="line"><span class="keyword">CREATE</span> SEQUENCE</span><br><span class="line">antdb<span class="operator">=</span># <span class="keyword">CREATE</span> <span class="keyword">TABLE</span> t1 (id <span class="type">INTEGER</span> <span class="keyword">NOT</span> <span class="keyword">NULL</span> <span class="keyword">DEFAULT</span> nextval(<span class="string">&#x27;t1_seq&#x27;</span>), name VARCHAR2(<span class="number">10</span>), c3 NUMBER);</span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span></span><br><span class="line">antdb<span class="operator">=</span># <span class="keyword">INSERT</span> <span class="keyword">INTO</span> t1 (name, c3) <span class="keyword">VALUES</span>(<span class="string">&#x27;A&#x27;</span>, <span class="number">1</span>), (<span class="string">&#x27;B &#x27;</span>, <span class="number">2</span>),(<span class="string">&#x27; c&#x27;</span>, <span class="number">3</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="number">0</span> <span class="number">3</span></span><br><span class="line">antdb<span class="operator">=</span># <span class="keyword">select</span> <span class="operator">*</span>, length(name) <span class="keyword">from</span> t1;</span><br><span class="line"> ID <span class="operator">|</span> NAME <span class="operator">|</span> C3 <span class="operator">|</span> LENGTH(NAME)</span><br><span class="line"><span class="comment">----+------+----+--------------</span></span><br><span class="line">  <span class="number">1</span> <span class="operator">|</span> A    <span class="operator">|</span>  <span class="number">1</span> <span class="operator">|</span>            <span class="number">1</span></span><br><span class="line">  <span class="number">2</span> <span class="operator">|</span> B    <span class="operator">|</span>  <span class="number">2</span> <span class="operator">|</span>            <span class="number">2</span></span><br><span class="line">  <span class="number">3</span> <span class="operator">|</span>  c   <span class="operator">|</span>  <span class="number">3</span> <span class="operator">|</span>            <span class="number">2</span></span><br><span class="line">(<span class="number">3</span> <span class="keyword">rows</span>)</span><br></pre></td></tr></table></figure>
+<h3 id="创建、刷新物化视图">创建、刷新物化视图</h3>
+<p>创建物化视图 <code>mv_t1</code>，并测试刷新物化视图命令。创建物化视图的同时，导入6条数据，再插入6条数据，刷新物化视图后，物化视图中有12条数据。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> MATERIALIZED <span class="keyword">VIEW</span> mv_t1 <span class="keyword">AS</span> </span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> </span><br><span class="line"><span class="keyword">FROM</span> t1;</span><br><span class="line"></span><br><span class="line">REFRESH MATERIALIZED <span class="keyword">VIEW</span> mv_t1;</span><br></pre></td></tr></table></figure>
+<p>输出：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><span class="line">antdb<span class="operator">=</span># <span class="keyword">CREATE</span> MATERIALIZED <span class="keyword">VIEW</span> mv_t1 <span class="keyword">AS</span></span><br><span class="line">antdb<span class="operator">-</span># <span class="keyword">SELECT</span> <span class="operator">*</span></span><br><span class="line">antdb<span class="operator">-</span># <span class="keyword">FROM</span> t1;</span><br><span class="line"><span class="keyword">SELECT</span> <span class="number">6</span></span><br><span class="line"></span><br><span class="line">antdb<span class="operator">=</span># \d<span class="operator">+</span> mv_t1</span><br><span class="line">                                   Materialized <span class="keyword">view</span> &quot;public.mv_t1&quot;</span><br><span class="line"> <span class="keyword">Column</span> <span class="operator">|</span>        Type         <span class="operator">|</span> <span class="keyword">Collation</span> <span class="operator">|</span> Nullable <span class="operator">|</span> <span class="keyword">Default</span> <span class="operator">|</span> Storage  <span class="operator">|</span> Stats target <span class="operator">|</span> Description</span><br><span class="line"><span class="comment">--------+---------------------+-----------+----------+---------+----------+--------------+-------------</span></span><br><span class="line"> id     <span class="operator">|</span> <span class="type">integer</span>             <span class="operator">|</span>           <span class="operator">|</span>          <span class="operator">|</span>         <span class="operator">|</span> plain    <span class="operator">|</span>              <span class="operator">|</span></span><br><span class="line"> name   <span class="operator">|</span> oracle.varchar2(<span class="number">10</span>) <span class="operator">|</span>           <span class="operator">|</span>          <span class="operator">|</span>         <span class="operator">|</span> extended <span class="operator">|</span>              <span class="operator">|</span></span><br><span class="line"> c3     <span class="operator">|</span> <span class="type">numeric</span>             <span class="operator">|</span>           <span class="operator">|</span>          <span class="operator">|</span>         <span class="operator">|</span> main     <span class="operator">|</span>              <span class="operator">|</span></span><br><span class="line"><span class="keyword">View</span> definition:</span><br><span class="line"> <span class="keyword">SELECT</span> t1.id,</span><br><span class="line">    t1.name,</span><br><span class="line">    t1.c3</span><br><span class="line">   <span class="keyword">FROM</span> t1;</span><br><span class="line">Access <span class="keyword">method</span>: heap</span><br><span class="line"></span><br><span class="line">antdb<span class="operator">=</span># <span class="keyword">insert</span> <span class="keyword">into</span> t1(name) <span class="keyword">select</span> name <span class="keyword">from</span> t1;</span><br><span class="line"><span class="keyword">INSERT</span> <span class="number">0</span> <span class="number">6</span></span><br><span class="line">antdb<span class="operator">=</span># <span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> mv_t1;</span><br><span class="line"> id <span class="operator">|</span> name <span class="operator">|</span> c3</span><br><span class="line"><span class="comment">----+------+----</span></span><br><span class="line">  <span class="number">1</span> <span class="operator">|</span> A    <span class="operator">|</span>  <span class="number">1</span></span><br><span class="line">  <span class="number">2</span> <span class="operator">|</span> B    <span class="operator">|</span>  <span class="number">2</span></span><br><span class="line">  <span class="number">3</span> <span class="operator">|</span>  c   <span class="operator">|</span>  <span class="number">3</span></span><br><span class="line">  <span class="number">4</span> <span class="operator">|</span>      <span class="operator">|</span>  <span class="number">5</span></span><br><span class="line">  <span class="number">5</span> <span class="operator">|</span>      <span class="operator">|</span>  <span class="number">6</span></span><br><span class="line">  <span class="number">6</span> <span class="operator">|</span>      <span class="operator">|</span>  <span class="number">4</span></span><br><span class="line">(<span class="number">6</span> <span class="keyword">rows</span>)</span><br><span class="line"></span><br><span class="line">antdb<span class="operator">=</span># REFRESH MATERIALIZED <span class="keyword">VIEW</span> mv_t1;</span><br><span class="line">REFRESH MATERIALIZED <span class="keyword">VIEW</span></span><br><span class="line">antdb<span class="operator">=</span># <span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> mv_t1;</span><br><span class="line"> id <span class="operator">|</span> name <span class="operator">|</span> c3</span><br><span class="line"><span class="comment">----+------+----</span></span><br><span class="line">  <span class="number">1</span> <span class="operator">|</span> A    <span class="operator">|</span>  <span class="number">1</span></span><br><span class="line">  <span class="number">2</span> <span class="operator">|</span> B    <span class="operator">|</span>  <span class="number">2</span></span><br><span class="line">  <span class="number">3</span> <span class="operator">|</span>  c   <span class="operator">|</span>  <span class="number">3</span></span><br><span class="line">  <span class="number">4</span> <span class="operator">|</span>      <span class="operator">|</span>  <span class="number">5</span></span><br><span class="line">  <span class="number">5</span> <span class="operator">|</span>      <span class="operator">|</span>  <span class="number">6</span></span><br><span class="line">  <span class="number">6</span> <span class="operator">|</span>      <span class="operator">|</span>  <span class="number">4</span></span><br><span class="line">  <span class="number">7</span> <span class="operator">|</span> A    <span class="operator">|</span></span><br><span class="line">  <span class="number">8</span> <span class="operator">|</span> B    <span class="operator">|</span></span><br><span class="line">  <span class="number">9</span> <span class="operator">|</span>  c   <span class="operator">|</span></span><br><span class="line"> <span class="number">10</span> <span class="operator">|</span>      <span class="operator">|</span></span><br><span class="line"> <span class="number">11</span> <span class="operator">|</span>      <span class="operator">|</span></span><br><span class="line"> <span class="number">12</span> <span class="operator">|</span>      <span class="operator">|</span></span><br><span class="line">(<span class="number">12</span> <span class="keyword">rows</span>)</span><br></pre></td></tr></table></figure>
+<h3 id="数据类型隐式转换测试">数据类型隐式转换测试</h3>
+<ul>
+<li>test case</li>
+</ul>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> t1 (</span><br><span class="line">id <span class="type">int</span> <span class="keyword">not</span> <span class="keyword">null</span>,</span><br><span class="line">name <span class="type">varchar</span>(<span class="number">255</span>) <span class="keyword">default</span> <span class="keyword">null</span>,</span><br><span class="line"><span class="keyword">primary</span> key(id)</span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="keyword">insert</span> <span class="keyword">into</span> t1 <span class="keyword">values</span> (<span class="number">1</span>,<span class="string">&#x27;123456789012345611&#x27;</span>);</span><br><span class="line"><span class="keyword">insert</span> <span class="keyword">into</span> t1 <span class="keyword">values</span> (<span class="number">2</span>,<span class="string">&#x27;123456789012345612&#x27;</span>);</span><br><span class="line"><span class="keyword">insert</span> <span class="keyword">into</span> t1 <span class="keyword">values</span> (<span class="number">3</span>,<span class="string">&#x27;123123&#x27;</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> t2 (</span><br><span class="line">id <span class="type">int</span> <span class="keyword">not</span> <span class="keyword">null</span>,</span><br><span class="line">name <span class="type">bigint</span> <span class="keyword">default</span> <span class="keyword">null</span>,</span><br><span class="line"><span class="keyword">primary</span> key(id)</span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="keyword">insert</span> <span class="keyword">into</span> t2 <span class="keyword">values</span> (<span class="number">1</span>,<span class="string">&#x27;123456789012345611&#x27;</span>);</span><br><span class="line"><span class="keyword">insert</span> <span class="keyword">into</span> t2 <span class="keyword">values</span> (<span class="number">2</span>,<span class="string">&#x27;123456789012345611&#x27;</span>);</span><br><span class="line"><span class="keyword">insert</span> <span class="keyword">into</span> t2 <span class="keyword">values</span> (<span class="number">3</span>,<span class="string">&#x27;123123&#x27;</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">select</span> t1.id id1, t1.name name1, t2.id id2, t2.name name2</span><br><span class="line"><span class="keyword">from</span> t1,t2</span><br><span class="line"><span class="keyword">where</span> t1.name <span class="operator">=</span> t2.name;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>output</li>
+</ul>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">antdb<span class="operator">=</span># <span class="keyword">select</span> t1.id id1, t1.name name1, t2.id id2, t2.name name2</span><br><span class="line">antdb<span class="operator">-</span># <span class="keyword">from</span> t1,t2</span><br><span class="line">antdb<span class="operator">-</span># <span class="keyword">where</span> t1.name <span class="operator">=</span> t2.name;</span><br><span class="line">ERROR:  operator does <span class="keyword">not</span> exist: <span class="type">character</span> <span class="type">varying</span> <span class="operator">=</span> <span class="type">bigint</span></span><br><span class="line">LINE <span class="number">3</span>: <span class="keyword">where</span> t1.name <span class="operator">=</span> t2.name;</span><br><span class="line">                      <span class="operator">^</span></span><br><span class="line">HINT:  <span class="keyword">No</span> operator <span class="keyword">matches</span> the given name <span class="keyword">and</span> argument types. You might need <span class="keyword">to</span> <span class="keyword">add</span> explicit type casts.</span><br><span class="line">antdb<span class="operator">=</span># <span class="keyword">select</span> t1.id id1, t1.name name1, t2.id id2, t2.name name2<span class="operator">^</span>Jfrom t1,t2<span class="operator">^</span>Jwhere t1.name <span class="operator">=</span> t2.name::<span class="type">varchar</span>;</span><br><span class="line"> id1 <span class="operator">|</span>       name1        <span class="operator">|</span> id2 <span class="operator">|</span>       name2</span><br><span class="line"><span class="comment">-----+--------------------+-----+--------------------</span></span><br><span class="line">   <span class="number">1</span> <span class="operator">|</span> <span class="number">123456789012345611</span> <span class="operator">|</span>   <span class="number">1</span> <span class="operator">|</span> <span class="number">123456789012345611</span></span><br><span class="line">   <span class="number">1</span> <span class="operator">|</span> <span class="number">123456789012345611</span> <span class="operator">|</span>   <span class="number">2</span> <span class="operator">|</span> <span class="number">123456789012345611</span></span><br><span class="line">   <span class="number">3</span> <span class="operator">|</span> <span class="number">123123</span>             <span class="operator">|</span>   <span class="number">3</span> <span class="operator">|</span>             <span class="number">123123</span></span><br><span class="line">(<span class="number">3</span> <span class="keyword">rows</span>)</span><br><span class="line"></span><br><span class="line">antdb<span class="operator">=</span># <span class="keyword">select</span> t1.id id1, t1.name name1, t2.id id2, t2.name name2<span class="operator">^</span>Jfrom t1,t2<span class="operator">^</span>Jwhere t1.name::<span class="type">bigint</span> <span class="operator">=</span> t2.name;</span><br><span class="line"> id1 <span class="operator">|</span>       name1        <span class="operator">|</span> id2 <span class="operator">|</span>       name2</span><br><span class="line"><span class="comment">-----+--------------------+-----+--------------------</span></span><br><span class="line">   <span class="number">1</span> <span class="operator">|</span> <span class="number">123456789012345611</span> <span class="operator">|</span>   <span class="number">1</span> <span class="operator">|</span> <span class="number">123456789012345611</span></span><br><span class="line">   <span class="number">1</span> <span class="operator">|</span> <span class="number">123456789012345611</span> <span class="operator">|</span>   <span class="number">2</span> <span class="operator">|</span> <span class="number">123456789012345611</span></span><br><span class="line">   <span class="number">3</span> <span class="operator">|</span> <span class="number">123123</span>             <span class="operator">|</span>   <span class="number">3</span> <span class="operator">|</span>             <span class="number">123123</span></span><br><span class="line">(<span class="number">3</span> <span class="keyword">rows</span>)</span><br></pre></td></tr></table></figure>
+<h2 id="总结">总结</h2>
+<p>到此，AntDB 社区版 v7.2.0 的安装、适配已介绍完毕，并演示了 Oracle 兼容功能，以及部分 SQL 基础测试。</p>
+<p>BTW，墨天轮课程中心上架了《AntDB ACA初级认证课程》<sup class="footnote-ref"><a href="#fn6" id="fnref6">[6]</a></sup> ，有兴趣的同学可以学起来。</p>
+<hr>
+<p><a target="_blank" rel="noopener" href="https://www.modb.pro/db/1734117877862178816">https://www.modb.pro/db/1734117877862178816</a></p>
+<hr class="footnotes-sep">
+<section class="footnotes">
+<ol class="footnotes-list">
+<li id="fn1" class="footnote-item"><p><a target="_blank" rel="noopener" href="https://www.modb.pro/db/1731856399742345216">https://www.modb.pro/db/1731856399742345216</a> <a href="#fnref1" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn2" class="footnote-item"><p><a target="_blank" rel="noopener" href="https://www.modb.pro/wiki/55">https://www.modb.pro/wiki/55</a> <a href="#fnref2" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn3" class="footnote-item"><p><a target="_blank" rel="noopener" href="http://www.antdb.net/news/detail/84">http://www.antdb.net/news/detail/84</a> <a href="#fnref3" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn4" class="footnote-item"><p><a target="_blank" rel="noopener" href="http://www.antdb.net/download">http://www.antdb.net/download</a> <a href="#fnref4" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn5" class="footnote-item"><p><a target="_blank" rel="noopener" href="http://www.antdb.net/72_benefit">http://www.antdb.net/72_benefit</a> <a href="#fnref5" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn6" class="footnote-item"><p><a target="_blank" rel="noopener" href="https://www.modb.pro/course/196">https://www.modb.pro/course/196</a> <a href="#fnref6" class="footnote-backref">↩︎</a></p>
+</li>
+</ol>
+</section>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/antdb/" class="tag-link">
+                                AntDB
+                            </a>
+                        
+                            <a href="/tags/%E4%BA%9A%E4%BF%A1%E7%A7%91%E6%8A%80/" class="tag-link">
+                                亚信科技
+                            </a>
+                        
+                            <a href="/tags/postgres/" class="tag-link">
+                                Postgres
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2023/other/antdb-install/index.html">https://shawnyan.cn/2023/other/antdb-install/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2023/other/my-db-cert-2023/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">【2023年终盘点】那些今年考下的国产数据库认证</span>
+        </a>
+    
+
+    
+        <a href="/2023/tidb/tidb-7.5-new-feature/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">TiDB v7.5.0 LTS 升级必读 | 新特性补充说明</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B3%E4%BA%8E-AntDB"><span class="toc-text">关于 AntDB</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B3%E4%BA%8E-AntDB-%E7%A4%BE%E5%8C%BA%E7%89%88"><span class="toc-text">关于 AntDB 社区版</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#AntDB-%E7%A4%BE%E5%8C%BA%E7%89%88%E9%9B%86%E4%B8%AD%E5%BC%8F%E9%83%A8%E7%BD%B2%E5%AE%89%E8%A3%85"><span class="toc-text">AntDB 社区版集中式部署安装</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%80%82%E9%85%8D-Rocky-9"><span class="toc-text">适配 Rocky 9</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%BF%9E%E6%8E%A5-AntDB"><span class="toc-text">连接 AntDB</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BC%80%E5%90%AF-Oracle-%E5%85%BC%E5%AE%B9%E5%8F%82%E6%95%B0"><span class="toc-text">开启 Oracle 兼容参数</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%AE%80%E5%8D%95-SQL-%E6%B5%8B%E8%AF%95"><span class="toc-text">简单 SQL 测试</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA%E5%BA%8F%E5%88%97%E3%80%81%E8%A1%A8"><span class="toc-text">创建序列、表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA%E3%80%81%E5%88%B7%E6%96%B0%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE"><span class="toc-text">创建、刷新物化视图</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B%E9%9A%90%E5%BC%8F%E8%BD%AC%E6%8D%A2%E6%B5%8B%E8%AF%95"><span class="toc-text">数据类型隐式转换测试</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

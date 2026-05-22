@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        有 mysqldump 为什么还需要 MySQL Enterprise Backup | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;p&gt;随着企业业务的不断拓展，数据库中的数据量呈爆炸式增长。对于海量数据（如TB级别的数据），传统的备份工具可能无法在合理的时间内完成备份任务。同时，业务的复杂性也意味着数据结构更加复杂多样，包括各种事务型数据、分析型数据等。在这种情况下，需要一种高效、可靠的备份解决方案来确保数据的安全性和完整性。&lt;/p&gt;
+&lt;h2 id=&#34;MySQL-Enterprise-Backup-8-4-是什么&#34;&gt;MySQL Enterprise Backup 8.4 是什么&lt;/h2&gt;
+&lt;p&gt;MySQL Enterprise Backup 8.4 （以下简称 MEB）是一款功能强大的企业级物理热备份工具。支持在线热备份、增量备份与恢复、备份压缩与加密、灵活的备份范围配置（如表级、数据库级）、多种备份类型（包括全量、增量、差异备份）、云原生存储支持（如对接 OCI、Amazon S3 等云存储）、智能恢复（如时间点恢复、表级恢复）、并行处理以提升备份恢复速度、详尽的监控与报告功能以及良好的兼容性（优化支持 InnoDB 表及其他存储引擎表）。它能有效保障数据库在备份与恢复过程中的高效性、安全性和可靠性，满足企业对数据安全、业务连续性及合规性的严格要求。&lt;/p&gt;
+&lt;img alt=&#34;1.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20250512-1921601743356440576_3351.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;相对于-MEB-8-0，8-4-有如下变化&#34;&gt;相对于 MEB 8.0，8.4 有如下变化&lt;/h2&gt;
+&lt;p&gt;由于 keyring_file 和 keyring_encrypted_file 插件已从 MySQL Enterprise Server 8.4.0 中删除，因此，当使用任何密钥环插件恢复服务器的加密 InnoDB 表的备份时，服务器现在将以 component_keyring_encrypted_file 启动，除非在恢复的服务器上执行了密钥环迁移。&lt;/p&gt;
+&lt;h2 id=&#34;MySQL-Enterprise-Backup-与-mysqldump-对比&#34;&gt;MySQL Enterprise Backup 与 mysqldump 对比&lt;/h2&gt;
+&lt;p&gt;我们从三个角度来剖析 MEB 比 mysqldump 的优势。&lt;/p&gt;
+&lt;h3 id=&#34;性能方面&#34;&gt;性能方面&lt;/h3&gt;
+&lt;p&gt;MySQL Enterprise Backup：它是一种物理备份工具，直接备份数据库的数据文件。这种备份方式速度非常快，因为它以块为单位读取数据文件，能够快速地复制大量数据。例如，对于一个包含大量 InnoDB 表的数据库，它可以直接备份 InnoDB 的数据文件（如 ibdata1 等），而不需要逐行读取和解析数据。恢复时直接将备份的数据文件复制到数据库目录中即可。例如，在恢复一个全量备份时，它只需将备份的数据文件解压并放到合适的位置，然后进行一些必要的日志应用操作，就可以使数据库恢复正常运行。&lt;/p&gt;
+&lt;p&gt;mysqldump：它是一种逻辑备份工具，通过执行 SQL 查询语句来导出数据库的结构和数据。对于大型数据库来说，这个过程会比较耗时，因为它需要逐行读取数据，并且还会受到查询性能的限制。例如，当备份一个包含数百万行数据的表时，mysqldump 可能会花费数小时甚至数天的时间来完成备份。恢复过程需要执行大量的 SQL 插入操作来重建数据库。这在数据量较大的情况下，会因为每个插入操作都需要进行事务处理、索引维护等操作而花费很长时间。&lt;/p&gt;
+&lt;h3 id=&#34;可靠性方面&#34;&gt;可靠性方面&lt;/h3&gt;
+&lt;p&gt;MySQL Enterprise Backup：提供了备份验证功能，可以在备份完成后自动验证备份数据的完整性和一致性。这有助于及时发现备份过程中可能出现的问题，如数据损坏、备份不完整等。在恢复时，它也能更可靠地将数据库恢复到一个一致的状态。&lt;/p&gt;
+&lt;p&gt;mysqldump：虽然可以通过重新导入备份文件来验证备份是否成功，但这并不能完全保证备份数据的一致性和完整性。在恢复时，如果备份文件存在错误或者数据不一致，可能会导致恢复失败或者数据库处于不一致的状态。&lt;/p&gt;
+&lt;h3 id=&#34;备份功能&#34;&gt;备份功能&lt;/h3&gt;
+&lt;p&gt;MySQL Enterprise Backup：支持多种备份类型，包括全量备份、增量备份和差异备份。全量备份可以完整地备份数据库的所有数据文件；增量备份只备份自上次备份以来发生更改的数据部分，这对于频繁备份的场景非常有用，因为它可以减少备份所需的时间和存储空间；差异备份则备份自上一次全量备份以来所有更改的数据。MEB 提供了一些高级功能，如备份加密和压缩。加密功能可以保护备份数据的安全，防止数据泄露；压缩功能可以减少备份文件的大小，节省存储空间。此外，它还支持并行备份，可以利用多线程来提高备份性能。&lt;/p&gt;
+&lt;p&gt;mysqldump：主要进行逻辑备份，一般是全量备份数据库的结构和数据。不支持增量备份。mysqldump 虽然也可以对备份文件进行加密和压缩，但这通常需要借助外部工具（如 gpg、gzip 等）。并且它不支持并行备份，备份过程是单线程的，这在备份大型数据库时效率较低。&lt;/p&gt;
+&lt;p&gt;综上所述，MEB 的优势远超 mysqldump，如果有条件，尽量选择 MEB。&lt;/p&gt;
+&lt;h2 id=&#34;MySQL-Enterprise-Backup-8-4-的使用&#34;&gt;MySQL Enterprise Backup 8.4 的使用&lt;/h2&gt;
+&lt;h3 id=&#34;创建备份用户&#34;&gt;创建备份用户&lt;/h3&gt;
+&lt;p&gt;创建一个备份专用用户，如 mysqlbackup，并授予其相应的权限。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;CREATE USER &amp;#x27;mysqlbackup&amp;#x27;@&amp;#x27;localhost&amp;#x27; IDENTIFIED BY &amp;#x27;password&amp;#x27;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GRANT SELECT, BACKUP_ADMIN, RELOAD, PROCESS, SUPER, REPLICATION CLIENT ON *.* TO `mysqlbackup`@`localhost`;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GRANT CREATE, INSERT, DROP, UPDATE ON mysql.backup_progress TO &amp;#x27;mysqlbackup&amp;#x27;@&amp;#x27;localhost&amp;#x27;; &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GRANT CREATE, INSERT, DROP, UPDATE, SELECT, ALTER ON mysql.backup_history TO &amp;#x27;mysqlbackup&amp;#x27;@&amp;#x27;localhost&amp;#x27;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;mysqlbackup-客户端&#34;&gt;mysqlbackup 客户端&lt;/h3&gt;
+&lt;p&gt;MEB 使用 mysqlbackup 客户端进行备份和恢复数据。&lt;/p&gt;
+&lt;p&gt;查看 mysqlbackup 帮助信息。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;bash-5.1# mysqlbackup --help | head -n 20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;MySQL Enterprise Backup  Ver 8.4.4-commercial for Linux on x86_64 (MySQL Enterprise - Commercial)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copyright (c) 2003, 2025, Oracle and/or its affiliates.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Oracle is a registered trademark of Oracle Corporation and/or its&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;affiliates. Other names may be trademarks of their respective&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;owners.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Usage: &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  mysqlbackup [STD-OPTIONS] &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              [CONNECTION-OPTIONS] &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              [SERVER-REPOSITORY-OPTIONS] &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              [BACKUP-REPOSITORY-OPTIONS] &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              [PARALLELIZATION-OPTIONS] &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              [ENCRYPTION-OPTIONS] &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              [OPTIMISTIC-BACKUP-OPTIONS] &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;全量备份&#34;&gt;全量备份&lt;/h3&gt;
+&lt;p&gt;使用命令如下进行全量备份。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysqlbackup --user=mysqlbackup --password=password --socket=/var/lib/mysql/mysql.sock --backup-image=my_full_bak.mbi --backup-dir=/tmp --show-progress --compress --with-timestamp backup-to-image&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;常用参数含义：&lt;/p&gt;
+&lt;p&gt;–user、–password、–socket 分别指定备份用户的用户名、密码和套接字文件路径&lt;br&gt;
+–backup-image 指定备份镜像文件名&lt;br&gt;
+–backup-dir 指定备份目录&lt;br&gt;
+–show-progress 显示备份进度&lt;br&gt;
+–compress 启用压缩&lt;br&gt;
+–with-timestamp 在备份文件名中包含时间戳&lt;/p&gt;
+&lt;p&gt;输出如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;41&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;42&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;43&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;44&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;45&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;46&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;47&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;MySQL Enterprise Backup  Ver 8.4.4-commercial for Linux on x86_64 (MySQL Enterprise - Commercial)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copyright (c) 2003, 2025, Oracle and/or its affiliates.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Oracle is a registered trademark of Oracle Corporation and/or its&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;affiliates. Other names may be trademarks of their respective&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;owners.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting with following command line ...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysqlbackup&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--user=mysqlbackup&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--password=xxxxxxxx&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--socket=/var/lib/mysql/mysql.sock&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--backup-image=my_full_bak.mbi&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--backup-dir=/tmp&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--show-progress&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--compress&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--with-timestamp&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;backup-to-image&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;IMPORTANT: Please check that mysqlbackup run completes successfully.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           At the end of a successful &amp;#x27;backup-to-image&amp;#x27; run mysqlbackup&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           prints &amp;quot;mysqlbackup completed OK!&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:57 MAIN     INFO: Establishing connection to server.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:57 MAIN     INFO: No SSL options specified.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:57 MAIN     INFO: MySQL server version is &amp;#x27;8.4.4-commercial&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:57 MAIN     INFO: MySQL server compile os version is &amp;#x27;Linux&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:57 MAIN     INFO: Got some server configuration information from running server.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:57 MAIN     INFO: Establishing connection to server for locking.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:57 MAIN     INFO: No SSL options specified.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:57 MAIN     INFO: Backup directory created: &amp;#x27;/tmp/2025-03-16_08-05-57&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:57 MAIN     INFO: MySQL server version_comment is &amp;#x27;MySQL Enterprise Server - Commercial&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:59 MAIN     INFO: Compress Image Backup operation completed successfully.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:59 MAIN     INFO: Image Path = /tmp/2025-03-16_08-05-57/my_full_bak.mbi&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:59 MAIN     INFO: MySQL binlog position: filename binlog.000003, position 1323.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-------------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   Parameters Summary         &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-------------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   Start LSN                  : 29611008&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   Last Checkpoint LSN        : 29701923&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   End LSN                    : 29708609&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-------------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysqlbackup completed OK!&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;增量备份&#34;&gt;增量备份&lt;/h3&gt;
+&lt;p&gt;MEB 支持基于从某个 LSN 开始备份，也可以基于上一个备份镜像做增量备份。&lt;/p&gt;
+&lt;p&gt;找到上次备份编号 END LSN 的方法：可以从备份日志中查询，或者在数据库里查看备份历史记录。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; SELECT end_lsn FROM mysql.backup_history WHERE exit_state = &amp;#x27;SUCCESS&amp;#x27;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| end_lsn  |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| 29708609 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;基于上一个备份镜像进行增量备份。&lt;/p&gt;
+&lt;p&gt;使用 --incremental-base 选项，你不必跟踪一次备份和下一次备份之间的 LSN 值。相反，你可以使用以下方法之一：&lt;/p&gt;
+&lt;p&gt;使用 --incremental-base=history:last_backup 或 history:last_full_backup，告诉 mysqlbackup 查询上一次成功的非 TTS 备份的 end_lsn 值。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysqlbackup --user=mysqlbackup --password=password --socket=/var/lib/mysql/mysql.sock \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--incremental --incremental-base=history:last_backup \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--backup-dir=/tmp/inc1 --backup-image=incremental_image1.bi \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;backup-to-image&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;备份输出如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;41&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;42&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;43&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;44&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;45&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;46&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;47&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;48&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;49&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;50&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;51&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;MySQL Enterprise Backup  Ver 8.4.4-commercial for Linux on x86_64 (MySQL Enterprise - Commercial)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copyright (c) 2003, 2025, Oracle and/or its affiliates.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Oracle is a registered trademark of Oracle Corporation and/or its&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;affiliates. Other names may be trademarks of their respective&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;owners.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting with following command line ...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysqlbackup&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--user=mysqlbackup&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--password=xxxxxxxx&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--socket=/var/lib/mysql/mysql.sock&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--incremental&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--incremental-base=history:last_backup&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--backup-dir=/tmp/inc1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--backup-image=incremental_image1.bi&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;backup-to-image&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;IMPORTANT: Please check that mysqlbackup run completes successfully.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           At the end of a successful &amp;#x27;backup-to-image&amp;#x27; run mysqlbackup&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           prints &amp;quot;mysqlbackup completed OK!&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 MAIN     INFO: Establishing connection to server.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 MAIN     INFO: No SSL options specified.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 MAIN     INFO: MySQL server version is &amp;#x27;8.4.4-commercial&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 MAIN     INFO: MySQL server compile os version is &amp;#x27;Linux&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 MAIN     INFO: Got some server configuration information from running server.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 RDR1     INFO: Writing server defaults files &amp;#x27;server-my.cnf&amp;#x27; and &amp;#x27;server-all.cnf&amp;#x27; for server &amp;#x27;8.4.4-commercial&amp;#x27; in &amp;#x27;/tmp/inc1&amp;#x27;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 RDR1     INFO: Copying meta file /tmp/inc1/meta/backup_variables.txt.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 RDR1     INFO: Copying meta file /tmp/inc1/datadir/ibbackup_logfile.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 RDR1     INFO: Copying meta file /tmp/inc1/server-all.cnf.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 RDR1     INFO: Copying meta file /tmp/inc1/server-my.cnf.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 RDR1     INFO: Copying meta file /tmp/inc1/datadir/ibbackup_ibd_files.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 RDR1     INFO: Copying meta file /tmp/inc1/meta/backup_content.xml.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 RDR1     INFO: Copying meta file /tmp/inc1/meta/image_files.xml.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 MAIN     INFO: Incremental Image Backup operation completed successfully.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 MAIN     INFO: Backup image created successfully.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 MAIN     INFO: Image Path = /tmp/inc1/incremental_image1.bi&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 MAIN     INFO: Backup contains changes from lsn 29708610 to lsn 29879497.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 MAIN     INFO: MySQL binlog position: filename binlog.000003, position 1925.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-------------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   Parameters Summary         &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-------------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   Start LSN                  : 29708610&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   Last Checkpoint LSN        : 29878489&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   End LSN                    : 29879497&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-------------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysqlbackup completed OK!&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;备份完成。&lt;/p&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;本节内容介绍了什么是 MySQL Enterprise Backup，及其与 mysqldump 的对比。并演示如何使用 MEB，接下来，我们还可以借助操作系统的定时系统 crontab 定时对数据库进行备份。MEB 还有很多用法，我们后面继续介绍。&lt;/p&gt;
+&lt;p&gt;Have a nice day ~&lt;/p&gt;
+&lt;p&gt;– / END / –&lt;/p&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="有 mysqldump 为什么还需要 MySQL Enterprise Backup">
+    <meta property="og:url" content="https://shawnyan.cn/2025/mysql/mysql-ee-mysqlbackup/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;p&gt;随着企业业务的不断拓展，数据库中的数据量呈爆炸式增长。对于海量数据（如TB级别的数据），传统的备份工具可能无法在合理的时间内完成备份任务。同时，业务的复杂性也意味着数据结构更加复杂多样，包括各种事务型数据、分析型数据等。在这种情况下，需要一种高效、可靠的备份解决方案来确保数据的安全性和完整性。&lt;/p&gt;
+&lt;h2 id=&#34;MySQL-Enterprise-Backup-8-4-是什么&#34;&gt;MySQL Enterprise Backup 8.4 是什么&lt;/h2&gt;
+&lt;p&gt;MySQL Enterprise Backup 8.4 （以下简称 MEB）是一款功能强大的企业级物理热备份工具。支持在线热备份、增量备份与恢复、备份压缩与加密、灵活的备份范围配置（如表级、数据库级）、多种备份类型（包括全量、增量、差异备份）、云原生存储支持（如对接 OCI、Amazon S3 等云存储）、智能恢复（如时间点恢复、表级恢复）、并行处理以提升备份恢复速度、详尽的监控与报告功能以及良好的兼容性（优化支持 InnoDB 表及其他存储引擎表）。它能有效保障数据库在备份与恢复过程中的高效性、安全性和可靠性，满足企业对数据安全、业务连续性及合规性的严格要求。&lt;/p&gt;
+&lt;img alt=&#34;1.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20250512-1921601743356440576_3351.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;相对于-MEB-8-0，8-4-有如下变化&#34;&gt;相对于 MEB 8.0，8.4 有如下变化&lt;/h2&gt;
+&lt;p&gt;由于 keyring_file 和 keyring_encrypted_file 插件已从 MySQL Enterprise Server 8.4.0 中删除，因此，当使用任何密钥环插件恢复服务器的加密 InnoDB 表的备份时，服务器现在将以 component_keyring_encrypted_file 启动，除非在恢复的服务器上执行了密钥环迁移。&lt;/p&gt;
+&lt;h2 id=&#34;MySQL-Enterprise-Backup-与-mysqldump-对比&#34;&gt;MySQL Enterprise Backup 与 mysqldump 对比&lt;/h2&gt;
+&lt;p&gt;我们从三个角度来剖析 MEB 比 mysqldump 的优势。&lt;/p&gt;
+&lt;h3 id=&#34;性能方面&#34;&gt;性能方面&lt;/h3&gt;
+&lt;p&gt;MySQL Enterprise Backup：它是一种物理备份工具，直接备份数据库的数据文件。这种备份方式速度非常快，因为它以块为单位读取数据文件，能够快速地复制大量数据。例如，对于一个包含大量 InnoDB 表的数据库，它可以直接备份 InnoDB 的数据文件（如 ibdata1 等），而不需要逐行读取和解析数据。恢复时直接将备份的数据文件复制到数据库目录中即可。例如，在恢复一个全量备份时，它只需将备份的数据文件解压并放到合适的位置，然后进行一些必要的日志应用操作，就可以使数据库恢复正常运行。&lt;/p&gt;
+&lt;p&gt;mysqldump：它是一种逻辑备份工具，通过执行 SQL 查询语句来导出数据库的结构和数据。对于大型数据库来说，这个过程会比较耗时，因为它需要逐行读取数据，并且还会受到查询性能的限制。例如，当备份一个包含数百万行数据的表时，mysqldump 可能会花费数小时甚至数天的时间来完成备份。恢复过程需要执行大量的 SQL 插入操作来重建数据库。这在数据量较大的情况下，会因为每个插入操作都需要进行事务处理、索引维护等操作而花费很长时间。&lt;/p&gt;
+&lt;h3 id=&#34;可靠性方面&#34;&gt;可靠性方面&lt;/h3&gt;
+&lt;p&gt;MySQL Enterprise Backup：提供了备份验证功能，可以在备份完成后自动验证备份数据的完整性和一致性。这有助于及时发现备份过程中可能出现的问题，如数据损坏、备份不完整等。在恢复时，它也能更可靠地将数据库恢复到一个一致的状态。&lt;/p&gt;
+&lt;p&gt;mysqldump：虽然可以通过重新导入备份文件来验证备份是否成功，但这并不能完全保证备份数据的一致性和完整性。在恢复时，如果备份文件存在错误或者数据不一致，可能会导致恢复失败或者数据库处于不一致的状态。&lt;/p&gt;
+&lt;h3 id=&#34;备份功能&#34;&gt;备份功能&lt;/h3&gt;
+&lt;p&gt;MySQL Enterprise Backup：支持多种备份类型，包括全量备份、增量备份和差异备份。全量备份可以完整地备份数据库的所有数据文件；增量备份只备份自上次备份以来发生更改的数据部分，这对于频繁备份的场景非常有用，因为它可以减少备份所需的时间和存储空间；差异备份则备份自上一次全量备份以来所有更改的数据。MEB 提供了一些高级功能，如备份加密和压缩。加密功能可以保护备份数据的安全，防止数据泄露；压缩功能可以减少备份文件的大小，节省存储空间。此外，它还支持并行备份，可以利用多线程来提高备份性能。&lt;/p&gt;
+&lt;p&gt;mysqldump：主要进行逻辑备份，一般是全量备份数据库的结构和数据。不支持增量备份。mysqldump 虽然也可以对备份文件进行加密和压缩，但这通常需要借助外部工具（如 gpg、gzip 等）。并且它不支持并行备份，备份过程是单线程的，这在备份大型数据库时效率较低。&lt;/p&gt;
+&lt;p&gt;综上所述，MEB 的优势远超 mysqldump，如果有条件，尽量选择 MEB。&lt;/p&gt;
+&lt;h2 id=&#34;MySQL-Enterprise-Backup-8-4-的使用&#34;&gt;MySQL Enterprise Backup 8.4 的使用&lt;/h2&gt;
+&lt;h3 id=&#34;创建备份用户&#34;&gt;创建备份用户&lt;/h3&gt;
+&lt;p&gt;创建一个备份专用用户，如 mysqlbackup，并授予其相应的权限。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;CREATE USER &amp;#x27;mysqlbackup&amp;#x27;@&amp;#x27;localhost&amp;#x27; IDENTIFIED BY &amp;#x27;password&amp;#x27;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GRANT SELECT, BACKUP_ADMIN, RELOAD, PROCESS, SUPER, REPLICATION CLIENT ON *.* TO `mysqlbackup`@`localhost`;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GRANT CREATE, INSERT, DROP, UPDATE ON mysql.backup_progress TO &amp;#x27;mysqlbackup&amp;#x27;@&amp;#x27;localhost&amp;#x27;; &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GRANT CREATE, INSERT, DROP, UPDATE, SELECT, ALTER ON mysql.backup_history TO &amp;#x27;mysqlbackup&amp;#x27;@&amp;#x27;localhost&amp;#x27;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;mysqlbackup-客户端&#34;&gt;mysqlbackup 客户端&lt;/h3&gt;
+&lt;p&gt;MEB 使用 mysqlbackup 客户端进行备份和恢复数据。&lt;/p&gt;
+&lt;p&gt;查看 mysqlbackup 帮助信息。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;bash-5.1# mysqlbackup --help | head -n 20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;MySQL Enterprise Backup  Ver 8.4.4-commercial for Linux on x86_64 (MySQL Enterprise - Commercial)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copyright (c) 2003, 2025, Oracle and/or its affiliates.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Oracle is a registered trademark of Oracle Corporation and/or its&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;affiliates. Other names may be trademarks of their respective&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;owners.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Usage: &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  mysqlbackup [STD-OPTIONS] &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              [CONNECTION-OPTIONS] &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              [SERVER-REPOSITORY-OPTIONS] &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              [BACKUP-REPOSITORY-OPTIONS] &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              [PARALLELIZATION-OPTIONS] &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              [ENCRYPTION-OPTIONS] &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;              [OPTIMISTIC-BACKUP-OPTIONS] &lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;全量备份&#34;&gt;全量备份&lt;/h3&gt;
+&lt;p&gt;使用命令如下进行全量备份。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysqlbackup --user=mysqlbackup --password=password --socket=/var/lib/mysql/mysql.sock --backup-image=my_full_bak.mbi --backup-dir=/tmp --show-progress --compress --with-timestamp backup-to-image&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;常用参数含义：&lt;/p&gt;
+&lt;p&gt;–user、–password、–socket 分别指定备份用户的用户名、密码和套接字文件路径&lt;br&gt;
+–backup-image 指定备份镜像文件名&lt;br&gt;
+–backup-dir 指定备份目录&lt;br&gt;
+–show-progress 显示备份进度&lt;br&gt;
+–compress 启用压缩&lt;br&gt;
+–with-timestamp 在备份文件名中包含时间戳&lt;/p&gt;
+&lt;p&gt;输出如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;41&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;42&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;43&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;44&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;45&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;46&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;47&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;MySQL Enterprise Backup  Ver 8.4.4-commercial for Linux on x86_64 (MySQL Enterprise - Commercial)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copyright (c) 2003, 2025, Oracle and/or its affiliates.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Oracle is a registered trademark of Oracle Corporation and/or its&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;affiliates. Other names may be trademarks of their respective&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;owners.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting with following command line ...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysqlbackup&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--user=mysqlbackup&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--password=xxxxxxxx&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--socket=/var/lib/mysql/mysql.sock&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--backup-image=my_full_bak.mbi&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--backup-dir=/tmp&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--show-progress&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--compress&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--with-timestamp&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;backup-to-image&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;IMPORTANT: Please check that mysqlbackup run completes successfully.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           At the end of a successful &amp;#x27;backup-to-image&amp;#x27; run mysqlbackup&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           prints &amp;quot;mysqlbackup completed OK!&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:57 MAIN     INFO: Establishing connection to server.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:57 MAIN     INFO: No SSL options specified.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:57 MAIN     INFO: MySQL server version is &amp;#x27;8.4.4-commercial&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:57 MAIN     INFO: MySQL server compile os version is &amp;#x27;Linux&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:57 MAIN     INFO: Got some server configuration information from running server.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:57 MAIN     INFO: Establishing connection to server for locking.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:57 MAIN     INFO: No SSL options specified.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:57 MAIN     INFO: Backup directory created: &amp;#x27;/tmp/2025-03-16_08-05-57&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:57 MAIN     INFO: MySQL server version_comment is &amp;#x27;MySQL Enterprise Server - Commercial&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:59 MAIN     INFO: Compress Image Backup operation completed successfully.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:59 MAIN     INFO: Image Path = /tmp/2025-03-16_08-05-57/my_full_bak.mbi&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:05:59 MAIN     INFO: MySQL binlog position: filename binlog.000003, position 1323.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-------------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   Parameters Summary         &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-------------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   Start LSN                  : 29611008&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   Last Checkpoint LSN        : 29701923&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   End LSN                    : 29708609&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-------------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysqlbackup completed OK!&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;增量备份&#34;&gt;增量备份&lt;/h3&gt;
+&lt;p&gt;MEB 支持基于从某个 LSN 开始备份，也可以基于上一个备份镜像做增量备份。&lt;/p&gt;
+&lt;p&gt;找到上次备份编号 END LSN 的方法：可以从备份日志中查询，或者在数据库里查看备份历史记录。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; SELECT end_lsn FROM mysql.backup_history WHERE exit_state = &amp;#x27;SUCCESS&amp;#x27;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| end_lsn  |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| 29708609 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;基于上一个备份镜像进行增量备份。&lt;/p&gt;
+&lt;p&gt;使用 --incremental-base 选项，你不必跟踪一次备份和下一次备份之间的 LSN 值。相反，你可以使用以下方法之一：&lt;/p&gt;
+&lt;p&gt;使用 --incremental-base=history:last_backup 或 history:last_full_backup，告诉 mysqlbackup 查询上一次成功的非 TTS 备份的 end_lsn 值。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysqlbackup --user=mysqlbackup --password=password --socket=/var/lib/mysql/mysql.sock \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--incremental --incremental-base=history:last_backup \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--backup-dir=/tmp/inc1 --backup-image=incremental_image1.bi \&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;backup-to-image&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;备份输出如下：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;39&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;40&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;41&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;42&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;43&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;44&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;45&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;46&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;47&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;48&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;49&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;50&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;51&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;MySQL Enterprise Backup  Ver 8.4.4-commercial for Linux on x86_64 (MySQL Enterprise - Commercial)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Copyright (c) 2003, 2025, Oracle and/or its affiliates.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Oracle is a registered trademark of Oracle Corporation and/or its&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;affiliates. Other names may be trademarks of their respective&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;owners.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting with following command line ...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysqlbackup&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--user=mysqlbackup&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--password=xxxxxxxx&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--socket=/var/lib/mysql/mysql.sock&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--incremental&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--incremental-base=history:last_backup&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--backup-dir=/tmp/inc1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--backup-image=incremental_image1.bi&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;backup-to-image&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;IMPORTANT: Please check that mysqlbackup run completes successfully.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           At the end of a successful &amp;#x27;backup-to-image&amp;#x27; run mysqlbackup&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;           prints &amp;quot;mysqlbackup completed OK!&amp;quot;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 MAIN     INFO: Establishing connection to server.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 MAIN     INFO: No SSL options specified.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 MAIN     INFO: MySQL server version is &amp;#x27;8.4.4-commercial&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 MAIN     INFO: MySQL server compile os version is &amp;#x27;Linux&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 MAIN     INFO: Got some server configuration information from running server.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 RDR1     INFO: Writing server defaults files &amp;#x27;server-my.cnf&amp;#x27; and &amp;#x27;server-all.cnf&amp;#x27; for server &amp;#x27;8.4.4-commercial&amp;#x27; in &amp;#x27;/tmp/inc1&amp;#x27;.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 RDR1     INFO: Copying meta file /tmp/inc1/meta/backup_variables.txt.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 RDR1     INFO: Copying meta file /tmp/inc1/datadir/ibbackup_logfile.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 RDR1     INFO: Copying meta file /tmp/inc1/server-all.cnf.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 RDR1     INFO: Copying meta file /tmp/inc1/server-my.cnf.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 RDR1     INFO: Copying meta file /tmp/inc1/datadir/ibbackup_ibd_files.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 RDR1     INFO: Copying meta file /tmp/inc1/meta/backup_content.xml.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 RDR1     INFO: Copying meta file /tmp/inc1/meta/image_files.xml.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 MAIN     INFO: Incremental Image Backup operation completed successfully.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 MAIN     INFO: Backup image created successfully.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 MAIN     INFO: Image Path = /tmp/inc1/incremental_image1.bi&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 MAIN     INFO: Backup contains changes from lsn 29708610 to lsn 29879497.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;250316 08:17:36 MAIN     INFO: MySQL binlog position: filename binlog.000003, position 1925.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-------------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   Parameters Summary         &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-------------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   Start LSN                  : 29708610&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   Last Checkpoint LSN        : 29878489&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   End LSN                    : 29879497&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-------------------------------------------------------------&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysqlbackup completed OK!&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;备份完成。&lt;/p&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;本节内容介绍了什么是 MySQL Enterprise Backup，及其与 mysqldump 的对比。并演示如何使用 MEB，接下来，我们还可以借助操作系统的定时系统 crontab 定时对数据库进行备份。MEB 还有很多用法，我们后面继续介绍。&lt;/p&gt;
+&lt;p&gt;Have a nice day ~&lt;/p&gt;
+&lt;p&gt;– / END / –&lt;/p&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/oracle/" class="category-badge">
+                                    Oracle
+                                </a>
+                            
+                                <a href="/categories/oracle/mysql/" class="category-badge">
+                                    MySQL
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">有 mysqldump 为什么还需要 MySQL Enterprise Backup</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2025-03-16
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                2.6k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                11 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <p>随着企业业务的不断拓展，数据库中的数据量呈爆炸式增长。对于海量数据（如TB级别的数据），传统的备份工具可能无法在合理的时间内完成备份任务。同时，业务的复杂性也意味着数据结构更加复杂多样，包括各种事务型数据、分析型数据等。在这种情况下，需要一种高效、可靠的备份解决方案来确保数据的安全性和完整性。</p>
+<h2 id="MySQL-Enterprise-Backup-8-4-是什么">MySQL Enterprise Backup 8.4 是什么</h2>
+<p>MySQL Enterprise Backup 8.4 （以下简称 MEB）是一款功能强大的企业级物理热备份工具。支持在线热备份、增量备份与恢复、备份压缩与加密、灵活的备份范围配置（如表级、数据库级）、多种备份类型（包括全量、增量、差异备份）、云原生存储支持（如对接 OCI、Amazon S3 等云存储）、智能恢复（如时间点恢复、表级恢复）、并行处理以提升备份恢复速度、详尽的监控与报告功能以及良好的兼容性（优化支持 InnoDB 表及其他存储引擎表）。它能有效保障数据库在备份与恢复过程中的高效性、安全性和可靠性，满足企业对数据安全、业务连续性及合规性的严格要求。</p>
+<img alt="1.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20250512-1921601743356440576_3351.png" referrerpolicy="no-referrer"/>
+<h2 id="相对于-MEB-8-0，8-4-有如下变化">相对于 MEB 8.0，8.4 有如下变化</h2>
+<p>由于 keyring_file 和 keyring_encrypted_file 插件已从 MySQL Enterprise Server 8.4.0 中删除，因此，当使用任何密钥环插件恢复服务器的加密 InnoDB 表的备份时，服务器现在将以 component_keyring_encrypted_file 启动，除非在恢复的服务器上执行了密钥环迁移。</p>
+<h2 id="MySQL-Enterprise-Backup-与-mysqldump-对比">MySQL Enterprise Backup 与 mysqldump 对比</h2>
+<p>我们从三个角度来剖析 MEB 比 mysqldump 的优势。</p>
+<h3 id="性能方面">性能方面</h3>
+<p>MySQL Enterprise Backup：它是一种物理备份工具，直接备份数据库的数据文件。这种备份方式速度非常快，因为它以块为单位读取数据文件，能够快速地复制大量数据。例如，对于一个包含大量 InnoDB 表的数据库，它可以直接备份 InnoDB 的数据文件（如 ibdata1 等），而不需要逐行读取和解析数据。恢复时直接将备份的数据文件复制到数据库目录中即可。例如，在恢复一个全量备份时，它只需将备份的数据文件解压并放到合适的位置，然后进行一些必要的日志应用操作，就可以使数据库恢复正常运行。</p>
+<p>mysqldump：它是一种逻辑备份工具，通过执行 SQL 查询语句来导出数据库的结构和数据。对于大型数据库来说，这个过程会比较耗时，因为它需要逐行读取数据，并且还会受到查询性能的限制。例如，当备份一个包含数百万行数据的表时，mysqldump 可能会花费数小时甚至数天的时间来完成备份。恢复过程需要执行大量的 SQL 插入操作来重建数据库。这在数据量较大的情况下，会因为每个插入操作都需要进行事务处理、索引维护等操作而花费很长时间。</p>
+<h3 id="可靠性方面">可靠性方面</h3>
+<p>MySQL Enterprise Backup：提供了备份验证功能，可以在备份完成后自动验证备份数据的完整性和一致性。这有助于及时发现备份过程中可能出现的问题，如数据损坏、备份不完整等。在恢复时，它也能更可靠地将数据库恢复到一个一致的状态。</p>
+<p>mysqldump：虽然可以通过重新导入备份文件来验证备份是否成功，但这并不能完全保证备份数据的一致性和完整性。在恢复时，如果备份文件存在错误或者数据不一致，可能会导致恢复失败或者数据库处于不一致的状态。</p>
+<h3 id="备份功能">备份功能</h3>
+<p>MySQL Enterprise Backup：支持多种备份类型，包括全量备份、增量备份和差异备份。全量备份可以完整地备份数据库的所有数据文件；增量备份只备份自上次备份以来发生更改的数据部分，这对于频繁备份的场景非常有用，因为它可以减少备份所需的时间和存储空间；差异备份则备份自上一次全量备份以来所有更改的数据。MEB 提供了一些高级功能，如备份加密和压缩。加密功能可以保护备份数据的安全，防止数据泄露；压缩功能可以减少备份文件的大小，节省存储空间。此外，它还支持并行备份，可以利用多线程来提高备份性能。</p>
+<p>mysqldump：主要进行逻辑备份，一般是全量备份数据库的结构和数据。不支持增量备份。mysqldump 虽然也可以对备份文件进行加密和压缩，但这通常需要借助外部工具（如 gpg、gzip 等）。并且它不支持并行备份，备份过程是单线程的，这在备份大型数据库时效率较低。</p>
+<p>综上所述，MEB 的优势远超 mysqldump，如果有条件，尽量选择 MEB。</p>
+<h2 id="MySQL-Enterprise-Backup-8-4-的使用">MySQL Enterprise Backup 8.4 的使用</h2>
+<h3 id="创建备份用户">创建备份用户</h3>
+<p>创建一个备份专用用户，如 mysqlbackup，并授予其相应的权限。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">CREATE USER &#x27;mysqlbackup&#x27;@&#x27;localhost&#x27; IDENTIFIED BY &#x27;password&#x27;;</span><br><span class="line">GRANT SELECT, BACKUP_ADMIN, RELOAD, PROCESS, SUPER, REPLICATION CLIENT ON *.* TO `mysqlbackup`@`localhost`;</span><br><span class="line">GRANT CREATE, INSERT, DROP, UPDATE ON mysql.backup_progress TO &#x27;mysqlbackup&#x27;@&#x27;localhost&#x27;; </span><br><span class="line">GRANT CREATE, INSERT, DROP, UPDATE, SELECT, ALTER ON mysql.backup_history TO &#x27;mysqlbackup&#x27;@&#x27;localhost&#x27;;</span><br></pre></td></tr></table></figure>
+<h3 id="mysqlbackup-客户端">mysqlbackup 客户端</h3>
+<p>MEB 使用 mysqlbackup 客户端进行备份和恢复数据。</p>
+<p>查看 mysqlbackup 帮助信息。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">bash-5.1# mysqlbackup --help | head -n 20</span><br><span class="line">MySQL Enterprise Backup  Ver 8.4.4-commercial for Linux on x86_64 (MySQL Enterprise - Commercial)</span><br><span class="line">Copyright (c) 2003, 2025, Oracle and/or its affiliates.</span><br><span class="line"></span><br><span class="line">Oracle is a registered trademark of Oracle Corporation and/or its</span><br><span class="line">affiliates. Other names may be trademarks of their respective</span><br><span class="line">owners.</span><br><span class="line"></span><br><span class="line">Usage: </span><br><span class="line">  mysqlbackup [STD-OPTIONS] </span><br><span class="line">              [CONNECTION-OPTIONS] </span><br><span class="line">              [SERVER-REPOSITORY-OPTIONS] </span><br><span class="line">              [BACKUP-REPOSITORY-OPTIONS] </span><br><span class="line">              [PARALLELIZATION-OPTIONS] </span><br><span class="line">              [ENCRYPTION-OPTIONS] </span><br><span class="line">              [OPTIMISTIC-BACKUP-OPTIONS] </span><br></pre></td></tr></table></figure>
+<h3 id="全量备份">全量备份</h3>
+<p>使用命令如下进行全量备份。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysqlbackup --user=mysqlbackup --password=password --socket=/var/lib/mysql/mysql.sock --backup-image=my_full_bak.mbi --backup-dir=/tmp --show-progress --compress --with-timestamp backup-to-image</span><br></pre></td></tr></table></figure>
+<p>常用参数含义：</p>
+<p>–user、–password、–socket 分别指定备份用户的用户名、密码和套接字文件路径<br>
+–backup-image 指定备份镜像文件名<br>
+–backup-dir 指定备份目录<br>
+–show-progress 显示备份进度<br>
+–compress 启用压缩<br>
+–with-timestamp 在备份文件名中包含时间戳</p>
+<p>输出如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line">MySQL Enterprise Backup  Ver 8.4.4-commercial for Linux on x86_64 (MySQL Enterprise - Commercial)</span><br><span class="line">Copyright (c) 2003, 2025, Oracle and/or its affiliates.</span><br><span class="line"></span><br><span class="line">Oracle is a registered trademark of Oracle Corporation and/or its</span><br><span class="line">affiliates. Other names may be trademarks of their respective</span><br><span class="line">owners.</span><br><span class="line"></span><br><span class="line">Starting with following command line ...</span><br><span class="line">mysqlbackup</span><br><span class="line">--user=mysqlbackup</span><br><span class="line">--password=xxxxxxxx</span><br><span class="line">--socket=/var/lib/mysql/mysql.sock</span><br><span class="line">--backup-image=my_full_bak.mbi</span><br><span class="line">--backup-dir=/tmp</span><br><span class="line">--show-progress</span><br><span class="line">--compress</span><br><span class="line">--with-timestamp</span><br><span class="line">backup-to-image</span><br><span class="line"></span><br><span class="line">IMPORTANT: Please check that mysqlbackup run completes successfully.</span><br><span class="line">           At the end of a successful &#x27;backup-to-image&#x27; run mysqlbackup</span><br><span class="line">           prints &quot;mysqlbackup completed OK!&quot;.</span><br><span class="line"></span><br><span class="line">250316 08:05:57 MAIN     INFO: Establishing connection to server.</span><br><span class="line">250316 08:05:57 MAIN     INFO: No SSL options specified.</span><br><span class="line">250316 08:05:57 MAIN     INFO: MySQL server version is &#x27;8.4.4-commercial&#x27;</span><br><span class="line">250316 08:05:57 MAIN     INFO: MySQL server compile os version is &#x27;Linux&#x27;</span><br><span class="line">250316 08:05:57 MAIN     INFO: Got some server configuration information from running server.</span><br><span class="line"></span><br><span class="line">250316 08:05:57 MAIN     INFO: Establishing connection to server for locking.</span><br><span class="line">250316 08:05:57 MAIN     INFO: No SSL options specified.</span><br><span class="line">250316 08:05:57 MAIN     INFO: Backup directory created: &#x27;/tmp/2025-03-16_08-05-57&#x27;</span><br><span class="line">250316 08:05:57 MAIN     INFO: MySQL server version_comment is &#x27;MySQL Enterprise Server - Commercial&#x27;</span><br><span class="line">...</span><br><span class="line">250316 08:05:59 MAIN     INFO: Compress Image Backup operation completed successfully.</span><br><span class="line">250316 08:05:59 MAIN     INFO: Image Path = /tmp/2025-03-16_08-05-57/my_full_bak.mbi</span><br><span class="line">250316 08:05:59 MAIN     INFO: MySQL binlog position: filename binlog.000003, position 1323.</span><br><span class="line"></span><br><span class="line">-------------------------------------------------------------</span><br><span class="line">   Parameters Summary         </span><br><span class="line">-------------------------------------------------------------</span><br><span class="line">   Start LSN                  : 29611008</span><br><span class="line">   Last Checkpoint LSN        : 29701923</span><br><span class="line">   End LSN                    : 29708609</span><br><span class="line">-------------------------------------------------------------</span><br><span class="line"></span><br><span class="line">mysqlbackup completed OK!</span><br></pre></td></tr></table></figure>
+<h3 id="增量备份">增量备份</h3>
+<p>MEB 支持基于从某个 LSN 开始备份，也可以基于上一个备份镜像做增量备份。</p>
+<p>找到上次备份编号 END LSN 的方法：可以从备份日志中查询，或者在数据库里查看备份历史记录。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SELECT end_lsn FROM mysql.backup_history WHERE exit_state = &#x27;SUCCESS&#x27;;</span><br><span class="line">+----------+</span><br><span class="line">| end_lsn  |</span><br><span class="line">+----------+</span><br><span class="line">| 29708609 |</span><br><span class="line">+----------+</span><br><span class="line">1 row in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<p>基于上一个备份镜像进行增量备份。</p>
+<p>使用 --incremental-base 选项，你不必跟踪一次备份和下一次备份之间的 LSN 值。相反，你可以使用以下方法之一：</p>
+<p>使用 --incremental-base=history:last_backup 或 history:last_full_backup，告诉 mysqlbackup 查询上一次成功的非 TTS 备份的 end_lsn 值。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">mysqlbackup --user=mysqlbackup --password=password --socket=/var/lib/mysql/mysql.sock \</span><br><span class="line">--incremental --incremental-base=history:last_backup \</span><br><span class="line">--backup-dir=/tmp/inc1 --backup-image=incremental_image1.bi \</span><br><span class="line">backup-to-image</span><br></pre></td></tr></table></figure>
+<p>备份输出如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line">MySQL Enterprise Backup  Ver 8.4.4-commercial for Linux on x86_64 (MySQL Enterprise - Commercial)</span><br><span class="line">Copyright (c) 2003, 2025, Oracle and/or its affiliates.</span><br><span class="line"></span><br><span class="line">Oracle is a registered trademark of Oracle Corporation and/or its</span><br><span class="line">affiliates. Other names may be trademarks of their respective</span><br><span class="line">owners.</span><br><span class="line"></span><br><span class="line">Starting with following command line ...</span><br><span class="line">mysqlbackup</span><br><span class="line">--user=mysqlbackup</span><br><span class="line">--password=xxxxxxxx</span><br><span class="line">--socket=/var/lib/mysql/mysql.sock</span><br><span class="line">--incremental</span><br><span class="line">--incremental-base=history:last_backup</span><br><span class="line">--backup-dir=/tmp/inc1</span><br><span class="line">--backup-image=incremental_image1.bi</span><br><span class="line">backup-to-image</span><br><span class="line"></span><br><span class="line">IMPORTANT: Please check that mysqlbackup run completes successfully.</span><br><span class="line">           At the end of a successful &#x27;backup-to-image&#x27; run mysqlbackup</span><br><span class="line">           prints &quot;mysqlbackup completed OK!&quot;.</span><br><span class="line"></span><br><span class="line">250316 08:17:36 MAIN     INFO: Establishing connection to server.</span><br><span class="line">250316 08:17:36 MAIN     INFO: No SSL options specified.</span><br><span class="line">250316 08:17:36 MAIN     INFO: MySQL server version is &#x27;8.4.4-commercial&#x27;</span><br><span class="line">250316 08:17:36 MAIN     INFO: MySQL server compile os version is &#x27;Linux&#x27;</span><br><span class="line">250316 08:17:36 MAIN     INFO: Got some server configuration information from running server.</span><br><span class="line">...</span><br><span class="line">250316 08:17:36 RDR1     INFO: Writing server defaults files &#x27;server-my.cnf&#x27; and &#x27;server-all.cnf&#x27; for server &#x27;8.4.4-commercial&#x27; in &#x27;/tmp/inc1&#x27;.</span><br><span class="line">250316 08:17:36 RDR1     INFO: Copying meta file /tmp/inc1/meta/backup_variables.txt.</span><br><span class="line">250316 08:17:36 RDR1     INFO: Copying meta file /tmp/inc1/datadir/ibbackup_logfile.</span><br><span class="line">250316 08:17:36 RDR1     INFO: Copying meta file /tmp/inc1/server-all.cnf.</span><br><span class="line">250316 08:17:36 RDR1     INFO: Copying meta file /tmp/inc1/server-my.cnf.</span><br><span class="line">250316 08:17:36 RDR1     INFO: Copying meta file /tmp/inc1/datadir/ibbackup_ibd_files.</span><br><span class="line">250316 08:17:36 RDR1     INFO: Copying meta file /tmp/inc1/meta/backup_content.xml.</span><br><span class="line">250316 08:17:36 RDR1     INFO: Copying meta file /tmp/inc1/meta/image_files.xml.</span><br><span class="line">250316 08:17:36 MAIN     INFO: Incremental Image Backup operation completed successfully.</span><br><span class="line">250316 08:17:36 MAIN     INFO: Backup image created successfully.</span><br><span class="line">250316 08:17:36 MAIN     INFO: Image Path = /tmp/inc1/incremental_image1.bi</span><br><span class="line">250316 08:17:36 MAIN     INFO: Backup contains changes from lsn 29708610 to lsn 29879497.</span><br><span class="line">250316 08:17:36 MAIN     INFO: MySQL binlog position: filename binlog.000003, position 1925.</span><br><span class="line"></span><br><span class="line">-------------------------------------------------------------</span><br><span class="line">   Parameters Summary         </span><br><span class="line">-------------------------------------------------------------</span><br><span class="line">   Start LSN                  : 29708610</span><br><span class="line">   Last Checkpoint LSN        : 29878489</span><br><span class="line">   End LSN                    : 29879497</span><br><span class="line">-------------------------------------------------------------</span><br><span class="line"></span><br><span class="line">mysqlbackup completed OK!</span><br></pre></td></tr></table></figure>
+<p>备份完成。</p>
+<h2 id="总结">总结</h2>
+<p>本节内容介绍了什么是 MySQL Enterprise Backup，及其与 mysqldump 的对比。并演示如何使用 MEB，接下来，我们还可以借助操作系统的定时系统 crontab 定时对数据库进行备份。MEB 还有很多用法，我们后面继续介绍。</p>
+<p>Have a nice day ~</p>
+<p>– / END / –</p>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/oracle/" class="tag-link">
+                                oracle
+                            </a>
+                        
+                            <a href="/tags/mysql/" class="tag-link">
+                                mysql
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2025/mysql/mysql-ee-mysqlbackup/index.html">https://shawnyan.cn/2025/mysql/mysql-ee-mysqlbackup/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2025/mysql/mysql-ee-firewall/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">MySQL 企业级安全工具：Firewall 防火墙</span>
+        </a>
+    
+
+    
+        <a href="/2025/mysql/mysql-ee-audit/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">MySQL 企业级特性：安全审计</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#MySQL-Enterprise-Backup-8-4-%E6%98%AF%E4%BB%80%E4%B9%88"><span class="toc-text">MySQL Enterprise Backup 8.4 是什么</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%9B%B8%E5%AF%B9%E4%BA%8E-MEB-8-0%EF%BC%8C8-4-%E6%9C%89%E5%A6%82%E4%B8%8B%E5%8F%98%E5%8C%96"><span class="toc-text">相对于 MEB 8.0，8.4 有如下变化</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#MySQL-Enterprise-Backup-%E4%B8%8E-mysqldump-%E5%AF%B9%E6%AF%94"><span class="toc-text">MySQL Enterprise Backup 与 mysqldump 对比</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%A7%E8%83%BD%E6%96%B9%E9%9D%A2"><span class="toc-text">性能方面</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%AF%E9%9D%A0%E6%80%A7%E6%96%B9%E9%9D%A2"><span class="toc-text">可靠性方面</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A4%87%E4%BB%BD%E5%8A%9F%E8%83%BD"><span class="toc-text">备份功能</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#MySQL-Enterprise-Backup-8-4-%E7%9A%84%E4%BD%BF%E7%94%A8"><span class="toc-text">MySQL Enterprise Backup 8.4 的使用</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA%E5%A4%87%E4%BB%BD%E7%94%A8%E6%88%B7"><span class="toc-text">创建备份用户</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#mysqlbackup-%E5%AE%A2%E6%88%B7%E7%AB%AF"><span class="toc-text">mysqlbackup 客户端</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%A8%E9%87%8F%E5%A4%87%E4%BB%BD"><span class="toc-text">全量备份</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A2%9E%E9%87%8F%E5%A4%87%E4%BB%BD"><span class="toc-text">增量备份</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

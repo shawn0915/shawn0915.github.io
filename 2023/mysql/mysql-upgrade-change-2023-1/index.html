@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        MySQL 升级：MySQL Server 变更详解 (8.0.32 ~ 8.0.33) | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;p&gt;MySQL Server 的持续更新为数据库管理员和开发者带来了一系列的改进、新特性和安全性增强。&lt;/p&gt;
+&lt;p&gt;2023 年上半年，MySQL Server 共发布了两个版本：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;MySQL 8.0.32 (2023-01-17)&lt;/li&gt;
+&lt;li&gt;MySQL 8.0.33 (2023-04-18)&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;本文将详细探讨 MySQL 8.0.32 和 8.0.33，这两个版本的关键变更，帮助用户了解这些更新对现有系统可能产生的影响，并为升级做好准备。&lt;/p&gt;
+&lt;h2 id=&#34;重要变更&#34;&gt;重要变更&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;在 8.0.32 中，系统变量 &lt;code&gt;max_join_size&lt;/code&gt; 的行为得到了修正，现在它直接限制基础表中的最大行访问次数，而不是之前的估计成本。&lt;br&gt;
+如果估算需要从基础表中读取更多行，将引发错误。这一变更使得该变量的行为与其文档描述更加一致，有助于防止大型查询的意外执行。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;在 8.0.32 中，新增系统变量 &lt;code&gt;explain_format&lt;/code&gt;，可选值为 TRADITIONAL (默认)，JSON，TREE。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;blockquote&gt;
+&lt;p&gt;扩展&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;code&gt;explain_format&lt;/code&gt; 用在显示查询执行计划，缺少 FORMAT 选项时，EXPLAIN 使用的默认输出格式。&lt;/p&gt;
+&lt;p&gt;举个栗子，系统变量 &lt;code&gt;explain_format&lt;/code&gt; 已经预设为 json 格式，查看执行计划的输出格式。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; select @@explain_format;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| @@explain_format |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| JSON             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; explain select 1\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;EXPLAIN: &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &amp;quot;query_block&amp;quot;: &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &amp;quot;select_id&amp;quot;: 1,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &amp;quot;message&amp;quot;: &amp;quot;No tables used&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set, 1 warning (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Note (Code 1003): /* select#1 */ select 1 AS `1`&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;InnoDB-引擎&#34;&gt;InnoDB 引擎&lt;/h2&gt;
+&lt;p&gt;在 MySQL 8.0.32 中，修复了如下问题：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;修复了从 8.0.28 版本升级后可能出现的未检测到的问题、崩溃和损坏。&lt;/li&gt;
+&lt;li&gt;新增列使用 &lt;code&gt;ALGORITHM=INSTANT&lt;/code&gt; 时，如果行的最大可能大小超过行大小限制，将失败。&lt;/li&gt;
+&lt;li&gt;修复了 &lt;code&gt;SHOW ENGINE INNODB STATUS&lt;/code&gt; 中的乱码 UTF 字符问题。&lt;/li&gt;
+&lt;li&gt;实现了多个自适应哈希索引 adaptive hash index（AHI）代码优化和改进。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;复制&#34;&gt;复制&lt;/h2&gt;
+&lt;p&gt;在 MySQL 8.0.32 中，修复了如下问题：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;修复了 &lt;code&gt;SOURCE_HEARTBEAT_PERIOD&lt;/code&gt; 设置过小时（比如 1 ms）的二进制日志转储问题。&lt;/li&gt;
+&lt;li&gt;修复了设置 &lt;code&gt;--server-id=0&lt;/code&gt; 后尝试更改服务器 ID 导致的一系列问题。&lt;/li&gt;
+&lt;li&gt;修复了压缩二进制日志事件复制时的中继日志位置更新问题。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;blockquote&gt;
+&lt;p&gt;扩展&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;code&gt;SOURCE_HEARTBEAT_PERIOD&lt;/code&gt; 是 &lt;code&gt;CHANGE REPLICATION SOURCE TO&lt;/code&gt; 语句的一个选项，&lt;br&gt;
+用于控制心跳间隔，如果连接仍然良好，则停止在没有数据的情况下发生连接超时。&lt;br&gt;
+间隔为 0 时，表示完全禁用心跳。&lt;/p&gt;
+&lt;h2 id=&#34;JSON-函数&#34;&gt;JSON 函数&lt;/h2&gt;
+&lt;p&gt;在 MySQL 8.0.32 中，修复了如下问题：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;修复了 JSON_ARRAYAGG() 和 JSON_OBJECTAGG() 函数在保存结果时丢失数据类型信息的问题。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;性能改进&#34;&gt;性能改进&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;MySQL 8.0.32，改进了内部临时表的资源分配处理。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;blockquote&gt;
+&lt;p&gt;扩展&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;MySQL 的内部临时表分为 In-Memory 和 On-Disk 两种，&lt;br&gt;
+其中，In-Memory 内部临时表可用 TempTable 和 MEMORY 两种存储引擎。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; select @@internal_tmp_mem_storage_engine;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| @@internal_tmp_mem_storage_engine |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| TempTable                         |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;On-Disk 内部临时表可用 InnoDB 和 MyISAM 两种存储引擎，从 MySQL 8.0.16 开始，只能用 InnoDB 引擎。&lt;br&gt;
+且系统参数 &lt;code&gt;internal_tmp_disk_storage_engine&lt;/code&gt; 被移除。&lt;/p&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;新增了 Performance Schema Server Telemetry Traces 服务，提供了一种插件和组件检索与 SQL 语句生命周期相关通知的方式。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;blockquote&gt;
+&lt;p&gt;扩展&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;在 MySQL 8.0.33 版本中，搭配新的遥测功能，而新增了 &lt;code&gt;TELEMETRY_LOG_ADMIN&lt;/code&gt; 权限，它允许用户配置和管理遥测日志。&lt;br&gt;
+遥测日志是 MySQL 服务器的一个功能，它可以记录有关服务器操作和性能的详细信息，这些信息对于监控、诊断和优化数据库性能非常有用。&lt;/p&gt;
+&lt;p&gt;拥有 &lt;code&gt;TELEMETRY_LOG_ADMIN&lt;/code&gt; 权限的用户可以执行以下操作：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;配置遥测日志：用户可以设置遥测日志的配置参数，例如启用或禁用遥测日志记录、设置日志级别、指定日志文件的位置等。&lt;/li&gt;
+&lt;li&gt;管理遥测日志数据：用户可以查看、旋转（切换）遥测日志文件，以及执行与遥测日志相关的其他管理任务。&lt;/li&gt;
+&lt;li&gt;访问遥测日志信息：用户可以查询遥测日志中记录的数据，以便进行分析和报告。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;需要注意的是，&lt;code&gt;TELEMETRY_LOG_ADMIN&lt;/code&gt; 权限是由 &lt;code&gt;telemetry_log&lt;/code&gt; 插件定义的，该插件在 MySQL HeatWave 服务上部署时独家使用。&lt;br&gt;
+这意味着，这个权限主要与 MySQL HeatWave 相关的环境和部署有关，可能不适用于所有 MySQL 部署。&lt;/p&gt;
+&lt;p&gt;在实际使用中，管理员可以根据需要将 &lt;code&gt;TELEMETRY_LOG_ADMIN&lt;/code&gt; 权限授予给需要管理遥测日志的用户，以便他们能够有效地监控和维护数据库系统。&lt;/p&gt;
+&lt;h2 id=&#34;依赖库&#34;&gt;依赖库&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;MySQL 8.0.32，升级了捆绑的 zlib 库到 1.2.13 版本。&lt;/li&gt;
+&lt;li&gt;二进制包中包含的 curl 已升级至 7.86.0 版本。&lt;/li&gt;
+&lt;li&gt;MySQL 8.0.33，对于捆绑 OpenSSL 库的平台，MySQL Server 链接的 OpenSSL 库已更新至 1.1.1t 版本。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;审计-MySQL-Enterprise-Audit&#34;&gt;审计 (MySQL Enterprise Audit)&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;MySQL 8.0.33，新的 &lt;code&gt;audit_log_database&lt;/code&gt; 系统变量允许在全局模式命名空间中的其他数据库指定为审计日志的存储位置，默认为 &lt;code&gt;mysql&lt;/code&gt; 库。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;比如，可以新建一个专门用于审计的 &lt;code&gt;audit&lt;/code&gt; 库，将审计日志存放于该库中。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;select * from audit.audit_log_user;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;组件&#34;&gt;组件&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;MySQL 8.0.32，MySQL Enterprise Edition 现在提供基于组件的数据掩码和去标识化功能，而不是基于插件库。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;MySQL 8.0.33，&lt;code&gt;INSTALL COMPONENT&lt;/code&gt; 现在包括 SET 子句，可以在安装一个或多个组件时设置组件系统变量的值。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;例如，&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;INSTALL COMPONENT &lt;span class=&#34;string&#34;&gt;&amp;#x27;file://component1&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;file://component2&amp;#x27;&lt;/span&gt; &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;GLOBAL&lt;/span&gt; component1.var1 &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;12&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;, PERSIST component2.var2 &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;strings&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;随着 MySQL Server 8.0.32 到 8.0.33 的发布，用户可以期待更稳定、安全和高效的数据库操作体验。&lt;/p&gt;
+&lt;p&gt;在升级到此版本之前，建议用户详细阅读发布说明，评估影响，并在生产环境中进行充分的测试。&lt;/p&gt;
+&lt;p&gt;对于弃用的功能，用户应当开始规划迁移到其他支持的功能或方法上，以确保平滑过渡到未来的 MySQL 版本。&lt;/p&gt;
+&lt;p&gt;– END –&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;如果这篇文章为你带来了灵感或启发，就帮忙点『赞』or『在看』or『转发』吧，这对我非常重要，感谢！(๑˃̵ᴗ˂̵)&lt;/p&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="MySQL 升级：MySQL Server 变更详解 (8.0.32 ~ 8.0.33)">
+    <meta property="og:url" content="https://shawnyan.cn/2023/mysql/mysql-upgrade-change-2023-1/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;p&gt;MySQL Server 的持续更新为数据库管理员和开发者带来了一系列的改进、新特性和安全性增强。&lt;/p&gt;
+&lt;p&gt;2023 年上半年，MySQL Server 共发布了两个版本：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;MySQL 8.0.32 (2023-01-17)&lt;/li&gt;
+&lt;li&gt;MySQL 8.0.33 (2023-04-18)&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;本文将详细探讨 MySQL 8.0.32 和 8.0.33，这两个版本的关键变更，帮助用户了解这些更新对现有系统可能产生的影响，并为升级做好准备。&lt;/p&gt;
+&lt;h2 id=&#34;重要变更&#34;&gt;重要变更&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;在 8.0.32 中，系统变量 &lt;code&gt;max_join_size&lt;/code&gt; 的行为得到了修正，现在它直接限制基础表中的最大行访问次数，而不是之前的估计成本。&lt;br&gt;
+如果估算需要从基础表中读取更多行，将引发错误。这一变更使得该变量的行为与其文档描述更加一致，有助于防止大型查询的意外执行。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;在 8.0.32 中，新增系统变量 &lt;code&gt;explain_format&lt;/code&gt;，可选值为 TRADITIONAL (默认)，JSON，TREE。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;blockquote&gt;
+&lt;p&gt;扩展&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;code&gt;explain_format&lt;/code&gt; 用在显示查询执行计划，缺少 FORMAT 选项时，EXPLAIN 使用的默认输出格式。&lt;/p&gt;
+&lt;p&gt;举个栗子，系统变量 &lt;code&gt;explain_format&lt;/code&gt; 已经预设为 json 格式，查看执行计划的输出格式。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; select @@explain_format;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| @@explain_format |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| JSON             |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; explain select 1\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;EXPLAIN: &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &amp;quot;query_block&amp;quot;: &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &amp;quot;select_id&amp;quot;: 1,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &amp;quot;message&amp;quot;: &amp;quot;No tables used&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set, 1 warning (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Note (Code 1003): /* select#1 */ select 1 AS `1`&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;InnoDB-引擎&#34;&gt;InnoDB 引擎&lt;/h2&gt;
+&lt;p&gt;在 MySQL 8.0.32 中，修复了如下问题：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;修复了从 8.0.28 版本升级后可能出现的未检测到的问题、崩溃和损坏。&lt;/li&gt;
+&lt;li&gt;新增列使用 &lt;code&gt;ALGORITHM=INSTANT&lt;/code&gt; 时，如果行的最大可能大小超过行大小限制，将失败。&lt;/li&gt;
+&lt;li&gt;修复了 &lt;code&gt;SHOW ENGINE INNODB STATUS&lt;/code&gt; 中的乱码 UTF 字符问题。&lt;/li&gt;
+&lt;li&gt;实现了多个自适应哈希索引 adaptive hash index（AHI）代码优化和改进。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;复制&#34;&gt;复制&lt;/h2&gt;
+&lt;p&gt;在 MySQL 8.0.32 中，修复了如下问题：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;修复了 &lt;code&gt;SOURCE_HEARTBEAT_PERIOD&lt;/code&gt; 设置过小时（比如 1 ms）的二进制日志转储问题。&lt;/li&gt;
+&lt;li&gt;修复了设置 &lt;code&gt;--server-id=0&lt;/code&gt; 后尝试更改服务器 ID 导致的一系列问题。&lt;/li&gt;
+&lt;li&gt;修复了压缩二进制日志事件复制时的中继日志位置更新问题。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;blockquote&gt;
+&lt;p&gt;扩展&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;code&gt;SOURCE_HEARTBEAT_PERIOD&lt;/code&gt; 是 &lt;code&gt;CHANGE REPLICATION SOURCE TO&lt;/code&gt; 语句的一个选项，&lt;br&gt;
+用于控制心跳间隔，如果连接仍然良好，则停止在没有数据的情况下发生连接超时。&lt;br&gt;
+间隔为 0 时，表示完全禁用心跳。&lt;/p&gt;
+&lt;h2 id=&#34;JSON-函数&#34;&gt;JSON 函数&lt;/h2&gt;
+&lt;p&gt;在 MySQL 8.0.32 中，修复了如下问题：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;修复了 JSON_ARRAYAGG() 和 JSON_OBJECTAGG() 函数在保存结果时丢失数据类型信息的问题。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;性能改进&#34;&gt;性能改进&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;MySQL 8.0.32，改进了内部临时表的资源分配处理。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;blockquote&gt;
+&lt;p&gt;扩展&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;MySQL 的内部临时表分为 In-Memory 和 On-Disk 两种，&lt;br&gt;
+其中，In-Memory 内部临时表可用 TempTable 和 MEMORY 两种存储引擎。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; select @@internal_tmp_mem_storage_engine;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| @@internal_tmp_mem_storage_engine |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| TempTable                         |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+-----------------------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;On-Disk 内部临时表可用 InnoDB 和 MyISAM 两种存储引擎，从 MySQL 8.0.16 开始，只能用 InnoDB 引擎。&lt;br&gt;
+且系统参数 &lt;code&gt;internal_tmp_disk_storage_engine&lt;/code&gt; 被移除。&lt;/p&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;新增了 Performance Schema Server Telemetry Traces 服务，提供了一种插件和组件检索与 SQL 语句生命周期相关通知的方式。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;blockquote&gt;
+&lt;p&gt;扩展&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;在 MySQL 8.0.33 版本中，搭配新的遥测功能，而新增了 &lt;code&gt;TELEMETRY_LOG_ADMIN&lt;/code&gt; 权限，它允许用户配置和管理遥测日志。&lt;br&gt;
+遥测日志是 MySQL 服务器的一个功能，它可以记录有关服务器操作和性能的详细信息，这些信息对于监控、诊断和优化数据库性能非常有用。&lt;/p&gt;
+&lt;p&gt;拥有 &lt;code&gt;TELEMETRY_LOG_ADMIN&lt;/code&gt; 权限的用户可以执行以下操作：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;配置遥测日志：用户可以设置遥测日志的配置参数，例如启用或禁用遥测日志记录、设置日志级别、指定日志文件的位置等。&lt;/li&gt;
+&lt;li&gt;管理遥测日志数据：用户可以查看、旋转（切换）遥测日志文件，以及执行与遥测日志相关的其他管理任务。&lt;/li&gt;
+&lt;li&gt;访问遥测日志信息：用户可以查询遥测日志中记录的数据，以便进行分析和报告。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;需要注意的是，&lt;code&gt;TELEMETRY_LOG_ADMIN&lt;/code&gt; 权限是由 &lt;code&gt;telemetry_log&lt;/code&gt; 插件定义的，该插件在 MySQL HeatWave 服务上部署时独家使用。&lt;br&gt;
+这意味着，这个权限主要与 MySQL HeatWave 相关的环境和部署有关，可能不适用于所有 MySQL 部署。&lt;/p&gt;
+&lt;p&gt;在实际使用中，管理员可以根据需要将 &lt;code&gt;TELEMETRY_LOG_ADMIN&lt;/code&gt; 权限授予给需要管理遥测日志的用户，以便他们能够有效地监控和维护数据库系统。&lt;/p&gt;
+&lt;h2 id=&#34;依赖库&#34;&gt;依赖库&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;MySQL 8.0.32，升级了捆绑的 zlib 库到 1.2.13 版本。&lt;/li&gt;
+&lt;li&gt;二进制包中包含的 curl 已升级至 7.86.0 版本。&lt;/li&gt;
+&lt;li&gt;MySQL 8.0.33，对于捆绑 OpenSSL 库的平台，MySQL Server 链接的 OpenSSL 库已更新至 1.1.1t 版本。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;审计-MySQL-Enterprise-Audit&#34;&gt;审计 (MySQL Enterprise Audit)&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;MySQL 8.0.33，新的 &lt;code&gt;audit_log_database&lt;/code&gt; 系统变量允许在全局模式命名空间中的其他数据库指定为审计日志的存储位置，默认为 &lt;code&gt;mysql&lt;/code&gt; 库。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;比如，可以新建一个专门用于审计的 &lt;code&gt;audit&lt;/code&gt; 库，将审计日志存放于该库中。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;select * from audit.audit_log_user;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;组件&#34;&gt;组件&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;MySQL 8.0.32，MySQL Enterprise Edition 现在提供基于组件的数据掩码和去标识化功能，而不是基于插件库。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;MySQL 8.0.33，&lt;code&gt;INSTALL COMPONENT&lt;/code&gt; 现在包括 SET 子句，可以在安装一个或多个组件时设置组件系统变量的值。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;例如，&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;INSTALL COMPONENT &lt;span class=&#34;string&#34;&gt;&amp;#x27;file://component1&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;file://component2&amp;#x27;&lt;/span&gt; &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;GLOBAL&lt;/span&gt; component1.var1 &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;12&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;, PERSIST component2.var2 &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;strings&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;随着 MySQL Server 8.0.32 到 8.0.33 的发布，用户可以期待更稳定、安全和高效的数据库操作体验。&lt;/p&gt;
+&lt;p&gt;在升级到此版本之前，建议用户详细阅读发布说明，评估影响，并在生产环境中进行充分的测试。&lt;/p&gt;
+&lt;p&gt;对于弃用的功能，用户应当开始规划迁移到其他支持的功能或方法上，以确保平滑过渡到未来的 MySQL 版本。&lt;/p&gt;
+&lt;p&gt;– END –&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;如果这篇文章为你带来了灵感或启发，就帮忙点『赞』or『在看』or『转发』吧，这对我非常重要，感谢！(๑˃̵ᴗ˂̵)&lt;/p&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/mysql/" class="category-badge">
+                                    MySQL
+                                </a>
+                            
+                                <a href="/categories/mysql/mysql-8-0/" class="category-badge">
+                                    MySQL 8.0
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">MySQL 升级：MySQL Server 变更详解 (8.0.32 ~ 8.0.33)</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2023-03-17
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                1.6k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                6 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <p>MySQL Server 的持续更新为数据库管理员和开发者带来了一系列的改进、新特性和安全性增强。</p>
+<p>2023 年上半年，MySQL Server 共发布了两个版本：</p>
+<ol>
+<li>MySQL 8.0.32 (2023-01-17)</li>
+<li>MySQL 8.0.33 (2023-04-18)</li>
+</ol>
+<p>本文将详细探讨 MySQL 8.0.32 和 8.0.33，这两个版本的关键变更，帮助用户了解这些更新对现有系统可能产生的影响，并为升级做好准备。</p>
+<h2 id="重要变更">重要变更</h2>
+<ol>
+<li>
+<p>在 8.0.32 中，系统变量 <code>max_join_size</code> 的行为得到了修正，现在它直接限制基础表中的最大行访问次数，而不是之前的估计成本。<br>
+如果估算需要从基础表中读取更多行，将引发错误。这一变更使得该变量的行为与其文档描述更加一致，有助于防止大型查询的意外执行。</p>
+</li>
+<li>
+<p>在 8.0.32 中，新增系统变量 <code>explain_format</code>，可选值为 TRADITIONAL (默认)，JSON，TREE。</p>
+</li>
+</ol>
+<blockquote>
+<p>扩展</p>
+</blockquote>
+<p><code>explain_format</code> 用在显示查询执行计划，缺少 FORMAT 选项时，EXPLAIN 使用的默认输出格式。</p>
+<p>举个栗子，系统变量 <code>explain_format</code> 已经预设为 json 格式，查看执行计划的输出格式。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; select @@explain_format;</span><br><span class="line">+------------------+</span><br><span class="line">| @@explain_format |</span><br><span class="line">+------------------+</span><br><span class="line">| JSON             |</span><br><span class="line">+------------------+</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; explain select 1\G</span><br><span class="line">*************************** 1. row ***************************</span><br><span class="line">EXPLAIN: &#123;</span><br><span class="line">  &quot;query_block&quot;: &#123;</span><br><span class="line">    &quot;select_id&quot;: 1,</span><br><span class="line">    &quot;message&quot;: &quot;No tables used&quot;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line">1 row in set, 1 warning (0.00 sec)</span><br><span class="line"></span><br><span class="line">Note (Code 1003): /* select#1 */ select 1 AS `1`</span><br><span class="line">mysql&gt;</span><br></pre></td></tr></table></figure>
+<h2 id="InnoDB-引擎">InnoDB 引擎</h2>
+<p>在 MySQL 8.0.32 中，修复了如下问题：</p>
+<ol>
+<li>修复了从 8.0.28 版本升级后可能出现的未检测到的问题、崩溃和损坏。</li>
+<li>新增列使用 <code>ALGORITHM=INSTANT</code> 时，如果行的最大可能大小超过行大小限制，将失败。</li>
+<li>修复了 <code>SHOW ENGINE INNODB STATUS</code> 中的乱码 UTF 字符问题。</li>
+<li>实现了多个自适应哈希索引 adaptive hash index（AHI）代码优化和改进。</li>
+</ol>
+<h2 id="复制">复制</h2>
+<p>在 MySQL 8.0.32 中，修复了如下问题：</p>
+<ol>
+<li>修复了 <code>SOURCE_HEARTBEAT_PERIOD</code> 设置过小时（比如 1 ms）的二进制日志转储问题。</li>
+<li>修复了设置 <code>--server-id=0</code> 后尝试更改服务器 ID 导致的一系列问题。</li>
+<li>修复了压缩二进制日志事件复制时的中继日志位置更新问题。</li>
+</ol>
+<blockquote>
+<p>扩展</p>
+</blockquote>
+<p><code>SOURCE_HEARTBEAT_PERIOD</code> 是 <code>CHANGE REPLICATION SOURCE TO</code> 语句的一个选项，<br>
+用于控制心跳间隔，如果连接仍然良好，则停止在没有数据的情况下发生连接超时。<br>
+间隔为 0 时，表示完全禁用心跳。</p>
+<h2 id="JSON-函数">JSON 函数</h2>
+<p>在 MySQL 8.0.32 中，修复了如下问题：</p>
+<ol>
+<li>修复了 JSON_ARRAYAGG() 和 JSON_OBJECTAGG() 函数在保存结果时丢失数据类型信息的问题。</li>
+</ol>
+<h2 id="性能改进">性能改进</h2>
+<ol>
+<li>MySQL 8.0.32，改进了内部临时表的资源分配处理。</li>
+</ol>
+<blockquote>
+<p>扩展</p>
+</blockquote>
+<p>MySQL 的内部临时表分为 In-Memory 和 On-Disk 两种，<br>
+其中，In-Memory 内部临时表可用 TempTable 和 MEMORY 两种存储引擎。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; select @@internal_tmp_mem_storage_engine;</span><br><span class="line">+-----------------------------------+</span><br><span class="line">| @@internal_tmp_mem_storage_engine |</span><br><span class="line">+-----------------------------------+</span><br><span class="line">| TempTable                         |</span><br><span class="line">+-----------------------------------+</span><br><span class="line">1 row in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<p>On-Disk 内部临时表可用 InnoDB 和 MyISAM 两种存储引擎，从 MySQL 8.0.16 开始，只能用 InnoDB 引擎。<br>
+且系统参数 <code>internal_tmp_disk_storage_engine</code> 被移除。</p>
+<ol start="2">
+<li>新增了 Performance Schema Server Telemetry Traces 服务，提供了一种插件和组件检索与 SQL 语句生命周期相关通知的方式。</li>
+</ol>
+<blockquote>
+<p>扩展</p>
+</blockquote>
+<p>在 MySQL 8.0.33 版本中，搭配新的遥测功能，而新增了 <code>TELEMETRY_LOG_ADMIN</code> 权限，它允许用户配置和管理遥测日志。<br>
+遥测日志是 MySQL 服务器的一个功能，它可以记录有关服务器操作和性能的详细信息，这些信息对于监控、诊断和优化数据库性能非常有用。</p>
+<p>拥有 <code>TELEMETRY_LOG_ADMIN</code> 权限的用户可以执行以下操作：</p>
+<ol>
+<li>配置遥测日志：用户可以设置遥测日志的配置参数，例如启用或禁用遥测日志记录、设置日志级别、指定日志文件的位置等。</li>
+<li>管理遥测日志数据：用户可以查看、旋转（切换）遥测日志文件，以及执行与遥测日志相关的其他管理任务。</li>
+<li>访问遥测日志信息：用户可以查询遥测日志中记录的数据，以便进行分析和报告。</li>
+</ol>
+<p>需要注意的是，<code>TELEMETRY_LOG_ADMIN</code> 权限是由 <code>telemetry_log</code> 插件定义的，该插件在 MySQL HeatWave 服务上部署时独家使用。<br>
+这意味着，这个权限主要与 MySQL HeatWave 相关的环境和部署有关，可能不适用于所有 MySQL 部署。</p>
+<p>在实际使用中，管理员可以根据需要将 <code>TELEMETRY_LOG_ADMIN</code> 权限授予给需要管理遥测日志的用户，以便他们能够有效地监控和维护数据库系统。</p>
+<h2 id="依赖库">依赖库</h2>
+<ol>
+<li>MySQL 8.0.32，升级了捆绑的 zlib 库到 1.2.13 版本。</li>
+<li>二进制包中包含的 curl 已升级至 7.86.0 版本。</li>
+<li>MySQL 8.0.33，对于捆绑 OpenSSL 库的平台，MySQL Server 链接的 OpenSSL 库已更新至 1.1.1t 版本。</li>
+</ol>
+<h2 id="审计-MySQL-Enterprise-Audit">审计 (MySQL Enterprise Audit)</h2>
+<ol>
+<li>MySQL 8.0.33，新的 <code>audit_log_database</code> 系统变量允许在全局模式命名空间中的其他数据库指定为审计日志的存储位置，默认为 <code>mysql</code> 库。</li>
+</ol>
+<p>比如，可以新建一个专门用于审计的 <code>audit</code> 库，将审计日志存放于该库中。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">select * from audit.audit_log_user;</span><br></pre></td></tr></table></figure>
+<h2 id="组件">组件</h2>
+<ol>
+<li>
+<p>MySQL 8.0.32，MySQL Enterprise Edition 现在提供基于组件的数据掩码和去标识化功能，而不是基于插件库。</p>
+</li>
+<li>
+<p>MySQL 8.0.33，<code>INSTALL COMPONENT</code> 现在包括 SET 子句，可以在安装一个或多个组件时设置组件系统变量的值。</p>
+</li>
+</ol>
+<p>例如，</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">INSTALL COMPONENT <span class="string">&#x27;file://component1&#x27;</span>, <span class="string">&#x27;file://component2&#x27;</span> </span><br><span class="line">    <span class="keyword">SET</span> <span class="keyword">GLOBAL</span> component1.var1 <span class="operator">=</span> <span class="number">12</span> <span class="operator">+</span> <span class="number">3</span>, PERSIST component2.var2 <span class="operator">=</span> <span class="string">&#x27;strings&#x27;</span>;</span><br></pre></td></tr></table></figure>
+<h2 id="总结">总结</h2>
+<p>随着 MySQL Server 8.0.32 到 8.0.33 的发布，用户可以期待更稳定、安全和高效的数据库操作体验。</p>
+<p>在升级到此版本之前，建议用户详细阅读发布说明，评估影响，并在生产环境中进行充分的测试。</p>
+<p>对于弃用的功能，用户应当开始规划迁移到其他支持的功能或方法上，以确保平滑过渡到未来的 MySQL 版本。</p>
+<p>– END –</p>
+<img alt="logo.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg" referrerpolicy="no-referrer"/>
+<p>如果这篇文章为你带来了灵感或启发，就帮忙点『赞』or『在看』or『转发』吧，这对我非常重要，感谢！(๑˃̵ᴗ˂̵)</p>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/upgrade/" class="tag-link">
+                                upgrade
+                            </a>
+                        
+                            <a href="/tags/mysql/" class="tag-link">
+                                mysql
+                            </a>
+                        
+                            <a href="/tags/mysql-8-0/" class="tag-link">
+                                mysql 8.0
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2023/mysql/mysql-upgrade-change-2023-1/index.html">https://shawnyan.cn/2023/mysql/mysql-upgrade-change-2023-1/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2023/mysql/mysql-upgrade-change-2023-2/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">MySQL 升级：MySQL Server 变更详解 (8.0.34 ~ 8.0.35)</span>
+        </a>
+    
+
+    
+        <a href="/2023/tidb/tidb-aliyun-trial/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">TiDB x Aliyun 免费试用，竟还有这般福利？</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%87%8D%E8%A6%81%E5%8F%98%E6%9B%B4"><span class="toc-text">重要变更</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#InnoDB-%E5%BC%95%E6%93%8E"><span class="toc-text">InnoDB 引擎</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A4%8D%E5%88%B6"><span class="toc-text">复制</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#JSON-%E5%87%BD%E6%95%B0"><span class="toc-text">JSON 函数</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%A7%E8%83%BD%E6%94%B9%E8%BF%9B"><span class="toc-text">性能改进</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BE%9D%E8%B5%96%E5%BA%93"><span class="toc-text">依赖库</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%A1%E8%AE%A1-MySQL-Enterprise-Audit"><span class="toc-text">审计 (MySQL Enterprise Audit)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%84%E4%BB%B6"><span class="toc-text">组件</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

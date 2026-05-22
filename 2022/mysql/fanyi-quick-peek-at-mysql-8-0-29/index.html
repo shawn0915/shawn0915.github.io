@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        [译] 快速浏览 MySQL 8.0.29 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;blockquote&gt;
+&lt;p&gt;原文地址：&lt;a href=&#34;https://www.percona.com/blog/quick-peek-at-mysql-8-0-29/&#34;&gt;https://www.percona.com/blog/quick-peek-at-mysql-8-0-29/&lt;/a&gt;&lt;br&gt;
+原文作者：David Stokes&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;img alt=&#34;MySQL8.0.29300x169.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220428-f28bc320-7465-4c0b-9cdf-43182da28b8d.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;4月26日，Oracle 发布了 MySQL Server 8.0.29，本文是对发布说明的快速回顾。我用斜体字标注了我自己的评论。&lt;/p&gt;
+&lt;p&gt;那么第29版的 MySQL Server 都发布了什么呢? 它是带有新的、整洁的功能，还是一个修复漏洞的大礼包？&lt;/p&gt;
+&lt;h2 id=&#34;概述&#34;&gt;概述&lt;/h2&gt;
+&lt;p&gt;虽然这个服务器版本有一些有趣的东西，但没有令人注目的特性需要立即升级。通读发布说明，看看其中是否有什么对你来说是必须的，但对我们大多数人来说，MySQL 8.0.29 不需要立即更新。&lt;em&gt;如果这是一个生日或节日礼物，第29个版本就相当于得到一盒新的牙线——有用但不令人兴奋。&lt;/em&gt;&lt;/p&gt;
+&lt;p&gt;shell 也在进化，VS Code 的新版本看起来也很有前途。&lt;/p&gt;
+&lt;h2 id=&#34;MySQL-Server-8-0-29&#34;&gt;MySQL Server 8.0.29&lt;/h2&gt;
+&lt;h3 id=&#34;UTF8MB3&#34;&gt;UTF8MB3?&lt;/h3&gt;
+&lt;p&gt;服务器现在对 &lt;code&gt;SHOW&lt;/code&gt; 命令的输出大量使用 UTF8MB3 &lt;em&gt;(是3，不是4)&lt;/em&gt;，当从内置字符集填充数据字典表时，会报告无效字符串。&lt;/p&gt;
+&lt;h3 id=&#34;再见-DATETIME-TIMESTAMP-中的任意分隔符&#34;&gt;再见 DATETIME/TIMESTAMP 中的任意分隔符&lt;/h3&gt;
+&lt;p&gt;现在，使用任何非标准或多余分隔符或空格字符都会触发警告。MySQL 允许你使用任意的分隔符，在 TIME, DATE, DATETIME 和 TIMESTAMP 文字中使用任意数量的分隔符，在 DATETIME 和 TIMESTAMP 文字的日期和时间值之前，之后和之间使用任意数量的空白符。 &lt;em&gt;那些平静的日子现在结束了。&lt;/em&gt; 预计该功能将在未来的版本中被删除。&lt;/p&gt;
+&lt;h3 id=&#34;已弃用的变量和选项&#34;&gt;已弃用的变量和选项&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;replica_parallel_type&lt;/code&gt;, &lt;code&gt;query_prealloc_size&lt;/code&gt;, 和 &lt;code&gt;transaction_prealloc_size&lt;/code&gt; 变量已弃用， mysqld 的选项 &lt;code&gt;--abort-slave-event-count&lt;/code&gt; 和 &lt;code&gt;--disconnect-slave-event-count&lt;/code&gt; 也已弃用。&lt;/p&gt;
+&lt;h3 id=&#34;PRIMARY-和-SECONDARY-引擎&#34;&gt;PRIMARY 和 SECONDARY 引擎&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;Performance Schema&lt;/code&gt; 现在跟踪 PRIMARY 和 SECONDARY 引擎用于处理查询。通常，这将是 InnoDB 和 HeatWave。现在有一个 &lt;code&gt;EXECUTION_ENGINE&lt;/code&gt; 列来记录哪个引擎使用 &lt;code&gt;COUNT_SECONDARY&lt;/code&gt; 列完成了工作，从而知道该引擎被使用了多少次。&lt;/p&gt;
+&lt;h3 id=&#34;SSL-库&#34;&gt;SSL 库&lt;/h3&gt;
+&lt;p&gt;版本从 &lt;code&gt;1.1.1l&lt;/code&gt; 升级到 &lt;code&gt;1.1.1.n&lt;/code&gt;。&lt;/p&gt;
+&lt;h3 id=&#34;IF-NOT-EXISTS&#34;&gt;IF NOT EXISTS&lt;/h3&gt;
+&lt;p&gt;对函数、过程和触发器增加的 &lt;code&gt;IF NOT EXISTS&lt;/code&gt; 检查。 &lt;em&gt;我们需要这个很久了。&lt;/em&gt;&lt;/p&gt;
+&lt;h3 id=&#34;分离的-XA-事务&#34;&gt;分离的 XA 事务&lt;/h3&gt;
+&lt;p&gt;组复制有一个问题，在另一个连接上准备的XA事务无法提交。现在可以由另一个连接提交或回滚准备好的XA事务。然后，当前会话还可以启动另一个XA或本地事务，而无需等待准备好的XA事务完成。&lt;/p&gt;
+&lt;h3 id=&#34;经典和-X-协议锁文件&#34;&gt;经典和 X 协议锁文件&lt;/h3&gt;
+&lt;p&gt;MySQL 经典或X协议的锁文件，文件格式不同，可以阻塞服务器启动。但现在他们使用相同的格式。&lt;/p&gt;
+&lt;h3 id=&#34;即时删除表&#34;&gt;即时删除表&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;ALTER TABLE … DROP COLUMN  ALGORITHM=INSTANT&lt;/code&gt; 现在可用了。&lt;/p&gt;
+&lt;h3 id=&#34;安全持久化变量&#34;&gt;安全持久化变量&lt;/h3&gt;
+&lt;p&gt;我们现在可以使用安全的持久化变量，而不是使用 keyring。您仍然需要 keyring 组件代替 keyring 插件来保存加密的信息。所以数据保存在操作系统的文件中，而不是在 keyring 中。&lt;/p&gt;
+&lt;h3 id=&#34;克隆延迟&#34;&gt;克隆延迟&lt;/h3&gt;
+&lt;p&gt;对于某些异步释放数据的操作系统来说，在删除旧数据后再克隆数据是有问题的。因此，新的 &lt;code&gt;clone_delay_after_data_drop&lt;/code&gt; 变量允许您在克隆到达之前最都等待一个小时。 &lt;em&gt;太糟糕了，我们没有像优步那样的“你的克隆x分钟内到达”的状态更新。&lt;/em&gt;&lt;/p&gt;
+&lt;h3 id=&#34;MyISAM&#34;&gt;MyISAM&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;myisam_repair_threads&lt;/code&gt; 变量和 myisamchk 的 &lt;code&gt;--parallel-check&lt;/code&gt; 选项被弃用。&lt;/p&gt;
+&lt;h3 id=&#34;隔离的变量&#34;&gt;隔离的变量&lt;/h3&gt;
+&lt;p&gt;用于解析、解决和执行 SQL 语句的更好代码，现在对访问系统变量采取了更加强制的隔离。&lt;/p&gt;
+&lt;h3 id=&#34;错误修复&#34;&gt;错误修复&lt;/h3&gt;
+&lt;blockquote&gt;
+&lt;p&gt;原文：&lt;br&gt;
+There are many bug fixes that take care of things from anonymous users with the PROCESS privilege could not select rows from the processlist table to histograms now storing buckets in dynamic arrays instead to reduce space overhead and will speed up selectivity estimation due to reduced indirection when performing a binary search on the buckets.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;有许多错误修复处理来自具有 PROCESS 权限的匿名用户无法从 processlist 表中选择行到直方图现在将存储桶存储在动态数组中，以减少空间开销，并且当对桶执行二分搜索时，减少间接性而加快选择性估算。&lt;/p&gt;
+&lt;p&gt;我建议通篇阅读新版本的每个错误修复，因为会发现“啊哈”时刻，当您发现某些在意识边缘影响到您的实例，或者因别人的问题而幸灾乐祸。&lt;/p&gt;
+&lt;h2 id=&#34;MySQL-Shell&#34;&gt;MySQL Shell&lt;/h2&gt;
+&lt;p&gt;MySQL Shell 有一个新的诊断工具，util.debug.collectDiagnostics，它从连接的 MySQL 服务器收集诊断信息。您可以在您选择的位置的 zip 归档文件中获得 TSV 和 YAML 格式的报告。这个工具能够使您获取诊断信息，包括，独立服务器、复制拓扑成员、MySQL 数据库服务中的数据库系统等。&lt;/p&gt;
+&lt;p&gt;并且在 shell 中，&lt;code&gt;prompt()&lt;/code&gt; 函数提供了一个用来与用户交互的脚本。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;译者注：错误修复那段翻译的不是很优雅，请包涵，如果您有更好的翻译版本，欢迎留言。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;附：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://dev.mysql.com/doc/relnotes/mysql/8.0/en/news-8-0-29.html&#34;&gt;MySQL 8.0.29 Release Notes&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="[译] 快速浏览 MySQL 8.0.29">
+    <meta property="og:url" content="https://shawnyan.cn/2022/mysql/fanyi-quick-peek-at-mysql-8-0-29/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;blockquote&gt;
+&lt;p&gt;原文地址：&lt;a href=&#34;https://www.percona.com/blog/quick-peek-at-mysql-8-0-29/&#34;&gt;https://www.percona.com/blog/quick-peek-at-mysql-8-0-29/&lt;/a&gt;&lt;br&gt;
+原文作者：David Stokes&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;img alt=&#34;MySQL8.0.29300x169.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220428-f28bc320-7465-4c0b-9cdf-43182da28b8d.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;4月26日，Oracle 发布了 MySQL Server 8.0.29，本文是对发布说明的快速回顾。我用斜体字标注了我自己的评论。&lt;/p&gt;
+&lt;p&gt;那么第29版的 MySQL Server 都发布了什么呢? 它是带有新的、整洁的功能，还是一个修复漏洞的大礼包？&lt;/p&gt;
+&lt;h2 id=&#34;概述&#34;&gt;概述&lt;/h2&gt;
+&lt;p&gt;虽然这个服务器版本有一些有趣的东西，但没有令人注目的特性需要立即升级。通读发布说明，看看其中是否有什么对你来说是必须的，但对我们大多数人来说，MySQL 8.0.29 不需要立即更新。&lt;em&gt;如果这是一个生日或节日礼物，第29个版本就相当于得到一盒新的牙线——有用但不令人兴奋。&lt;/em&gt;&lt;/p&gt;
+&lt;p&gt;shell 也在进化，VS Code 的新版本看起来也很有前途。&lt;/p&gt;
+&lt;h2 id=&#34;MySQL-Server-8-0-29&#34;&gt;MySQL Server 8.0.29&lt;/h2&gt;
+&lt;h3 id=&#34;UTF8MB3&#34;&gt;UTF8MB3?&lt;/h3&gt;
+&lt;p&gt;服务器现在对 &lt;code&gt;SHOW&lt;/code&gt; 命令的输出大量使用 UTF8MB3 &lt;em&gt;(是3，不是4)&lt;/em&gt;，当从内置字符集填充数据字典表时，会报告无效字符串。&lt;/p&gt;
+&lt;h3 id=&#34;再见-DATETIME-TIMESTAMP-中的任意分隔符&#34;&gt;再见 DATETIME/TIMESTAMP 中的任意分隔符&lt;/h3&gt;
+&lt;p&gt;现在，使用任何非标准或多余分隔符或空格字符都会触发警告。MySQL 允许你使用任意的分隔符，在 TIME, DATE, DATETIME 和 TIMESTAMP 文字中使用任意数量的分隔符，在 DATETIME 和 TIMESTAMP 文字的日期和时间值之前，之后和之间使用任意数量的空白符。 &lt;em&gt;那些平静的日子现在结束了。&lt;/em&gt; 预计该功能将在未来的版本中被删除。&lt;/p&gt;
+&lt;h3 id=&#34;已弃用的变量和选项&#34;&gt;已弃用的变量和选项&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;replica_parallel_type&lt;/code&gt;, &lt;code&gt;query_prealloc_size&lt;/code&gt;, 和 &lt;code&gt;transaction_prealloc_size&lt;/code&gt; 变量已弃用， mysqld 的选项 &lt;code&gt;--abort-slave-event-count&lt;/code&gt; 和 &lt;code&gt;--disconnect-slave-event-count&lt;/code&gt; 也已弃用。&lt;/p&gt;
+&lt;h3 id=&#34;PRIMARY-和-SECONDARY-引擎&#34;&gt;PRIMARY 和 SECONDARY 引擎&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;Performance Schema&lt;/code&gt; 现在跟踪 PRIMARY 和 SECONDARY 引擎用于处理查询。通常，这将是 InnoDB 和 HeatWave。现在有一个 &lt;code&gt;EXECUTION_ENGINE&lt;/code&gt; 列来记录哪个引擎使用 &lt;code&gt;COUNT_SECONDARY&lt;/code&gt; 列完成了工作，从而知道该引擎被使用了多少次。&lt;/p&gt;
+&lt;h3 id=&#34;SSL-库&#34;&gt;SSL 库&lt;/h3&gt;
+&lt;p&gt;版本从 &lt;code&gt;1.1.1l&lt;/code&gt; 升级到 &lt;code&gt;1.1.1.n&lt;/code&gt;。&lt;/p&gt;
+&lt;h3 id=&#34;IF-NOT-EXISTS&#34;&gt;IF NOT EXISTS&lt;/h3&gt;
+&lt;p&gt;对函数、过程和触发器增加的 &lt;code&gt;IF NOT EXISTS&lt;/code&gt; 检查。 &lt;em&gt;我们需要这个很久了。&lt;/em&gt;&lt;/p&gt;
+&lt;h3 id=&#34;分离的-XA-事务&#34;&gt;分离的 XA 事务&lt;/h3&gt;
+&lt;p&gt;组复制有一个问题，在另一个连接上准备的XA事务无法提交。现在可以由另一个连接提交或回滚准备好的XA事务。然后，当前会话还可以启动另一个XA或本地事务，而无需等待准备好的XA事务完成。&lt;/p&gt;
+&lt;h3 id=&#34;经典和-X-协议锁文件&#34;&gt;经典和 X 协议锁文件&lt;/h3&gt;
+&lt;p&gt;MySQL 经典或X协议的锁文件，文件格式不同，可以阻塞服务器启动。但现在他们使用相同的格式。&lt;/p&gt;
+&lt;h3 id=&#34;即时删除表&#34;&gt;即时删除表&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;ALTER TABLE … DROP COLUMN  ALGORITHM=INSTANT&lt;/code&gt; 现在可用了。&lt;/p&gt;
+&lt;h3 id=&#34;安全持久化变量&#34;&gt;安全持久化变量&lt;/h3&gt;
+&lt;p&gt;我们现在可以使用安全的持久化变量，而不是使用 keyring。您仍然需要 keyring 组件代替 keyring 插件来保存加密的信息。所以数据保存在操作系统的文件中，而不是在 keyring 中。&lt;/p&gt;
+&lt;h3 id=&#34;克隆延迟&#34;&gt;克隆延迟&lt;/h3&gt;
+&lt;p&gt;对于某些异步释放数据的操作系统来说，在删除旧数据后再克隆数据是有问题的。因此，新的 &lt;code&gt;clone_delay_after_data_drop&lt;/code&gt; 变量允许您在克隆到达之前最都等待一个小时。 &lt;em&gt;太糟糕了，我们没有像优步那样的“你的克隆x分钟内到达”的状态更新。&lt;/em&gt;&lt;/p&gt;
+&lt;h3 id=&#34;MyISAM&#34;&gt;MyISAM&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;myisam_repair_threads&lt;/code&gt; 变量和 myisamchk 的 &lt;code&gt;--parallel-check&lt;/code&gt; 选项被弃用。&lt;/p&gt;
+&lt;h3 id=&#34;隔离的变量&#34;&gt;隔离的变量&lt;/h3&gt;
+&lt;p&gt;用于解析、解决和执行 SQL 语句的更好代码，现在对访问系统变量采取了更加强制的隔离。&lt;/p&gt;
+&lt;h3 id=&#34;错误修复&#34;&gt;错误修复&lt;/h3&gt;
+&lt;blockquote&gt;
+&lt;p&gt;原文：&lt;br&gt;
+There are many bug fixes that take care of things from anonymous users with the PROCESS privilege could not select rows from the processlist table to histograms now storing buckets in dynamic arrays instead to reduce space overhead and will speed up selectivity estimation due to reduced indirection when performing a binary search on the buckets.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;有许多错误修复处理来自具有 PROCESS 权限的匿名用户无法从 processlist 表中选择行到直方图现在将存储桶存储在动态数组中，以减少空间开销，并且当对桶执行二分搜索时，减少间接性而加快选择性估算。&lt;/p&gt;
+&lt;p&gt;我建议通篇阅读新版本的每个错误修复，因为会发现“啊哈”时刻，当您发现某些在意识边缘影响到您的实例，或者因别人的问题而幸灾乐祸。&lt;/p&gt;
+&lt;h2 id=&#34;MySQL-Shell&#34;&gt;MySQL Shell&lt;/h2&gt;
+&lt;p&gt;MySQL Shell 有一个新的诊断工具，util.debug.collectDiagnostics，它从连接的 MySQL 服务器收集诊断信息。您可以在您选择的位置的 zip 归档文件中获得 TSV 和 YAML 格式的报告。这个工具能够使您获取诊断信息，包括，独立服务器、复制拓扑成员、MySQL 数据库服务中的数据库系统等。&lt;/p&gt;
+&lt;p&gt;并且在 shell 中，&lt;code&gt;prompt()&lt;/code&gt; 函数提供了一个用来与用户交互的脚本。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;译者注：错误修复那段翻译的不是很优雅，请包涵，如果您有更好的翻译版本，欢迎留言。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;附：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://dev.mysql.com/doc/relnotes/mysql/8.0/en/news-8-0-29.html&#34;&gt;MySQL 8.0.29 Release Notes&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/mysql/" class="category-badge">
+                                    MySQL
+                                </a>
+                            
+                                <a href="/categories/mysql/translate/" class="category-badge">
+                                    Translate
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">[译] 快速浏览 MySQL 8.0.29</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2022-04-28
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                1.3k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                4 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <blockquote>
+<p>原文地址：<a target="_blank" rel="noopener" href="https://www.percona.com/blog/quick-peek-at-mysql-8-0-29/">https://www.percona.com/blog/quick-peek-at-mysql-8-0-29/</a><br>
+原文作者：David Stokes</p>
+</blockquote>
+<img alt="MySQL8.0.29300x169.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20220428-f28bc320-7465-4c0b-9cdf-43182da28b8d.png" referrerpolicy="no-referrer"/>
+<p>4月26日，Oracle 发布了 MySQL Server 8.0.29，本文是对发布说明的快速回顾。我用斜体字标注了我自己的评论。</p>
+<p>那么第29版的 MySQL Server 都发布了什么呢? 它是带有新的、整洁的功能，还是一个修复漏洞的大礼包？</p>
+<h2 id="概述">概述</h2>
+<p>虽然这个服务器版本有一些有趣的东西，但没有令人注目的特性需要立即升级。通读发布说明，看看其中是否有什么对你来说是必须的，但对我们大多数人来说，MySQL 8.0.29 不需要立即更新。<em>如果这是一个生日或节日礼物，第29个版本就相当于得到一盒新的牙线——有用但不令人兴奋。</em></p>
+<p>shell 也在进化，VS Code 的新版本看起来也很有前途。</p>
+<h2 id="MySQL-Server-8-0-29">MySQL Server 8.0.29</h2>
+<h3 id="UTF8MB3">UTF8MB3?</h3>
+<p>服务器现在对 <code>SHOW</code> 命令的输出大量使用 UTF8MB3 <em>(是3，不是4)</em>，当从内置字符集填充数据字典表时，会报告无效字符串。</p>
+<h3 id="再见-DATETIME-TIMESTAMP-中的任意分隔符">再见 DATETIME/TIMESTAMP 中的任意分隔符</h3>
+<p>现在，使用任何非标准或多余分隔符或空格字符都会触发警告。MySQL 允许你使用任意的分隔符，在 TIME, DATE, DATETIME 和 TIMESTAMP 文字中使用任意数量的分隔符，在 DATETIME 和 TIMESTAMP 文字的日期和时间值之前，之后和之间使用任意数量的空白符。 <em>那些平静的日子现在结束了。</em> 预计该功能将在未来的版本中被删除。</p>
+<h3 id="已弃用的变量和选项">已弃用的变量和选项</h3>
+<p><code>replica_parallel_type</code>, <code>query_prealloc_size</code>, 和 <code>transaction_prealloc_size</code> 变量已弃用， mysqld 的选项 <code>--abort-slave-event-count</code> 和 <code>--disconnect-slave-event-count</code> 也已弃用。</p>
+<h3 id="PRIMARY-和-SECONDARY-引擎">PRIMARY 和 SECONDARY 引擎</h3>
+<p><code>Performance Schema</code> 现在跟踪 PRIMARY 和 SECONDARY 引擎用于处理查询。通常，这将是 InnoDB 和 HeatWave。现在有一个 <code>EXECUTION_ENGINE</code> 列来记录哪个引擎使用 <code>COUNT_SECONDARY</code> 列完成了工作，从而知道该引擎被使用了多少次。</p>
+<h3 id="SSL-库">SSL 库</h3>
+<p>版本从 <code>1.1.1l</code> 升级到 <code>1.1.1.n</code>。</p>
+<h3 id="IF-NOT-EXISTS">IF NOT EXISTS</h3>
+<p>对函数、过程和触发器增加的 <code>IF NOT EXISTS</code> 检查。 <em>我们需要这个很久了。</em></p>
+<h3 id="分离的-XA-事务">分离的 XA 事务</h3>
+<p>组复制有一个问题，在另一个连接上准备的XA事务无法提交。现在可以由另一个连接提交或回滚准备好的XA事务。然后，当前会话还可以启动另一个XA或本地事务，而无需等待准备好的XA事务完成。</p>
+<h3 id="经典和-X-协议锁文件">经典和 X 协议锁文件</h3>
+<p>MySQL 经典或X协议的锁文件，文件格式不同，可以阻塞服务器启动。但现在他们使用相同的格式。</p>
+<h3 id="即时删除表">即时删除表</h3>
+<p><code>ALTER TABLE … DROP COLUMN  ALGORITHM=INSTANT</code> 现在可用了。</p>
+<h3 id="安全持久化变量">安全持久化变量</h3>
+<p>我们现在可以使用安全的持久化变量，而不是使用 keyring。您仍然需要 keyring 组件代替 keyring 插件来保存加密的信息。所以数据保存在操作系统的文件中，而不是在 keyring 中。</p>
+<h3 id="克隆延迟">克隆延迟</h3>
+<p>对于某些异步释放数据的操作系统来说，在删除旧数据后再克隆数据是有问题的。因此，新的 <code>clone_delay_after_data_drop</code> 变量允许您在克隆到达之前最都等待一个小时。 <em>太糟糕了，我们没有像优步那样的“你的克隆x分钟内到达”的状态更新。</em></p>
+<h3 id="MyISAM">MyISAM</h3>
+<p><code>myisam_repair_threads</code> 变量和 myisamchk 的 <code>--parallel-check</code> 选项被弃用。</p>
+<h3 id="隔离的变量">隔离的变量</h3>
+<p>用于解析、解决和执行 SQL 语句的更好代码，现在对访问系统变量采取了更加强制的隔离。</p>
+<h3 id="错误修复">错误修复</h3>
+<blockquote>
+<p>原文：<br>
+There are many bug fixes that take care of things from anonymous users with the PROCESS privilege could not select rows from the processlist table to histograms now storing buckets in dynamic arrays instead to reduce space overhead and will speed up selectivity estimation due to reduced indirection when performing a binary search on the buckets.</p>
+</blockquote>
+<p>有许多错误修复处理来自具有 PROCESS 权限的匿名用户无法从 processlist 表中选择行到直方图现在将存储桶存储在动态数组中，以减少空间开销，并且当对桶执行二分搜索时，减少间接性而加快选择性估算。</p>
+<p>我建议通篇阅读新版本的每个错误修复，因为会发现“啊哈”时刻，当您发现某些在意识边缘影响到您的实例，或者因别人的问题而幸灾乐祸。</p>
+<h2 id="MySQL-Shell">MySQL Shell</h2>
+<p>MySQL Shell 有一个新的诊断工具，util.debug.collectDiagnostics，它从连接的 MySQL 服务器收集诊断信息。您可以在您选择的位置的 zip 归档文件中获得 TSV 和 YAML 格式的报告。这个工具能够使您获取诊断信息，包括，独立服务器、复制拓扑成员、MySQL 数据库服务中的数据库系统等。</p>
+<p>并且在 shell 中，<code>prompt()</code> 函数提供了一个用来与用户交互的脚本。</p>
+<blockquote>
+<p>译者注：错误修复那段翻译的不是很优雅，请包涵，如果您有更好的翻译版本，欢迎留言。</p>
+</blockquote>
+<p>附：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/relnotes/mysql/8.0/en/news-8-0-29.html">MySQL 8.0.29 Release Notes</a></li>
+</ul>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/mysql/" class="tag-link">
+                                mysql
+                            </a>
+                        
+                            <a href="/tags/mysql-8-0/" class="tag-link">
+                                mysql 8.0
+                            </a>
+                        
+                            <a href="/tags/%E8%AF%91%E6%96%87/" class="tag-link">
+                                译文
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2022/mysql/fanyi-quick-peek-at-mysql-8-0-29/index.html">https://shawnyan.cn/2022/mysql/fanyi-quick-peek-at-mysql-8-0-29/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2022/tdsql/tencentcloud-tdsql-backup-binlogproducter/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">腾讯云数据库 TDSQL -- 备份工具 binlogproducter 解析</span>
+        </a>
+    
+
+    
+        <a href="/2022/modb/fanyi-elastic-stack-begining/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">[译] 开始 Elastic (ELK) Stack 之旅</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A6%82%E8%BF%B0"><span class="toc-text">概述</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#MySQL-Server-8-0-29"><span class="toc-text">MySQL Server 8.0.29</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#UTF8MB3"><span class="toc-text">UTF8MB3?</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%86%8D%E8%A7%81-DATETIME-TIMESTAMP-%E4%B8%AD%E7%9A%84%E4%BB%BB%E6%84%8F%E5%88%86%E9%9A%94%E7%AC%A6"><span class="toc-text">再见 DATETIME&#x2F;TIMESTAMP 中的任意分隔符</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%B7%B2%E5%BC%83%E7%94%A8%E7%9A%84%E5%8F%98%E9%87%8F%E5%92%8C%E9%80%89%E9%A1%B9"><span class="toc-text">已弃用的变量和选项</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#PRIMARY-%E5%92%8C-SECONDARY-%E5%BC%95%E6%93%8E"><span class="toc-text">PRIMARY 和 SECONDARY 引擎</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#SSL-%E5%BA%93"><span class="toc-text">SSL 库</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#IF-NOT-EXISTS"><span class="toc-text">IF NOT EXISTS</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%86%E7%A6%BB%E7%9A%84-XA-%E4%BA%8B%E5%8A%A1"><span class="toc-text">分离的 XA 事务</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BB%8F%E5%85%B8%E5%92%8C-X-%E5%8D%8F%E8%AE%AE%E9%94%81%E6%96%87%E4%BB%B6"><span class="toc-text">经典和 X 协议锁文件</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8D%B3%E6%97%B6%E5%88%A0%E9%99%A4%E8%A1%A8"><span class="toc-text">即时删除表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%89%E5%85%A8%E6%8C%81%E4%B9%85%E5%8C%96%E5%8F%98%E9%87%8F"><span class="toc-text">安全持久化变量</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%8B%E9%9A%86%E5%BB%B6%E8%BF%9F"><span class="toc-text">克隆延迟</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#MyISAM"><span class="toc-text">MyISAM</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%9A%94%E7%A6%BB%E7%9A%84%E5%8F%98%E9%87%8F"><span class="toc-text">隔离的变量</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%94%99%E8%AF%AF%E4%BF%AE%E5%A4%8D"><span class="toc-text">错误修复</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#MySQL-Shell"><span class="toc-text">MySQL Shell</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

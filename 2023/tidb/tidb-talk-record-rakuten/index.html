@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        记 Rakuten 技术分享会 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;p&gt;11月18日，2023 Rakuten 技术大会在东京、上海和大连三地线下联动召开，期间有一场 TiDB 的 Talk，《刘洋：TiDB 在乐天积分系统的最佳实践》。&lt;/p&gt;
+&lt;p&gt;活动地点很近，就在我司对面，所以中午专门抽时间去聆听了刘洋老师的分享，只是会后又匆忙溜回公司搬砖，没来得及好好交流。&lt;/p&gt;
+&lt;h2 id=&#34;关于乐天-Rakuten&#34;&gt;关于乐天 Rakuten&lt;/h2&gt;
+&lt;p&gt;可能好多同学对这家公司很陌生，因为这是一家三资企业。也有些同学似曾听过，只不过这不是韩国的乐天集团（Lotte）。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;日本楽天集团 Rakuten Group&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;创立于1997年2月，总部位于东京，是日本最大的电商平台之一，也是日本家喻户晓的互联网综合服务平台。Rakuten Group 旗下有70多个业务领域、涵盖网络购物商城、信用卡、电子支付、银行、证券、保险、旅游、专业体育、拍卖、通讯、媒体等，利用楽天会员制度为枢纽将这些服务相互串起，创造出独有的「楽天生态圈」，目前楽天的服务业务已在全球拥有超17亿的注册用户。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;楽天中国 Rakuten CNTD&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;乐天创研（北京）科技有限公司成立于2010年10月，是 Rakuten Group 在华投资建立的全资子公司。2015年3月在上海成立了第一家分公司，2019年3月在大连成立了第二家分公司。楽天人在中国搭建起的业务服务平台与全球业务纵向互通，覆盖全球范围内的电子商务、营销、旅游、通信、证券、数据科学等服务，并充分利用Rakuten Group在互联网领域所积累的经验和最前沿技术，发挥中国优秀人才的聪明才智，为全球客户提供更加完善、优质的服务。&lt;/p&gt;
+&lt;h2 id=&#34;TiDB-Talk-内容&#34;&gt;TiDB Talk 内容&lt;/h2&gt;
+&lt;p&gt;刘洋老师在 2023 Rakuten 技术大会上分享的 TiDB 在乐天积分系统中的最佳实践。&lt;/p&gt;
+&lt;p&gt;目前使用 60+节点，单表90亿+，介绍了乐天积分系统的早期碰到的数据量不断增加厚的挑战，以及背后的数据架构。&lt;/p&gt;
+&lt;p&gt;在选型初期对比了 YugabyteDB 和 CockroachDB 的弹性扩缩容方面的性能对比。&lt;/p&gt;
+&lt;p&gt;部分 PPT 实拍请参见帖子： &lt;a href=&#34;https://asktug.com/t/topic/1017425&#34;&gt;https://asktug.com/t/topic/1017425&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;说回技术话题。或许有同学会有疑问，单表90亿+ 的数据量，之前是什么数据库，单机怎么支撑的了。&lt;/p&gt;
+&lt;p&gt;答案很简单，之前用的不是开源数据库，而是 Oracle RAC 集群，而且是主备两套 Oracle RAC，嗯哼，一切都说的通了。&lt;/p&gt;
+&lt;p&gt;或许是上云趋势不可逆，或许是这家企业对开源社区有浓厚的兴趣，整体技术架构都在进行一场大变革。&lt;/p&gt;
+&lt;p&gt;基础设施方面，由混和云构建，自建了 Rakuten One Cloud，引入了 Azure 云，这里没用 AWS？蛮有趣。&lt;/p&gt;
+&lt;p&gt;数据库方面，转向 NewSQL，引入 Cassandra / MySQL / TiDB / etcd 。&lt;/p&gt;
+&lt;p&gt;应用层方面，将传统的单体服务进行拆分，基于微服务改造，应用服务运行在 k8s 上。&lt;/p&gt;
+&lt;h2 id=&#34;乐天积分系统，用-TiDB&#34;&gt;乐天积分系统，用 TiDB&lt;/h2&gt;
+&lt;p&gt;经过审慎严谨的选型对比，在最终确认新架构的方案中，选择了用 TiDB。&lt;/p&gt;
+&lt;p&gt;选择的理由主要是：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;MySQL 兼容性；支持二级索引&lt;/li&gt;
+&lt;li&gt;高扩展性，支持将数据处理节点和存储节点水平扩展&lt;/li&gt;
+&lt;li&gt;友好的管理接口、工具；跨区域部署&lt;/li&gt;
+&lt;li&gt;强大的开源社区；本地商业支持&lt;/li&gt;
+&lt;/ol&gt;
+&lt;img alt=&#34;db-rank.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/db-rank-1700452587580.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;在 TiDB 拓扑设计上，设计了主、备双中心，实现异地容灾，双中心通过 TiCDC 进行数据同步。&lt;/p&gt;
+&lt;p&gt;存储节点使用了 TiKV 行存引擎和 TiFlash 列存引擎，两款存储引擎。在 Talk 中，刘老师有介绍到，他们的点查响应在 20+ ms。&lt;/p&gt;
+&lt;h2 id=&#34;后期迭代升级&#34;&gt;后期迭代升级&lt;/h2&gt;
+&lt;p&gt;在 Talk 中，刘老师介绍了该系统对 TiDB 日后的创新使用，或将引入两项强大特性，冷热分离和资源管控。&lt;/p&gt;
+&lt;p&gt;从 TiDB 6.0 开始，Placement Rules in SQL 特性 GA，通过该功能，DBA 可以将表和分区指定部署至不同的地域、机房、机柜、主机。借助该特性，可将热数据和冷数据分别存储到 SSD 和 HDD，以降低存储成本。&lt;/p&gt;
+&lt;p&gt;关于该特性的详细介绍，请参阅官方文档: &lt;a href=&#34;https://docs.pingcap.com/zh/tidb/stable/placement-rules-in-sql#placement-rules-in-sql&#34;&gt;Placement Rules in SQL&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;以及，专栏文章： &lt;a href=&#34;https://tidb.net/blog/387bd516&#34;&gt;TiDB 冷热存储分离解决方案&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;从 TiDB 7.1.0 LTS 开始，资源管控特性 GA，通过该特性，DBA 可以自定义资源组，通过资源组限定硬件资源配额，并将用户绑定到某个资源组，以实现应用的资源隔离，满足服务质量 (QoS) 要求。&lt;/p&gt;
+&lt;p&gt;关于该特性的详细介绍，请参阅官方文档: &lt;a href=&#34;https://docs.pingcap.com/zh/tidb/stable/tidb-resource-control&#34;&gt;使用资源管控 (Resource Control) 实现资源隔离&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;以及，专栏文章： &lt;a href=&#34;https://tidb.net/blog/978ee7ab&#34;&gt;TiDB 7.1.0 LTS 特性解读 | 资源管控 (Resource Control) 应该知道的 6 件事&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;最后，关于 TiDB 版本选择，刘老师介绍本番环境将会用到最新的 7.1.x。&lt;/p&gt;
+&lt;p&gt;Ps. TiDB 7.5.0 LTS 不日将会发版，欢迎迫不及待的同学先参阅专栏文章： &lt;a href=&#34;https://tidb.net/blog/8f6af887&#34;&gt;TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;感谢刘老师带来的线下 TiDB Talk，活动很棒，现场参会人数很多，去晚的我只能坐在角落，hhh~&lt;/p&gt;
+&lt;p&gt;TiDB 社区线下地区活动，上海站已经举办了若干场，大连这边陲小镇有机会还要加油搞起来，啊~&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="记 Rakuten 技术分享会">
+    <meta property="og:url" content="https://shawnyan.cn/2023/tidb/tidb-talk-record-rakuten/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;p&gt;11月18日，2023 Rakuten 技术大会在东京、上海和大连三地线下联动召开，期间有一场 TiDB 的 Talk，《刘洋：TiDB 在乐天积分系统的最佳实践》。&lt;/p&gt;
+&lt;p&gt;活动地点很近，就在我司对面，所以中午专门抽时间去聆听了刘洋老师的分享，只是会后又匆忙溜回公司搬砖，没来得及好好交流。&lt;/p&gt;
+&lt;h2 id=&#34;关于乐天-Rakuten&#34;&gt;关于乐天 Rakuten&lt;/h2&gt;
+&lt;p&gt;可能好多同学对这家公司很陌生，因为这是一家三资企业。也有些同学似曾听过，只不过这不是韩国的乐天集团（Lotte）。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;日本楽天集团 Rakuten Group&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;创立于1997年2月，总部位于东京，是日本最大的电商平台之一，也是日本家喻户晓的互联网综合服务平台。Rakuten Group 旗下有70多个业务领域、涵盖网络购物商城、信用卡、电子支付、银行、证券、保险、旅游、专业体育、拍卖、通讯、媒体等，利用楽天会员制度为枢纽将这些服务相互串起，创造出独有的「楽天生态圈」，目前楽天的服务业务已在全球拥有超17亿的注册用户。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;楽天中国 Rakuten CNTD&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;乐天创研（北京）科技有限公司成立于2010年10月，是 Rakuten Group 在华投资建立的全资子公司。2015年3月在上海成立了第一家分公司，2019年3月在大连成立了第二家分公司。楽天人在中国搭建起的业务服务平台与全球业务纵向互通，覆盖全球范围内的电子商务、营销、旅游、通信、证券、数据科学等服务，并充分利用Rakuten Group在互联网领域所积累的经验和最前沿技术，发挥中国优秀人才的聪明才智，为全球客户提供更加完善、优质的服务。&lt;/p&gt;
+&lt;h2 id=&#34;TiDB-Talk-内容&#34;&gt;TiDB Talk 内容&lt;/h2&gt;
+&lt;p&gt;刘洋老师在 2023 Rakuten 技术大会上分享的 TiDB 在乐天积分系统中的最佳实践。&lt;/p&gt;
+&lt;p&gt;目前使用 60+节点，单表90亿+，介绍了乐天积分系统的早期碰到的数据量不断增加厚的挑战，以及背后的数据架构。&lt;/p&gt;
+&lt;p&gt;在选型初期对比了 YugabyteDB 和 CockroachDB 的弹性扩缩容方面的性能对比。&lt;/p&gt;
+&lt;p&gt;部分 PPT 实拍请参见帖子： &lt;a href=&#34;https://asktug.com/t/topic/1017425&#34;&gt;https://asktug.com/t/topic/1017425&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;说回技术话题。或许有同学会有疑问，单表90亿+ 的数据量，之前是什么数据库，单机怎么支撑的了。&lt;/p&gt;
+&lt;p&gt;答案很简单，之前用的不是开源数据库，而是 Oracle RAC 集群，而且是主备两套 Oracle RAC，嗯哼，一切都说的通了。&lt;/p&gt;
+&lt;p&gt;或许是上云趋势不可逆，或许是这家企业对开源社区有浓厚的兴趣，整体技术架构都在进行一场大变革。&lt;/p&gt;
+&lt;p&gt;基础设施方面，由混和云构建，自建了 Rakuten One Cloud，引入了 Azure 云，这里没用 AWS？蛮有趣。&lt;/p&gt;
+&lt;p&gt;数据库方面，转向 NewSQL，引入 Cassandra / MySQL / TiDB / etcd 。&lt;/p&gt;
+&lt;p&gt;应用层方面，将传统的单体服务进行拆分，基于微服务改造，应用服务运行在 k8s 上。&lt;/p&gt;
+&lt;h2 id=&#34;乐天积分系统，用-TiDB&#34;&gt;乐天积分系统，用 TiDB&lt;/h2&gt;
+&lt;p&gt;经过审慎严谨的选型对比，在最终确认新架构的方案中，选择了用 TiDB。&lt;/p&gt;
+&lt;p&gt;选择的理由主要是：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;MySQL 兼容性；支持二级索引&lt;/li&gt;
+&lt;li&gt;高扩展性，支持将数据处理节点和存储节点水平扩展&lt;/li&gt;
+&lt;li&gt;友好的管理接口、工具；跨区域部署&lt;/li&gt;
+&lt;li&gt;强大的开源社区；本地商业支持&lt;/li&gt;
+&lt;/ol&gt;
+&lt;img alt=&#34;db-rank.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/db-rank-1700452587580.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;在 TiDB 拓扑设计上，设计了主、备双中心，实现异地容灾，双中心通过 TiCDC 进行数据同步。&lt;/p&gt;
+&lt;p&gt;存储节点使用了 TiKV 行存引擎和 TiFlash 列存引擎，两款存储引擎。在 Talk 中，刘老师有介绍到，他们的点查响应在 20+ ms。&lt;/p&gt;
+&lt;h2 id=&#34;后期迭代升级&#34;&gt;后期迭代升级&lt;/h2&gt;
+&lt;p&gt;在 Talk 中，刘老师介绍了该系统对 TiDB 日后的创新使用，或将引入两项强大特性，冷热分离和资源管控。&lt;/p&gt;
+&lt;p&gt;从 TiDB 6.0 开始，Placement Rules in SQL 特性 GA，通过该功能，DBA 可以将表和分区指定部署至不同的地域、机房、机柜、主机。借助该特性，可将热数据和冷数据分别存储到 SSD 和 HDD，以降低存储成本。&lt;/p&gt;
+&lt;p&gt;关于该特性的详细介绍，请参阅官方文档: &lt;a href=&#34;https://docs.pingcap.com/zh/tidb/stable/placement-rules-in-sql#placement-rules-in-sql&#34;&gt;Placement Rules in SQL&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;以及，专栏文章： &lt;a href=&#34;https://tidb.net/blog/387bd516&#34;&gt;TiDB 冷热存储分离解决方案&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;从 TiDB 7.1.0 LTS 开始，资源管控特性 GA，通过该特性，DBA 可以自定义资源组，通过资源组限定硬件资源配额，并将用户绑定到某个资源组，以实现应用的资源隔离，满足服务质量 (QoS) 要求。&lt;/p&gt;
+&lt;p&gt;关于该特性的详细介绍，请参阅官方文档: &lt;a href=&#34;https://docs.pingcap.com/zh/tidb/stable/tidb-resource-control&#34;&gt;使用资源管控 (Resource Control) 实现资源隔离&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;以及，专栏文章： &lt;a href=&#34;https://tidb.net/blog/978ee7ab&#34;&gt;TiDB 7.1.0 LTS 特性解读 | 资源管控 (Resource Control) 应该知道的 6 件事&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;最后，关于 TiDB 版本选择，刘老师介绍本番环境将会用到最新的 7.1.x。&lt;/p&gt;
+&lt;p&gt;Ps. TiDB 7.5.0 LTS 不日将会发版，欢迎迫不及待的同学先参阅专栏文章： &lt;a href=&#34;https://tidb.net/blog/8f6af887&#34;&gt;TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;感谢刘老师带来的线下 TiDB Talk，活动很棒，现场参会人数很多，去晚的我只能坐在角落，hhh~&lt;/p&gt;
+&lt;p&gt;TiDB 社区线下地区活动，上海站已经举办了若干场，大连这边陲小镇有机会还要加油搞起来，啊~&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/tidb/" class="category-badge">
+                                    TiDB
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">记 Rakuten 技术分享会</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2023-11-20
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                1.4k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                5 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <p>11月18日，2023 Rakuten 技术大会在东京、上海和大连三地线下联动召开，期间有一场 TiDB 的 Talk，《刘洋：TiDB 在乐天积分系统的最佳实践》。</p>
+<p>活动地点很近，就在我司对面，所以中午专门抽时间去聆听了刘洋老师的分享，只是会后又匆忙溜回公司搬砖，没来得及好好交流。</p>
+<h2 id="关于乐天-Rakuten">关于乐天 Rakuten</h2>
+<p>可能好多同学对这家公司很陌生，因为这是一家三资企业。也有些同学似曾听过，只不过这不是韩国的乐天集团（Lotte）。</p>
+<ul>
+<li>日本楽天集团 Rakuten Group</li>
+</ul>
+<p>创立于1997年2月，总部位于东京，是日本最大的电商平台之一，也是日本家喻户晓的互联网综合服务平台。Rakuten Group 旗下有70多个业务领域、涵盖网络购物商城、信用卡、电子支付、银行、证券、保险、旅游、专业体育、拍卖、通讯、媒体等，利用楽天会员制度为枢纽将这些服务相互串起，创造出独有的「楽天生态圈」，目前楽天的服务业务已在全球拥有超17亿的注册用户。</p>
+<ul>
+<li>楽天中国 Rakuten CNTD</li>
+</ul>
+<p>乐天创研（北京）科技有限公司成立于2010年10月，是 Rakuten Group 在华投资建立的全资子公司。2015年3月在上海成立了第一家分公司，2019年3月在大连成立了第二家分公司。楽天人在中国搭建起的业务服务平台与全球业务纵向互通，覆盖全球范围内的电子商务、营销、旅游、通信、证券、数据科学等服务，并充分利用Rakuten Group在互联网领域所积累的经验和最前沿技术，发挥中国优秀人才的聪明才智，为全球客户提供更加完善、优质的服务。</p>
+<h2 id="TiDB-Talk-内容">TiDB Talk 内容</h2>
+<p>刘洋老师在 2023 Rakuten 技术大会上分享的 TiDB 在乐天积分系统中的最佳实践。</p>
+<p>目前使用 60+节点，单表90亿+，介绍了乐天积分系统的早期碰到的数据量不断增加厚的挑战，以及背后的数据架构。</p>
+<p>在选型初期对比了 YugabyteDB 和 CockroachDB 的弹性扩缩容方面的性能对比。</p>
+<p>部分 PPT 实拍请参见帖子： <a target="_blank" rel="noopener" href="https://asktug.com/t/topic/1017425">https://asktug.com/t/topic/1017425</a></p>
+<p>说回技术话题。或许有同学会有疑问，单表90亿+ 的数据量，之前是什么数据库，单机怎么支撑的了。</p>
+<p>答案很简单，之前用的不是开源数据库，而是 Oracle RAC 集群，而且是主备两套 Oracle RAC，嗯哼，一切都说的通了。</p>
+<p>或许是上云趋势不可逆，或许是这家企业对开源社区有浓厚的兴趣，整体技术架构都在进行一场大变革。</p>
+<p>基础设施方面，由混和云构建，自建了 Rakuten One Cloud，引入了 Azure 云，这里没用 AWS？蛮有趣。</p>
+<p>数据库方面，转向 NewSQL，引入 Cassandra / MySQL / TiDB / etcd 。</p>
+<p>应用层方面，将传统的单体服务进行拆分，基于微服务改造，应用服务运行在 k8s 上。</p>
+<h2 id="乐天积分系统，用-TiDB">乐天积分系统，用 TiDB</h2>
+<p>经过审慎严谨的选型对比，在最终确认新架构的方案中，选择了用 TiDB。</p>
+<p>选择的理由主要是：</p>
+<ol>
+<li>MySQL 兼容性；支持二级索引</li>
+<li>高扩展性，支持将数据处理节点和存储节点水平扩展</li>
+<li>友好的管理接口、工具；跨区域部署</li>
+<li>强大的开源社区；本地商业支持</li>
+</ol>
+<img alt="db-rank.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/db-rank-1700452587580.png" referrerpolicy="no-referrer"/>
+<p>在 TiDB 拓扑设计上，设计了主、备双中心，实现异地容灾，双中心通过 TiCDC 进行数据同步。</p>
+<p>存储节点使用了 TiKV 行存引擎和 TiFlash 列存引擎，两款存储引擎。在 Talk 中，刘老师有介绍到，他们的点查响应在 20+ ms。</p>
+<h2 id="后期迭代升级">后期迭代升级</h2>
+<p>在 Talk 中，刘老师介绍了该系统对 TiDB 日后的创新使用，或将引入两项强大特性，冷热分离和资源管控。</p>
+<p>从 TiDB 6.0 开始，Placement Rules in SQL 特性 GA，通过该功能，DBA 可以将表和分区指定部署至不同的地域、机房、机柜、主机。借助该特性，可将热数据和冷数据分别存储到 SSD 和 HDD，以降低存储成本。</p>
+<p>关于该特性的详细介绍，请参阅官方文档: <a target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/placement-rules-in-sql#placement-rules-in-sql">Placement Rules in SQL</a></p>
+<p>以及，专栏文章： <a target="_blank" rel="noopener" href="https://tidb.net/blog/387bd516">TiDB 冷热存储分离解决方案</a></p>
+<p>从 TiDB 7.1.0 LTS 开始，资源管控特性 GA，通过该特性，DBA 可以自定义资源组，通过资源组限定硬件资源配额，并将用户绑定到某个资源组，以实现应用的资源隔离，满足服务质量 (QoS) 要求。</p>
+<p>关于该特性的详细介绍，请参阅官方文档: <a target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/tidb-resource-control">使用资源管控 (Resource Control) 实现资源隔离</a></p>
+<p>以及，专栏文章： <a target="_blank" rel="noopener" href="https://tidb.net/blog/978ee7ab">TiDB 7.1.0 LTS 特性解读 | 资源管控 (Resource Control) 应该知道的 6 件事</a></p>
+<p>最后，关于 TiDB 版本选择，刘老师介绍本番环境将会用到最新的 7.1.x。</p>
+<p>Ps. TiDB 7.5.0 LTS 不日将会发版，欢迎迫不及待的同学先参阅专栏文章： <a target="_blank" rel="noopener" href="https://tidb.net/blog/8f6af887">TiDB 7.x 源码编译之 TiDB Server 篇，及新特性详解</a></p>
+<h2 id="总结">总结</h2>
+<p>感谢刘老师带来的线下 TiDB Talk，活动很棒，现场参会人数很多，去晚的我只能坐在角落，hhh~</p>
+<p>TiDB 社区线下地区活动，上海站已经举办了若干场，大连这边陲小镇有机会还要加油搞起来，啊~</p>
+<img alt="logo.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg" referrerpolicy="no-referrer"/>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/tidb/" class="tag-link">
+                                tidb
+                            </a>
+                        
+                            <a href="/tags/tidb-7-x/" class="tag-link">
+                                tidb 7.x
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2023/tidb/tidb-talk-record-rakuten/index.html">https://shawnyan.cn/2023/tidb/tidb-talk-record-rakuten/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2023/stonedb/stonedb-8.0-v2.2.0-ee/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">StoneDB 企业版 8.0-v2.2.0 初体验</span>
+        </a>
+    
+
+    
+        <a href="/2023/linux/rocky-9.3-upgrade-from-9.2/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">[RL9] Rocky Linux 9.2 升级 9.3，及新特性实践</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B3%E4%BA%8E%E4%B9%90%E5%A4%A9-Rakuten"><span class="toc-text">关于乐天 Rakuten</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#TiDB-Talk-%E5%86%85%E5%AE%B9"><span class="toc-text">TiDB Talk 内容</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B9%90%E5%A4%A9%E7%A7%AF%E5%88%86%E7%B3%BB%E7%BB%9F%EF%BC%8C%E7%94%A8-TiDB"><span class="toc-text">乐天积分系统，用 TiDB</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%90%8E%E6%9C%9F%E8%BF%AD%E4%BB%A3%E5%8D%87%E7%BA%A7"><span class="toc-text">后期迭代升级</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

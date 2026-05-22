@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        TiDB 6.x 新特性解读 | TiFlash 新增算子和函数下推 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;p&gt;TiDB 6.0 对 TiFlash 的功能做了进一步增强，其中新增支持了 12 个函数和 2 个算子下推到 TiFlash 层的 MPP 引擎进行计算。&lt;br&gt;
+本文将对其逐一进行演示，以期快速、直观的展示这些新特性。&lt;/p&gt;
+&lt;img alt=&#34;IMG_2005.JPG&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/IMG_2005-1652257515326.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;TiFlash-和-MPP-引擎&#34;&gt;TiFlash 和 MPP 引擎&lt;/h2&gt;
+&lt;p&gt;先来简要回顾一下相关概念。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;TiFlash 是 TiDB HTAP 形态的关键组件，它是 TiKV 的列存扩展。&lt;/li&gt;
+&lt;li&gt;TiFlash 于2022年4月1日正式开源，主要功能包括列式存储提高分析查询效率，支持强一致性和实时性等，并提供了良好的隔离性。&lt;/li&gt;
+&lt;li&gt;TiFlash 的引入，为 MPP 架构提供了技术基础，MPP 架构解决了多表 JOIN 场景下的计算节点的扩展性与并行计算的问题。&lt;/li&gt;
+&lt;li&gt;TiFlash 通过在存储层分担计算下推，从而实现对 TiDB 的计算加速。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;新增支持下推函数汇总&#34;&gt;新增支持下推函数汇总&lt;/h2&gt;
+&lt;p&gt;从 TiDB 6.0 的 &lt;a href=&#34;https://docs.pingcap.com/zh/tidb/v6.0/release-6.0.0-dmr#%E6%8F%90%E5%8D%87%E6%94%B9%E8%BF%9B&#34;&gt;发版说明&lt;/a&gt;&lt;br&gt;
+中可以清晰的看到，这次大版本迭代给 TiFlash 支持计算下推带来了进一步扩展，共计新增支持了 12 个函数，以及 2 个算子，原文如下。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;支持下推 DAYNAME()和 MONTHNAME() 函数到 TiFlash #32594&lt;br&gt;
+支持下推 REGEXP 函数到 TiFlash #32637&lt;br&gt;
+支持下推 DAYOFMONTH()，LAST_DAY() 函数到 TiFlash #33012&lt;br&gt;
+支持下推 DAYOFWEEK() 和 DAYOFYEAR() 函数到 TiFlash #33130&lt;br&gt;
+支持下推 IS_TRUE、IS_FALSE、IS_TRUE_WITH_NULL 函数到 TiFlash #33047&lt;br&gt;
+支持下推 GREATEST 和 LEAST 函数到 TiFlash #32787&lt;br&gt;
+算子：Anti Left Outer Semi Join, Left Outer Semi Join&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;从文档中提供的线索，我们可以反向推演，经寻找代码变更，汇总可知，主要对文件 &lt;code&gt;expression.go&lt;/code&gt; 进行了修改，主要修改的代码如下。&lt;br&gt;
+已对代码进行了标注，增加了行数和相关 RP 号，以供参考。&lt;/p&gt;
+&lt;figure class=&#34;highlight go&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;// L1051&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;case&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.LogicOr, ast.LogicAnd, ast.UnaryNot, ast.BitNeg, ast.Xor, ast.And, ast.Or,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.GE, ast.LE, ast.EQ, ast.NE, ast.LT, ast.GT, ast.In, ast.IsNull, ast.Like, ast.Strcmp,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.Plus, ast.Minus, ast.Div, ast.Mul, ast.Abs, ast.Mod,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.If, ast.Ifnull, ast.Case,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.Concat, ast.ConcatWS,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.Date, ast.Year, ast.Month, ast.Day, ast.Quarter, ast.DayName, ast.MonthName, -- #&lt;span class=&#34;number&#34;&gt;32594&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.DateDiff, ast.TimestampDiff, ast.DateFormat, ast.FromUnixTime,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.DayOfMonth, ast.LastDay, -- #&lt;span class=&#34;number&#34;&gt;33012&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.DayOfWeek, ast.DayOfYear, -- #&lt;span class=&#34;number&#34;&gt;33130&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.Sqrt, ast.Log, ast.Log2, ast.Log10, ast.Ln, ast.Exp, ast.Pow, ast.Sign,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.Radians, ast.Degrees, ast.Conv, ast.CRC32,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.JSONLength,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.InetNtoa, ast.InetAton, ast.Inet6Ntoa, ast.Inet6Aton,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.Coalesce, ast.ASCII, ast.Length, ast.Trim, ast.Position, ast.Format,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.LTrim, ast.RTrim, ast.Lpad, ast.Rpad, ast.Regexp, -- #&lt;span class=&#34;number&#34;&gt;32637&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.Hour, ast.Minute, ast.Second, ast.MicroSecond:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;// L1155&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;case&lt;/span&gt; ast.Least, ast.Greatest: -- #&lt;span class=&#34;number&#34;&gt;32787&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;keyword&#34;&gt;switch&lt;/span&gt; function.Function.PbCode() &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;keyword&#34;&gt;case&lt;/span&gt; tipb.ScalarFuncSig_GreatestInt, tipb.ScalarFuncSig_GreatestReal,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      tipb.ScalarFuncSig_LeastInt, tipb.ScalarFuncSig_LeastReal:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      &lt;span class=&#34;keyword&#34;&gt;return&lt;/span&gt; &lt;span class=&#34;literal&#34;&gt;true&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;// L1161&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;case&lt;/span&gt; ast.IsTruthWithNull, ast.IsTruthWithoutNull, ast.IsFalsity: -- #&lt;span class=&#34;number&#34;&gt;33047&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;keyword&#34;&gt;return&lt;/span&gt; &lt;span class=&#34;literal&#34;&gt;true&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#125;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;将 TiFlash 6.0 新增算子对应的函数名、SQL的函数名，按函数类型归类，总结成下表，更便于查询和分析。&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Issue&lt;/th&gt;
+&lt;th&gt;代码中的函数名&lt;/th&gt;
+&lt;th&gt;SQL中的函数名&lt;/th&gt;
+&lt;th&gt;函数类型&lt;/th&gt;
+&lt;th&gt;功能描述&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;a href=&#34;https://github.com/pingcap/tidb/issues/32594&#34;&gt;#32594&lt;/a&gt;&lt;/td&gt;
+&lt;td&gt;ast.DayName, ast.MonthName&lt;/td&gt;
+&lt;td&gt;DAYNAME(), MONTHNAME()&lt;/td&gt;
+&lt;td&gt;日期函数&lt;/td&gt;
+&lt;td&gt;返回星期名称；返回参数的月份名称&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;a href=&#34;https://github.com/pingcap/tidb/issues/33012&#34;&gt;#33012&lt;/a&gt;&lt;/td&gt;
+&lt;td&gt;ast.DayOfMonth, ast.LastDay&lt;/td&gt;
+&lt;td&gt;DAYOFMONTH(), LAST_DAY()&lt;/td&gt;
+&lt;td&gt;日期函数&lt;/td&gt;
+&lt;td&gt;返回参数对应的天数部分(1-31)；返回参数中月份的最后一天&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;a href=&#34;https://github.com/pingcap/tidb/issues/33130&#34;&gt;#33130&lt;/a&gt;&lt;/td&gt;
+&lt;td&gt;ast.DayOfWeek, ast.DayOfYear&lt;/td&gt;
+&lt;td&gt;DAYOFWEEK(), DAYOFYEAR()&lt;/td&gt;
+&lt;td&gt;日期函数&lt;/td&gt;
+&lt;td&gt;返回参数对应的星期下标；返回参数代表一年的哪一天 (1-366)&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;a href=&#34;https://github.com/pingcap/tidb/issues/32637&#34;&gt;#32637&lt;/a&gt;&lt;/td&gt;
+&lt;td&gt;ast.Regexp&lt;/td&gt;
+&lt;td&gt;REGEXP&lt;/td&gt;
+&lt;td&gt;字符串函数&lt;/td&gt;
+&lt;td&gt;使用正则表达式匹配模式&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;a href=&#34;https://github.com/pingcap/tidb/issues/32787&#34;&gt;#32787&lt;/a&gt;&lt;/td&gt;
+&lt;td&gt;ast.Least, ast.Greatest&lt;/td&gt;
+&lt;td&gt;LEAST(), GREATEST()&lt;/td&gt;
+&lt;td&gt;操作符&lt;/td&gt;
+&lt;td&gt;返回最小值；返回最大值&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;a href=&#34;https://github.com/pingcap/tidb/issues/33047&#34;&gt;#33047&lt;/a&gt;&lt;/td&gt;
+&lt;td&gt;ast.IsTruthWithNull, ast.IsTruthWithoutNull, ast.IsFalsity&lt;/td&gt;
+&lt;td&gt;istrue_with_null, istrue, isfalse&lt;/td&gt;
+&lt;td&gt;操作符&lt;/td&gt;
+&lt;td&gt;判断是否为真，如果结果为null，则返回null；判断是否为真，如果结果为null，则返回0；判断是否为假&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;新增支持算子下推汇总&#34;&gt;新增支持算子下推汇总&lt;/h2&gt;
+&lt;p&gt;本次版本迭代新增支持了两个算子可以下推至 MPP 引擎，分别是 &lt;code&gt;Left Outer Semi Join&lt;/code&gt; 和 &lt;code&gt;Anti Left Outer Semi Join&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;中文表述为左外半连接（&lt;code&gt;Left Outer Semi Join&lt;/code&gt;）和反左外半连接（&lt;code&gt;Anti Left Outer Semi Join&lt;/code&gt;），半连接意为仅需要匹配第一行后就可以停止查询，而“反”则表示有不存在匹配值（即 &lt;code&gt;NOT IN&lt;/code&gt;）的情况。&lt;br&gt;
+查阅历史发版说明可知，在 TiDB 3.0 发版时，针对 &lt;code&gt;NOT EXISTS&lt;/code&gt; 子查询进行优化，将其转化为 &lt;code&gt;Anti Semi Join&lt;/code&gt; &lt;a href=&#34;https://github.com/pingcap/tidb/pull/7842&#34;&gt;#7842&lt;/a&gt; 。而在 TiFlash 中的这两种 Join 都是基于 Hash Join 实现，对于大、宽表关联查询的场景，会比使用索引关联的效率更高。&lt;/p&gt;
+&lt;h2 id=&#34;新特性演示&#34;&gt;新特性演示&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;TiDB 版本&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;TiDB&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;v6&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; tidb_version()\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1.&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tidb_version(): &lt;span class=&#34;keyword&#34;&gt;Release&lt;/span&gt; Version: v6&lt;span class=&#34;number&#34;&gt;.0&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Edition: Community&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Git &lt;span class=&#34;keyword&#34;&gt;Commit&lt;/span&gt; Hash: &lt;span class=&#34;number&#34;&gt;36&lt;/span&gt;a9810441ca0e496cbd22064af274b3be771081&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Git Branch: heads&lt;span class=&#34;operator&#34;&gt;/&lt;/span&gt;refs&lt;span class=&#34;operator&#34;&gt;/&lt;/span&gt;tags&lt;span class=&#34;operator&#34;&gt;/&lt;/span&gt;v6&lt;span class=&#34;number&#34;&gt;.0&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;UTC Build &lt;span class=&#34;type&#34;&gt;Time&lt;/span&gt;: &lt;span class=&#34;number&#34;&gt;2022&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-03&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-31&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;:&lt;span class=&#34;number&#34;&gt;33&lt;/span&gt;:&lt;span class=&#34;number&#34;&gt;28&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GoVersion: go1&lt;span class=&#34;number&#34;&gt;.18&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Race Enabled: &lt;span class=&#34;literal&#34;&gt;false&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;TiKV Min Version: v3&lt;span class=&#34;number&#34;&gt;.0&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.0&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-60965&lt;/span&gt;b006877ca7234adaced7890d7b029ed1306&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;Check&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Table&lt;/span&gt; Before &lt;span class=&#34;keyword&#34;&gt;Drop&lt;/span&gt;: &lt;span class=&#34;literal&#34;&gt;false&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.001&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;准备测试表、数据&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;USE test;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;DROP&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt; IF &lt;span class=&#34;keyword&#34;&gt;EXISTS&lt;/span&gt; t;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt; t (id &lt;span class=&#34;type&#34;&gt;int&lt;/span&gt;, dc datetime, cc1 &lt;span class=&#34;type&#34;&gt;char&lt;/span&gt;(&lt;span class=&#34;number&#34;&gt;20&lt;/span&gt;), cc2 &lt;span class=&#34;type&#34;&gt;char&lt;/span&gt;(&lt;span class=&#34;number&#34;&gt;20&lt;/span&gt;));&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;INSERT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;INTO&lt;/span&gt; t &lt;span class=&#34;keyword&#34;&gt;VALUES&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;2022-04-30 15:33:10&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;UUtJeaV&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;snRXXCZHBPW&amp;#x27;&lt;/span&gt;), (&lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;2022-05-01 15:33:20&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;snRXXCZHBPW&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;UUtJeaV&amp;#x27;&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ANALYZE &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt; t;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;创建 TiFlash 数据副本，并强制开启 MPP 模式&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;ALTER&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt; t &lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt; TIFLASH REPLICA &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; information_schema.tiflash_replica;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;/&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;/&lt;/span&gt; TiDB 无视代价估算，选择 MPP 模式。&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; @&lt;span class=&#34;variable&#34;&gt;@session&lt;/span&gt;.tidb_allow_mpp&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; @&lt;span class=&#34;variable&#34;&gt;@session&lt;/span&gt;.tidb_enforce_mpp&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;日期函数&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;由上表可知本次迭代共涉及 6 个日期函数，下面将用 SQL 来做演示，从执行计划中可以看到已经支持函数下推到 TiFlash。后面演示过程以此类推。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;explain &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; DAYNAME(dc), MONTHNAME(dc), DAYOFMONTH(dc), LAST_DAY(dc), DAYOFWEEK(dc), DAYOFYEAR(dc) &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;1.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220506-c07bfc9f-07fc-4596-8a92-c4ec7a588a0f.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ul&gt;
+&lt;li&gt;字符串函数 &lt;code&gt;REGEXP&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;在过滤条件中增加正则判定，过滤以 &lt;code&gt;U&lt;/code&gt; 开头的数据。但是，这里收到了一条警告信息，当前不支持下推到 TiKV。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;explain &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; t.cc1 regexp &lt;span class=&#34;string&#34;&gt;&amp;#x27;^U&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;2.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220506-1088a226-3546-4a16-978e-84b34f7b4032.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ul&gt;
+&lt;li&gt;操作符 &lt;code&gt;LEAST()&lt;/code&gt;, &lt;code&gt;GREATEST()&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;在过滤条件中增加最小值、最大值判断。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;explain &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; least(id, &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;) &lt;span class=&#34;operator&#34;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;explain&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; GREATEST(id, &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;) &lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;3.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220506-c30defe2-8821-46f6-b735-217172568189.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ul&gt;
+&lt;li&gt;操作符 &lt;code&gt;istrue_with_null&lt;/code&gt;, &lt;code&gt;istrue&lt;/code&gt;, &lt;code&gt;isfalse&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;判断结果真假。这三个操作符的官方文档内容较少，在准备文章的时候已提交了 &lt;a href=&#34;https://github.com/pingcap/docs-cn/issues/9295&#34;&gt;Issue#9295&lt;/a&gt; ，相信官方会进行补充完善。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;explain &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; istrue_with_null(id &lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;), istrue(id &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;), isfalse(id &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;) &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;4.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220506-0c4fa65d-687c-42c9-a231-066b75bf6fd8.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ul&gt;
+&lt;li&gt;算子 &lt;code&gt;Left Outer Semi Join&lt;/code&gt;、&lt;code&gt;Anti Left Outer Semi Join&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;新增支持下推的 2 个算子，上文新特性描述已做出阐释，下面这两条 SQL 的区别在于第二条语句使用了 &lt;code&gt;NOT IN&lt;/code&gt;。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;explain &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; (&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; t.id &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; (&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; t.id &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t) &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t) x;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;explain &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; (&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; t.id &lt;span class=&#34;keyword&#34;&gt;not&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; (&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; t.id &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t) &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t) x;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;5.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220506-fb5d2cab-ab8d-4241-badd-4958f37875ed.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;使用建议&#34;&gt;使用建议&lt;/h2&gt;
+&lt;p&gt;对于本文提及的支持计算下推的新特性已经正式发布，可以放心使用。&lt;br&gt;
+但是这里提示一个使用建议，即 GBK 字符集的表是不能同步到 TiFlash 的，会报下面这个错误。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ERROR &lt;span class=&#34;number&#34;&gt;8200&lt;/span&gt; (HY000): Unsupported &lt;span class=&#34;keyword&#34;&gt;ALTER&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt; replica &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt; contain gbk charset&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;也就是说如果数据表使用了 GBK 字符集，就无法使用本文解读的这些新特性。&lt;/p&gt;
+&lt;p&gt;引申一步，从源码文件 &lt;code&gt;charset.go&lt;/code&gt; 的 &lt;code&gt;TiFlashSupportedCharsets&lt;/code&gt; 变量可知，&lt;br&gt;
+目前 TiFlash 所支持的字符集有 &lt;code&gt;UTF8, UTF8MB4, ASCII, Latin1, Binary&lt;/code&gt; 这 5 种。&lt;br&gt;
+所以，一般情况下，在创建数据表时，不建议使用 GBK 字符集。如果是迁移或重构项目，建议将数据转换为 UTF8mb4。&lt;/p&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;本文对 TiFlash 新支持下推的函数和算子进行了汇总，并进行逐一演示。&lt;br&gt;
+从 TiDB v4 正式发布 TiFlash 组件，到 v5 引入 MPP 引擎，再到伴随 v6 的发布而正式宣布开源，TiFlash 已经逐步成熟，是 TiDB 走向 HTAP 的关键组件。&lt;br&gt;
+期待 TiFlash 可以支持更多下推函数和算子，期望 TiFlash 可以运行得更快、更稳。&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;&lt;a href=&#34;https://www.modb.pro/db/400382&#34;&gt;https://www.modb.pro/db/400382&lt;/a&gt;&lt;br&gt;
+&lt;a href=&#34;https://tidb.net/blog/2188d936?shareId=286bbfd2&#34;&gt;https://tidb.net/blog/2188d936?shareId=286bbfd2&lt;/a&gt;&lt;br&gt;
+&lt;a href=&#34;https://tidb.net/book/book-rush/performance/mpp-engine/tiflash-pushing-down&#34;&gt;https://tidb.net/book/book-rush/performance/mpp-engine/tiflash-pushing-down&lt;/a&gt;&lt;/p&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="TiDB 6.x 新特性解读 | TiFlash 新增算子和函数下推">
+    <meta property="og:url" content="https://shawnyan.cn/2022/tidb/tidb-6.0-tiflash-pushing-down/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;p&gt;TiDB 6.0 对 TiFlash 的功能做了进一步增强，其中新增支持了 12 个函数和 2 个算子下推到 TiFlash 层的 MPP 引擎进行计算。&lt;br&gt;
+本文将对其逐一进行演示，以期快速、直观的展示这些新特性。&lt;/p&gt;
+&lt;img alt=&#34;IMG_2005.JPG&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/IMG_2005-1652257515326.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;TiFlash-和-MPP-引擎&#34;&gt;TiFlash 和 MPP 引擎&lt;/h2&gt;
+&lt;p&gt;先来简要回顾一下相关概念。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;TiFlash 是 TiDB HTAP 形态的关键组件，它是 TiKV 的列存扩展。&lt;/li&gt;
+&lt;li&gt;TiFlash 于2022年4月1日正式开源，主要功能包括列式存储提高分析查询效率，支持强一致性和实时性等，并提供了良好的隔离性。&lt;/li&gt;
+&lt;li&gt;TiFlash 的引入，为 MPP 架构提供了技术基础，MPP 架构解决了多表 JOIN 场景下的计算节点的扩展性与并行计算的问题。&lt;/li&gt;
+&lt;li&gt;TiFlash 通过在存储层分担计算下推，从而实现对 TiDB 的计算加速。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;新增支持下推函数汇总&#34;&gt;新增支持下推函数汇总&lt;/h2&gt;
+&lt;p&gt;从 TiDB 6.0 的 &lt;a href=&#34;https://docs.pingcap.com/zh/tidb/v6.0/release-6.0.0-dmr#%E6%8F%90%E5%8D%87%E6%94%B9%E8%BF%9B&#34;&gt;发版说明&lt;/a&gt;&lt;br&gt;
+中可以清晰的看到，这次大版本迭代给 TiFlash 支持计算下推带来了进一步扩展，共计新增支持了 12 个函数，以及 2 个算子，原文如下。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;支持下推 DAYNAME()和 MONTHNAME() 函数到 TiFlash #32594&lt;br&gt;
+支持下推 REGEXP 函数到 TiFlash #32637&lt;br&gt;
+支持下推 DAYOFMONTH()，LAST_DAY() 函数到 TiFlash #33012&lt;br&gt;
+支持下推 DAYOFWEEK() 和 DAYOFYEAR() 函数到 TiFlash #33130&lt;br&gt;
+支持下推 IS_TRUE、IS_FALSE、IS_TRUE_WITH_NULL 函数到 TiFlash #33047&lt;br&gt;
+支持下推 GREATEST 和 LEAST 函数到 TiFlash #32787&lt;br&gt;
+算子：Anti Left Outer Semi Join, Left Outer Semi Join&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;从文档中提供的线索，我们可以反向推演，经寻找代码变更，汇总可知，主要对文件 &lt;code&gt;expression.go&lt;/code&gt; 进行了修改，主要修改的代码如下。&lt;br&gt;
+已对代码进行了标注，增加了行数和相关 RP 号，以供参考。&lt;/p&gt;
+&lt;figure class=&#34;highlight go&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;// L1051&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;case&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.LogicOr, ast.LogicAnd, ast.UnaryNot, ast.BitNeg, ast.Xor, ast.And, ast.Or,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.GE, ast.LE, ast.EQ, ast.NE, ast.LT, ast.GT, ast.In, ast.IsNull, ast.Like, ast.Strcmp,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.Plus, ast.Minus, ast.Div, ast.Mul, ast.Abs, ast.Mod,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.If, ast.Ifnull, ast.Case,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.Concat, ast.ConcatWS,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.Date, ast.Year, ast.Month, ast.Day, ast.Quarter, ast.DayName, ast.MonthName, -- #&lt;span class=&#34;number&#34;&gt;32594&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.DateDiff, ast.TimestampDiff, ast.DateFormat, ast.FromUnixTime,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.DayOfMonth, ast.LastDay, -- #&lt;span class=&#34;number&#34;&gt;33012&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.DayOfWeek, ast.DayOfYear, -- #&lt;span class=&#34;number&#34;&gt;33130&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.Sqrt, ast.Log, ast.Log2, ast.Log10, ast.Ln, ast.Exp, ast.Pow, ast.Sign,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.Radians, ast.Degrees, ast.Conv, ast.CRC32,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.JSONLength,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.InetNtoa, ast.InetAton, ast.Inet6Ntoa, ast.Inet6Aton,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.Coalesce, ast.ASCII, ast.Length, ast.Trim, ast.Position, ast.Format,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.LTrim, ast.RTrim, ast.Lpad, ast.Rpad, ast.Regexp, -- #&lt;span class=&#34;number&#34;&gt;32637&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   ast.Hour, ast.Minute, ast.Second, ast.MicroSecond:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;// L1155&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;case&lt;/span&gt; ast.Least, ast.Greatest: -- #&lt;span class=&#34;number&#34;&gt;32787&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;keyword&#34;&gt;switch&lt;/span&gt; function.Function.PbCode() &amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;keyword&#34;&gt;case&lt;/span&gt; tipb.ScalarFuncSig_GreatestInt, tipb.ScalarFuncSig_GreatestReal,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      tipb.ScalarFuncSig_LeastInt, tipb.ScalarFuncSig_LeastReal:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;      &lt;span class=&#34;keyword&#34;&gt;return&lt;/span&gt; &lt;span class=&#34;literal&#34;&gt;true&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;// L1161&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;case&lt;/span&gt; ast.IsTruthWithNull, ast.IsTruthWithoutNull, ast.IsFalsity: -- #&lt;span class=&#34;number&#34;&gt;33047&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   &lt;span class=&#34;keyword&#34;&gt;return&lt;/span&gt; &lt;span class=&#34;literal&#34;&gt;true&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#125;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;将 TiFlash 6.0 新增算子对应的函数名、SQL的函数名，按函数类型归类，总结成下表，更便于查询和分析。&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Issue&lt;/th&gt;
+&lt;th&gt;代码中的函数名&lt;/th&gt;
+&lt;th&gt;SQL中的函数名&lt;/th&gt;
+&lt;th&gt;函数类型&lt;/th&gt;
+&lt;th&gt;功能描述&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;a href=&#34;https://github.com/pingcap/tidb/issues/32594&#34;&gt;#32594&lt;/a&gt;&lt;/td&gt;
+&lt;td&gt;ast.DayName, ast.MonthName&lt;/td&gt;
+&lt;td&gt;DAYNAME(), MONTHNAME()&lt;/td&gt;
+&lt;td&gt;日期函数&lt;/td&gt;
+&lt;td&gt;返回星期名称；返回参数的月份名称&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;a href=&#34;https://github.com/pingcap/tidb/issues/33012&#34;&gt;#33012&lt;/a&gt;&lt;/td&gt;
+&lt;td&gt;ast.DayOfMonth, ast.LastDay&lt;/td&gt;
+&lt;td&gt;DAYOFMONTH(), LAST_DAY()&lt;/td&gt;
+&lt;td&gt;日期函数&lt;/td&gt;
+&lt;td&gt;返回参数对应的天数部分(1-31)；返回参数中月份的最后一天&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;a href=&#34;https://github.com/pingcap/tidb/issues/33130&#34;&gt;#33130&lt;/a&gt;&lt;/td&gt;
+&lt;td&gt;ast.DayOfWeek, ast.DayOfYear&lt;/td&gt;
+&lt;td&gt;DAYOFWEEK(), DAYOFYEAR()&lt;/td&gt;
+&lt;td&gt;日期函数&lt;/td&gt;
+&lt;td&gt;返回参数对应的星期下标；返回参数代表一年的哪一天 (1-366)&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;a href=&#34;https://github.com/pingcap/tidb/issues/32637&#34;&gt;#32637&lt;/a&gt;&lt;/td&gt;
+&lt;td&gt;ast.Regexp&lt;/td&gt;
+&lt;td&gt;REGEXP&lt;/td&gt;
+&lt;td&gt;字符串函数&lt;/td&gt;
+&lt;td&gt;使用正则表达式匹配模式&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;a href=&#34;https://github.com/pingcap/tidb/issues/32787&#34;&gt;#32787&lt;/a&gt;&lt;/td&gt;
+&lt;td&gt;ast.Least, ast.Greatest&lt;/td&gt;
+&lt;td&gt;LEAST(), GREATEST()&lt;/td&gt;
+&lt;td&gt;操作符&lt;/td&gt;
+&lt;td&gt;返回最小值；返回最大值&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;a href=&#34;https://github.com/pingcap/tidb/issues/33047&#34;&gt;#33047&lt;/a&gt;&lt;/td&gt;
+&lt;td&gt;ast.IsTruthWithNull, ast.IsTruthWithoutNull, ast.IsFalsity&lt;/td&gt;
+&lt;td&gt;istrue_with_null, istrue, isfalse&lt;/td&gt;
+&lt;td&gt;操作符&lt;/td&gt;
+&lt;td&gt;判断是否为真，如果结果为null，则返回null；判断是否为真，如果结果为null，则返回0；判断是否为假&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;新增支持算子下推汇总&#34;&gt;新增支持算子下推汇总&lt;/h2&gt;
+&lt;p&gt;本次版本迭代新增支持了两个算子可以下推至 MPP 引擎，分别是 &lt;code&gt;Left Outer Semi Join&lt;/code&gt; 和 &lt;code&gt;Anti Left Outer Semi Join&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;中文表述为左外半连接（&lt;code&gt;Left Outer Semi Join&lt;/code&gt;）和反左外半连接（&lt;code&gt;Anti Left Outer Semi Join&lt;/code&gt;），半连接意为仅需要匹配第一行后就可以停止查询，而“反”则表示有不存在匹配值（即 &lt;code&gt;NOT IN&lt;/code&gt;）的情况。&lt;br&gt;
+查阅历史发版说明可知，在 TiDB 3.0 发版时，针对 &lt;code&gt;NOT EXISTS&lt;/code&gt; 子查询进行优化，将其转化为 &lt;code&gt;Anti Semi Join&lt;/code&gt; &lt;a href=&#34;https://github.com/pingcap/tidb/pull/7842&#34;&gt;#7842&lt;/a&gt; 。而在 TiFlash 中的这两种 Join 都是基于 Hash Join 实现，对于大、宽表关联查询的场景，会比使用索引关联的效率更高。&lt;/p&gt;
+&lt;h2 id=&#34;新特性演示&#34;&gt;新特性演示&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;TiDB 版本&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;TiDB&lt;span class=&#34;operator&#34;&gt;-&lt;/span&gt;v6&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; tidb_version()\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1.&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tidb_version(): &lt;span class=&#34;keyword&#34;&gt;Release&lt;/span&gt; Version: v6&lt;span class=&#34;number&#34;&gt;.0&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Edition: Community&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Git &lt;span class=&#34;keyword&#34;&gt;Commit&lt;/span&gt; Hash: &lt;span class=&#34;number&#34;&gt;36&lt;/span&gt;a9810441ca0e496cbd22064af274b3be771081&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Git Branch: heads&lt;span class=&#34;operator&#34;&gt;/&lt;/span&gt;refs&lt;span class=&#34;operator&#34;&gt;/&lt;/span&gt;tags&lt;span class=&#34;operator&#34;&gt;/&lt;/span&gt;v6&lt;span class=&#34;number&#34;&gt;.0&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;UTC Build &lt;span class=&#34;type&#34;&gt;Time&lt;/span&gt;: &lt;span class=&#34;number&#34;&gt;2022&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-03&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-31&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;10&lt;/span&gt;:&lt;span class=&#34;number&#34;&gt;33&lt;/span&gt;:&lt;span class=&#34;number&#34;&gt;28&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GoVersion: go1&lt;span class=&#34;number&#34;&gt;.18&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Race Enabled: &lt;span class=&#34;literal&#34;&gt;false&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;TiKV Min Version: v3&lt;span class=&#34;number&#34;&gt;.0&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.0&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;-60965&lt;/span&gt;b006877ca7234adaced7890d7b029ed1306&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;Check&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;Table&lt;/span&gt; Before &lt;span class=&#34;keyword&#34;&gt;Drop&lt;/span&gt;: &lt;span class=&#34;literal&#34;&gt;false&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.001&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;准备测试表、数据&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;USE test;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;DROP&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt; IF &lt;span class=&#34;keyword&#34;&gt;EXISTS&lt;/span&gt; t;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;CREATE&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt; t (id &lt;span class=&#34;type&#34;&gt;int&lt;/span&gt;, dc datetime, cc1 &lt;span class=&#34;type&#34;&gt;char&lt;/span&gt;(&lt;span class=&#34;number&#34;&gt;20&lt;/span&gt;), cc2 &lt;span class=&#34;type&#34;&gt;char&lt;/span&gt;(&lt;span class=&#34;number&#34;&gt;20&lt;/span&gt;));&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;INSERT&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;INTO&lt;/span&gt; t &lt;span class=&#34;keyword&#34;&gt;VALUES&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;2022-04-30 15:33:10&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;UUtJeaV&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;snRXXCZHBPW&amp;#x27;&lt;/span&gt;), (&lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;2022-05-01 15:33:20&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;snRXXCZHBPW&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;UUtJeaV&amp;#x27;&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ANALYZE &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt; t;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;创建 TiFlash 数据副本，并强制开启 MPP 模式&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;ALTER&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;TABLE&lt;/span&gt; t &lt;span class=&#34;keyword&#34;&gt;SET&lt;/span&gt; TIFLASH REPLICA &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; information_schema.tiflash_replica;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;/&lt;/span&gt;&lt;span class=&#34;operator&#34;&gt;/&lt;/span&gt; TiDB 无视代价估算，选择 MPP 模式。&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; @&lt;span class=&#34;variable&#34;&gt;@session&lt;/span&gt;.tidb_allow_mpp&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; @&lt;span class=&#34;variable&#34;&gt;@session&lt;/span&gt;.tidb_enforce_mpp&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;日期函数&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;由上表可知本次迭代共涉及 6 个日期函数，下面将用 SQL 来做演示，从执行计划中可以看到已经支持函数下推到 TiFlash。后面演示过程以此类推。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;explain &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; DAYNAME(dc), MONTHNAME(dc), DAYOFMONTH(dc), LAST_DAY(dc), DAYOFWEEK(dc), DAYOFYEAR(dc) &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;1.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220506-c07bfc9f-07fc-4596-8a92-c4ec7a588a0f.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ul&gt;
+&lt;li&gt;字符串函数 &lt;code&gt;REGEXP&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;在过滤条件中增加正则判定，过滤以 &lt;code&gt;U&lt;/code&gt; 开头的数据。但是，这里收到了一条警告信息，当前不支持下推到 TiKV。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;explain &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; t.cc1 regexp &lt;span class=&#34;string&#34;&gt;&amp;#x27;^U&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;2.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220506-1088a226-3546-4a16-978e-84b34f7b4032.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ul&gt;
+&lt;li&gt;操作符 &lt;code&gt;LEAST()&lt;/code&gt;, &lt;code&gt;GREATEST()&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;在过滤条件中增加最小值、最大值判断。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;explain &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; least(id, &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;) &lt;span class=&#34;operator&#34;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;explain&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t &lt;span class=&#34;keyword&#34;&gt;where&lt;/span&gt; GREATEST(id, &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;) &lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;3.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220506-c30defe2-8821-46f6-b735-217172568189.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ul&gt;
+&lt;li&gt;操作符 &lt;code&gt;istrue_with_null&lt;/code&gt;, &lt;code&gt;istrue&lt;/code&gt;, &lt;code&gt;isfalse&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;判断结果真假。这三个操作符的官方文档内容较少，在准备文章的时候已提交了 &lt;a href=&#34;https://github.com/pingcap/docs-cn/issues/9295&#34;&gt;Issue#9295&lt;/a&gt; ，相信官方会进行补充完善。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;explain &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; istrue_with_null(id &lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;), istrue(id &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;), isfalse(id &lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;) &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;4.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220506-0c4fa65d-687c-42c9-a231-066b75bf6fd8.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;ul&gt;
+&lt;li&gt;算子 &lt;code&gt;Left Outer Semi Join&lt;/code&gt;、&lt;code&gt;Anti Left Outer Semi Join&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;新增支持下推的 2 个算子，上文新特性描述已做出阐释，下面这两条 SQL 的区别在于第二条语句使用了 &lt;code&gt;NOT IN&lt;/code&gt;。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;explain &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; (&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; t.id &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; (&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; t.id &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t) &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t) x;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;explain &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; (&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; t.id &lt;span class=&#34;keyword&#34;&gt;not&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; (&lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; t.id &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t) &lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; t) x;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;5.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220506-fb5d2cab-ab8d-4241-badd-4958f37875ed.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;使用建议&#34;&gt;使用建议&lt;/h2&gt;
+&lt;p&gt;对于本文提及的支持计算下推的新特性已经正式发布，可以放心使用。&lt;br&gt;
+但是这里提示一个使用建议，即 GBK 字符集的表是不能同步到 TiFlash 的，会报下面这个错误。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;ERROR &lt;span class=&#34;number&#34;&gt;8200&lt;/span&gt; (HY000): Unsupported &lt;span class=&#34;keyword&#34;&gt;ALTER&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt; replica &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;table&lt;/span&gt; contain gbk charset&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;也就是说如果数据表使用了 GBK 字符集，就无法使用本文解读的这些新特性。&lt;/p&gt;
+&lt;p&gt;引申一步，从源码文件 &lt;code&gt;charset.go&lt;/code&gt; 的 &lt;code&gt;TiFlashSupportedCharsets&lt;/code&gt; 变量可知，&lt;br&gt;
+目前 TiFlash 所支持的字符集有 &lt;code&gt;UTF8, UTF8MB4, ASCII, Latin1, Binary&lt;/code&gt; 这 5 种。&lt;br&gt;
+所以，一般情况下，在创建数据表时，不建议使用 GBK 字符集。如果是迁移或重构项目，建议将数据转换为 UTF8mb4。&lt;/p&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;本文对 TiFlash 新支持下推的函数和算子进行了汇总，并进行逐一演示。&lt;br&gt;
+从 TiDB v4 正式发布 TiFlash 组件，到 v5 引入 MPP 引擎，再到伴随 v6 的发布而正式宣布开源，TiFlash 已经逐步成熟，是 TiDB 走向 HTAP 的关键组件。&lt;br&gt;
+期待 TiFlash 可以支持更多下推函数和算子，期望 TiFlash 可以运行得更快、更稳。&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;&lt;a href=&#34;https://www.modb.pro/db/400382&#34;&gt;https://www.modb.pro/db/400382&lt;/a&gt;&lt;br&gt;
+&lt;a href=&#34;https://tidb.net/blog/2188d936?shareId=286bbfd2&#34;&gt;https://tidb.net/blog/2188d936?shareId=286bbfd2&lt;/a&gt;&lt;br&gt;
+&lt;a href=&#34;https://tidb.net/book/book-rush/performance/mpp-engine/tiflash-pushing-down&#34;&gt;https://tidb.net/book/book-rush/performance/mpp-engine/tiflash-pushing-down&lt;/a&gt;&lt;/p&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/tidb/" class="category-badge">
+                                    TiDB
+                                </a>
+                            
+                                <a href="/categories/tidb/tidb-6-x/" class="category-badge">
+                                    TiDB 6.x
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">TiDB 6.x 新特性解读 | TiFlash 新增算子和函数下推</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2022-05-07
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                1.9k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                8 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <p>TiDB 6.0 对 TiFlash 的功能做了进一步增强，其中新增支持了 12 个函数和 2 个算子下推到 TiFlash 层的 MPP 引擎进行计算。<br>
+本文将对其逐一进行演示，以期快速、直观的展示这些新特性。</p>
+<img alt="IMG_2005.JPG" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/IMG_2005-1652257515326.jpg" referrerpolicy="no-referrer"/>
+<h2 id="TiFlash-和-MPP-引擎">TiFlash 和 MPP 引擎</h2>
+<p>先来简要回顾一下相关概念。</p>
+<ul>
+<li>TiFlash 是 TiDB HTAP 形态的关键组件，它是 TiKV 的列存扩展。</li>
+<li>TiFlash 于2022年4月1日正式开源，主要功能包括列式存储提高分析查询效率，支持强一致性和实时性等，并提供了良好的隔离性。</li>
+<li>TiFlash 的引入，为 MPP 架构提供了技术基础，MPP 架构解决了多表 JOIN 场景下的计算节点的扩展性与并行计算的问题。</li>
+<li>TiFlash 通过在存储层分担计算下推，从而实现对 TiDB 的计算加速。</li>
+</ul>
+<h2 id="新增支持下推函数汇总">新增支持下推函数汇总</h2>
+<p>从 TiDB 6.0 的 <a target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/v6.0/release-6.0.0-dmr#%E6%8F%90%E5%8D%87%E6%94%B9%E8%BF%9B">发版说明</a><br>
+中可以清晰的看到，这次大版本迭代给 TiFlash 支持计算下推带来了进一步扩展，共计新增支持了 12 个函数，以及 2 个算子，原文如下。</p>
+<blockquote>
+<p>支持下推 DAYNAME()和 MONTHNAME() 函数到 TiFlash #32594<br>
+支持下推 REGEXP 函数到 TiFlash #32637<br>
+支持下推 DAYOFMONTH()，LAST_DAY() 函数到 TiFlash #33012<br>
+支持下推 DAYOFWEEK() 和 DAYOFYEAR() 函数到 TiFlash #33130<br>
+支持下推 IS_TRUE、IS_FALSE、IS_TRUE_WITH_NULL 函数到 TiFlash #33047<br>
+支持下推 GREATEST 和 LEAST 函数到 TiFlash #32787<br>
+算子：Anti Left Outer Semi Join, Left Outer Semi Join</p>
+</blockquote>
+<p>从文档中提供的线索，我们可以反向推演，经寻找代码变更，汇总可知，主要对文件 <code>expression.go</code> 进行了修改，主要修改的代码如下。<br>
+已对代码进行了标注，增加了行数和相关 RP 号，以供参考。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// L1051</span></span><br><span class="line"><span class="keyword">case</span></span><br><span class="line">   ast.LogicOr, ast.LogicAnd, ast.UnaryNot, ast.BitNeg, ast.Xor, ast.And, ast.Or,</span><br><span class="line">   ast.GE, ast.LE, ast.EQ, ast.NE, ast.LT, ast.GT, ast.In, ast.IsNull, ast.Like, ast.Strcmp,</span><br><span class="line">   ast.Plus, ast.Minus, ast.Div, ast.Mul, ast.Abs, ast.Mod,</span><br><span class="line">   ast.If, ast.Ifnull, ast.Case,</span><br><span class="line">   ast.Concat, ast.ConcatWS,</span><br><span class="line">   ast.Date, ast.Year, ast.Month, ast.Day, ast.Quarter, ast.DayName, ast.MonthName, -- #<span class="number">32594</span></span><br><span class="line">   ast.DateDiff, ast.TimestampDiff, ast.DateFormat, ast.FromUnixTime,</span><br><span class="line">   ast.DayOfMonth, ast.LastDay, -- #<span class="number">33012</span></span><br><span class="line">   ast.DayOfWeek, ast.DayOfYear, -- #<span class="number">33130</span></span><br><span class="line"></span><br><span class="line">   ast.Sqrt, ast.Log, ast.Log2, ast.Log10, ast.Ln, ast.Exp, ast.Pow, ast.Sign,</span><br><span class="line">   ast.Radians, ast.Degrees, ast.Conv, ast.CRC32,</span><br><span class="line">   ast.JSONLength,</span><br><span class="line">   ast.InetNtoa, ast.InetAton, ast.Inet6Ntoa, ast.Inet6Aton,</span><br><span class="line">   ast.Coalesce, ast.ASCII, ast.Length, ast.Trim, ast.Position, ast.Format,</span><br><span class="line">   ast.LTrim, ast.RTrim, ast.Lpad, ast.Rpad, ast.Regexp, -- #<span class="number">32637</span></span><br><span class="line">   ast.Hour, ast.Minute, ast.Second, ast.MicroSecond:</span><br><span class="line"></span><br><span class="line"><span class="comment">// L1155</span></span><br><span class="line"><span class="keyword">case</span> ast.Least, ast.Greatest: -- #<span class="number">32787</span></span><br><span class="line">   <span class="keyword">switch</span> function.Function.PbCode() &#123;</span><br><span class="line">   <span class="keyword">case</span> tipb.ScalarFuncSig_GreatestInt, tipb.ScalarFuncSig_GreatestReal,</span><br><span class="line">      tipb.ScalarFuncSig_LeastInt, tipb.ScalarFuncSig_LeastReal:</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">true</span></span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// L1161</span></span><br><span class="line"><span class="keyword">case</span> ast.IsTruthWithNull, ast.IsTruthWithoutNull, ast.IsFalsity: -- #<span class="number">33047</span></span><br><span class="line">   <span class="keyword">return</span> <span class="literal">true</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>将 TiFlash 6.0 新增算子对应的函数名、SQL的函数名，按函数类型归类，总结成下表，更便于查询和分析。</p>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>代码中的函数名</th>
+<th>SQL中的函数名</th>
+<th>函数类型</th>
+<th>功能描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/issues/32594">#32594</a></td>
+<td>ast.DayName, ast.MonthName</td>
+<td>DAYNAME(), MONTHNAME()</td>
+<td>日期函数</td>
+<td>返回星期名称；返回参数的月份名称</td>
+</tr>
+<tr>
+<td><a target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/issues/33012">#33012</a></td>
+<td>ast.DayOfMonth, ast.LastDay</td>
+<td>DAYOFMONTH(), LAST_DAY()</td>
+<td>日期函数</td>
+<td>返回参数对应的天数部分(1-31)；返回参数中月份的最后一天</td>
+</tr>
+<tr>
+<td><a target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/issues/33130">#33130</a></td>
+<td>ast.DayOfWeek, ast.DayOfYear</td>
+<td>DAYOFWEEK(), DAYOFYEAR()</td>
+<td>日期函数</td>
+<td>返回参数对应的星期下标；返回参数代表一年的哪一天 (1-366)</td>
+</tr>
+<tr>
+<td><a target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/issues/32637">#32637</a></td>
+<td>ast.Regexp</td>
+<td>REGEXP</td>
+<td>字符串函数</td>
+<td>使用正则表达式匹配模式</td>
+</tr>
+<tr>
+<td><a target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/issues/32787">#32787</a></td>
+<td>ast.Least, ast.Greatest</td>
+<td>LEAST(), GREATEST()</td>
+<td>操作符</td>
+<td>返回最小值；返回最大值</td>
+</tr>
+<tr>
+<td><a target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/issues/33047">#33047</a></td>
+<td>ast.IsTruthWithNull, ast.IsTruthWithoutNull, ast.IsFalsity</td>
+<td>istrue_with_null, istrue, isfalse</td>
+<td>操作符</td>
+<td>判断是否为真，如果结果为null，则返回null；判断是否为真，如果结果为null，则返回0；判断是否为假</td>
+</tr>
+</tbody>
+</table>
+<h2 id="新增支持算子下推汇总">新增支持算子下推汇总</h2>
+<p>本次版本迭代新增支持了两个算子可以下推至 MPP 引擎，分别是 <code>Left Outer Semi Join</code> 和 <code>Anti Left Outer Semi Join</code>。</p>
+<p>中文表述为左外半连接（<code>Left Outer Semi Join</code>）和反左外半连接（<code>Anti Left Outer Semi Join</code>），半连接意为仅需要匹配第一行后就可以停止查询，而“反”则表示有不存在匹配值（即 <code>NOT IN</code>）的情况。<br>
+查阅历史发版说明可知，在 TiDB 3.0 发版时，针对 <code>NOT EXISTS</code> 子查询进行优化，将其转化为 <code>Anti Semi Join</code> <a target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/pull/7842">#7842</a> 。而在 TiFlash 中的这两种 Join 都是基于 Hash Join 实现，对于大、宽表关联查询的场景，会比使用索引关联的效率更高。</p>
+<h2 id="新特性演示">新特性演示</h2>
+<ul>
+<li>TiDB 版本</li>
+</ul>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">TiDB<span class="operator">-</span>v6<span class="operator">&gt;</span> <span class="keyword">select</span> tidb_version()\G</span><br><span class="line"><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span> <span class="number">1.</span> <span class="type">row</span> <span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span><span class="operator">*</span></span><br><span class="line">tidb_version(): <span class="keyword">Release</span> Version: v6<span class="number">.0</span><span class="number">.0</span></span><br><span class="line">Edition: Community</span><br><span class="line">Git <span class="keyword">Commit</span> Hash: <span class="number">36</span>a9810441ca0e496cbd22064af274b3be771081</span><br><span class="line">Git Branch: heads<span class="operator">/</span>refs<span class="operator">/</span>tags<span class="operator">/</span>v6<span class="number">.0</span><span class="number">.0</span></span><br><span class="line">UTC Build <span class="type">Time</span>: <span class="number">2022</span><span class="number">-03</span><span class="number">-31</span> <span class="number">10</span>:<span class="number">33</span>:<span class="number">28</span></span><br><span class="line">GoVersion: go1<span class="number">.18</span></span><br><span class="line">Race Enabled: <span class="literal">false</span></span><br><span class="line">TiKV Min Version: v3<span class="number">.0</span><span class="number">.0</span><span class="number">-60965</span>b006877ca7234adaced7890d7b029ed1306</span><br><span class="line"><span class="keyword">Check</span> <span class="keyword">Table</span> Before <span class="keyword">Drop</span>: <span class="literal">false</span></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.001</span> sec)</span><br></pre></td></tr></table></figure>
+<ul>
+<li>准备测试表、数据</li>
+</ul>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">USE test;</span><br><span class="line"><span class="keyword">DROP</span> <span class="keyword">TABLE</span> IF <span class="keyword">EXISTS</span> t;</span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> t (id <span class="type">int</span>, dc datetime, cc1 <span class="type">char</span>(<span class="number">20</span>), cc2 <span class="type">char</span>(<span class="number">20</span>));</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> t <span class="keyword">VALUES</span> (<span class="number">1</span>, <span class="string">&#x27;2022-04-30 15:33:10&#x27;</span>, <span class="string">&#x27;UUtJeaV&#x27;</span>, <span class="string">&#x27;snRXXCZHBPW&#x27;</span>), (<span class="number">2</span>, <span class="string">&#x27;2022-05-01 15:33:20&#x27;</span>, <span class="string">&#x27;snRXXCZHBPW&#x27;</span>, <span class="string">&#x27;UUtJeaV&#x27;</span>);</span><br><span class="line">ANALYZE <span class="keyword">TABLE</span> t;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>创建 TiFlash 数据副本，并强制开启 MPP 模式</li>
+</ul>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">ALTER</span> <span class="keyword">TABLE</span> t <span class="keyword">SET</span> TIFLASH REPLICA <span class="number">1</span>;</span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> information_schema.tiflash_replica;</span><br><span class="line"></span><br><span class="line"><span class="operator">/</span><span class="operator">/</span> TiDB 无视代价估算，选择 MPP 模式。</span><br><span class="line"><span class="keyword">set</span> @<span class="variable">@session</span>.tidb_allow_mpp<span class="operator">=</span><span class="number">1</span>;</span><br><span class="line"><span class="keyword">set</span> @<span class="variable">@session</span>.tidb_enforce_mpp<span class="operator">=</span><span class="number">1</span>;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>日期函数</li>
+</ul>
+<p>由上表可知本次迭代共涉及 6 个日期函数，下面将用 SQL 来做演示，从执行计划中可以看到已经支持函数下推到 TiFlash。后面演示过程以此类推。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">explain </span><br><span class="line"><span class="keyword">select</span> DAYNAME(dc), MONTHNAME(dc), DAYOFMONTH(dc), LAST_DAY(dc), DAYOFWEEK(dc), DAYOFYEAR(dc) <span class="keyword">from</span> t;</span><br></pre></td></tr></table></figure>
+<img alt="1.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20220506-c07bfc9f-07fc-4596-8a92-c4ec7a588a0f.jpg" referrerpolicy="no-referrer"/>
+<ul>
+<li>字符串函数 <code>REGEXP</code></li>
+</ul>
+<p>在过滤条件中增加正则判定，过滤以 <code>U</code> 开头的数据。但是，这里收到了一条警告信息，当前不支持下推到 TiKV。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">explain </span><br><span class="line"><span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> t <span class="keyword">where</span> t.cc1 regexp <span class="string">&#x27;^U&#x27;</span>;</span><br></pre></td></tr></table></figure>
+<img alt="2.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20220506-1088a226-3546-4a16-978e-84b34f7b4032.jpg" referrerpolicy="no-referrer"/>
+<ul>
+<li>操作符 <code>LEAST()</code>, <code>GREATEST()</code></li>
+</ul>
+<p>在过滤条件中增加最小值、最大值判断。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">explain </span><br><span class="line"><span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> t <span class="keyword">where</span> least(id, <span class="number">2</span>) <span class="operator">&lt;</span> <span class="number">2</span>;</span><br><span class="line"></span><br><span class="line">explain</span><br><span class="line"><span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> t <span class="keyword">where</span> GREATEST(id, <span class="number">1</span>) <span class="operator">&gt;</span> <span class="number">1</span>;</span><br></pre></td></tr></table></figure>
+<img alt="3.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20220506-c30defe2-8821-46f6-b735-217172568189.jpg" referrerpolicy="no-referrer"/>
+<ul>
+<li>操作符 <code>istrue_with_null</code>, <code>istrue</code>, <code>isfalse</code></li>
+</ul>
+<p>判断结果真假。这三个操作符的官方文档内容较少，在准备文章的时候已提交了 <a target="_blank" rel="noopener" href="https://github.com/pingcap/docs-cn/issues/9295">Issue#9295</a> ，相信官方会进行补充完善。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">explain </span><br><span class="line"><span class="keyword">select</span> istrue_with_null(id <span class="operator">&gt;</span> <span class="number">1</span>), istrue(id <span class="operator">=</span> <span class="number">1</span>), isfalse(id <span class="operator">=</span> <span class="number">1</span>) <span class="keyword">from</span> t;</span><br></pre></td></tr></table></figure>
+<img alt="4.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20220506-0c4fa65d-687c-42c9-a231-066b75bf6fd8.jpg" referrerpolicy="no-referrer"/>
+<ul>
+<li>算子 <code>Left Outer Semi Join</code>、<code>Anti Left Outer Semi Join</code></li>
+</ul>
+<p>新增支持下推的 2 个算子，上文新特性描述已做出阐释，下面这两条 SQL 的区别在于第二条语句使用了 <code>NOT IN</code>。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">explain </span><br><span class="line"><span class="keyword">select</span> <span class="number">1</span> <span class="keyword">from</span> (<span class="keyword">select</span> t.id <span class="keyword">in</span> (<span class="keyword">select</span> t.id <span class="keyword">from</span> t) <span class="keyword">from</span> t) x;</span><br><span class="line"></span><br><span class="line">explain </span><br><span class="line"><span class="keyword">select</span> <span class="number">1</span> <span class="keyword">from</span> (<span class="keyword">select</span> t.id <span class="keyword">not</span> <span class="keyword">in</span> (<span class="keyword">select</span> t.id <span class="keyword">from</span> t) <span class="keyword">from</span> t) x;</span><br></pre></td></tr></table></figure>
+<img alt="5.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20220506-fb5d2cab-ab8d-4241-badd-4958f37875ed.jpg" referrerpolicy="no-referrer"/>
+<h2 id="使用建议">使用建议</h2>
+<p>对于本文提及的支持计算下推的新特性已经正式发布，可以放心使用。<br>
+但是这里提示一个使用建议，即 GBK 字符集的表是不能同步到 TiFlash 的，会报下面这个错误。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ERROR <span class="number">8200</span> (HY000): Unsupported <span class="keyword">ALTER</span> <span class="keyword">table</span> replica <span class="keyword">for</span> <span class="keyword">table</span> contain gbk charset</span><br></pre></td></tr></table></figure>
+<p>也就是说如果数据表使用了 GBK 字符集，就无法使用本文解读的这些新特性。</p>
+<p>引申一步，从源码文件 <code>charset.go</code> 的 <code>TiFlashSupportedCharsets</code> 变量可知，<br>
+目前 TiFlash 所支持的字符集有 <code>UTF8, UTF8MB4, ASCII, Latin1, Binary</code> 这 5 种。<br>
+所以，一般情况下，在创建数据表时，不建议使用 GBK 字符集。如果是迁移或重构项目，建议将数据转换为 UTF8mb4。</p>
+<h2 id="总结">总结</h2>
+<p>本文对 TiFlash 新支持下推的函数和算子进行了汇总，并进行逐一演示。<br>
+从 TiDB v4 正式发布 TiFlash 组件，到 v5 引入 MPP 引擎，再到伴随 v6 的发布而正式宣布开源，TiFlash 已经逐步成熟，是 TiDB 走向 HTAP 的关键组件。<br>
+期待 TiFlash 可以支持更多下推函数和算子，期望 TiFlash 可以运行得更快、更稳。</p>
+<hr>
+<p><a target="_blank" rel="noopener" href="https://www.modb.pro/db/400382">https://www.modb.pro/db/400382</a><br>
+<a target="_blank" rel="noopener" href="https://tidb.net/blog/2188d936?shareId=286bbfd2">https://tidb.net/blog/2188d936?shareId=286bbfd2</a><br>
+<a target="_blank" rel="noopener" href="https://tidb.net/book/book-rush/performance/mpp-engine/tiflash-pushing-down">https://tidb.net/book/book-rush/performance/mpp-engine/tiflash-pushing-down</a></p>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/tidb/" class="tag-link">
+                                tidb
+                            </a>
+                        
+                            <a href="/tags/tiflash/" class="tag-link">
+                                tiflash
+                            </a>
+                        
+                            <a href="/tags/tidb-6-x/" class="tag-link">
+                                tidb 6.x
+                            </a>
+                        
+                            <a href="/tags/asktug/" class="tag-link">
+                                asktug
+                            </a>
+                        
+                            <a href="/tags/mpp/" class="tag-link">
+                                mpp
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2022/tidb/tidb-6.0-tiflash-pushing-down/index.html">https://shawnyan.cn/2022/tidb/tidb-6.0-tiflash-pushing-down/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2022/tidb/tidb-6.0-offline-package/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">TiDB 6.x 新特性解读 | 离线包变更</span>
+        </a>
+    
+
+    
+        <a href="/2022/tidb/tidb-6.0-new-collation/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">TiDB 6.x 新特性解读 | Collation 规则</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#TiFlash-%E5%92%8C-MPP-%E5%BC%95%E6%93%8E"><span class="toc-text">TiFlash 和 MPP 引擎</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%96%B0%E5%A2%9E%E6%94%AF%E6%8C%81%E4%B8%8B%E6%8E%A8%E5%87%BD%E6%95%B0%E6%B1%87%E6%80%BB"><span class="toc-text">新增支持下推函数汇总</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%96%B0%E5%A2%9E%E6%94%AF%E6%8C%81%E7%AE%97%E5%AD%90%E4%B8%8B%E6%8E%A8%E6%B1%87%E6%80%BB"><span class="toc-text">新增支持算子下推汇总</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%96%B0%E7%89%B9%E6%80%A7%E6%BC%94%E7%A4%BA"><span class="toc-text">新特性演示</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8%E5%BB%BA%E8%AE%AE"><span class="toc-text">使用建议</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

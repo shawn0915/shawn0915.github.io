@@ -1,0 +1,1463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        温故知新 | mydumper &amp; dumpling 知识点汇总 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;p&gt;“温故知新”系列，是指重新整理汇总那些有用但可能平时用不到的知识点，同时发掘、学习新的知识点以丰富知识体系。&lt;br&gt;
+本文主要阐释 &lt;code&gt;mydumper&lt;/code&gt; 和 &lt;code&gt;dumpling&lt;/code&gt; 工具的相关概念、使用方法，及其与TiDB的关联。&lt;/p&gt;
+&lt;img alt=&#34;1.png&#34; src=&#34;/img/tidb/mydumper.png&#34;/&gt;
+&lt;p&gt;前置信息：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;CentOS Linux release 7.9.2009 (Core)&lt;br&gt;
+MySQL 5.7.37&lt;br&gt;
+TiDB v5.4.0&lt;br&gt;
+mydumper v0.11.5-2&lt;br&gt;
+mydumper v0.9.5 with PingCAP customization&lt;br&gt;
+dumpling v5.4.0&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;mydumper-简介&#34;&gt;mydumper 简介&lt;/h2&gt;
+&lt;p&gt;&lt;code&gt;mydummper&lt;/code&gt;是一个第三方工具，用来备份 MySQL（MariaDB、Percona）数据库。&lt;/p&gt;
+&lt;h3 id=&#34;缘起&#34;&gt;缘起&lt;/h3&gt;
+&lt;blockquote&gt;
+&lt;p&gt;The mydumper project was started at the beginning of 2009 by Domas Mituzas, and a few months ago we started collaborating and adding new features to improve performance and usability.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;via. Percona Blog.&lt;/p&gt;
+&lt;h3 id=&#34;特性&#34;&gt;特性&lt;/h3&gt;
+&lt;ol&gt;
+&lt;li&gt;支持多线程导出数据，速度更快。&lt;/li&gt;
+&lt;li&gt;支持一致性备份。&lt;/li&gt;
+&lt;li&gt;支持将导出文件压缩，节约空间。&lt;/li&gt;
+&lt;li&gt;支持多线程恢复。&lt;/li&gt;
+&lt;li&gt;支持以守护进程模式工作，定时快照和连续二进制日志。&lt;/li&gt;
+&lt;li&gt;支持按照指定大小将备份文件切割。&lt;/li&gt;
+&lt;li&gt;数据与建表语句分离。&lt;/li&gt;
+&lt;li&gt;比mysqldump速度快。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&#34;代码&#34;&gt;代码&lt;/h3&gt;
+&lt;p&gt;最新版代码库：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;官方库：&lt;a href=&#34;https://github.com/mydumper/mydumper&#34;&gt;https://github.com/mydumper/mydumper&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;PingCAP定制版：&lt;a href=&#34;https://github.com/pingcap/mydumper&#34;&gt;https://github.com/pingcap/mydumper&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;安装&#34;&gt;安装&lt;/h3&gt;
+&lt;p&gt;这里介绍两种安装方式：1. RPM安装；2. 源码编译安装&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;RPM安装&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;# &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;yum install -y https://github.com/mydumper/mydumper/releases/download/v0.11.5-2/mydumper-0.11.5-2.el7.x86_64.rpm&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;# &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;mydumper --version&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mydumper 0.11.5, built against MySQL 5.7.34-37&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;源码编译安装&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;# yum install -y cmake gcc gcc-c++ git make&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;# yum install -y glib2-devel mysql-devel openssl-devel pcre-devel zlib-devel libzstd-devel&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;# yum install -y MariaDB-devel&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;# wget https://github.com/mydumper/mydumper/archive/refs/tags/v0.11.5-2.zip&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;# unzip v0.11.5-2.zip&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;# cd mydumper-0.11.5-2/&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;# cmake .&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;# make&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;# make install&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-- Installing: /usr/local/bin/mydumper&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-- Installing: /usr/local/bin/myloader&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;# mydumper --version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mydumper 0.11.5, built against MySQL 5.7.37&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;mydumper-使用方法&#34;&gt;mydumper 使用方法&lt;/h2&gt;
+&lt;h3 id=&#34;重要选项&#34;&gt;重要选项&lt;/h3&gt;
+&lt;p&gt;摘取了一些重要的选项，列举如下：&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Options&lt;/th&gt;
+&lt;th&gt;Desc&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;-B, --database&lt;/td&gt;
+&lt;td&gt;导出的源库&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;-T, --tables-list&lt;/td&gt;
+&lt;td&gt;导出的表，以逗号分隔（不排除正则选项）&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;-o, --outputdir&lt;/td&gt;
+&lt;td&gt;输出文件到目标目录&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;-F, --chunk-filesize&lt;/td&gt;
+&lt;td&gt;将表按指定块大小（单位为MB）拆分成若干文件&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;-c, --compress&lt;/td&gt;
+&lt;td&gt;压缩输出文件&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;-x, --regex&lt;/td&gt;
+&lt;td&gt;正则表达式去匹配 ‘db.table’&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;-m, --no-schemas&lt;/td&gt;
+&lt;td&gt;只备份表数据，不备份表结构&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;-d, --no-data&lt;/td&gt;
+&lt;td&gt;不备份表数据&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;-k, --no-locks&lt;/td&gt;
+&lt;td&gt;不执行临时共享读锁。警告：这将导致不一致的备份&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;-t, --threads&lt;/td&gt;
+&lt;td&gt;使用的线程数，默认值为4&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;–&lt;/td&gt;
+&lt;td&gt;–&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;–sync-wait&lt;/td&gt;
+&lt;td&gt;WSREP_SYNC_WAIT value to set at SESSION level&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;–&lt;/td&gt;
+&lt;td&gt;–&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;-z, --tidb-snapshot&lt;/td&gt;
+&lt;td&gt;Snapshot to use for TiDB&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;注：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://docs.pingcap.com/zh/tidb/v4.0/mydumper-overview#%E6%96%B0%E6%B7%BB%E5%8F%82%E6%95%B0&#34;&gt;&lt;code&gt;-z 或 --tidb-snapshot&lt;/code&gt;&lt;/a&gt;: 设置 tidb_snapshot 用于备份。默认值为当前 TSO（SHOW MASTER STATUS 输出的 Position 字段）。此参数可设为 TSO 或有效的 datetime 时间，例如：-z “2016-10-08 16:45:26”。&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://pingcap.com/zh/blog/tidb-as-mysql-slave&#34;&gt;&lt;code&gt;--no-locks&lt;/code&gt;&lt;/a&gt;: 在阿里云一些需要 super privilege 的云上面，mydumper 需要加上 --no-locks 参数，否则会提示没有权限操作。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;常用备份命令&#34;&gt;常用备份命令&lt;/h3&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;# &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;连接信息&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;host=192.168.195.128&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;pass=password&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;# &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;全实例备份&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mydumper -u root -p $pass -h $host -o /data/backup/full_instance&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;# &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;全实例备份，压缩备份，并排除mysql,sys系统库&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mydumper -u root -p $pass -h $host -c --regex &amp;#x27;^(?!(mysql\.|test\.|sys\.))&amp;#x27; -o /data/backup/full_instance_compress&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;# &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;备份指定库&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mydumper -u root -p $pass -h $host -B sbtest -o /data/backup/db_sbtest&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;# &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;备份指定表&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mydumper -u root -p $pass -h $host -B sbtest -T t1,t2 -o /data/backup/db_sbtest_t1_t2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;# &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;只备份表结构&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mydumper -u root -p $pass -h $host -B sbtest -d -o /data/backup/db_sbtest_ddl&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;# &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;只备份表数据&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mydumper -u root -p $pass -h $host -B sbtest -m -o /data/backup/db_sbtest_data&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;备份文件命名&#34;&gt;备份文件命名&lt;/h3&gt;
+&lt;p&gt;常见命名规则：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;metadata： 记录备份的开始、结束时间。&lt;/li&gt;
+&lt;li&gt;database-schema-create.sql: 建库语句。&lt;/li&gt;
+&lt;li&gt;database.table.sql: 该表的插入数据语句（若该表为空，则不存在此文件）。&lt;/li&gt;
+&lt;li&gt;database.table-metadata： 记录该表的行数。&lt;/li&gt;
+&lt;li&gt;database.table-schema.sql： 该表的创建语句。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;mydumper-支持-TiDB&#34;&gt;mydumper 支持 TiDB&lt;/h2&gt;
+&lt;p&gt;官方版本的 mydumper 对 TiDB 的支持。&lt;br&gt;
+或者说，PingCAP 团队以将 mydumper 对 TiDB 的兼容性代码向上游提交 PR 并完成合并。&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://github.com/mydumper/mydumper/pull/155/&#34;&gt;https://github.com/mydumper/mydumper/pull/155/&lt;/a&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Add version detection for TiDB (detected_server).&lt;/li&gt;
+&lt;li&gt;Added support for tidb_snapshot option.&lt;/li&gt;
+&lt;li&gt;Auto-set tidb_snapshot to 1 second ago when TiDB detected.&lt;/li&gt;
+&lt;li&gt;Added optimization to dump _tidb_row id when it exists.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;img alt=&#34;2.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220224-27797560-5da0-48a1-bd22-90e1f79a9a96.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;另外，从网络图中我们可以看出，从16年10月开始，PingCAP创建了新的分支版本，并开始兼容性开发。&lt;/p&gt;
+&lt;img alt=&#34;3.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220224-a9183eb5-5324-45cd-b3ec-309f7a6306e3.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;从 pingcap/mydumper 的代码提交记录和PR来看，定制版 mydumper 虽然依旧支持 TiDB v5，但是由于从 TiDB v4 开始已经正式发布了 dumpling 工具，并被其取代。同时，我们也可以清晰的从官方文档里看到这样的一条&lt;a href=&#34;https://docs.pingcap.com/zh/tidb/v4.0/mydumper-overview#mydumper-%E7%AE%80%E4%BB%8B&#34;&gt;警告&lt;/a&gt;：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;PingCAP 之前维护的 Mydumper 工具 fork 自 mydumper project，针对 TiDB 的特性进行了优化。Mydumper 目前已经不再开发新功能，其绝大部分功能已经被 Dumpling 取代。Dumpling 工具使用 Go 语言编写，支持更多针对 TiDB 特性的优化。强烈建议切换到 Dumpling。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;Dumpling-简介&#34;&gt;Dumpling 简介&lt;/h2&gt;
+&lt;p&gt;Dumpling 一个支持热、温备的逻辑备份工具，是 mydumper 的全新升级版，基本用法类似于 mydumper，但也有所区别，可使用tiup进行管理。&lt;br&gt;
+Dumpling 从19年12月开始着手开发，使用Go语言编写，整合了 mydumper 的原有功能，并做了一些改进。&lt;/p&gt;
+&lt;h3 id=&#34;代码-2&#34;&gt;代码&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;原始代码库：&lt;a href=&#34;https://github.com/pingcap/dumpling&#34;&gt;https://github.com/pingcap/dumpling&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;最新代码库：&lt;a href=&#34;https://github.com/pingcap/tidb/tree/master/dumpling&#34;&gt;https://github.com/pingcap/tidb/tree/master/dumpling&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;注：&lt;br&gt;
+Dumpling merged into TiDB (&lt;a href=&#34;https://github.com/pingcap/dumpling/pull/379&#34;&gt;#379&lt;/a&gt;)&lt;/p&gt;
+&lt;h3 id=&#34;Dumpling-的改进&#34;&gt;Dumpling 的改进&lt;/h3&gt;
+&lt;p&gt;相比 Mydumper，Dumpling 做了如下改进：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;支持导出多种数据形式，包括 SQL/CSV。&lt;br&gt;
+通过选项 &lt;code&gt;--filetype string&lt;/code&gt; 进行控制，可以选择sql或csv。&lt;br&gt;
+关于CSV格式还有4个相关参数：&lt;br&gt;
+&lt;code&gt;--csv-delimiter&lt;/code&gt;, csv文件中的定界符 (default “&amp;quot;”)。&lt;br&gt;
+&lt;code&gt;--csv-null-value&lt;/code&gt;, csv中的null值 (default “\N”)。&lt;br&gt;
+&lt;code&gt;--csv-separator&lt;/code&gt;, csv文件中的分隔符 (default “,”)。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;支持全新的 &lt;code&gt;table-filter&lt;/code&gt;，筛选数据更加方便。&lt;br&gt;
+整合了列表方式和正则方式，通过选项 &lt;code&gt;-f, --filter strings&lt;/code&gt; 进行控制，默认值为：&lt;code&gt;[*.*,!/^(mysql|sys|INFORMATION_SCHEMA|PERFORMANCE_SCHEMA|METRICS_SCHEMA|INSPECTION_SCHEMA)$/.*]&lt;/code&gt;&lt;br&gt;
+语法可参考: &lt;a href=&#34;https://github.com/pingcap/tidb-tools/blob/master/pkg/table-filter/README.md&#34;&gt;README&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;支持导出到 Amazon S3 云盘。&lt;br&gt;
+增加了一系列 S3 相关选项，具体有：&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;--s3.aclstring&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--s3.endpointstring&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--s3.providerstring&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--s3.regionstring&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--s3.ssestring&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--s3.sse-kms-key-idstring&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--s3.storage-classstring&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;4.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220224-f3585a2c-5b0b-4446-b237-0001b6dce27b.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;注：&lt;a href=&#34;https://docs.pingcap.com/tidb/stable/dumpling-overview#export-data-to-amazon-s3-cloud-storage&#34;&gt;Export data to Amazon S3 cloud storage&lt;/a&gt;&lt;/p&gt;
+&lt;ol start=&#34;4&#34;&gt;
+&lt;li&gt;针对 TiDB 进行了更多优化：
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;支持配置 TiDB 单条 SQL 内存限制。&lt;br&gt;
+通过选项 &lt;code&gt;--tidb-mem-quota-query uint&lt;/code&gt; 进行控制，单位为 bytes。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;针对 TiDB v4.0.0 及更新版本支持自动调整 TiDB GC 时间。&lt;br&gt;
+TiDB GC 相关概念可参考官方文档：&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;使用 TiDB 的隐藏列 &lt;code&gt;_tidb_rowid&lt;/code&gt; 优化了单表内数据的并发导出性能。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;对于 TiDB 可以设置 tidb_snapshot 的值指定备份数据的时间点，从而保证备份的一致性，而不是通过 &lt;code&gt;FLUSH TABLES WITH READ LOCK&lt;/code&gt; 来保证备份一致性。&lt;br&gt;
+相关参数：&lt;code&gt;--snapshot string&lt;/code&gt;，需要配合参数 &lt;code&gt;--consistency=snapshot&lt;/code&gt;一起使用。&lt;br&gt;
+参数&lt;code&gt;--consistency&lt;/code&gt;用于设定导出数据一致性级别，可设定为：&lt;br&gt;
+1, auto: 默认值，MySQL flush, TiDB snapshot&lt;br&gt;
+2, none: 不加锁 dump，无法保证一致性&lt;br&gt;
+3, flush: dump 前用 FTWRL&lt;br&gt;
+4, lock: 对需要 dump 的所有表执行 lock tables read&lt;br&gt;
+5, snapshot: 通过 tso 指定 dump 位置&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&#34;Dumpling-所需权限&#34;&gt;Dumpling 所需权限&lt;/h3&gt;
+&lt;p&gt;Dumpling 最小权限要求：&lt;code&gt;select, reload, lock tables, replication client&lt;/code&gt;&lt;br&gt;
+创建用户示例：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;user&lt;/span&gt; dumpling;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;grant&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;on&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;.&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; dumpling;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;grant&lt;/span&gt; reload, lock tables, replication client &lt;span class=&#34;keyword&#34;&gt;on&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;.&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; dumpling;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;常用备份命令-2&#34;&gt;常用备份命令&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;DSN信息&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;dsn=&amp;#x27;-u root -P 4000 --host 10.180.0.36&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;alias bk_time=&amp;#x27;date +%Y-%m-%dT%H:%M:%S%z&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;bk_dir=/data/tibackup/export&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;采用默认值直接执行备份&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;tiup dumpling&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;备份全库，备份文件格式为csv(&lt;code&gt;--filetype&lt;/code&gt;)，以8个线程执行备份(&lt;code&gt;-t&lt;/code&gt;)，指定备份目录(&lt;code&gt;-o&lt;/code&gt;)，并将日志输出到指定文件(&lt;code&gt;-L&lt;/code&gt;)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;tiup dumpling $dsn --filetype csv -t 8 -o $&amp;#123;bk_dir&amp;#125;-`bk_time` -L $&amp;#123;bk_dir&amp;#125;-`bk_time`.log&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;备份指定表(&lt;code&gt;--database&lt;/code&gt;, &lt;code&gt;-T&lt;/code&gt;)，输出文件按2000行进行分块，并发执行数据导出到不同文件，以提升效率(-r)；输出的文件按256MB进行拆分(&lt;code&gt;-F&lt;/code&gt;)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;tiup dumpling $dsn --database sbtest -T sbtest.t1 -r 2000 -F 256MB&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;备份指定表数据， &lt;code&gt;snapshot&lt;/code&gt; 的时间点为 “2022-02-24 21:19:00”&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;tiup dumpling $dsn -T sbtest.t1 --snapshot &amp;quot;2022-02-24 21:12:34&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;备份指定表数据， 并控制 TiDB 单条查询语句的内存限制为 1G (&lt;code&gt;--tidb-mem-quota-query&lt;/code&gt;)。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;tiup dumpling $dsn -T sbtest.t1 --tidb-mem-quota-query 1073741824&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;其他&#34;&gt;其他&lt;/h3&gt;
+&lt;p&gt;使用 dumpling 时， 可将 &lt;code&gt;tidb:performance.force-priority&lt;/code&gt; 优先级设定为 &lt;code&gt;LOW_PRIORITY&lt;/code&gt;， 以降低备份对于集群的性能影响。&lt;/p&gt;
+&lt;h2 id=&#34;写在最后&#34;&gt;写在最后&lt;/h2&gt;
+&lt;p&gt;如果您还在使用 TiDB v5.x 之前的版本，建议升级TiDB，mydumper 只需了解即可。&lt;br&gt;
+如果您已经在使用最新版的TiDB，那么一定要熟悉 Dumpling 的常规使用。&lt;br&gt;
+作为 Ti-DBA-er，我们应该对TiDB周边生态工具的过往、现在、未来都有所了解、熟悉，甚至参与其中。这样才能更好的维护线上TiDB，更有效的保障系统稳定性。&lt;/p&gt;
+&lt;h2 id=&#34;相关资源&#34;&gt;相关资源&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://docs.pingcap.com/zh/tidb/stable/dumpling-overview&#34;&gt;官方文档 - Dumpling&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://learn.pingcap.com/learner/player/30008;id=30008;classroomId=30005;rcoId=90103;courseDetailId=30002;learnerAttemptId=1645691722878&#34;&gt;301 TiDB 系统管理基础 -&amp;gt; L 18：数据导出工具 Dumpling&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://learn.pingcap.com/learner/player/120012;id=120012;classroomId=9;rcoId=360004;courseDetailId=120005;learnerAttemptId=1645706748187&#34;&gt;302 TiDB 高级系统管理 -&amp;gt; L 19：TiDB Server 关键性能参数与优化&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://shawnyan.cn/2022/tidb/pingcap-cert-pcta/&#34;&gt;TiDB 认证 | PCTA 认证需要掌握的知识点&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://shawnyan.cn/2022/tidb/pingcap-cert-pctp/&#34;&gt;TiDB 认证 | 新版 PingCAP PCTP 认证考试 – 备考指南&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;p&gt;Yan&lt;br&gt;
+2022-02-24&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;&lt;a href=&#34;https://www.modb.pro/db/335245&#34;&gt;https://www.modb.pro/db/335245&lt;/a&gt;&lt;br&gt;
+&lt;a href=&#34;https://tidb.net/blog/6d3a8da2?shareId=4b720bab&#34;&gt;https://tidb.net/blog/6d3a8da2?shareId=4b720bab&lt;/a&gt;&lt;/p&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="温故知新 | mydumper &amp; dumpling 知识点汇总">
+    <meta property="og:url" content="https://shawnyan.cn/2022/tidb/mydumper-and-dumpling/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;p&gt;“温故知新”系列，是指重新整理汇总那些有用但可能平时用不到的知识点，同时发掘、学习新的知识点以丰富知识体系。&lt;br&gt;
+本文主要阐释 &lt;code&gt;mydumper&lt;/code&gt; 和 &lt;code&gt;dumpling&lt;/code&gt; 工具的相关概念、使用方法，及其与TiDB的关联。&lt;/p&gt;
+&lt;img alt=&#34;1.png&#34; src=&#34;/img/tidb/mydumper.png&#34;/&gt;
+&lt;p&gt;前置信息：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;CentOS Linux release 7.9.2009 (Core)&lt;br&gt;
+MySQL 5.7.37&lt;br&gt;
+TiDB v5.4.0&lt;br&gt;
+mydumper v0.11.5-2&lt;br&gt;
+mydumper v0.9.5 with PingCAP customization&lt;br&gt;
+dumpling v5.4.0&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;mydumper-简介&#34;&gt;mydumper 简介&lt;/h2&gt;
+&lt;p&gt;&lt;code&gt;mydummper&lt;/code&gt;是一个第三方工具，用来备份 MySQL（MariaDB、Percona）数据库。&lt;/p&gt;
+&lt;h3 id=&#34;缘起&#34;&gt;缘起&lt;/h3&gt;
+&lt;blockquote&gt;
+&lt;p&gt;The mydumper project was started at the beginning of 2009 by Domas Mituzas, and a few months ago we started collaborating and adding new features to improve performance and usability.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;via. Percona Blog.&lt;/p&gt;
+&lt;h3 id=&#34;特性&#34;&gt;特性&lt;/h3&gt;
+&lt;ol&gt;
+&lt;li&gt;支持多线程导出数据，速度更快。&lt;/li&gt;
+&lt;li&gt;支持一致性备份。&lt;/li&gt;
+&lt;li&gt;支持将导出文件压缩，节约空间。&lt;/li&gt;
+&lt;li&gt;支持多线程恢复。&lt;/li&gt;
+&lt;li&gt;支持以守护进程模式工作，定时快照和连续二进制日志。&lt;/li&gt;
+&lt;li&gt;支持按照指定大小将备份文件切割。&lt;/li&gt;
+&lt;li&gt;数据与建表语句分离。&lt;/li&gt;
+&lt;li&gt;比mysqldump速度快。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&#34;代码&#34;&gt;代码&lt;/h3&gt;
+&lt;p&gt;最新版代码库：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;官方库：&lt;a href=&#34;https://github.com/mydumper/mydumper&#34;&gt;https://github.com/mydumper/mydumper&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;PingCAP定制版：&lt;a href=&#34;https://github.com/pingcap/mydumper&#34;&gt;https://github.com/pingcap/mydumper&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;安装&#34;&gt;安装&lt;/h3&gt;
+&lt;p&gt;这里介绍两种安装方式：1. RPM安装；2. 源码编译安装&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;RPM安装&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;# &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;yum install -y https://github.com/mydumper/mydumper/releases/download/v0.11.5-2/mydumper-0.11.5-2.el7.x86_64.rpm&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;# &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;mydumper --version&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mydumper 0.11.5, built against MySQL 5.7.34-37&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;源码编译安装&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;# yum install -y cmake gcc gcc-c++ git make&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;# yum install -y glib2-devel mysql-devel openssl-devel pcre-devel zlib-devel libzstd-devel&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;# yum install -y MariaDB-devel&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;# wget https://github.com/mydumper/mydumper/archive/refs/tags/v0.11.5-2.zip&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;# unzip v0.11.5-2.zip&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;# cd mydumper-0.11.5-2/&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;# cmake .&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;# make&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;# make install&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-- Installing: /usr/local/bin/mydumper&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-- Installing: /usr/local/bin/myloader&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;# mydumper --version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mydumper 0.11.5, built against MySQL 5.7.37&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;mydumper-使用方法&#34;&gt;mydumper 使用方法&lt;/h2&gt;
+&lt;h3 id=&#34;重要选项&#34;&gt;重要选项&lt;/h3&gt;
+&lt;p&gt;摘取了一些重要的选项，列举如下：&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Options&lt;/th&gt;
+&lt;th&gt;Desc&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;-B, --database&lt;/td&gt;
+&lt;td&gt;导出的源库&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;-T, --tables-list&lt;/td&gt;
+&lt;td&gt;导出的表，以逗号分隔（不排除正则选项）&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;-o, --outputdir&lt;/td&gt;
+&lt;td&gt;输出文件到目标目录&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;-F, --chunk-filesize&lt;/td&gt;
+&lt;td&gt;将表按指定块大小（单位为MB）拆分成若干文件&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;-c, --compress&lt;/td&gt;
+&lt;td&gt;压缩输出文件&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;-x, --regex&lt;/td&gt;
+&lt;td&gt;正则表达式去匹配 ‘db.table’&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;-m, --no-schemas&lt;/td&gt;
+&lt;td&gt;只备份表数据，不备份表结构&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;-d, --no-data&lt;/td&gt;
+&lt;td&gt;不备份表数据&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;-k, --no-locks&lt;/td&gt;
+&lt;td&gt;不执行临时共享读锁。警告：这将导致不一致的备份&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;-t, --threads&lt;/td&gt;
+&lt;td&gt;使用的线程数，默认值为4&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;–&lt;/td&gt;
+&lt;td&gt;–&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;–sync-wait&lt;/td&gt;
+&lt;td&gt;WSREP_SYNC_WAIT value to set at SESSION level&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;–&lt;/td&gt;
+&lt;td&gt;–&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;-z, --tidb-snapshot&lt;/td&gt;
+&lt;td&gt;Snapshot to use for TiDB&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;注：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://docs.pingcap.com/zh/tidb/v4.0/mydumper-overview#%E6%96%B0%E6%B7%BB%E5%8F%82%E6%95%B0&#34;&gt;&lt;code&gt;-z 或 --tidb-snapshot&lt;/code&gt;&lt;/a&gt;: 设置 tidb_snapshot 用于备份。默认值为当前 TSO（SHOW MASTER STATUS 输出的 Position 字段）。此参数可设为 TSO 或有效的 datetime 时间，例如：-z “2016-10-08 16:45:26”。&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://pingcap.com/zh/blog/tidb-as-mysql-slave&#34;&gt;&lt;code&gt;--no-locks&lt;/code&gt;&lt;/a&gt;: 在阿里云一些需要 super privilege 的云上面，mydumper 需要加上 --no-locks 参数，否则会提示没有权限操作。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;常用备份命令&#34;&gt;常用备份命令&lt;/h3&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;# &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;连接信息&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;host=192.168.195.128&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;pass=password&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;# &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;全实例备份&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mydumper -u root -p $pass -h $host -o /data/backup/full_instance&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;# &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;全实例备份，压缩备份，并排除mysql,sys系统库&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mydumper -u root -p $pass -h $host -c --regex &amp;#x27;^(?!(mysql\.|test\.|sys\.))&amp;#x27; -o /data/backup/full_instance_compress&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;# &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;备份指定库&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mydumper -u root -p $pass -h $host -B sbtest -o /data/backup/db_sbtest&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;# &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;备份指定表&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mydumper -u root -p $pass -h $host -B sbtest -T t1,t2 -o /data/backup/db_sbtest_t1_t2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;# &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;只备份表结构&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mydumper -u root -p $pass -h $host -B sbtest -d -o /data/backup/db_sbtest_ddl&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;meta prompt_&#34;&gt;# &lt;/span&gt;&lt;span class=&#34;language-bash&#34;&gt;只备份表数据&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mydumper -u root -p $pass -h $host -B sbtest -m -o /data/backup/db_sbtest_data&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;备份文件命名&#34;&gt;备份文件命名&lt;/h3&gt;
+&lt;p&gt;常见命名规则：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;metadata： 记录备份的开始、结束时间。&lt;/li&gt;
+&lt;li&gt;database-schema-create.sql: 建库语句。&lt;/li&gt;
+&lt;li&gt;database.table.sql: 该表的插入数据语句（若该表为空，则不存在此文件）。&lt;/li&gt;
+&lt;li&gt;database.table-metadata： 记录该表的行数。&lt;/li&gt;
+&lt;li&gt;database.table-schema.sql： 该表的创建语句。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;mydumper-支持-TiDB&#34;&gt;mydumper 支持 TiDB&lt;/h2&gt;
+&lt;p&gt;官方版本的 mydumper 对 TiDB 的支持。&lt;br&gt;
+或者说，PingCAP 团队以将 mydumper 对 TiDB 的兼容性代码向上游提交 PR 并完成合并。&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://github.com/mydumper/mydumper/pull/155/&#34;&gt;https://github.com/mydumper/mydumper/pull/155/&lt;/a&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Add version detection for TiDB (detected_server).&lt;/li&gt;
+&lt;li&gt;Added support for tidb_snapshot option.&lt;/li&gt;
+&lt;li&gt;Auto-set tidb_snapshot to 1 second ago when TiDB detected.&lt;/li&gt;
+&lt;li&gt;Added optimization to dump _tidb_row id when it exists.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;img alt=&#34;2.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220224-27797560-5da0-48a1-bd22-90e1f79a9a96.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;另外，从网络图中我们可以看出，从16年10月开始，PingCAP创建了新的分支版本，并开始兼容性开发。&lt;/p&gt;
+&lt;img alt=&#34;3.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220224-a9183eb5-5324-45cd-b3ec-309f7a6306e3.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;从 pingcap/mydumper 的代码提交记录和PR来看，定制版 mydumper 虽然依旧支持 TiDB v5，但是由于从 TiDB v4 开始已经正式发布了 dumpling 工具，并被其取代。同时，我们也可以清晰的从官方文档里看到这样的一条&lt;a href=&#34;https://docs.pingcap.com/zh/tidb/v4.0/mydumper-overview#mydumper-%E7%AE%80%E4%BB%8B&#34;&gt;警告&lt;/a&gt;：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;PingCAP 之前维护的 Mydumper 工具 fork 自 mydumper project，针对 TiDB 的特性进行了优化。Mydumper 目前已经不再开发新功能，其绝大部分功能已经被 Dumpling 取代。Dumpling 工具使用 Go 语言编写，支持更多针对 TiDB 特性的优化。强烈建议切换到 Dumpling。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;Dumpling-简介&#34;&gt;Dumpling 简介&lt;/h2&gt;
+&lt;p&gt;Dumpling 一个支持热、温备的逻辑备份工具，是 mydumper 的全新升级版，基本用法类似于 mydumper，但也有所区别，可使用tiup进行管理。&lt;br&gt;
+Dumpling 从19年12月开始着手开发，使用Go语言编写，整合了 mydumper 的原有功能，并做了一些改进。&lt;/p&gt;
+&lt;h3 id=&#34;代码-2&#34;&gt;代码&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;原始代码库：&lt;a href=&#34;https://github.com/pingcap/dumpling&#34;&gt;https://github.com/pingcap/dumpling&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;最新代码库：&lt;a href=&#34;https://github.com/pingcap/tidb/tree/master/dumpling&#34;&gt;https://github.com/pingcap/tidb/tree/master/dumpling&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;注：&lt;br&gt;
+Dumpling merged into TiDB (&lt;a href=&#34;https://github.com/pingcap/dumpling/pull/379&#34;&gt;#379&lt;/a&gt;)&lt;/p&gt;
+&lt;h3 id=&#34;Dumpling-的改进&#34;&gt;Dumpling 的改进&lt;/h3&gt;
+&lt;p&gt;相比 Mydumper，Dumpling 做了如下改进：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;支持导出多种数据形式，包括 SQL/CSV。&lt;br&gt;
+通过选项 &lt;code&gt;--filetype string&lt;/code&gt; 进行控制，可以选择sql或csv。&lt;br&gt;
+关于CSV格式还有4个相关参数：&lt;br&gt;
+&lt;code&gt;--csv-delimiter&lt;/code&gt;, csv文件中的定界符 (default “&amp;quot;”)。&lt;br&gt;
+&lt;code&gt;--csv-null-value&lt;/code&gt;, csv中的null值 (default “\N”)。&lt;br&gt;
+&lt;code&gt;--csv-separator&lt;/code&gt;, csv文件中的分隔符 (default “,”)。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;支持全新的 &lt;code&gt;table-filter&lt;/code&gt;，筛选数据更加方便。&lt;br&gt;
+整合了列表方式和正则方式，通过选项 &lt;code&gt;-f, --filter strings&lt;/code&gt; 进行控制，默认值为：&lt;code&gt;[*.*,!/^(mysql|sys|INFORMATION_SCHEMA|PERFORMANCE_SCHEMA|METRICS_SCHEMA|INSPECTION_SCHEMA)$/.*]&lt;/code&gt;&lt;br&gt;
+语法可参考: &lt;a href=&#34;https://github.com/pingcap/tidb-tools/blob/master/pkg/table-filter/README.md&#34;&gt;README&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;支持导出到 Amazon S3 云盘。&lt;br&gt;
+增加了一系列 S3 相关选项，具体有：&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;--s3.aclstring&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--s3.endpointstring&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--s3.providerstring&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--s3.regionstring&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--s3.ssestring&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--s3.sse-kms-key-idstring&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--s3.storage-classstring&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;img alt=&#34;4.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220224-f3585a2c-5b0b-4446-b237-0001b6dce27b.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;注：&lt;a href=&#34;https://docs.pingcap.com/tidb/stable/dumpling-overview#export-data-to-amazon-s3-cloud-storage&#34;&gt;Export data to Amazon S3 cloud storage&lt;/a&gt;&lt;/p&gt;
+&lt;ol start=&#34;4&#34;&gt;
+&lt;li&gt;针对 TiDB 进行了更多优化：
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;支持配置 TiDB 单条 SQL 内存限制。&lt;br&gt;
+通过选项 &lt;code&gt;--tidb-mem-quota-query uint&lt;/code&gt; 进行控制，单位为 bytes。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;针对 TiDB v4.0.0 及更新版本支持自动调整 TiDB GC 时间。&lt;br&gt;
+TiDB GC 相关概念可参考官方文档：&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;使用 TiDB 的隐藏列 &lt;code&gt;_tidb_rowid&lt;/code&gt; 优化了单表内数据的并发导出性能。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;对于 TiDB 可以设置 tidb_snapshot 的值指定备份数据的时间点，从而保证备份的一致性，而不是通过 &lt;code&gt;FLUSH TABLES WITH READ LOCK&lt;/code&gt; 来保证备份一致性。&lt;br&gt;
+相关参数：&lt;code&gt;--snapshot string&lt;/code&gt;，需要配合参数 &lt;code&gt;--consistency=snapshot&lt;/code&gt;一起使用。&lt;br&gt;
+参数&lt;code&gt;--consistency&lt;/code&gt;用于设定导出数据一致性级别，可设定为：&lt;br&gt;
+1, auto: 默认值，MySQL flush, TiDB snapshot&lt;br&gt;
+2, none: 不加锁 dump，无法保证一致性&lt;br&gt;
+3, flush: dump 前用 FTWRL&lt;br&gt;
+4, lock: 对需要 dump 的所有表执行 lock tables read&lt;br&gt;
+5, snapshot: 通过 tso 指定 dump 位置&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&#34;Dumpling-所需权限&#34;&gt;Dumpling 所需权限&lt;/h3&gt;
+&lt;p&gt;Dumpling 最小权限要求：&lt;code&gt;select, reload, lock tables, replication client&lt;/code&gt;&lt;br&gt;
+创建用户示例：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;create&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;user&lt;/span&gt; dumpling;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;grant&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;select&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;on&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;.&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; dumpling;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;grant&lt;/span&gt; reload, lock tables, replication client &lt;span class=&#34;keyword&#34;&gt;on&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt;.&lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;to&lt;/span&gt; dumpling;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;常用备份命令-2&#34;&gt;常用备份命令&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;DSN信息&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;dsn=&amp;#x27;-u root -P 4000 --host 10.180.0.36&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;alias bk_time=&amp;#x27;date +%Y-%m-%dT%H:%M:%S%z&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;bk_dir=/data/tibackup/export&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;采用默认值直接执行备份&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;tiup dumpling&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;备份全库，备份文件格式为csv(&lt;code&gt;--filetype&lt;/code&gt;)，以8个线程执行备份(&lt;code&gt;-t&lt;/code&gt;)，指定备份目录(&lt;code&gt;-o&lt;/code&gt;)，并将日志输出到指定文件(&lt;code&gt;-L&lt;/code&gt;)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;tiup dumpling $dsn --filetype csv -t 8 -o $&amp;#123;bk_dir&amp;#125;-`bk_time` -L $&amp;#123;bk_dir&amp;#125;-`bk_time`.log&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;备份指定表(&lt;code&gt;--database&lt;/code&gt;, &lt;code&gt;-T&lt;/code&gt;)，输出文件按2000行进行分块，并发执行数据导出到不同文件，以提升效率(-r)；输出的文件按256MB进行拆分(&lt;code&gt;-F&lt;/code&gt;)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;tiup dumpling $dsn --database sbtest -T sbtest.t1 -r 2000 -F 256MB&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;备份指定表数据， &lt;code&gt;snapshot&lt;/code&gt; 的时间点为 “2022-02-24 21:19:00”&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;tiup dumpling $dsn -T sbtest.t1 --snapshot &amp;quot;2022-02-24 21:12:34&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ul&gt;
+&lt;li&gt;备份指定表数据， 并控制 TiDB 单条查询语句的内存限制为 1G (&lt;code&gt;--tidb-mem-quota-query&lt;/code&gt;)。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;tiup dumpling $dsn -T sbtest.t1 --tidb-mem-quota-query 1073741824&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;其他&#34;&gt;其他&lt;/h3&gt;
+&lt;p&gt;使用 dumpling 时， 可将 &lt;code&gt;tidb:performance.force-priority&lt;/code&gt; 优先级设定为 &lt;code&gt;LOW_PRIORITY&lt;/code&gt;， 以降低备份对于集群的性能影响。&lt;/p&gt;
+&lt;h2 id=&#34;写在最后&#34;&gt;写在最后&lt;/h2&gt;
+&lt;p&gt;如果您还在使用 TiDB v5.x 之前的版本，建议升级TiDB，mydumper 只需了解即可。&lt;br&gt;
+如果您已经在使用最新版的TiDB，那么一定要熟悉 Dumpling 的常规使用。&lt;br&gt;
+作为 Ti-DBA-er，我们应该对TiDB周边生态工具的过往、现在、未来都有所了解、熟悉，甚至参与其中。这样才能更好的维护线上TiDB，更有效的保障系统稳定性。&lt;/p&gt;
+&lt;h2 id=&#34;相关资源&#34;&gt;相关资源&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://docs.pingcap.com/zh/tidb/stable/dumpling-overview&#34;&gt;官方文档 - Dumpling&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://learn.pingcap.com/learner/player/30008;id=30008;classroomId=30005;rcoId=90103;courseDetailId=30002;learnerAttemptId=1645691722878&#34;&gt;301 TiDB 系统管理基础 -&amp;gt; L 18：数据导出工具 Dumpling&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://learn.pingcap.com/learner/player/120012;id=120012;classroomId=9;rcoId=360004;courseDetailId=120005;learnerAttemptId=1645706748187&#34;&gt;302 TiDB 高级系统管理 -&amp;gt; L 19：TiDB Server 关键性能参数与优化&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://shawnyan.cn/2022/tidb/pingcap-cert-pcta/&#34;&gt;TiDB 认证 | PCTA 认证需要掌握的知识点&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://shawnyan.cn/2022/tidb/pingcap-cert-pctp/&#34;&gt;TiDB 认证 | 新版 PingCAP PCTP 认证考试 – 备考指南&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;p&gt;Yan&lt;br&gt;
+2022-02-24&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;&lt;a href=&#34;https://www.modb.pro/db/335245&#34;&gt;https://www.modb.pro/db/335245&lt;/a&gt;&lt;br&gt;
+&lt;a href=&#34;https://tidb.net/blog/6d3a8da2?shareId=4b720bab&#34;&gt;https://tidb.net/blog/6d3a8da2?shareId=4b720bab&lt;/a&gt;&lt;/p&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/tidb/" class="category-badge">
+                                    TiDB
+                                </a>
+                            
+                                <a href="/categories/tidb/tidb-5-x/" class="category-badge">
+                                    TiDB 5.x
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">温故知新 | mydumper &amp; dumpling 知识点汇总</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2022-02-24
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                2.3k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                9 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <p>“温故知新”系列，是指重新整理汇总那些有用但可能平时用不到的知识点，同时发掘、学习新的知识点以丰富知识体系。<br>
+本文主要阐释 <code>mydumper</code> 和 <code>dumpling</code> 工具的相关概念、使用方法，及其与TiDB的关联。</p>
+<img alt="1.png" src="/img/tidb/mydumper.png"/>
+<p>前置信息：</p>
+<blockquote>
+<p>CentOS Linux release 7.9.2009 (Core)<br>
+MySQL 5.7.37<br>
+TiDB v5.4.0<br>
+mydumper v0.11.5-2<br>
+mydumper v0.9.5 with PingCAP customization<br>
+dumpling v5.4.0</p>
+</blockquote>
+<h2 id="mydumper-简介">mydumper 简介</h2>
+<p><code>mydummper</code>是一个第三方工具，用来备份 MySQL（MariaDB、Percona）数据库。</p>
+<h3 id="缘起">缘起</h3>
+<blockquote>
+<p>The mydumper project was started at the beginning of 2009 by Domas Mituzas, and a few months ago we started collaborating and adding new features to improve performance and usability.</p>
+</blockquote>
+<p>via. Percona Blog.</p>
+<h3 id="特性">特性</h3>
+<ol>
+<li>支持多线程导出数据，速度更快。</li>
+<li>支持一致性备份。</li>
+<li>支持将导出文件压缩，节约空间。</li>
+<li>支持多线程恢复。</li>
+<li>支持以守护进程模式工作，定时快照和连续二进制日志。</li>
+<li>支持按照指定大小将备份文件切割。</li>
+<li>数据与建表语句分离。</li>
+<li>比mysqldump速度快。</li>
+</ol>
+<h3 id="代码">代码</h3>
+<p>最新版代码库：</p>
+<ul>
+<li>官方库：<a target="_blank" rel="noopener" href="https://github.com/mydumper/mydumper">https://github.com/mydumper/mydumper</a></li>
+<li>PingCAP定制版：<a target="_blank" rel="noopener" href="https://github.com/pingcap/mydumper">https://github.com/pingcap/mydumper</a></li>
+</ul>
+<h3 id="安装">安装</h3>
+<p>这里介绍两种安装方式：1. RPM安装；2. 源码编译安装</p>
+<ol>
+<li>RPM安装</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">yum install -y https://github.com/mydumper/mydumper/releases/download/v0.11.5-2/mydumper-0.11.5-2.el7.x86_64.rpm</span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">mydumper --version</span></span><br><span class="line">mydumper 0.11.5, built against MySQL 5.7.34-37</span><br></pre></td></tr></table></figure>
+<ol start="2">
+<li>源码编译安装</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"># yum install -y cmake gcc gcc-c++ git make</span><br><span class="line"># yum install -y glib2-devel mysql-devel openssl-devel pcre-devel zlib-devel libzstd-devel</span><br><span class="line"># yum install -y MariaDB-devel</span><br><span class="line"># wget https://github.com/mydumper/mydumper/archive/refs/tags/v0.11.5-2.zip</span><br><span class="line"># unzip v0.11.5-2.zip</span><br><span class="line"># cd mydumper-0.11.5-2/</span><br><span class="line"># cmake .</span><br><span class="line"># make</span><br><span class="line"># make install</span><br><span class="line">-- Installing: /usr/local/bin/mydumper</span><br><span class="line">-- Installing: /usr/local/bin/myloader</span><br><span class="line"># mydumper --version</span><br><span class="line">mydumper 0.11.5, built against MySQL 5.7.37</span><br></pre></td></tr></table></figure>
+<h2 id="mydumper-使用方法">mydumper 使用方法</h2>
+<h3 id="重要选项">重要选项</h3>
+<p>摘取了一些重要的选项，列举如下：</p>
+<table>
+<thead>
+<tr>
+<th>Options</th>
+<th>Desc</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>-B, --database</td>
+<td>导出的源库</td>
+</tr>
+<tr>
+<td>-T, --tables-list</td>
+<td>导出的表，以逗号分隔（不排除正则选项）</td>
+</tr>
+<tr>
+<td>-o, --outputdir</td>
+<td>输出文件到目标目录</td>
+</tr>
+<tr>
+<td>-F, --chunk-filesize</td>
+<td>将表按指定块大小（单位为MB）拆分成若干文件</td>
+</tr>
+<tr>
+<td>-c, --compress</td>
+<td>压缩输出文件</td>
+</tr>
+<tr>
+<td>-x, --regex</td>
+<td>正则表达式去匹配 ‘db.table’</td>
+</tr>
+<tr>
+<td>-m, --no-schemas</td>
+<td>只备份表数据，不备份表结构</td>
+</tr>
+<tr>
+<td>-d, --no-data</td>
+<td>不备份表数据</td>
+</tr>
+<tr>
+<td>-k, --no-locks</td>
+<td>不执行临时共享读锁。警告：这将导致不一致的备份</td>
+</tr>
+<tr>
+<td>-t, --threads</td>
+<td>使用的线程数，默认值为4</td>
+</tr>
+<tr>
+<td>–</td>
+<td>–</td>
+</tr>
+<tr>
+<td>–sync-wait</td>
+<td>WSREP_SYNC_WAIT value to set at SESSION level</td>
+</tr>
+<tr>
+<td>–</td>
+<td>–</td>
+</tr>
+<tr>
+<td>-z, --tidb-snapshot</td>
+<td>Snapshot to use for TiDB</td>
+</tr>
+</tbody>
+</table>
+<p>注：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/v4.0/mydumper-overview#%E6%96%B0%E6%B7%BB%E5%8F%82%E6%95%B0"><code>-z 或 --tidb-snapshot</code></a>: 设置 tidb_snapshot 用于备份。默认值为当前 TSO（SHOW MASTER STATUS 输出的 Position 字段）。此参数可设为 TSO 或有效的 datetime 时间，例如：-z “2016-10-08 16:45:26”。</li>
+<li><a target="_blank" rel="noopener" href="https://pingcap.com/zh/blog/tidb-as-mysql-slave"><code>--no-locks</code></a>: 在阿里云一些需要 super privilege 的云上面，mydumper 需要加上 --no-locks 参数，否则会提示没有权限操作。</li>
+</ul>
+<h3 id="常用备份命令">常用备份命令</h3>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">连接信息</span></span><br><span class="line">host=192.168.195.128</span><br><span class="line">pass=password</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">全实例备份</span></span><br><span class="line">mydumper -u root -p $pass -h $host -o /data/backup/full_instance</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">全实例备份，压缩备份，并排除mysql,sys系统库</span></span><br><span class="line">mydumper -u root -p $pass -h $host -c --regex &#x27;^(?!(mysql\.|test\.|sys\.))&#x27; -o /data/backup/full_instance_compress</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">备份指定库</span></span><br><span class="line">mydumper -u root -p $pass -h $host -B sbtest -o /data/backup/db_sbtest</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">备份指定表</span></span><br><span class="line">mydumper -u root -p $pass -h $host -B sbtest -T t1,t2 -o /data/backup/db_sbtest_t1_t2</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">只备份表结构</span></span><br><span class="line">mydumper -u root -p $pass -h $host -B sbtest -d -o /data/backup/db_sbtest_ddl</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">只备份表数据</span></span><br><span class="line">mydumper -u root -p $pass -h $host -B sbtest -m -o /data/backup/db_sbtest_data</span><br></pre></td></tr></table></figure>
+<h3 id="备份文件命名">备份文件命名</h3>
+<p>常见命名规则：</p>
+<ol>
+<li>metadata： 记录备份的开始、结束时间。</li>
+<li>database-schema-create.sql: 建库语句。</li>
+<li>database.table.sql: 该表的插入数据语句（若该表为空，则不存在此文件）。</li>
+<li>database.table-metadata： 记录该表的行数。</li>
+<li>database.table-schema.sql： 该表的创建语句。</li>
+</ol>
+<h2 id="mydumper-支持-TiDB">mydumper 支持 TiDB</h2>
+<p>官方版本的 mydumper 对 TiDB 的支持。<br>
+或者说，PingCAP 团队以将 mydumper 对 TiDB 的兼容性代码向上游提交 PR 并完成合并。</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/mydumper/mydumper/pull/155/">https://github.com/mydumper/mydumper/pull/155/</a></p>
+<ul>
+<li>Add version detection for TiDB (detected_server).</li>
+<li>Added support for tidb_snapshot option.</li>
+<li>Auto-set tidb_snapshot to 1 second ago when TiDB detected.</li>
+<li>Added optimization to dump _tidb_row id when it exists.</li>
+</ul>
+<img alt="2.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20220224-27797560-5da0-48a1-bd22-90e1f79a9a96.png" referrerpolicy="no-referrer"/>
+<p>另外，从网络图中我们可以看出，从16年10月开始，PingCAP创建了新的分支版本，并开始兼容性开发。</p>
+<img alt="3.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20220224-a9183eb5-5324-45cd-b3ec-309f7a6306e3.jpg" referrerpolicy="no-referrer"/>
+<p>从 pingcap/mydumper 的代码提交记录和PR来看，定制版 mydumper 虽然依旧支持 TiDB v5，但是由于从 TiDB v4 开始已经正式发布了 dumpling 工具，并被其取代。同时，我们也可以清晰的从官方文档里看到这样的一条<a target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/v4.0/mydumper-overview#mydumper-%E7%AE%80%E4%BB%8B">警告</a>：</p>
+<blockquote>
+<p>PingCAP 之前维护的 Mydumper 工具 fork 自 mydumper project，针对 TiDB 的特性进行了优化。Mydumper 目前已经不再开发新功能，其绝大部分功能已经被 Dumpling 取代。Dumpling 工具使用 Go 语言编写，支持更多针对 TiDB 特性的优化。强烈建议切换到 Dumpling。</p>
+</blockquote>
+<h2 id="Dumpling-简介">Dumpling 简介</h2>
+<p>Dumpling 一个支持热、温备的逻辑备份工具，是 mydumper 的全新升级版，基本用法类似于 mydumper，但也有所区别，可使用tiup进行管理。<br>
+Dumpling 从19年12月开始着手开发，使用Go语言编写，整合了 mydumper 的原有功能，并做了一些改进。</p>
+<h3 id="代码-2">代码</h3>
+<ul>
+<li>原始代码库：<a target="_blank" rel="noopener" href="https://github.com/pingcap/dumpling">https://github.com/pingcap/dumpling</a></li>
+<li>最新代码库：<a target="_blank" rel="noopener" href="https://github.com/pingcap/tidb/tree/master/dumpling">https://github.com/pingcap/tidb/tree/master/dumpling</a></li>
+</ul>
+<p>注：<br>
+Dumpling merged into TiDB (<a target="_blank" rel="noopener" href="https://github.com/pingcap/dumpling/pull/379">#379</a>)</p>
+<h3 id="Dumpling-的改进">Dumpling 的改进</h3>
+<p>相比 Mydumper，Dumpling 做了如下改进：</p>
+<ol>
+<li>
+<p>支持导出多种数据形式，包括 SQL/CSV。<br>
+通过选项 <code>--filetype string</code> 进行控制，可以选择sql或csv。<br>
+关于CSV格式还有4个相关参数：<br>
+<code>--csv-delimiter</code>, csv文件中的定界符 (default “&quot;”)。<br>
+<code>--csv-null-value</code>, csv中的null值 (default “\N”)。<br>
+<code>--csv-separator</code>, csv文件中的分隔符 (default “,”)。</p>
+</li>
+<li>
+<p>支持全新的 <code>table-filter</code>，筛选数据更加方便。<br>
+整合了列表方式和正则方式，通过选项 <code>-f, --filter strings</code> 进行控制，默认值为：<code>[*.*,!/^(mysql|sys|INFORMATION_SCHEMA|PERFORMANCE_SCHEMA|METRICS_SCHEMA|INSPECTION_SCHEMA)$/.*]</code><br>
+语法可参考: <a target="_blank" rel="noopener" href="https://github.com/pingcap/tidb-tools/blob/master/pkg/table-filter/README.md">README</a></p>
+</li>
+<li>
+<p>支持导出到 Amazon S3 云盘。<br>
+增加了一系列 S3 相关选项，具体有：</p>
+</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">--s3.aclstring</span><br><span class="line">--s3.endpointstring</span><br><span class="line">--s3.providerstring</span><br><span class="line">--s3.regionstring</span><br><span class="line">--s3.ssestring</span><br><span class="line">--s3.sse-kms-key-idstring</span><br><span class="line">--s3.storage-classstring</span><br></pre></td></tr></table></figure>
+<img alt="4.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20220224-f3585a2c-5b0b-4446-b237-0001b6dce27b.png" referrerpolicy="no-referrer"/>
+<p>注：<a target="_blank" rel="noopener" href="https://docs.pingcap.com/tidb/stable/dumpling-overview#export-data-to-amazon-s3-cloud-storage">Export data to Amazon S3 cloud storage</a></p>
+<ol start="4">
+<li>针对 TiDB 进行了更多优化：
+<ol>
+<li>
+<p>支持配置 TiDB 单条 SQL 内存限制。<br>
+通过选项 <code>--tidb-mem-quota-query uint</code> 进行控制，单位为 bytes。</p>
+</li>
+<li>
+<p>针对 TiDB v4.0.0 及更新版本支持自动调整 TiDB GC 时间。<br>
+TiDB GC 相关概念可参考官方文档：</p>
+</li>
+<li>
+<p>使用 TiDB 的隐藏列 <code>_tidb_rowid</code> 优化了单表内数据的并发导出性能。</p>
+</li>
+<li>
+<p>对于 TiDB 可以设置 tidb_snapshot 的值指定备份数据的时间点，从而保证备份的一致性，而不是通过 <code>FLUSH TABLES WITH READ LOCK</code> 来保证备份一致性。<br>
+相关参数：<code>--snapshot string</code>，需要配合参数 <code>--consistency=snapshot</code>一起使用。<br>
+参数<code>--consistency</code>用于设定导出数据一致性级别，可设定为：<br>
+1, auto: 默认值，MySQL flush, TiDB snapshot<br>
+2, none: 不加锁 dump，无法保证一致性<br>
+3, flush: dump 前用 FTWRL<br>
+4, lock: 对需要 dump 的所有表执行 lock tables read<br>
+5, snapshot: 通过 tso 指定 dump 位置</p>
+</li>
+</ol>
+</li>
+</ol>
+<h3 id="Dumpling-所需权限">Dumpling 所需权限</h3>
+<p>Dumpling 最小权限要求：<code>select, reload, lock tables, replication client</code><br>
+创建用户示例：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">create</span> <span class="keyword">user</span> dumpling;</span><br><span class="line"><span class="keyword">grant</span> <span class="keyword">select</span> <span class="keyword">on</span> <span class="operator">*</span>.<span class="operator">*</span> <span class="keyword">to</span> dumpling;</span><br><span class="line"><span class="keyword">grant</span> reload, lock tables, replication client <span class="keyword">on</span> <span class="operator">*</span>.<span class="operator">*</span> <span class="keyword">to</span> dumpling;</span><br></pre></td></tr></table></figure>
+<h3 id="常用备份命令-2">常用备份命令</h3>
+<ul>
+<li>DSN信息</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">dsn=&#x27;-u root -P 4000 --host 10.180.0.36&#x27;</span><br><span class="line">alias bk_time=&#x27;date +%Y-%m-%dT%H:%M:%S%z&#x27;</span><br><span class="line">bk_dir=/data/tibackup/export</span><br></pre></td></tr></table></figure>
+<ul>
+<li>采用默认值直接执行备份</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tiup dumpling</span><br></pre></td></tr></table></figure>
+<ul>
+<li>备份全库，备份文件格式为csv(<code>--filetype</code>)，以8个线程执行备份(<code>-t</code>)，指定备份目录(<code>-o</code>)，并将日志输出到指定文件(<code>-L</code>)</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tiup dumpling $dsn --filetype csv -t 8 -o $&#123;bk_dir&#125;-`bk_time` -L $&#123;bk_dir&#125;-`bk_time`.log</span><br></pre></td></tr></table></figure>
+<ul>
+<li>备份指定表(<code>--database</code>, <code>-T</code>)，输出文件按2000行进行分块，并发执行数据导出到不同文件，以提升效率(-r)；输出的文件按256MB进行拆分(<code>-F</code>)</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tiup dumpling $dsn --database sbtest -T sbtest.t1 -r 2000 -F 256MB</span><br></pre></td></tr></table></figure>
+<ul>
+<li>备份指定表数据， <code>snapshot</code> 的时间点为 “2022-02-24 21:19:00”</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tiup dumpling $dsn -T sbtest.t1 --snapshot &quot;2022-02-24 21:12:34&quot;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>备份指定表数据， 并控制 TiDB 单条查询语句的内存限制为 1G (<code>--tidb-mem-quota-query</code>)。</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tiup dumpling $dsn -T sbtest.t1 --tidb-mem-quota-query 1073741824</span><br></pre></td></tr></table></figure>
+<h3 id="其他">其他</h3>
+<p>使用 dumpling 时， 可将 <code>tidb:performance.force-priority</code> 优先级设定为 <code>LOW_PRIORITY</code>， 以降低备份对于集群的性能影响。</p>
+<h2 id="写在最后">写在最后</h2>
+<p>如果您还在使用 TiDB v5.x 之前的版本，建议升级TiDB，mydumper 只需了解即可。<br>
+如果您已经在使用最新版的TiDB，那么一定要熟悉 Dumpling 的常规使用。<br>
+作为 Ti-DBA-er，我们应该对TiDB周边生态工具的过往、现在、未来都有所了解、熟悉，甚至参与其中。这样才能更好的维护线上TiDB，更有效的保障系统稳定性。</p>
+<h2 id="相关资源">相关资源</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/dumpling-overview">官方文档 - Dumpling</a></li>
+<li><a target="_blank" rel="noopener" href="https://learn.pingcap.com/learner/player/30008;id=30008;classroomId=30005;rcoId=90103;courseDetailId=30002;learnerAttemptId=1645691722878">301 TiDB 系统管理基础 -&gt; L 18：数据导出工具 Dumpling</a></li>
+<li><a target="_blank" rel="noopener" href="https://learn.pingcap.com/learner/player/120012;id=120012;classroomId=9;rcoId=360004;courseDetailId=120005;learnerAttemptId=1645706748187">302 TiDB 高级系统管理 -&gt; L 19：TiDB Server 关键性能参数与优化</a></li>
+<li><a href="https://shawnyan.cn/2022/tidb/pingcap-cert-pcta/">TiDB 认证 | PCTA 认证需要掌握的知识点</a></li>
+<li><a href="https://shawnyan.cn/2022/tidb/pingcap-cert-pctp/">TiDB 认证 | 新版 PingCAP PCTP 认证考试 – 备考指南</a></li>
+</ul>
+<hr>
+<p>Yan<br>
+2022-02-24</p>
+<hr>
+<p><a target="_blank" rel="noopener" href="https://www.modb.pro/db/335245">https://www.modb.pro/db/335245</a><br>
+<a target="_blank" rel="noopener" href="https://tidb.net/blog/6d3a8da2?shareId=4b720bab">https://tidb.net/blog/6d3a8da2?shareId=4b720bab</a></p>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/tidb/" class="tag-link">
+                                tidb
+                            </a>
+                        
+                            <a href="/tags/pingcap/" class="tag-link">
+                                pingcap
+                            </a>
+                        
+                            <a href="/tags/mydumper/" class="tag-link">
+                                mydumper
+                            </a>
+                        
+                            <a href="/tags/dumpling/" class="tag-link">
+                                dumpling
+                            </a>
+                        
+                            <a href="/tags/asktug/" class="tag-link">
+                                asktug
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2022/tidb/mydumper-and-dumpling/index.html">https://shawnyan.cn/2022/tidb/mydumper-and-dumpling/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2022/mysql/fanyi-time-to-check-galera-cluster-security/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">[译] 是时候该检查 Galera 集群的安全了？</span>
+        </a>
+    
+
+    
+        <a href="/2022/gbase/gbase-8a-python-connector/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">源码阅读 | 浅析 GBase 8a Python 连接器的源码</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#mydumper-%E7%AE%80%E4%BB%8B"><span class="toc-text">mydumper 简介</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BC%98%E8%B5%B7"><span class="toc-text">缘起</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%89%B9%E6%80%A7"><span class="toc-text">特性</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%A3%E7%A0%81"><span class="toc-text">代码</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%89%E8%A3%85"><span class="toc-text">安装</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#mydumper-%E4%BD%BF%E7%94%A8%E6%96%B9%E6%B3%95"><span class="toc-text">mydumper 使用方法</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%87%8D%E8%A6%81%E9%80%89%E9%A1%B9"><span class="toc-text">重要选项</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%B8%B8%E7%94%A8%E5%A4%87%E4%BB%BD%E5%91%BD%E4%BB%A4"><span class="toc-text">常用备份命令</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A4%87%E4%BB%BD%E6%96%87%E4%BB%B6%E5%91%BD%E5%90%8D"><span class="toc-text">备份文件命名</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#mydumper-%E6%94%AF%E6%8C%81-TiDB"><span class="toc-text">mydumper 支持 TiDB</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Dumpling-%E7%AE%80%E4%BB%8B"><span class="toc-text">Dumpling 简介</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%A3%E7%A0%81-2"><span class="toc-text">代码</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Dumpling-%E7%9A%84%E6%94%B9%E8%BF%9B"><span class="toc-text">Dumpling 的改进</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Dumpling-%E6%89%80%E9%9C%80%E6%9D%83%E9%99%90"><span class="toc-text">Dumpling 所需权限</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%B8%B8%E7%94%A8%E5%A4%87%E4%BB%BD%E5%91%BD%E4%BB%A4-2"><span class="toc-text">常用备份命令</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%B6%E4%BB%96"><span class="toc-text">其他</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%99%E5%9C%A8%E6%9C%80%E5%90%8E"><span class="toc-text">写在最后</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%9B%B8%E5%85%B3%E8%B5%84%E6%BA%90"><span class="toc-text">相关资源</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

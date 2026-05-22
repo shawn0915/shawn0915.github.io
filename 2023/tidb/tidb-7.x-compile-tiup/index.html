@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        TiDB 7.x 源码编译之 TiUP 篇，及新特性解析 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;img alt=&#34;tidb-7.x-new-feature-banner.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;引言&#34;&gt;引言&lt;/h2&gt;
+&lt;p&gt;前文 &lt;a href=&#34;https://shawnyan.cn/2023/tidb/tidb-7.x-compile-pd/&#34;&gt;TiDB 源码编译之 PD/TiDB Dashboard 篇&lt;/a&gt; 演示了如何编译 PD 和 TiDB Dashboard 组件，本文继续谈谈 TiUP，对于 TiUP 组件的重要意义也已经在去年的文章 &lt;a href=&#34;https://shawnyan.cn/2022/tidb/tiup-intro/#tiup-mirror&#34;&gt;TiUP：TiDBAer 必备利器&lt;/a&gt; 中充分阐述，不再赘述，直接上干货。&lt;/p&gt;
+&lt;h2 id=&#34;TiUP-编译&#34;&gt;TiUP 编译&lt;/h2&gt;
+&lt;h3 id=&#34;源码仓库&#34;&gt;源码仓库&lt;/h3&gt;
+&lt;p&gt;TiUP 的源码在 PingCAP 的 org 下，&lt;/p&gt;
+&lt;p&gt;目标地址为： &lt;a href=&#34;https://github.com/pingcap/tiup/&#34;&gt;https://github.com/pingcap/tiup/&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;需要注意的是，去年十月，bench 压测组件的源码独立成单独仓库 (&lt;a href=&#34;https://github.com/pingcap/tiup/pull/2055&#34;&gt;#2055&lt;/a&gt;)，&lt;/p&gt;
+&lt;p&gt;目标地址变更为： &lt;a href=&#34;https://github.com/PingCAP-QE/tiup-bench&#34;&gt;https://github.com/PingCAP-QE/tiup-bench&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id=&#34;编译执行&#34;&gt;编译执行&lt;/h3&gt;
+&lt;p&gt;TiUP 主要语言也是 Go，所以编译依赖于前文相似，但注意到 TiUP 仍旧使用的 1.18， 所以这里提了个 Issue (&lt;a href=&#34;https://github.com/pingcap/tiup/issues/2239&#34;&gt; Upgrade golang version to 1.20 #2239 &lt;/a&gt;)记录一下。&lt;/p&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# 下载源码&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;git &lt;span class=&#34;built_in&#34;&gt;clone&lt;/span&gt; https://github.com/shawn0915/tiup&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# 执行编译&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;cd&lt;/span&gt; tiup&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;编译很丝滑，中间有提示 25 个 WARN，但不影响编译进程。只要网络没问题（由于某些资源依赖在 GitHub 上，所以需要靠谱的梯子）就可以顺利编译。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan tiup]# make&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;gofmt (simplify)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;goimports (if installed)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;linting&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  ⚠  https://revive.run/r#cognitive-complexity  function newImportCmd has cognitive complexity 51 (&amp;gt; max enabled 48)  &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  ./components/cluster/command/import.go:31:1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  ⚠  https://revive.run/r#cognitive-complexity  function (*Manager).Deploy has cognitive complexity 66 (&amp;gt; max enabled 48)  &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  ./pkg/cluster/manager/deploy.go:57:1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;⚠ 25 problems (0 errors, 25 warnings)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Warnings:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  25  cognitive-complexity  &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;go mod tidy&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;./tools/check/check-tidy.sh&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GO111MODULE=on CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go vet ./...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make -C components/client &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: Entering directory `/root/tiup/components/client&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;gofmt (simplify)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;goimports (if installed)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;linting&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;go mod tidy&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;../../tools/check/check-tidy.sh&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;go: downloading github.com/spf13/cobra v1.3.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;go: downloading github.com/xo/usql v0.9.5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;go: downloading github.com/go-sql-driver/mysql v1.6.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GO111MODULE=on CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go vet ./...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GO111MODULE=on CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build  -ldflags &amp;#x27;-w -s -X &amp;quot;github.com/pingcap/tiup/pkg/version.GitHash=041760d-dirty&amp;quot; -X &amp;quot;github.com/pingcap/tiup/pkg/version.GitRef=pr-shawnyan-0806&amp;quot; &amp;#x27; -o ../../bin/tiup-client .&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: Leaving directory `/root/tiup/components/client&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GO111MODULE=on CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build  -ldflags &amp;#x27;-w -s -X &amp;quot;github.com/pingcap/tiup/pkg/version.GitHash=041760d-dirty&amp;quot; -X &amp;quot;github.com/pingcap/tiup/pkg/version.GitRef=pr-shawnyan-0806&amp;quot; &amp;#x27; -o bin/tiup-cluster ./components/cluster&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GO111MODULE=on CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build  -ldflags &amp;#x27;-w -s -X &amp;quot;github.com/pingcap/tiup/pkg/version.GitHash=041760d-dirty&amp;quot; -X &amp;quot;github.com/pingcap/tiup/pkg/version.GitRef=pr-shawnyan-0806&amp;quot; &amp;#x27; -o bin/tiup-dm ./components/dm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GO111MODULE=on CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build  -ldflags &amp;#x27;-w -s -X &amp;quot;github.com/pingcap/tiup/pkg/version.GitHash=041760d-dirty&amp;quot; -X &amp;quot;github.com/pingcap/tiup/pkg/version.GitRef=pr-shawnyan-0806&amp;quot; &amp;#x27; -o bin/tiup-server ./server&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;编译完成后，查看版本信息，为了便于识别演示，这里修改了 branch 和版本号。&lt;/p&gt;
+&lt;img alt=&#34;t2.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/20230807-32936d26-29d3-48b1-80cd-ae2d1b1a6a3d-1691513611105.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h3 id=&#34;投入使用&#34;&gt;投入使用&lt;/h3&gt;
+&lt;p&gt;编译好的二进制文件在 &lt;code&gt;bin&lt;/code&gt; 目录下，可以推送到私有 mirror 库，也可以替换本地的二进制文件进行验证测试。起一个 playground 进行测试可以正常使用。&lt;/p&gt;
+&lt;p&gt;感谢 @wish 大佬的 pr (#2163)，修改了启动展示效果，看起来生动许多。&lt;/p&gt;
+&lt;img alt=&#34;t3.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/20230807-6f10adfc-8b25-4efb-a23f-de24ec3737d8-1691513616825.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;TiUP-新特性&#34;&gt;TiUP 新特性&lt;/h2&gt;
+&lt;p&gt;从上次撰文写 TiUP 到现在已经一年多了，从下图中可以看出，这段时间里，TiUP 仓库代码变更量趋于平缓。其中，去年 9 月，TiUP 1.11.0 发版，有较多代码新增，去年 10 月，bench 代码剥离，有较多代码删减。&lt;/p&gt;
+&lt;img alt=&#34;t4.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/20230807-814f6d85-b448-4ad7-bfc6-b1c9b090bfb3-1691513623231.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;下图为近一年 TiUP 的发版时间线，并标记了 TiDB 重要版本。&lt;/p&gt;
+&lt;img alt=&#34;t5.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/20230807-8336f090-6f47-4745-8134-5b967e050e64-1691513627743.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;下面举几个栗子对其中部分新特性加以讲解。&lt;/p&gt;
+&lt;h3 id=&#34;tiup-history&#34;&gt;tiup history&lt;/h3&gt;
+&lt;p&gt;从 TiUP v1.10.0 开始，新增支持新命令 &lt;code&gt;tiup history&lt;/code&gt; 可以查看之前的调用记录。(#1808)&lt;/p&gt;
+&lt;p&gt;支持 csv, json 两种输出格式。&lt;/p&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@centos7 7.2.0]$ tiup &lt;span class=&#34;built_in&#34;&gt;history&lt;/span&gt; --format=default | grep &lt;span class=&#34;built_in&#34;&gt;history&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-08-07T10:22:33  tiup &lt;span class=&#34;built_in&#34;&gt;history&lt;/span&gt;                                                                 0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-08-07T12:15:17  tiup &lt;span class=&#34;built_in&#34;&gt;history&lt;/span&gt; --format json                                                   0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-08-07T12:16:34  tiup &lt;span class=&#34;built_in&#34;&gt;history&lt;/span&gt; --format=json                                                   0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-08-07T12:16:51  tiup &lt;span class=&#34;built_in&#34;&gt;history&lt;/span&gt; --format=csv                                                    0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;history&lt;/span&gt; &lt;span class=&#34;built_in&#34;&gt;log&lt;/span&gt; save path: /home/shawnyan/.tiup/history&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@centos7 7.2.0]$&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@centos7 7.2.0]$ tiup &lt;span class=&#34;built_in&#34;&gt;history&lt;/span&gt; --format=json | grep &lt;span class=&#34;built_in&#34;&gt;history&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#123;&lt;span class=&#34;string&#34;&gt;&amp;quot;time&amp;quot;&lt;/span&gt;:&lt;span class=&#34;string&#34;&gt;&amp;quot;2023-08-07T10:22:33.18062534+09:00&amp;quot;&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;quot;command&amp;quot;&lt;/span&gt;:&lt;span class=&#34;string&#34;&gt;&amp;quot;tiup history&amp;quot;&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;quot;exit_code&amp;quot;&lt;/span&gt;:0&amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#123;&lt;span class=&#34;string&#34;&gt;&amp;quot;time&amp;quot;&lt;/span&gt;:&lt;span class=&#34;string&#34;&gt;&amp;quot;2023-08-07T12:15:04.845158283+09:00&amp;quot;&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;quot;command&amp;quot;&lt;/span&gt;:&lt;span class=&#34;string&#34;&gt;&amp;quot;tiup history --format json&amp;quot;&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;quot;exit_code&amp;quot;&lt;/span&gt;:0&amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#123;&lt;span class=&#34;string&#34;&gt;&amp;quot;time&amp;quot;&lt;/span&gt;:&lt;span class=&#34;string&#34;&gt;&amp;quot;2023-08-07T12:15:08.7993845+09:00&amp;quot;&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;quot;command&amp;quot;&lt;/span&gt;:&lt;span class=&#34;string&#34;&gt;&amp;quot;tiup history --format json&amp;quot;&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;quot;exit_code&amp;quot;&lt;/span&gt;:0&amp;#125;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;Kylin-Linux-10-RHEL-8&#34;&gt;Kylin Linux 10+, RHEL 8&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;tiup-cluster&lt;/code&gt; 支持在麒麟 （Kylin Linux 10+） 和红帽 （RHEL 8） 上部署。(#1886, #1896)&lt;/p&gt;
+&lt;p&gt;这是对 TiDB 操作系统的要求，其他适配的操作系统可参阅文档 &lt;a href=&#34;https://docs.pingcap.com/zh/tidb/stable/hardware-and-software-requirements&#34;&gt;操作系统及平台要求&lt;/a&gt;。&lt;/p&gt;
+&lt;h3 id=&#34;tikv-cdc&#34;&gt;tikv-cdc&lt;/h3&gt;
+&lt;p&gt;从 TiUP v1.11.0 开始，支持在 tiup-cluster 和 tiup-playground 中使用新组件 &lt;code&gt;tikv-cdc&lt;/code&gt;。(#2000, #2022)&lt;/p&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@centos7 7.2.0]$ tiup tikv-cdc version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tiup is checking updates &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; component tikv-cdc ...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component `tikv-cdc`: /home/shawnyan/.tiup/components/tikv-cdc/v1.1.1/tikv-cdc version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Release Version: cdc-v1.1.1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Git Commit Hash: 35d2af65811864e548dcd44aed69dd442f703344&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Git Branch: HEAD&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;UTC Build Time: 2023-02-28 08:13:06&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Go Version: go version go1.18.1 linux/amd64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Failpoint Build: &lt;span class=&#34;literal&#34;&gt;false&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@centos7 7.2.0]$ tiup tikv-cdc --&lt;span class=&#34;built_in&#34;&gt;help&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tiup is checking updates &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; component tikv-cdc ...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component `tikv-cdc`: /home/shawnyan/.tiup/components/tikv-cdc/v1.1.1/tikv-cdc --&lt;span class=&#34;built_in&#34;&gt;help&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;TiKV Change Data Capture&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Usage:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  tikv-cdc [&lt;span class=&#34;built_in&#34;&gt;command&lt;/span&gt;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Available Commands:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  cli         Manage replication task and TiKV-CDC cluster&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;built_in&#34;&gt;help&lt;/span&gt;        Help about any &lt;span class=&#34;built_in&#34;&gt;command&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  server      Start a TiKV-CDC capture server&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  version     Output version information&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Flags:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  -h, --&lt;span class=&#34;built_in&#34;&gt;help&lt;/span&gt;   &lt;span class=&#34;built_in&#34;&gt;help&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; tikv-cdc&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Use &lt;span class=&#34;string&#34;&gt;&amp;quot;tikv-cdc [command] --help&amp;quot;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; more information about a &lt;span class=&#34;built_in&#34;&gt;command&lt;/span&gt;.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;在之前的版本中只能使用 &lt;code&gt;cdc&lt;/code&gt; 对 TiCDC 进行控制，现在新增了 TiKV-CDC 功能，可以通过 &lt;code&gt;tikv-cdc&lt;/code&gt; 来捕捉 TiKV 的变更，支持复制变更到其他 TiKV 集群。&lt;/p&gt;
+&lt;img alt=&#34;t6.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/20230808-fc0646cf-a925-4fa8-8844-c2d6a21127b3-1691513635183.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;但是，只支持 TiKV v6.2.0 及以上版本。(&lt;a href=&#34;https://github.com/pingcap/tiup/blob/v1.12.5/pkg/tidbver/tidbver.go#L146&#34;&gt;TiKVCDCSupportDeploy&lt;/a&gt;)&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;// TiKV-CDC only support TiKV version not less than v6.2.0&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;这是因为从 TiKV v6.2.0 开始，支持跨集群 RawKV 复制。&lt;br&gt;
+不过，关于 &lt;code&gt;tiup tikv-cdc&lt;/code&gt; 的官方文档还没有，期望可以在官方文档中看到更多信息。(&lt;a href=&#34;https://github.com/pingcap/docs-cn/issues/14717&#34;&gt;#14717&lt;/a&gt;)&lt;/p&gt;
+&lt;h3 id=&#34;tidb-dashboard&#34;&gt;tidb-dashboard&lt;/h3&gt;
+&lt;p&gt;从 TiUP v1.11.0 开始，支持在 tiup-cluster 中启用专用 TiDB Dashboard ((#2017)，并在生成拓扑模板文件中包含了相关配置，当然上节 tikv-cdc 的相关配置也包含其中，使用 &lt;code&gt;--full&lt;/code&gt; 选项生成模板拓扑 (&lt;code&gt;tiup cluster template --full&lt;/code&gt;) 可以看到下面内容。&lt;/p&gt;
+&lt;figure class=&#34;highlight yaml&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# # Server configs are used to specify the configuration of TiKV-CDC Servers.&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;attr&#34;&gt;kvcdc_servers:&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;bullet&#34;&gt;-&lt;/span&gt; &lt;span class=&#34;attr&#34;&gt;host:&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;10.0&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.1&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.20&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# # SSH port of the server.&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# ssh_port: 22&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# # TiKV-CDC Server communication port.&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;attr&#34;&gt;port:&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;8600&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# # TiKV-CDC Server data storage directory.&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;attr&#34;&gt;data_dir:&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;quot;/data1/tidb-data/tikv-cdc-8600&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# # TiKV-CDC Server log file storage directory.&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;attr&#34;&gt;log_dir:&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;quot;/data1/tidb-deploy/tikv-cdc-8600/log&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;bullet&#34;&gt;-&lt;/span&gt; &lt;span class=&#34;attr&#34;&gt;host:&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;10.0&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.1&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.21&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;attr&#34;&gt;data_dir:&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;quot;/data1/tidb-data/tikv-cdc-8600&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;attr&#34;&gt;log_dir:&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;quot;/data1/tidb-deploy/tikv-cdc-8600/log&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# # Server configs are used to specify the configuration of TiDB Dashboard Servers. Available from v6.5.0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# tidb_dashboard_servers:&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;comment&#34;&gt;# # The ip address of the PD Server.&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;#  - host: 10.0.1.11&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# # SSH port of the server.&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# ssh_port: 22&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# # port of TiDB Dashboard&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# port: 12333&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# # TiDB Dashboard deployment file, startup script, configuration file storage directory.&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# deploy_dir: &amp;quot;/tidb-deploy/tidb-dashboard-12333&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# # PD Server data storage directory.&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# data_dir: &amp;quot;/tidb-data/tidb-dashboard-12333&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# # PD Server log file storage directory.&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# log_dir: &amp;quot;/tidb-deploy/tidb-dashboard-12333/log&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# # numa node bindings.&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# numa_node: &amp;quot;0,1&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;Disaggregated-Mode&#34;&gt;Disaggregated Mode&lt;/h3&gt;
+&lt;p&gt;TiUP v1.12.2 中引入了一个新参数 &lt;code&gt;--mode=tidb-disagg&lt;/code&gt; (#2194)，用来指定 TiDB 集群启动时使用&lt;a href=&#34;https://docs.pingcap.com/zh/tidb/dev/tiflash-disaggregated-and-s3&#34;&gt;【存算分离】&lt;/a&gt;模式。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;TiFlash 存算分离架构目前为实验特性，不建议在生产环境中使用。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;该模式只支持 TiFlash v7.1.0 及以上版本，由于文章篇幅原因，在此不多做演示。&lt;/p&gt;
+&lt;h2 id=&#34;遇到的问题&#34;&gt;遇到的问题&lt;/h2&gt;
+&lt;h3 id=&#34;期待-tiup-uninstall-加强&#34;&gt;期待 tiup uninstall 加强&lt;/h3&gt;
+&lt;p&gt;在测试时，会经常更新 nightly 版本到本地，但是无法使用 &lt;code&gt;tiup uninstall&lt;/code&gt; 命令批量删除某个版本的 nightly 安装包，只能将本地全铲掉重来，期待相关功能可以得到加强。相关讨论帖：【&lt;a href=&#34;https://asktug.com/t/topic/1008945&#34;&gt;tiup 卸载参数&lt;/a&gt;】&lt;/p&gt;
+&lt;h3 id=&#34;playground-的-root-用户修改密码问题&#34;&gt;playground 的 root 用户修改密码问题&lt;/h3&gt;
+&lt;p&gt;tiup playground 广泛应用于 TiDB 教学和功能演示，对在校大学生和 TiDB 初学者极为友好。&lt;br&gt;
+不过，论坛中有个帖子提到在修改 root 用户密码后无法顺利启动 playground 的问题 (&lt;a href=&#34;https://asktug.com/t/topic/1010718/31?u=shawnyan&#34;&gt;1010718&lt;/a&gt;)，定位到是 TiUP 的一个已提交未修复 Issue，期待可以修复，以支持这种基础功能，即便是 playground 为了方便演示最初没有考虑这方面的事情。&lt;/p&gt;
+&lt;h3 id=&#34;tiup-client-的-dsn-文件解析问题&#34;&gt;tiup client 的 dsn 文件解析问题&lt;/h3&gt;
+&lt;p&gt;与上个问题相关联的，在 tiup playground 启动后，会在数据目录生成一个 dsn 文件，可用于 tiup client 访问 TiDB，但是该文件并不会随着密码修改而变化，也不会随着 &lt;code&gt;tiup playground scale-out&lt;/code&gt; 而增加新地址，所以只能通过 tiup client 以无密码的方式访问最初启动的那个 TiDB Server，除非手动维护 dsn 文件。&lt;a href=&#34;https://asktug.com/t/topic/1010855&#34;&gt;【tiup client,dsn 不支持保存密码】&lt;/a&gt;)&lt;/p&gt;
+&lt;h3 id=&#34;go-sql-driver-mysql-版本&#34;&gt;go-sql-driver/mysql 版本&lt;/h3&gt;
+&lt;p&gt;编译最新版 TiUP 时，在编译日志中发现当前使用的版本是 v1.6.0，建议升级到 v1.7.1，相关信息记录在帖子 &lt;a href=&#34;https://asktug.com/t/topic/1010860&#34;&gt;【tiup 的mysql driver 建议升级到1.7.1】&lt;/a&gt;。&lt;/p&gt;
+&lt;figure class=&#34;highlight go&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;go&lt;/span&gt;: downloading github.com/&lt;span class=&#34;keyword&#34;&gt;go&lt;/span&gt;-sql-driver/mysql v1&lt;span class=&#34;number&#34;&gt;.6&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;其他小瑕疵&#34;&gt;其他小瑕疵&lt;/h3&gt;
+&lt;p&gt;在写本文的过程中，发现几处关于 TiUP 的小瑕疵，期待官方更新。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href=&#34;https://asktug.com/t/topic/1010884&#34;&gt;tiup 源码中的link 404&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://github.com/pingcap/docs-cn/issues/14717&#34;&gt;建议补充 tikv-cdc 的相关内容 #14717&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://github.com/pingcap/docs-cn/issues/14718&#34;&gt;tiup-component-cluster-template 文档待更新 #14718&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://github.com/pingcap/docs-cn/issues/14723&#34;&gt;tiup-component-management 文档待更新 #14723&lt;/a&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;TiUP 工具的价值不言而喻，其实用程度及适用范围远超 Ansible。Playground 是教学演示神器，集众 Team 的心血，工具的好坏不是在论坛里水贴就可以论道的，而是要看在匹配人群中的口碑如何。All in TiDB, and Everyone needs TiUP~&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="TiDB 7.x 源码编译之 TiUP 篇，及新特性解析">
+    <meta property="og:url" content="https://shawnyan.cn/2023/tidb/tidb-7.x-compile-tiup/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;img alt=&#34;tidb-7.x-new-feature-banner.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;引言&#34;&gt;引言&lt;/h2&gt;
+&lt;p&gt;前文 &lt;a href=&#34;https://shawnyan.cn/2023/tidb/tidb-7.x-compile-pd/&#34;&gt;TiDB 源码编译之 PD/TiDB Dashboard 篇&lt;/a&gt; 演示了如何编译 PD 和 TiDB Dashboard 组件，本文继续谈谈 TiUP，对于 TiUP 组件的重要意义也已经在去年的文章 &lt;a href=&#34;https://shawnyan.cn/2022/tidb/tiup-intro/#tiup-mirror&#34;&gt;TiUP：TiDBAer 必备利器&lt;/a&gt; 中充分阐述，不再赘述，直接上干货。&lt;/p&gt;
+&lt;h2 id=&#34;TiUP-编译&#34;&gt;TiUP 编译&lt;/h2&gt;
+&lt;h3 id=&#34;源码仓库&#34;&gt;源码仓库&lt;/h3&gt;
+&lt;p&gt;TiUP 的源码在 PingCAP 的 org 下，&lt;/p&gt;
+&lt;p&gt;目标地址为： &lt;a href=&#34;https://github.com/pingcap/tiup/&#34;&gt;https://github.com/pingcap/tiup/&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;需要注意的是，去年十月，bench 压测组件的源码独立成单独仓库 (&lt;a href=&#34;https://github.com/pingcap/tiup/pull/2055&#34;&gt;#2055&lt;/a&gt;)，&lt;/p&gt;
+&lt;p&gt;目标地址变更为： &lt;a href=&#34;https://github.com/PingCAP-QE/tiup-bench&#34;&gt;https://github.com/PingCAP-QE/tiup-bench&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id=&#34;编译执行&#34;&gt;编译执行&lt;/h3&gt;
+&lt;p&gt;TiUP 主要语言也是 Go，所以编译依赖于前文相似，但注意到 TiUP 仍旧使用的 1.18， 所以这里提了个 Issue (&lt;a href=&#34;https://github.com/pingcap/tiup/issues/2239&#34;&gt; Upgrade golang version to 1.20 #2239 &lt;/a&gt;)记录一下。&lt;/p&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# 下载源码&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;git &lt;span class=&#34;built_in&#34;&gt;clone&lt;/span&gt; https://github.com/shawn0915/tiup&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# 执行编译&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;cd&lt;/span&gt; tiup&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;编译很丝滑，中间有提示 25 个 WARN，但不影响编译进程。只要网络没问题（由于某些资源依赖在 GitHub 上，所以需要靠谱的梯子）就可以顺利编译。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;32&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;33&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;34&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;35&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;36&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;37&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;38&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[root@shawnyan tiup]# make&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;gofmt (simplify)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;goimports (if installed)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;linting&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  ⚠  https://revive.run/r#cognitive-complexity  function newImportCmd has cognitive complexity 51 (&amp;gt; max enabled 48)  &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  ./components/cluster/command/import.go:31:1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  ⚠  https://revive.run/r#cognitive-complexity  function (*Manager).Deploy has cognitive complexity 66 (&amp;gt; max enabled 48)  &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  ./pkg/cluster/manager/deploy.go:57:1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;⚠ 25 problems (0 errors, 25 warnings)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Warnings:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  25  cognitive-complexity  &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;go mod tidy&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;./tools/check/check-tidy.sh&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GO111MODULE=on CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go vet ./...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make -C components/client &lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: Entering directory `/root/tiup/components/client&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;gofmt (simplify)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;goimports (if installed)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;linting&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;go mod tidy&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;../../tools/check/check-tidy.sh&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;go: downloading github.com/spf13/cobra v1.3.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;go: downloading github.com/xo/usql v0.9.5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;go: downloading github.com/go-sql-driver/mysql v1.6.0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GO111MODULE=on CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go vet ./...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GO111MODULE=on CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build  -ldflags &amp;#x27;-w -s -X &amp;quot;github.com/pingcap/tiup/pkg/version.GitHash=041760d-dirty&amp;quot; -X &amp;quot;github.com/pingcap/tiup/pkg/version.GitRef=pr-shawnyan-0806&amp;quot; &amp;#x27; -o ../../bin/tiup-client .&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;make[1]: Leaving directory `/root/tiup/components/client&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GO111MODULE=on CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build  -ldflags &amp;#x27;-w -s -X &amp;quot;github.com/pingcap/tiup/pkg/version.GitHash=041760d-dirty&amp;quot; -X &amp;quot;github.com/pingcap/tiup/pkg/version.GitRef=pr-shawnyan-0806&amp;quot; &amp;#x27; -o bin/tiup-cluster ./components/cluster&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GO111MODULE=on CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build  -ldflags &amp;#x27;-w -s -X &amp;quot;github.com/pingcap/tiup/pkg/version.GitHash=041760d-dirty&amp;quot; -X &amp;quot;github.com/pingcap/tiup/pkg/version.GitRef=pr-shawnyan-0806&amp;quot; &amp;#x27; -o bin/tiup-dm ./components/dm&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;GO111MODULE=on CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build  -ldflags &amp;#x27;-w -s -X &amp;quot;github.com/pingcap/tiup/pkg/version.GitHash=041760d-dirty&amp;quot; -X &amp;quot;github.com/pingcap/tiup/pkg/version.GitRef=pr-shawnyan-0806&amp;quot; &amp;#x27; -o bin/tiup-server ./server&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;编译完成后，查看版本信息，为了便于识别演示，这里修改了 branch 和版本号。&lt;/p&gt;
+&lt;img alt=&#34;t2.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/20230807-32936d26-29d3-48b1-80cd-ae2d1b1a6a3d-1691513611105.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h3 id=&#34;投入使用&#34;&gt;投入使用&lt;/h3&gt;
+&lt;p&gt;编译好的二进制文件在 &lt;code&gt;bin&lt;/code&gt; 目录下，可以推送到私有 mirror 库，也可以替换本地的二进制文件进行验证测试。起一个 playground 进行测试可以正常使用。&lt;/p&gt;
+&lt;p&gt;感谢 @wish 大佬的 pr (#2163)，修改了启动展示效果，看起来生动许多。&lt;/p&gt;
+&lt;img alt=&#34;t3.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/20230807-6f10adfc-8b25-4efb-a23f-de24ec3737d8-1691513616825.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;h2 id=&#34;TiUP-新特性&#34;&gt;TiUP 新特性&lt;/h2&gt;
+&lt;p&gt;从上次撰文写 TiUP 到现在已经一年多了，从下图中可以看出，这段时间里，TiUP 仓库代码变更量趋于平缓。其中，去年 9 月，TiUP 1.11.0 发版，有较多代码新增，去年 10 月，bench 代码剥离，有较多代码删减。&lt;/p&gt;
+&lt;img alt=&#34;t4.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/20230807-814f6d85-b448-4ad7-bfc6-b1c9b090bfb3-1691513623231.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;下图为近一年 TiUP 的发版时间线，并标记了 TiDB 重要版本。&lt;/p&gt;
+&lt;img alt=&#34;t5.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/20230807-8336f090-6f47-4745-8134-5b967e050e64-1691513627743.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;下面举几个栗子对其中部分新特性加以讲解。&lt;/p&gt;
+&lt;h3 id=&#34;tiup-history&#34;&gt;tiup history&lt;/h3&gt;
+&lt;p&gt;从 TiUP v1.10.0 开始，新增支持新命令 &lt;code&gt;tiup history&lt;/code&gt; 可以查看之前的调用记录。(#1808)&lt;/p&gt;
+&lt;p&gt;支持 csv, json 两种输出格式。&lt;/p&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@centos7 7.2.0]$ tiup &lt;span class=&#34;built_in&#34;&gt;history&lt;/span&gt; --format=default | grep &lt;span class=&#34;built_in&#34;&gt;history&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-08-07T10:22:33  tiup &lt;span class=&#34;built_in&#34;&gt;history&lt;/span&gt;                                                                 0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-08-07T12:15:17  tiup &lt;span class=&#34;built_in&#34;&gt;history&lt;/span&gt; --format json                                                   0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-08-07T12:16:34  tiup &lt;span class=&#34;built_in&#34;&gt;history&lt;/span&gt; --format=json                                                   0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2023-08-07T12:16:51  tiup &lt;span class=&#34;built_in&#34;&gt;history&lt;/span&gt; --format=csv                                                    0&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;built_in&#34;&gt;history&lt;/span&gt; &lt;span class=&#34;built_in&#34;&gt;log&lt;/span&gt; save path: /home/shawnyan/.tiup/history&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@centos7 7.2.0]$&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@centos7 7.2.0]$ tiup &lt;span class=&#34;built_in&#34;&gt;history&lt;/span&gt; --format=json | grep &lt;span class=&#34;built_in&#34;&gt;history&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#123;&lt;span class=&#34;string&#34;&gt;&amp;quot;time&amp;quot;&lt;/span&gt;:&lt;span class=&#34;string&#34;&gt;&amp;quot;2023-08-07T10:22:33.18062534+09:00&amp;quot;&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;quot;command&amp;quot;&lt;/span&gt;:&lt;span class=&#34;string&#34;&gt;&amp;quot;tiup history&amp;quot;&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;quot;exit_code&amp;quot;&lt;/span&gt;:0&amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#123;&lt;span class=&#34;string&#34;&gt;&amp;quot;time&amp;quot;&lt;/span&gt;:&lt;span class=&#34;string&#34;&gt;&amp;quot;2023-08-07T12:15:04.845158283+09:00&amp;quot;&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;quot;command&amp;quot;&lt;/span&gt;:&lt;span class=&#34;string&#34;&gt;&amp;quot;tiup history --format json&amp;quot;&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;quot;exit_code&amp;quot;&lt;/span&gt;:0&amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;#123;&lt;span class=&#34;string&#34;&gt;&amp;quot;time&amp;quot;&lt;/span&gt;:&lt;span class=&#34;string&#34;&gt;&amp;quot;2023-08-07T12:15:08.7993845+09:00&amp;quot;&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;quot;command&amp;quot;&lt;/span&gt;:&lt;span class=&#34;string&#34;&gt;&amp;quot;tiup history --format json&amp;quot;&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;quot;exit_code&amp;quot;&lt;/span&gt;:0&amp;#125;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;Kylin-Linux-10-RHEL-8&#34;&gt;Kylin Linux 10+, RHEL 8&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;tiup-cluster&lt;/code&gt; 支持在麒麟 （Kylin Linux 10+） 和红帽 （RHEL 8） 上部署。(#1886, #1896)&lt;/p&gt;
+&lt;p&gt;这是对 TiDB 操作系统的要求，其他适配的操作系统可参阅文档 &lt;a href=&#34;https://docs.pingcap.com/zh/tidb/stable/hardware-and-software-requirements&#34;&gt;操作系统及平台要求&lt;/a&gt;。&lt;/p&gt;
+&lt;h3 id=&#34;tikv-cdc&#34;&gt;tikv-cdc&lt;/h3&gt;
+&lt;p&gt;从 TiUP v1.11.0 开始，支持在 tiup-cluster 和 tiup-playground 中使用新组件 &lt;code&gt;tikv-cdc&lt;/code&gt;。(#2000, #2022)&lt;/p&gt;
+&lt;figure class=&#34;highlight bash&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@centos7 7.2.0]$ tiup tikv-cdc version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tiup is checking updates &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; component tikv-cdc ...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component `tikv-cdc`: /home/shawnyan/.tiup/components/tikv-cdc/v1.1.1/tikv-cdc version&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Release Version: cdc-v1.1.1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Git Commit Hash: 35d2af65811864e548dcd44aed69dd442f703344&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Git Branch: HEAD&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;UTC Build Time: 2023-02-28 08:13:06&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Go Version: go version go1.18.1 linux/amd64&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Failpoint Build: &lt;span class=&#34;literal&#34;&gt;false&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;[shawnyan@centos7 7.2.0]$ tiup tikv-cdc --&lt;span class=&#34;built_in&#34;&gt;help&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;tiup is checking updates &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; component tikv-cdc ...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Starting component `tikv-cdc`: /home/shawnyan/.tiup/components/tikv-cdc/v1.1.1/tikv-cdc --&lt;span class=&#34;built_in&#34;&gt;help&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;TiKV Change Data Capture&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Usage:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  tikv-cdc [&lt;span class=&#34;built_in&#34;&gt;command&lt;/span&gt;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Available Commands:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  cli         Manage replication task and TiKV-CDC cluster&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;built_in&#34;&gt;help&lt;/span&gt;        Help about any &lt;span class=&#34;built_in&#34;&gt;command&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  server      Start a TiKV-CDC capture server&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  version     Output version information&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Flags:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  -h, --&lt;span class=&#34;built_in&#34;&gt;help&lt;/span&gt;   &lt;span class=&#34;built_in&#34;&gt;help&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; tikv-cdc&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Use &lt;span class=&#34;string&#34;&gt;&amp;quot;tikv-cdc [command] --help&amp;quot;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; more information about a &lt;span class=&#34;built_in&#34;&gt;command&lt;/span&gt;.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;在之前的版本中只能使用 &lt;code&gt;cdc&lt;/code&gt; 对 TiCDC 进行控制，现在新增了 TiKV-CDC 功能，可以通过 &lt;code&gt;tikv-cdc&lt;/code&gt; 来捕捉 TiKV 的变更，支持复制变更到其他 TiKV 集群。&lt;/p&gt;
+&lt;img alt=&#34;t6.png&#34; src=&#34;https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/20230808-fc0646cf-a925-4fa8-8844-c2d6a21127b3-1691513635183.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;但是，只支持 TiKV v6.2.0 及以上版本。(&lt;a href=&#34;https://github.com/pingcap/tiup/blob/v1.12.5/pkg/tidbver/tidbver.go#L146&#34;&gt;TiKVCDCSupportDeploy&lt;/a&gt;)&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;// TiKV-CDC only support TiKV version not less than v6.2.0&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;这是因为从 TiKV v6.2.0 开始，支持跨集群 RawKV 复制。&lt;br&gt;
+不过，关于 &lt;code&gt;tiup tikv-cdc&lt;/code&gt; 的官方文档还没有，期望可以在官方文档中看到更多信息。(&lt;a href=&#34;https://github.com/pingcap/docs-cn/issues/14717&#34;&gt;#14717&lt;/a&gt;)&lt;/p&gt;
+&lt;h3 id=&#34;tidb-dashboard&#34;&gt;tidb-dashboard&lt;/h3&gt;
+&lt;p&gt;从 TiUP v1.11.0 开始，支持在 tiup-cluster 中启用专用 TiDB Dashboard ((#2017)，并在生成拓扑模板文件中包含了相关配置，当然上节 tikv-cdc 的相关配置也包含其中，使用 &lt;code&gt;--full&lt;/code&gt; 选项生成模板拓扑 (&lt;code&gt;tiup cluster template --full&lt;/code&gt;) 可以看到下面内容。&lt;/p&gt;
+&lt;figure class=&#34;highlight yaml&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;22&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;23&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;24&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;25&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;26&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;27&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;28&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;29&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;30&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;31&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# # Server configs are used to specify the configuration of TiKV-CDC Servers.&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;attr&#34;&gt;kvcdc_servers:&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;bullet&#34;&gt;-&lt;/span&gt; &lt;span class=&#34;attr&#34;&gt;host:&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;10.0&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.1&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.20&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# # SSH port of the server.&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# ssh_port: 22&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# # TiKV-CDC Server communication port.&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;attr&#34;&gt;port:&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;8600&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# # TiKV-CDC Server data storage directory.&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;attr&#34;&gt;data_dir:&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;quot;/data1/tidb-data/tikv-cdc-8600&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# # TiKV-CDC Server log file storage directory.&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;attr&#34;&gt;log_dir:&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;quot;/data1/tidb-deploy/tikv-cdc-8600/log&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;bullet&#34;&gt;-&lt;/span&gt; &lt;span class=&#34;attr&#34;&gt;host:&lt;/span&gt; &lt;span class=&#34;number&#34;&gt;10.0&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.1&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.21&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;attr&#34;&gt;data_dir:&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;quot;/data1/tidb-data/tikv-cdc-8600&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;attr&#34;&gt;log_dir:&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;quot;/data1/tidb-deploy/tikv-cdc-8600/log&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# # Server configs are used to specify the configuration of TiDB Dashboard Servers. Available from v6.5.0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;# tidb_dashboard_servers:&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  &lt;span class=&#34;comment&#34;&gt;# # The ip address of the PD Server.&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;#  - host: 10.0.1.11&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# # SSH port of the server.&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# ssh_port: 22&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# # port of TiDB Dashboard&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# port: 12333&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# # TiDB Dashboard deployment file, startup script, configuration file storage directory.&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# deploy_dir: &amp;quot;/tidb-deploy/tidb-dashboard-12333&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# # PD Server data storage directory.&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# data_dir: &amp;quot;/tidb-data/tidb-dashboard-12333&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# # PD Server log file storage directory.&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# log_dir: &amp;quot;/tidb-deploy/tidb-dashboard-12333/log&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# # numa node bindings.&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;comment&#34;&gt;# numa_node: &amp;quot;0,1&amp;quot;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;Disaggregated-Mode&#34;&gt;Disaggregated Mode&lt;/h3&gt;
+&lt;p&gt;TiUP v1.12.2 中引入了一个新参数 &lt;code&gt;--mode=tidb-disagg&lt;/code&gt; (#2194)，用来指定 TiDB 集群启动时使用&lt;a href=&#34;https://docs.pingcap.com/zh/tidb/dev/tiflash-disaggregated-and-s3&#34;&gt;【存算分离】&lt;/a&gt;模式。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;TiFlash 存算分离架构目前为实验特性，不建议在生产环境中使用。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;该模式只支持 TiFlash v7.1.0 及以上版本，由于文章篇幅原因，在此不多做演示。&lt;/p&gt;
+&lt;h2 id=&#34;遇到的问题&#34;&gt;遇到的问题&lt;/h2&gt;
+&lt;h3 id=&#34;期待-tiup-uninstall-加强&#34;&gt;期待 tiup uninstall 加强&lt;/h3&gt;
+&lt;p&gt;在测试时，会经常更新 nightly 版本到本地，但是无法使用 &lt;code&gt;tiup uninstall&lt;/code&gt; 命令批量删除某个版本的 nightly 安装包，只能将本地全铲掉重来，期待相关功能可以得到加强。相关讨论帖：【&lt;a href=&#34;https://asktug.com/t/topic/1008945&#34;&gt;tiup 卸载参数&lt;/a&gt;】&lt;/p&gt;
+&lt;h3 id=&#34;playground-的-root-用户修改密码问题&#34;&gt;playground 的 root 用户修改密码问题&lt;/h3&gt;
+&lt;p&gt;tiup playground 广泛应用于 TiDB 教学和功能演示，对在校大学生和 TiDB 初学者极为友好。&lt;br&gt;
+不过，论坛中有个帖子提到在修改 root 用户密码后无法顺利启动 playground 的问题 (&lt;a href=&#34;https://asktug.com/t/topic/1010718/31?u=shawnyan&#34;&gt;1010718&lt;/a&gt;)，定位到是 TiUP 的一个已提交未修复 Issue，期待可以修复，以支持这种基础功能，即便是 playground 为了方便演示最初没有考虑这方面的事情。&lt;/p&gt;
+&lt;h3 id=&#34;tiup-client-的-dsn-文件解析问题&#34;&gt;tiup client 的 dsn 文件解析问题&lt;/h3&gt;
+&lt;p&gt;与上个问题相关联的，在 tiup playground 启动后，会在数据目录生成一个 dsn 文件，可用于 tiup client 访问 TiDB，但是该文件并不会随着密码修改而变化，也不会随着 &lt;code&gt;tiup playground scale-out&lt;/code&gt; 而增加新地址，所以只能通过 tiup client 以无密码的方式访问最初启动的那个 TiDB Server，除非手动维护 dsn 文件。&lt;a href=&#34;https://asktug.com/t/topic/1010855&#34;&gt;【tiup client,dsn 不支持保存密码】&lt;/a&gt;)&lt;/p&gt;
+&lt;h3 id=&#34;go-sql-driver-mysql-版本&#34;&gt;go-sql-driver/mysql 版本&lt;/h3&gt;
+&lt;p&gt;编译最新版 TiUP 时，在编译日志中发现当前使用的版本是 v1.6.0，建议升级到 v1.7.1，相关信息记录在帖子 &lt;a href=&#34;https://asktug.com/t/topic/1010860&#34;&gt;【tiup 的mysql driver 建议升级到1.7.1】&lt;/a&gt;。&lt;/p&gt;
+&lt;figure class=&#34;highlight go&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;go&lt;/span&gt;: downloading github.com/&lt;span class=&#34;keyword&#34;&gt;go&lt;/span&gt;-sql-driver/mysql v1&lt;span class=&#34;number&#34;&gt;.6&lt;/span&gt;&lt;span class=&#34;number&#34;&gt;.0&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;其他小瑕疵&#34;&gt;其他小瑕疵&lt;/h3&gt;
+&lt;p&gt;在写本文的过程中，发现几处关于 TiUP 的小瑕疵，期待官方更新。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href=&#34;https://asktug.com/t/topic/1010884&#34;&gt;tiup 源码中的link 404&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://github.com/pingcap/docs-cn/issues/14717&#34;&gt;建议补充 tikv-cdc 的相关内容 #14717&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://github.com/pingcap/docs-cn/issues/14718&#34;&gt;tiup-component-cluster-template 文档待更新 #14718&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://github.com/pingcap/docs-cn/issues/14723&#34;&gt;tiup-component-management 文档待更新 #14723&lt;/a&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;TiUP 工具的价值不言而喻，其实用程度及适用范围远超 Ansible。Playground 是教学演示神器，集众 Team 的心血，工具的好坏不是在论坛里水贴就可以论道的，而是要看在匹配人群中的口碑如何。All in TiDB, and Everyone needs TiUP~&lt;/p&gt;
+&lt;img alt=&#34;logo.jpg&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/tidb/" class="category-badge">
+                                    TiDB
+                                </a>
+                            
+                                <a href="/categories/tidb/tidb-7-x/" class="category-badge">
+                                    TiDB 7.x
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">TiDB 7.x 源码编译之 TiUP 篇，及新特性解析</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2023-08-07
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                2.3k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                10 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <img alt="tidb-7.x-new-feature-banner.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/tidb-7.x-new-feature-banner-1696249336706.png" referrerpolicy="no-referrer"/>
+<h2 id="引言">引言</h2>
+<p>前文 <a href="https://shawnyan.cn/2023/tidb/tidb-7.x-compile-pd/">TiDB 源码编译之 PD/TiDB Dashboard 篇</a> 演示了如何编译 PD 和 TiDB Dashboard 组件，本文继续谈谈 TiUP，对于 TiUP 组件的重要意义也已经在去年的文章 <a href="https://shawnyan.cn/2022/tidb/tiup-intro/#tiup-mirror">TiUP：TiDBAer 必备利器</a> 中充分阐述，不再赘述，直接上干货。</p>
+<h2 id="TiUP-编译">TiUP 编译</h2>
+<h3 id="源码仓库">源码仓库</h3>
+<p>TiUP 的源码在 PingCAP 的 org 下，</p>
+<p>目标地址为： <a target="_blank" rel="noopener" href="https://github.com/pingcap/tiup/">https://github.com/pingcap/tiup/</a></p>
+<p>需要注意的是，去年十月，bench 压测组件的源码独立成单独仓库 (<a target="_blank" rel="noopener" href="https://github.com/pingcap/tiup/pull/2055">#2055</a>)，</p>
+<p>目标地址变更为： <a target="_blank" rel="noopener" href="https://github.com/PingCAP-QE/tiup-bench">https://github.com/PingCAP-QE/tiup-bench</a></p>
+<h3 id="编译执行">编译执行</h3>
+<p>TiUP 主要语言也是 Go，所以编译依赖于前文相似，但注意到 TiUP 仍旧使用的 1.18， 所以这里提了个 Issue (<a target="_blank" rel="noopener" href="https://github.com/pingcap/tiup/issues/2239"> Upgrade golang version to 1.20 #2239 </a>)记录一下。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 下载源码</span></span><br><span class="line">git <span class="built_in">clone</span> https://github.com/shawn0915/tiup</span><br><span class="line"></span><br><span class="line"><span class="comment"># 执行编译</span></span><br><span class="line"><span class="built_in">cd</span> tiup</span><br><span class="line">make</span><br></pre></td></tr></table></figure>
+<p>编译很丝滑，中间有提示 25 个 WARN，但不影响编译进程。只要网络没问题（由于某些资源依赖在 GitHub 上，所以需要靠谱的梯子）就可以顺利编译。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line">[root@shawnyan tiup]# make</span><br><span class="line">gofmt (simplify)</span><br><span class="line">goimports (if installed)</span><br><span class="line">linting</span><br><span class="line">  ⚠  https://revive.run/r#cognitive-complexity  function newImportCmd has cognitive complexity 51 (&gt; max enabled 48)  </span><br><span class="line">  ./components/cluster/command/import.go:31:1</span><br><span class="line"></span><br><span class="line">  ⚠  https://revive.run/r#cognitive-complexity  function (*Manager).Deploy has cognitive complexity 66 (&gt; max enabled 48)  </span><br><span class="line">  ./pkg/cluster/manager/deploy.go:57:1</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">⚠ 25 problems (0 errors, 25 warnings)</span><br><span class="line"></span><br><span class="line">Warnings:</span><br><span class="line">  25  cognitive-complexity  </span><br><span class="line"></span><br><span class="line">go mod tidy</span><br><span class="line">./tools/check/check-tidy.sh</span><br><span class="line">GO111MODULE=on CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go vet ./...</span><br><span class="line">make -C components/client </span><br><span class="line">make[1]: Entering directory `/root/tiup/components/client&#x27;</span><br><span class="line">gofmt (simplify)</span><br><span class="line">goimports (if installed)</span><br><span class="line">linting</span><br><span class="line">go mod tidy</span><br><span class="line">../../tools/check/check-tidy.sh</span><br><span class="line">go: downloading github.com/spf13/cobra v1.3.0</span><br><span class="line">go: downloading github.com/xo/usql v0.9.5</span><br><span class="line">...</span><br><span class="line">go: downloading github.com/go-sql-driver/mysql v1.6.0</span><br><span class="line">...</span><br><span class="line">GO111MODULE=on CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go vet ./...</span><br><span class="line">GO111MODULE=on CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build  -ldflags &#x27;-w -s -X &quot;github.com/pingcap/tiup/pkg/version.GitHash=041760d-dirty&quot; -X &quot;github.com/pingcap/tiup/pkg/version.GitRef=pr-shawnyan-0806&quot; &#x27; -o ../../bin/tiup-client .</span><br><span class="line">make[1]: Leaving directory `/root/tiup/components/client&#x27;</span><br><span class="line">GO111MODULE=on CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build  -ldflags &#x27;-w -s -X &quot;github.com/pingcap/tiup/pkg/version.GitHash=041760d-dirty&quot; -X &quot;github.com/pingcap/tiup/pkg/version.GitRef=pr-shawnyan-0806&quot; &#x27; -o bin/tiup-cluster ./components/cluster</span><br><span class="line">GO111MODULE=on CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build  -ldflags &#x27;-w -s -X &quot;github.com/pingcap/tiup/pkg/version.GitHash=041760d-dirty&quot; -X &quot;github.com/pingcap/tiup/pkg/version.GitRef=pr-shawnyan-0806&quot; &#x27; -o bin/tiup-dm ./components/dm</span><br><span class="line">GO111MODULE=on CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build  -ldflags &#x27;-w -s -X &quot;github.com/pingcap/tiup/pkg/version.GitHash=041760d-dirty&quot; -X &quot;github.com/pingcap/tiup/pkg/version.GitRef=pr-shawnyan-0806&quot; &#x27; -o bin/tiup-server ./server</span><br></pre></td></tr></table></figure>
+<p>编译完成后，查看版本信息，为了便于识别演示，这里修改了 branch 和版本号。</p>
+<img alt="t2.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/20230807-32936d26-29d3-48b1-80cd-ae2d1b1a6a3d-1691513611105.png" referrerpolicy="no-referrer"/>
+<h3 id="投入使用">投入使用</h3>
+<p>编译好的二进制文件在 <code>bin</code> 目录下，可以推送到私有 mirror 库，也可以替换本地的二进制文件进行验证测试。起一个 playground 进行测试可以正常使用。</p>
+<p>感谢 @wish 大佬的 pr (#2163)，修改了启动展示效果，看起来生动许多。</p>
+<img alt="t3.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/20230807-6f10adfc-8b25-4efb-a23f-de24ec3737d8-1691513616825.png" referrerpolicy="no-referrer"/>
+<h2 id="TiUP-新特性">TiUP 新特性</h2>
+<p>从上次撰文写 TiUP 到现在已经一年多了，从下图中可以看出，这段时间里，TiUP 仓库代码变更量趋于平缓。其中，去年 9 月，TiUP 1.11.0 发版，有较多代码新增，去年 10 月，bench 代码剥离，有较多代码删减。</p>
+<img alt="t4.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/20230807-814f6d85-b448-4ad7-bfc6-b1c9b090bfb3-1691513623231.png" referrerpolicy="no-referrer"/>
+<p>下图为近一年 TiUP 的发版时间线，并标记了 TiDB 重要版本。</p>
+<img alt="t5.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/20230807-8336f090-6f47-4745-8134-5b967e050e64-1691513627743.png" referrerpolicy="no-referrer"/>
+<p>下面举几个栗子对其中部分新特性加以讲解。</p>
+<h3 id="tiup-history">tiup history</h3>
+<p>从 TiUP v1.10.0 开始，新增支持新命令 <code>tiup history</code> 可以查看之前的调用记录。(#1808)</p>
+<p>支持 csv, json 两种输出格式。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@centos7 7.2.0]$ tiup <span class="built_in">history</span> --format=default | grep <span class="built_in">history</span></span><br><span class="line">2023-08-07T10:22:33  tiup <span class="built_in">history</span>                                                                 0</span><br><span class="line">2023-08-07T12:15:17  tiup <span class="built_in">history</span> --format json                                                   0</span><br><span class="line">2023-08-07T12:16:34  tiup <span class="built_in">history</span> --format=json                                                   0</span><br><span class="line">2023-08-07T12:16:51  tiup <span class="built_in">history</span> --format=csv                                                    0</span><br><span class="line"><span class="built_in">history</span> <span class="built_in">log</span> save path: /home/shawnyan/.tiup/history</span><br><span class="line">[shawnyan@centos7 7.2.0]$</span><br><span class="line">[shawnyan@centos7 7.2.0]$ tiup <span class="built_in">history</span> --format=json | grep <span class="built_in">history</span></span><br><span class="line">&#123;<span class="string">&quot;time&quot;</span>:<span class="string">&quot;2023-08-07T10:22:33.18062534+09:00&quot;</span>,<span class="string">&quot;command&quot;</span>:<span class="string">&quot;tiup history&quot;</span>,<span class="string">&quot;exit_code&quot;</span>:0&#125;</span><br><span class="line">&#123;<span class="string">&quot;time&quot;</span>:<span class="string">&quot;2023-08-07T12:15:04.845158283+09:00&quot;</span>,<span class="string">&quot;command&quot;</span>:<span class="string">&quot;tiup history --format json&quot;</span>,<span class="string">&quot;exit_code&quot;</span>:0&#125;</span><br><span class="line">&#123;<span class="string">&quot;time&quot;</span>:<span class="string">&quot;2023-08-07T12:15:08.7993845+09:00&quot;</span>,<span class="string">&quot;command&quot;</span>:<span class="string">&quot;tiup history --format json&quot;</span>,<span class="string">&quot;exit_code&quot;</span>:0&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="Kylin-Linux-10-RHEL-8">Kylin Linux 10+, RHEL 8</h3>
+<p><code>tiup-cluster</code> 支持在麒麟 （Kylin Linux 10+） 和红帽 （RHEL 8） 上部署。(#1886, #1896)</p>
+<p>这是对 TiDB 操作系统的要求，其他适配的操作系统可参阅文档 <a target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/stable/hardware-and-software-requirements">操作系统及平台要求</a>。</p>
+<h3 id="tikv-cdc">tikv-cdc</h3>
+<p>从 TiUP v1.11.0 开始，支持在 tiup-cluster 和 tiup-playground 中使用新组件 <code>tikv-cdc</code>。(#2000, #2022)</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">[shawnyan@centos7 7.2.0]$ tiup tikv-cdc version</span><br><span class="line">tiup is checking updates <span class="keyword">for</span> component tikv-cdc ...</span><br><span class="line">Starting component `tikv-cdc`: /home/shawnyan/.tiup/components/tikv-cdc/v1.1.1/tikv-cdc version</span><br><span class="line">Release Version: cdc-v1.1.1</span><br><span class="line">Git Commit Hash: 35d2af65811864e548dcd44aed69dd442f703344</span><br><span class="line">Git Branch: HEAD</span><br><span class="line">UTC Build Time: 2023-02-28 08:13:06</span><br><span class="line">Go Version: go version go1.18.1 linux/amd64</span><br><span class="line">Failpoint Build: <span class="literal">false</span></span><br><span class="line"></span><br><span class="line">[shawnyan@centos7 7.2.0]$ tiup tikv-cdc --<span class="built_in">help</span></span><br><span class="line">tiup is checking updates <span class="keyword">for</span> component tikv-cdc ...</span><br><span class="line">Starting component `tikv-cdc`: /home/shawnyan/.tiup/components/tikv-cdc/v1.1.1/tikv-cdc --<span class="built_in">help</span></span><br><span class="line">TiKV Change Data Capture</span><br><span class="line"></span><br><span class="line">Usage:</span><br><span class="line">  tikv-cdc [<span class="built_in">command</span>]</span><br><span class="line"></span><br><span class="line">Available Commands:</span><br><span class="line">  cli         Manage replication task and TiKV-CDC cluster</span><br><span class="line">  <span class="built_in">help</span>        Help about any <span class="built_in">command</span></span><br><span class="line">  server      Start a TiKV-CDC capture server</span><br><span class="line">  version     Output version information</span><br><span class="line"></span><br><span class="line">Flags:</span><br><span class="line">  -h, --<span class="built_in">help</span>   <span class="built_in">help</span> <span class="keyword">for</span> tikv-cdc</span><br><span class="line"></span><br><span class="line">Use <span class="string">&quot;tikv-cdc [command] --help&quot;</span> <span class="keyword">for</span> more information about a <span class="built_in">command</span>.</span><br></pre></td></tr></table></figure>
+<p>在之前的版本中只能使用 <code>cdc</code> 对 TiCDC 进行控制，现在新增了 TiKV-CDC 功能，可以通过 <code>tikv-cdc</code> 来捕捉 TiKV 的变更，支持复制变更到其他 TiKV 集群。</p>
+<img alt="t6.png" src="https://tidb-blog.oss-cn-beijing.aliyuncs.com/media/20230808-fc0646cf-a925-4fa8-8844-c2d6a21127b3-1691513635183.png" referrerpolicy="no-referrer"/>
+<p>但是，只支持 TiKV v6.2.0 及以上版本。(<a target="_blank" rel="noopener" href="https://github.com/pingcap/tiup/blob/v1.12.5/pkg/tidbver/tidbver.go#L146">TiKVCDCSupportDeploy</a>)</p>
+<blockquote>
+<p>// TiKV-CDC only support TiKV version not less than v6.2.0</p>
+</blockquote>
+<p>这是因为从 TiKV v6.2.0 开始，支持跨集群 RawKV 复制。<br>
+不过，关于 <code>tiup tikv-cdc</code> 的官方文档还没有，期望可以在官方文档中看到更多信息。(<a target="_blank" rel="noopener" href="https://github.com/pingcap/docs-cn/issues/14717">#14717</a>)</p>
+<h3 id="tidb-dashboard">tidb-dashboard</h3>
+<p>从 TiUP v1.11.0 开始，支持在 tiup-cluster 中启用专用 TiDB Dashboard ((#2017)，并在生成拓扑模板文件中包含了相关配置，当然上节 tikv-cdc 的相关配置也包含其中，使用 <code>--full</code> 选项生成模板拓扑 (<code>tiup cluster template --full</code>) 可以看到下面内容。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># # Server configs are used to specify the configuration of TiKV-CDC Servers.</span></span><br><span class="line"><span class="attr">kvcdc_servers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">host:</span> <span class="number">10.0</span><span class="number">.1</span><span class="number">.20</span></span><br><span class="line">    <span class="comment"># # SSH port of the server.</span></span><br><span class="line">    <span class="comment"># ssh_port: 22</span></span><br><span class="line">    <span class="comment"># # TiKV-CDC Server communication port.</span></span><br><span class="line">    <span class="attr">port:</span> <span class="number">8600</span></span><br><span class="line">    <span class="comment"># # TiKV-CDC Server data storage directory.</span></span><br><span class="line">    <span class="attr">data_dir:</span> <span class="string">&quot;/data1/tidb-data/tikv-cdc-8600&quot;</span></span><br><span class="line">    <span class="comment"># # TiKV-CDC Server log file storage directory.</span></span><br><span class="line">    <span class="attr">log_dir:</span> <span class="string">&quot;/data1/tidb-deploy/tikv-cdc-8600/log&quot;</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">host:</span> <span class="number">10.0</span><span class="number">.1</span><span class="number">.21</span></span><br><span class="line">    <span class="attr">data_dir:</span> <span class="string">&quot;/data1/tidb-data/tikv-cdc-8600&quot;</span></span><br><span class="line">    <span class="attr">log_dir:</span> <span class="string">&quot;/data1/tidb-deploy/tikv-cdc-8600/log&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># # Server configs are used to specify the configuration of TiDB Dashboard Servers. Available from v6.5.0</span></span><br><span class="line"><span class="comment"># tidb_dashboard_servers:</span></span><br><span class="line">  <span class="comment"># # The ip address of the PD Server.</span></span><br><span class="line"><span class="comment">#  - host: 10.0.1.11</span></span><br><span class="line">    <span class="comment"># # SSH port of the server.</span></span><br><span class="line">    <span class="comment"># ssh_port: 22</span></span><br><span class="line">    <span class="comment"># # port of TiDB Dashboard</span></span><br><span class="line">    <span class="comment"># port: 12333</span></span><br><span class="line">    <span class="comment"># # TiDB Dashboard deployment file, startup script, configuration file storage directory.</span></span><br><span class="line">    <span class="comment"># deploy_dir: &quot;/tidb-deploy/tidb-dashboard-12333&quot;</span></span><br><span class="line">    <span class="comment"># # PD Server data storage directory.</span></span><br><span class="line">    <span class="comment"># data_dir: &quot;/tidb-data/tidb-dashboard-12333&quot;</span></span><br><span class="line">    <span class="comment"># # PD Server log file storage directory.</span></span><br><span class="line">    <span class="comment"># log_dir: &quot;/tidb-deploy/tidb-dashboard-12333/log&quot;</span></span><br><span class="line">    <span class="comment"># # numa node bindings.</span></span><br><span class="line">    <span class="comment"># numa_node: &quot;0,1&quot;</span></span><br></pre></td></tr></table></figure>
+<h3 id="Disaggregated-Mode">Disaggregated Mode</h3>
+<p>TiUP v1.12.2 中引入了一个新参数 <code>--mode=tidb-disagg</code> (#2194)，用来指定 TiDB 集群启动时使用<a target="_blank" rel="noopener" href="https://docs.pingcap.com/zh/tidb/dev/tiflash-disaggregated-and-s3">【存算分离】</a>模式。</p>
+<blockquote>
+<p>TiFlash 存算分离架构目前为实验特性，不建议在生产环境中使用。</p>
+</blockquote>
+<p>该模式只支持 TiFlash v7.1.0 及以上版本，由于文章篇幅原因，在此不多做演示。</p>
+<h2 id="遇到的问题">遇到的问题</h2>
+<h3 id="期待-tiup-uninstall-加强">期待 tiup uninstall 加强</h3>
+<p>在测试时，会经常更新 nightly 版本到本地，但是无法使用 <code>tiup uninstall</code> 命令批量删除某个版本的 nightly 安装包，只能将本地全铲掉重来，期待相关功能可以得到加强。相关讨论帖：【<a target="_blank" rel="noopener" href="https://asktug.com/t/topic/1008945">tiup 卸载参数</a>】</p>
+<h3 id="playground-的-root-用户修改密码问题">playground 的 root 用户修改密码问题</h3>
+<p>tiup playground 广泛应用于 TiDB 教学和功能演示，对在校大学生和 TiDB 初学者极为友好。<br>
+不过，论坛中有个帖子提到在修改 root 用户密码后无法顺利启动 playground 的问题 (<a target="_blank" rel="noopener" href="https://asktug.com/t/topic/1010718/31?u=shawnyan">1010718</a>)，定位到是 TiUP 的一个已提交未修复 Issue，期待可以修复，以支持这种基础功能，即便是 playground 为了方便演示最初没有考虑这方面的事情。</p>
+<h3 id="tiup-client-的-dsn-文件解析问题">tiup client 的 dsn 文件解析问题</h3>
+<p>与上个问题相关联的，在 tiup playground 启动后，会在数据目录生成一个 dsn 文件，可用于 tiup client 访问 TiDB，但是该文件并不会随着密码修改而变化，也不会随着 <code>tiup playground scale-out</code> 而增加新地址，所以只能通过 tiup client 以无密码的方式访问最初启动的那个 TiDB Server，除非手动维护 dsn 文件。<a target="_blank" rel="noopener" href="https://asktug.com/t/topic/1010855">【tiup client,dsn 不支持保存密码】</a>)</p>
+<h3 id="go-sql-driver-mysql-版本">go-sql-driver/mysql 版本</h3>
+<p>编译最新版 TiUP 时，在编译日志中发现当前使用的版本是 v1.6.0，建议升级到 v1.7.1，相关信息记录在帖子 <a target="_blank" rel="noopener" href="https://asktug.com/t/topic/1010860">【tiup 的mysql driver 建议升级到1.7.1】</a>。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">go</span>: downloading github.com/<span class="keyword">go</span>-sql-driver/mysql v1<span class="number">.6</span><span class="number">.0</span></span><br></pre></td></tr></table></figure>
+<h3 id="其他小瑕疵">其他小瑕疵</h3>
+<p>在写本文的过程中，发现几处关于 TiUP 的小瑕疵，期待官方更新。</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://asktug.com/t/topic/1010884">tiup 源码中的link 404</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/pingcap/docs-cn/issues/14717">建议补充 tikv-cdc 的相关内容 #14717</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/pingcap/docs-cn/issues/14718">tiup-component-cluster-template 文档待更新 #14718</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/pingcap/docs-cn/issues/14723">tiup-component-management 文档待更新 #14723</a></li>
+</ol>
+<h2 id="总结">总结</h2>
+<p>TiUP 工具的价值不言而喻，其实用程度及适用范围远超 Ansible。Playground 是教学演示神器，集众 Team 的心血，工具的好坏不是在论坛里水贴就可以论道的，而是要看在匹配人群中的口碑如何。All in TiDB, and Everyone needs TiUP~</p>
+<img alt="logo.jpg" src="https://oss-emcsprod-public.modb.pro/image/editor/20240222-e133c9a2-37fa-47e9-9f67-d49bfdc02bdf.jpg" referrerpolicy="no-referrer"/>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/tidb/" class="tag-link">
+                                tidb
+                            </a>
+                        
+                            <a href="/tags/compile/" class="tag-link">
+                                compile
+                            </a>
+                        
+                            <a href="/tags/tidb-7-x/" class="tag-link">
+                                tidb 7.x
+                            </a>
+                        
+                            <a href="/tags/tiup/" class="tag-link">
+                                tiup
+                            </a>
+                        
+                            <a href="/tags/tikv-cdc/" class="tag-link">
+                                tikv-cdc
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2023/tidb/tidb-7.x-compile-tiup/index.html">https://shawnyan.cn/2023/tidb/tidb-7.x-compile-tiup/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2023/other/minio-intro/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">浅尝 MinIO 存储</span>
+        </a>
+    
+
+    
+        <a href="/2023/tidb/tidb-7.x-compile-pd/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">TiDB 7.x 源码编译之 PD/TiDB Dashboard 篇</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BC%95%E8%A8%80"><span class="toc-text">引言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#TiUP-%E7%BC%96%E8%AF%91"><span class="toc-text">TiUP 编译</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%BA%90%E7%A0%81%E4%BB%93%E5%BA%93"><span class="toc-text">源码仓库</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BC%96%E8%AF%91%E6%89%A7%E8%A1%8C"><span class="toc-text">编译执行</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8A%95%E5%85%A5%E4%BD%BF%E7%94%A8"><span class="toc-text">投入使用</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#TiUP-%E6%96%B0%E7%89%B9%E6%80%A7"><span class="toc-text">TiUP 新特性</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#tiup-history"><span class="toc-text">tiup history</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Kylin-Linux-10-RHEL-8"><span class="toc-text">Kylin Linux 10+, RHEL 8</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#tikv-cdc"><span class="toc-text">tikv-cdc</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#tidb-dashboard"><span class="toc-text">tidb-dashboard</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Disaggregated-Mode"><span class="toc-text">Disaggregated Mode</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%81%87%E5%88%B0%E7%9A%84%E9%97%AE%E9%A2%98"><span class="toc-text">遇到的问题</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9C%9F%E5%BE%85-tiup-uninstall-%E5%8A%A0%E5%BC%BA"><span class="toc-text">期待 tiup uninstall 加强</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#playground-%E7%9A%84-root-%E7%94%A8%E6%88%B7%E4%BF%AE%E6%94%B9%E5%AF%86%E7%A0%81%E9%97%AE%E9%A2%98"><span class="toc-text">playground 的 root 用户修改密码问题</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#tiup-client-%E7%9A%84-dsn-%E6%96%87%E4%BB%B6%E8%A7%A3%E6%9E%90%E9%97%AE%E9%A2%98"><span class="toc-text">tiup client 的 dsn 文件解析问题</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#go-sql-driver-mysql-%E7%89%88%E6%9C%AC"><span class="toc-text">go-sql-driver&#x2F;mysql 版本</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%B6%E4%BB%96%E5%B0%8F%E7%91%95%E7%96%B5"><span class="toc-text">其他小瑕疵</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        MySQL 9.1.0 新特性与系统变量变化 | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;p&gt;前文详细介绍了 MySQL 9.1.0 创新版本发布的主要特性及其源码编译方法。&lt;/p&gt;
+&lt;p&gt;本文将继续讨论 MySQL 9.1.0 系统变量 (Server System Variables) 的变化，相较于 MySQL 8.4，MySQL 9.1.0 默认值变更参数 1 个，新增 6 个参数。&lt;/p&gt;
+&lt;h2 id=&#34;变更&#34;&gt;变更&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;innodb_log_writer_threads&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;MySQL 提供专用的日志写入线程 (Dedicated log writer threads)，用于将重做日志记录 (InnoDB Redo Logging) 从日志缓冲区写入系统缓冲区，并将系统缓冲区刷新到重做日志文件。你可以使用 innodb_log_writer_threads 变量启用或禁用日志写入线程。专用日志写入线程可以提高高并发系统的性能，但对于低并发系统，禁用专用日志写入线程可以提供更好的性能。&lt;/p&gt;
+&lt;p&gt;专用的日志写入线程引入自 MySQL 8.0.11，参数 innodb_log_writer_threads 引入自 MySQL 8.0.22，从 MySQL 9.1.0 开始，在逻辑处理器少于 32 个的系统上，innodb_log_writer_threads 的默认值为 OFF，之前的版本中，默认值为 ON。（WL #16396）&lt;/p&gt;
+&lt;h2 id=&#34;新增&#34;&gt;新增&lt;/h2&gt;
+&lt;h3 id=&#34;内存控制相关&#34;&gt;内存控制相关&lt;/h3&gt;
+&lt;ol&gt;
+&lt;li&gt;connection_memory_status_limit&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;connection_memory_status_limit 是 Count_hit_query_past_connection_memory_status_limit 递增之前任何一个用户连接可以消耗的最大内存量。默认值与最大值均为 18446744073709551615 字节。&lt;/p&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;global_connection_memory_status_limit&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;global_connection_memory_status_limit 与 connection_memory_status_limit 作用相似，但这里表述全部用户连接可以消耗的最大内存量。&lt;/p&gt;
+&lt;h3 id=&#34;遥测相关&#34;&gt;遥测相关&lt;/h3&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;performance_schema_logger&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;performance-schema-logger：定义记录器的默认值&lt;/p&gt;
+&lt;ol start=&#34;4&#34;&gt;
+&lt;li&gt;performance_schema_max_logger_classes&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;该值指示可以创建的记录器客户端工具的最大数量。修改此设置需要重新启动服务器。&lt;/p&gt;
+&lt;p&gt;上面两个参数是为实现 MySQL 服务器遥测日志接口而增加的。(WL#15201)&lt;/p&gt;
+&lt;p&gt;需要注意的是，该接口不提供日志记录功能。你必须使用 MySQL Enterprise Edition、MySQL HeatWave 或开发自己的组件来提供日志记录。&lt;/p&gt;
+&lt;p&gt;在 MySQL 9 中，新增表 &lt;code&gt;setup_loggers&lt;/code&gt;，该表列出了已注册的记录器。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; show create table setup_loggers\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;       Table: setup_loggers&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Create Table: CREATE TABLE `setup_loggers` (&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  `NAME` varchar(128) NOT NULL,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  `LEVEL` enum(&amp;#x27;none&amp;#x27;,&amp;#x27;error&amp;#x27;,&amp;#x27;warn&amp;#x27;,&amp;#x27;info&amp;#x27;,&amp;#x27;debug&amp;#x27;) NOT NULL,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  `DESCRIPTION` varchar(1023) DEFAULT NULL&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;) ENGINE=PERFORMANCE_SCHEMA DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; table setup_loggers;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------+-------+--------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| NAME                   | LEVEL | DESCRIPTION        |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------+-------+--------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| logger/error/error_log | info  | MySQL error logger |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------+-------+--------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;5&#34;&gt;
+&lt;li&gt;performance_schema_meter&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;该参数可用于设置 &lt;code&gt;performance_schema.setup_meters&lt;/code&gt; 表中列出的仪表的初始值，其属性值可配置为 &lt;code&gt;enabled&lt;/code&gt; 和 &lt;code&gt;frequency&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;例如，重启 MySQL 服务器，并设置参数。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysqld --performance_schema_meter=&amp;#x27;mysql.x=enabled:yes,frequency:30&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;连接到数据库，确认修改生效。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; SELECT name, enabled, frequency FROM performance_schema.setup_meters where name = &amp;#x27;mysql.x&amp;#x27;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+---------+---------+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| name    | enabled | frequency |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+---------+---------+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mysql.x | YES     |        30 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+---------+---------+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;触发器性能改进&#34;&gt;触发器性能改进&lt;/h3&gt;
+&lt;ol start=&#34;6&#34;&gt;
+&lt;li&gt;table_open_cache_triggers&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;从 MySQL 9.1.0 开始，只读操作不再加载触发器。&lt;/p&gt;
+&lt;p&gt;解析和加载触发器的过程分为两个阶段：在第一阶段，只从数据字典中读取触发器元数据，因为元数据可以存储一次并在同一触发器的不同实例之间共享。触发器的解析和执行在第二阶段完成。前一项所述的第二阶段仅针对修改表数据的语句执行。这样可以消除解析和缓存未实际使用的触发器所消耗的资源。通过将触发器错误的静态缓冲区分配替换为按需分配的可变大小缓冲区，内存使用率得到进一步改善。&lt;/p&gt;
+&lt;p&gt;此功能通过分别跟踪表缓存中具有触发器的表和不具有触发器的表来实现。在任何给定时间，具有触发器且保存在表缓存中的打开表的最大数量由服务器系统变量 table_open_cache_triggers 的值决定。&lt;/p&gt;
+&lt;p&gt;table_open_cache_triggers 与 table_open_cache 类似，但专门针对具有完全加载触发器的表控制驱逐机制。table_open_cache_triggers 的默认值与最大值相同；设置小于此值的值将激活特定于具有完全加载触发器的表的驱逐逻辑。将 table_open_cache_triggers 保留为默认值意味着不会根据表是否具有任何完全加载的触发器而从缓存中驱逐任何表，这与 MySQL 9.1 之前的版本中的行为相同。&lt;/p&gt;
+&lt;p&gt;每个缓存实例具有触发器的缓存表的最大数量由 table_open_cache_triggers / table_open_cache_instances 确定。当允许这些系统变量保留其默认值时，此值为 32768。&lt;/p&gt;
+&lt;p&gt;此版本还添加了以下跟踪具有触发器的表的缓存使用情况的服务器状态变量：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Table_open_cache_triggers_hits：具有完全加载的触发器的打开表的缓存命中次数。&lt;/li&gt;
+&lt;li&gt;Table_open_cache_triggers_misses：具有完全加载的触发器的打开表的缓存未命中次数。&lt;/li&gt;
+&lt;li&gt;Table_open_cache_triggers_overflows：具有完全加载的触发器的打开表的缓存溢出次数。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Have a nice day ~&lt;/p&gt;
+&lt;p&gt;– / END / –&lt;/p&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="MySQL 9.1.0 新特性与系统变量变化">
+    <meta property="og:url" content="https://shawnyan.cn/2024/mysql/mysql-9-1-0-change-sys-vars/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;p&gt;前文详细介绍了 MySQL 9.1.0 创新版本发布的主要特性及其源码编译方法。&lt;/p&gt;
+&lt;p&gt;本文将继续讨论 MySQL 9.1.0 系统变量 (Server System Variables) 的变化，相较于 MySQL 8.4，MySQL 9.1.0 默认值变更参数 1 个，新增 6 个参数。&lt;/p&gt;
+&lt;h2 id=&#34;变更&#34;&gt;变更&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;innodb_log_writer_threads&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;MySQL 提供专用的日志写入线程 (Dedicated log writer threads)，用于将重做日志记录 (InnoDB Redo Logging) 从日志缓冲区写入系统缓冲区，并将系统缓冲区刷新到重做日志文件。你可以使用 innodb_log_writer_threads 变量启用或禁用日志写入线程。专用日志写入线程可以提高高并发系统的性能，但对于低并发系统，禁用专用日志写入线程可以提供更好的性能。&lt;/p&gt;
+&lt;p&gt;专用的日志写入线程引入自 MySQL 8.0.11，参数 innodb_log_writer_threads 引入自 MySQL 8.0.22，从 MySQL 9.1.0 开始，在逻辑处理器少于 32 个的系统上，innodb_log_writer_threads 的默认值为 OFF，之前的版本中，默认值为 ON。（WL #16396）&lt;/p&gt;
+&lt;h2 id=&#34;新增&#34;&gt;新增&lt;/h2&gt;
+&lt;h3 id=&#34;内存控制相关&#34;&gt;内存控制相关&lt;/h3&gt;
+&lt;ol&gt;
+&lt;li&gt;connection_memory_status_limit&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;connection_memory_status_limit 是 Count_hit_query_past_connection_memory_status_limit 递增之前任何一个用户连接可以消耗的最大内存量。默认值与最大值均为 18446744073709551615 字节。&lt;/p&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;global_connection_memory_status_limit&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;global_connection_memory_status_limit 与 connection_memory_status_limit 作用相似，但这里表述全部用户连接可以消耗的最大内存量。&lt;/p&gt;
+&lt;h3 id=&#34;遥测相关&#34;&gt;遥测相关&lt;/h3&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;performance_schema_logger&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;performance-schema-logger：定义记录器的默认值&lt;/p&gt;
+&lt;ol start=&#34;4&#34;&gt;
+&lt;li&gt;performance_schema_max_logger_classes&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;该值指示可以创建的记录器客户端工具的最大数量。修改此设置需要重新启动服务器。&lt;/p&gt;
+&lt;p&gt;上面两个参数是为实现 MySQL 服务器遥测日志接口而增加的。(WL#15201)&lt;/p&gt;
+&lt;p&gt;需要注意的是，该接口不提供日志记录功能。你必须使用 MySQL Enterprise Edition、MySQL HeatWave 或开发自己的组件来提供日志记录。&lt;/p&gt;
+&lt;p&gt;在 MySQL 9 中，新增表 &lt;code&gt;setup_loggers&lt;/code&gt;，该表列出了已注册的记录器。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; show create table setup_loggers\G&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;*************************** 1. row ***************************&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;       Table: setup_loggers&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Create Table: CREATE TABLE `setup_loggers` (&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  `NAME` varchar(128) NOT NULL,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  `LEVEL` enum(&amp;#x27;none&amp;#x27;,&amp;#x27;error&amp;#x27;,&amp;#x27;warn&amp;#x27;,&amp;#x27;info&amp;#x27;,&amp;#x27;debug&amp;#x27;) NOT NULL,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;  `DESCRIPTION` varchar(1023) DEFAULT NULL&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;) ENGINE=PERFORMANCE_SCHEMA DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; table setup_loggers;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------+-------+--------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| NAME                   | LEVEL | DESCRIPTION        |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------+-------+--------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| logger/error/error_log | info  | MySQL error logger |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+------------------------+-------+--------------------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;ol start=&#34;5&#34;&gt;
+&lt;li&gt;performance_schema_meter&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;该参数可用于设置 &lt;code&gt;performance_schema.setup_meters&lt;/code&gt; 表中列出的仪表的初始值，其属性值可配置为 &lt;code&gt;enabled&lt;/code&gt; 和 &lt;code&gt;frequency&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;例如，重启 MySQL 服务器，并设置参数。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysqld --performance_schema_meter=&amp;#x27;mysql.x=enabled:yes,frequency:30&amp;#x27;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;连接到数据库，确认修改生效。&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&amp;gt; SELECT name, enabled, frequency FROM performance_schema.setup_meters where name = &amp;#x27;mysql.x&amp;#x27;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+---------+---------+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| name    | enabled | frequency |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+---------+---------+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;| mysql.x | YES     |        30 |&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;+---------+---------+-----------+&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1 row in set (0.00 sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h3 id=&#34;触发器性能改进&#34;&gt;触发器性能改进&lt;/h3&gt;
+&lt;ol start=&#34;6&#34;&gt;
+&lt;li&gt;table_open_cache_triggers&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;从 MySQL 9.1.0 开始，只读操作不再加载触发器。&lt;/p&gt;
+&lt;p&gt;解析和加载触发器的过程分为两个阶段：在第一阶段，只从数据字典中读取触发器元数据，因为元数据可以存储一次并在同一触发器的不同实例之间共享。触发器的解析和执行在第二阶段完成。前一项所述的第二阶段仅针对修改表数据的语句执行。这样可以消除解析和缓存未实际使用的触发器所消耗的资源。通过将触发器错误的静态缓冲区分配替换为按需分配的可变大小缓冲区，内存使用率得到进一步改善。&lt;/p&gt;
+&lt;p&gt;此功能通过分别跟踪表缓存中具有触发器的表和不具有触发器的表来实现。在任何给定时间，具有触发器且保存在表缓存中的打开表的最大数量由服务器系统变量 table_open_cache_triggers 的值决定。&lt;/p&gt;
+&lt;p&gt;table_open_cache_triggers 与 table_open_cache 类似，但专门针对具有完全加载触发器的表控制驱逐机制。table_open_cache_triggers 的默认值与最大值相同；设置小于此值的值将激活特定于具有完全加载触发器的表的驱逐逻辑。将 table_open_cache_triggers 保留为默认值意味着不会根据表是否具有任何完全加载的触发器而从缓存中驱逐任何表，这与 MySQL 9.1 之前的版本中的行为相同。&lt;/p&gt;
+&lt;p&gt;每个缓存实例具有触发器的缓存表的最大数量由 table_open_cache_triggers / table_open_cache_instances 确定。当允许这些系统变量保留其默认值时，此值为 32768。&lt;/p&gt;
+&lt;p&gt;此版本还添加了以下跟踪具有触发器的表的缓存使用情况的服务器状态变量：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Table_open_cache_triggers_hits：具有完全加载的触发器的打开表的缓存命中次数。&lt;/li&gt;
+&lt;li&gt;Table_open_cache_triggers_misses：具有完全加载的触发器的打开表的缓存未命中次数。&lt;/li&gt;
+&lt;li&gt;Table_open_cache_triggers_overflows：具有完全加载的触发器的打开表的缓存溢出次数。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Have a nice day ~&lt;/p&gt;
+&lt;p&gt;– / END / –&lt;/p&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/mysql/" class="category-badge">
+                                    MySQL
+                                </a>
+                            
+                                <a href="/categories/mysql/mysql-9-x/" class="category-badge">
+                                    MySQL 9.x
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">MySQL 9.1.0 新特性与系统变量变化</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2024-11-06
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                1.2k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                4 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <p>前文详细介绍了 MySQL 9.1.0 创新版本发布的主要特性及其源码编译方法。</p>
+<p>本文将继续讨论 MySQL 9.1.0 系统变量 (Server System Variables) 的变化，相较于 MySQL 8.4，MySQL 9.1.0 默认值变更参数 1 个，新增 6 个参数。</p>
+<h2 id="变更">变更</h2>
+<ol>
+<li>innodb_log_writer_threads</li>
+</ol>
+<p>MySQL 提供专用的日志写入线程 (Dedicated log writer threads)，用于将重做日志记录 (InnoDB Redo Logging) 从日志缓冲区写入系统缓冲区，并将系统缓冲区刷新到重做日志文件。你可以使用 innodb_log_writer_threads 变量启用或禁用日志写入线程。专用日志写入线程可以提高高并发系统的性能，但对于低并发系统，禁用专用日志写入线程可以提供更好的性能。</p>
+<p>专用的日志写入线程引入自 MySQL 8.0.11，参数 innodb_log_writer_threads 引入自 MySQL 8.0.22，从 MySQL 9.1.0 开始，在逻辑处理器少于 32 个的系统上，innodb_log_writer_threads 的默认值为 OFF，之前的版本中，默认值为 ON。（WL #16396）</p>
+<h2 id="新增">新增</h2>
+<h3 id="内存控制相关">内存控制相关</h3>
+<ol>
+<li>connection_memory_status_limit</li>
+</ol>
+<p>connection_memory_status_limit 是 Count_hit_query_past_connection_memory_status_limit 递增之前任何一个用户连接可以消耗的最大内存量。默认值与最大值均为 18446744073709551615 字节。</p>
+<ol start="2">
+<li>global_connection_memory_status_limit</li>
+</ol>
+<p>global_connection_memory_status_limit 与 connection_memory_status_limit 作用相似，但这里表述全部用户连接可以消耗的最大内存量。</p>
+<h3 id="遥测相关">遥测相关</h3>
+<ol start="3">
+<li>performance_schema_logger</li>
+</ol>
+<p>performance-schema-logger：定义记录器的默认值</p>
+<ol start="4">
+<li>performance_schema_max_logger_classes</li>
+</ol>
+<p>该值指示可以创建的记录器客户端工具的最大数量。修改此设置需要重新启动服务器。</p>
+<p>上面两个参数是为实现 MySQL 服务器遥测日志接口而增加的。(WL#15201)</p>
+<p>需要注意的是，该接口不提供日志记录功能。你必须使用 MySQL Enterprise Edition、MySQL HeatWave 或开发自己的组件来提供日志记录。</p>
+<p>在 MySQL 9 中，新增表 <code>setup_loggers</code>，该表列出了已注册的记录器。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; show create table setup_loggers\G</span><br><span class="line">*************************** 1. row ***************************</span><br><span class="line">       Table: setup_loggers</span><br><span class="line">Create Table: CREATE TABLE `setup_loggers` (</span><br><span class="line">  `NAME` varchar(128) NOT NULL,</span><br><span class="line">  `LEVEL` enum(&#x27;none&#x27;,&#x27;error&#x27;,&#x27;warn&#x27;,&#x27;info&#x27;,&#x27;debug&#x27;) NOT NULL,</span><br><span class="line">  `DESCRIPTION` varchar(1023) DEFAULT NULL</span><br><span class="line">) ENGINE=PERFORMANCE_SCHEMA DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; table setup_loggers;</span><br><span class="line">+------------------------+-------+--------------------+</span><br><span class="line">| NAME                   | LEVEL | DESCRIPTION        |</span><br><span class="line">+------------------------+-------+--------------------+</span><br><span class="line">| logger/error/error_log | info  | MySQL error logger |</span><br><span class="line">+------------------------+-------+--------------------+</span><br><span class="line">1 row in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<ol start="5">
+<li>performance_schema_meter</li>
+</ol>
+<p>该参数可用于设置 <code>performance_schema.setup_meters</code> 表中列出的仪表的初始值，其属性值可配置为 <code>enabled</code> 和 <code>frequency</code>。</p>
+<p>例如，重启 MySQL 服务器，并设置参数。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysqld --performance_schema_meter=&#x27;mysql.x=enabled:yes,frequency:30&#x27;</span><br></pre></td></tr></table></figure>
+<p>连接到数据库，确认修改生效。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SELECT name, enabled, frequency FROM performance_schema.setup_meters where name = &#x27;mysql.x&#x27;;</span><br><span class="line">+---------+---------+-----------+</span><br><span class="line">| name    | enabled | frequency |</span><br><span class="line">+---------+---------+-----------+</span><br><span class="line">| mysql.x | YES     |        30 |</span><br><span class="line">+---------+---------+-----------+</span><br><span class="line">1 row in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<h3 id="触发器性能改进">触发器性能改进</h3>
+<ol start="6">
+<li>table_open_cache_triggers</li>
+</ol>
+<p>从 MySQL 9.1.0 开始，只读操作不再加载触发器。</p>
+<p>解析和加载触发器的过程分为两个阶段：在第一阶段，只从数据字典中读取触发器元数据，因为元数据可以存储一次并在同一触发器的不同实例之间共享。触发器的解析和执行在第二阶段完成。前一项所述的第二阶段仅针对修改表数据的语句执行。这样可以消除解析和缓存未实际使用的触发器所消耗的资源。通过将触发器错误的静态缓冲区分配替换为按需分配的可变大小缓冲区，内存使用率得到进一步改善。</p>
+<p>此功能通过分别跟踪表缓存中具有触发器的表和不具有触发器的表来实现。在任何给定时间，具有触发器且保存在表缓存中的打开表的最大数量由服务器系统变量 table_open_cache_triggers 的值决定。</p>
+<p>table_open_cache_triggers 与 table_open_cache 类似，但专门针对具有完全加载触发器的表控制驱逐机制。table_open_cache_triggers 的默认值与最大值相同；设置小于此值的值将激活特定于具有完全加载触发器的表的驱逐逻辑。将 table_open_cache_triggers 保留为默认值意味着不会根据表是否具有任何完全加载的触发器而从缓存中驱逐任何表，这与 MySQL 9.1 之前的版本中的行为相同。</p>
+<p>每个缓存实例具有触发器的缓存表的最大数量由 table_open_cache_triggers / table_open_cache_instances 确定。当允许这些系统变量保留其默认值时，此值为 32768。</p>
+<p>此版本还添加了以下跟踪具有触发器的表的缓存使用情况的服务器状态变量：</p>
+<ul>
+<li>Table_open_cache_triggers_hits：具有完全加载的触发器的打开表的缓存命中次数。</li>
+<li>Table_open_cache_triggers_misses：具有完全加载的触发器的打开表的缓存未命中次数。</li>
+<li>Table_open_cache_triggers_overflows：具有完全加载的触发器的打开表的缓存溢出次数。</li>
+</ul>
+<p>Have a nice day ~</p>
+<p>– / END / –</p>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/mysql/" class="tag-link">
+                                mysql
+                            </a>
+                        
+                            <a href="/tags/mysql-8-0/" class="tag-link">
+                                mysql 8.0
+                            </a>
+                        
+                            <a href="/tags/mysql-9-x/" class="tag-link">
+                                mysql 9.x
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2024/mysql/mysql-9-1-0-change-sys-vars/index.html">https://shawnyan.cn/2024/mysql/mysql-9-1-0-change-sys-vars/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2025/linux/oracle-linux-10-preview/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">我的“Oracle Linux 10 高定版”待激活</span>
+        </a>
+    
+
+    
+        <a href="/2024/mysql/compile-mysql-9-1-0-source-code-on-oracle-linux-9-4/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">在 Oracle Linux 9.4 上编译 MySQL 9.1.0 源码</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%98%E6%9B%B4"><span class="toc-text">变更</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%96%B0%E5%A2%9E"><span class="toc-text">新增</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%86%85%E5%AD%98%E6%8E%A7%E5%88%B6%E7%9B%B8%E5%85%B3"><span class="toc-text">内存控制相关</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%81%A5%E6%B5%8B%E7%9B%B8%E5%85%B3"><span class="toc-text">遥测相关</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%A7%A6%E5%8F%91%E5%99%A8%E6%80%A7%E8%83%BD%E6%94%B9%E8%BF%9B"><span class="toc-text">触发器性能改进</span></a></li></ol></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>

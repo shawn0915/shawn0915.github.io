@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!-- Title -->
+<title>
+    
+        [译] 迁移 MySQL 的表到 Redis | 少安事务所
+    
+</title>
+
+<!-- Meta -->
+<meta name="description" content="&lt;blockquote&gt;
+&lt;p&gt;原文链接：&lt;a href=&#34;https://www.mortensi.com/2021/12/migrate-a-mysql-table-to-redis/&#34;&gt;https://www.mortensi.com/2021/12/migrate-a-mysql-table-to-redis/&lt;/a&gt;&lt;br&gt;
+原文作者：Admin&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;img alt=&#34;1.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220316-fd6c4619-fa42-45c6-9549-f29f79a406e0.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;在这篇文章中，我将列出一些从MySQL逻辑复制一张表到Redis的一些选项。我将使用经典的&lt;code&gt;world&lt;/code&gt;数据库运行示例。 &lt;code&gt;world&lt;/code&gt;数据库可以在这里&lt;a href=&#34;https://downloads.mysql.com/docs/world-db.zip&#34;&gt;下载&lt;/a&gt; ，所以如果您想尝试这些示例，只需将它导入到您的MySQL实例中。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; use world;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Database changed&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; tables;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Tables_in_world &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; city            &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; country         &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; countrylanguage &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.01&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;有多种方法可以将表格导入Redis，让我们来看看其中的几种。在下面的例子中，我将选择一个&lt;a href=&#34;https://redis.io/topics/data-types-intro#redis-hashes&#34;&gt;Hash&lt;/a&gt; 数据类型，最类似于Redis的传统表行。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Redis哈希是字符串字段和字符串值之间的映射，所以它们是表示对象的完美数据类型(例如，一个用户有许多字段，如名字、姓氏、年龄等)&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;使用-SELECT-INTO-OUTFILE-导出CSV格式，使用Python导入&#34;&gt;使用 SELECT INTO OUTFILE 导出CSV格式，使用Python导入&lt;/h2&gt;
+&lt;p&gt;为了从MySQL导出数据并将其导入Redis，我们可以使用MySQL &lt;a href=&#34;https://dev.mysql.com/doc/refman/en/select-into.html&#34;&gt;SELECT into OUTFILE&lt;/a&gt; 功能，它可以生成一个格式化的输出文件。特别是，我将确保字段用逗号分隔。让我们试一试：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;INTO&lt;/span&gt; OUTFILE &lt;span class=&#34;string&#34;&gt;&amp;#x27;/tmp/city.csv&amp;#x27;&lt;/span&gt; FIELDS TERMINATED &lt;span class=&#34;keyword&#34;&gt;BY&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;,&amp;#x27;&lt;/span&gt; ENCLOSED &lt;span class=&#34;keyword&#34;&gt;BY&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;&amp;quot;&amp;#x27;&lt;/span&gt; LINES TERMINATED &lt;span class=&#34;keyword&#34;&gt;BY&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;n&amp;#x27;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; world.city;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ERROR &lt;span class=&#34;number&#34;&gt;1290&lt;/span&gt; (HY000): The MySQL server &lt;span class=&#34;keyword&#34;&gt;is&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;running&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;with&lt;/span&gt; the &lt;span class=&#34;comment&#34;&gt;--secure-file-priv option so it cannot execute this statement&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;噢，MySQL默认配置禁止导出数据到文件系统。让我们在配置文件my.cnf中修复它：&lt;/p&gt;
+&lt;figure class=&#34;highlight yaml&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[&lt;span class=&#34;string&#34;&gt;mysqld&lt;/span&gt;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;secure_file_priv=/tmp&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;现在我可以导出：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;INTO&lt;/span&gt; OUTFILE &lt;span class=&#34;string&#34;&gt;&amp;#x27;/tmp/city.csv&amp;#x27;&lt;/span&gt; FIELDS TERMINATED &lt;span class=&#34;keyword&#34;&gt;BY&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;,&amp;#x27;&lt;/span&gt; ENCLOSED &lt;span class=&#34;keyword&#34;&gt;BY&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;&amp;quot;&amp;#x27;&lt;/span&gt; LINES TERMINATED &lt;span class=&#34;keyword&#34;&gt;BY&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;n&amp;#x27;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; world.city;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, &lt;span class=&#34;number&#34;&gt;4079&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt; affected (&lt;span class=&#34;number&#34;&gt;0.01&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;这是示例：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&amp;quot;1&amp;quot;,&amp;quot;Kabul&amp;quot;,&amp;quot;AFG&amp;quot;,&amp;quot;Kabol&amp;quot;,&amp;quot;1780000&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;quot;2&amp;quot;,&amp;quot;Qandahar&amp;quot;,&amp;quot;AFG&amp;quot;,&amp;quot;Qandahar&amp;quot;,&amp;quot;237500&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;quot;3&amp;quot;,&amp;quot;Herat&amp;quot;,&amp;quot;AFG&amp;quot;,&amp;quot;Herat&amp;quot;,&amp;quot;186800&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;quot;4&amp;quot;,&amp;quot;Mazar-e-Sharif&amp;quot;,&amp;quot;AFG&amp;quot;,&amp;quot;Balkh&amp;quot;,&amp;quot;127800&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;quot;5&amp;quot;,&amp;quot;Amsterdam&amp;quot;,&amp;quot;NLD&amp;quot;,&amp;quot;Noord-Holland&amp;quot;,&amp;quot;731200&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;quot;6&amp;quot;,&amp;quot;Rotterdam&amp;quot;,&amp;quot;NLD&amp;quot;,&amp;quot;Zuid-Holland&amp;quot;,&amp;quot;593321&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;quot;7&amp;quot;,&amp;quot;Haag&amp;quot;,&amp;quot;NLD&amp;quot;,&amp;quot;Zuid-Holland&amp;quot;,&amp;quot;440900&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;quot;8&amp;quot;,&amp;quot;Utrecht&amp;quot;,&amp;quot;NLD&amp;quot;,&amp;quot;Utrecht&amp;quot;,&amp;quot;234323&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;现在数据是CSV格式，我能使用一个简单的Python脚本导入它，下面是个可用的示例（参考说明设置 Python &lt;a href=&#34;https://www.mortensi.com/2021/12/connect-to-redis-with-python/&#34;&gt;环境&lt;/a&gt; 以连接到Redis）。&lt;/p&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;#!/usr/bin/python3&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;import&lt;/span&gt; redis&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; csv &lt;span class=&#34;keyword&#34;&gt;import&lt;/span&gt; reader&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;r = redis.Redis(host=&lt;span class=&#34;string&#34;&gt;&amp;#x27;127.0.0.1&amp;#x27;&lt;/span&gt;, port=&lt;span class=&#34;number&#34;&gt;4321&lt;/span&gt;, password=&lt;span class=&#34;string&#34;&gt;&amp;#x27;&amp;#x27;&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;with&lt;/span&gt; &lt;span class=&#34;built_in&#34;&gt;open&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;#x27;/tmp/city.csv&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;r&amp;#x27;&lt;/span&gt;) &lt;span class=&#34;keyword&#34;&gt;as&lt;/span&gt; cities:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    csv_reader = reader(cities)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; row &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; csv_reader:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        r.hset(&lt;span class=&#34;string&#34;&gt;&amp;quot;city:&amp;quot;&lt;/span&gt; + row[&lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;],  mapping=&amp;#123; &lt;span class=&#34;string&#34;&gt;&amp;quot;Name&amp;quot;&lt;/span&gt; : row[&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;], &lt;span class=&#34;string&#34;&gt;&amp;quot;CountryCode&amp;quot;&lt;/span&gt; : row[&lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;], &lt;span class=&#34;string&#34;&gt;&amp;quot;District&amp;quot;&lt;/span&gt; : row[&lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;], &lt;span class=&#34;string&#34;&gt;&amp;quot;Population&amp;quot;&lt;/span&gt; : row[&lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;] &amp;#125;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;让我们检查下是否正确导入：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;127.0.0.1:4321&amp;gt; SCAN 0 MATCH city:* COUNT 5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1) &amp;quot;3072&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2) 1) &amp;quot;city:2316&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   2) &amp;quot;city:749&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   3) &amp;quot;city:570&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   4) &amp;quot;city:3625&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   5) &amp;quot;city:3328&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   6) &amp;quot;city:1771&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;我也可以验证Hash项的内容：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;127.0.0.1:4321&amp;gt; HGETALL city:4059&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1) &amp;quot;Name&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2) &amp;quot;Cary&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3) &amp;quot;CountryCode&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4) &amp;quot;USA&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5) &amp;quot;District&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6) &amp;quot;North Carolina&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7) &amp;quot;Population&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8) &amp;quot;91213&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;使用mysqldump导出CSV格式&#34;&gt;使用mysqldump导出CSV格式&lt;/h2&gt;
+&lt;p&gt;备份工具 &lt;a href=&#34;https://dev.mysql.com/doc/refman/en/mysqldump.html&#34;&gt;mysqldump&lt;/a&gt; 可作为客户端，可以从远端导出数据，而不需要修改让任何服务器配置。可以此来代替&lt;code&gt;SELECT INTO OUTFILE&lt;/code&gt;，对有些人来说，它可能代表一个安全问题，因为它是在服务器本身导出行数据到文件系统，并需要启用&lt;a href=&#34;https://dev.mysql.com/doc/refman/en/server-system-variables.html#sysvar_secure_file_priv&#34;&gt;secure_file_priv&lt;/a&gt; 。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysqldump --host=127.0.0.1 --user=root --password --tab=/tmp --fields-enclosed-by=&amp;#x27;&amp;quot;&amp;#x27; --fields-terminated-by=&amp;#x27;,&amp;#x27; --lines-terminated-by=&amp;#x27;n&amp;#x27; world city&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;一旦文件导出（mysqldump导出两个文件，表定义保存在&lt;code&gt;city.sql&lt;/code&gt;文件，数据以CSV格式保存在&lt;code&gt;city.txt&lt;/code&gt;文件），数据可以按照说明导入。&lt;/p&gt;
+&lt;h2 id=&#34;使用RIOT导入CSV备份&#34;&gt;使用RIOT导入CSV备份&lt;/h2&gt;
+&lt;p&gt;假设你有一个MySQL表的CSV备份，事实上，CSV可以来自于任何数据源，比如Excel表格，Postgres等等。如果你不想编码来导入到Redis，你可以使用RIOT（Redis输入输出工具），用于将异构数据源迁移到Redis。&lt;/p&gt;
+&lt;img alt=&#34;2.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220316-bb2a5ad4-295d-497a-8ceb-21576775435f.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;Redis输入输出工具: RIOT&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Redis输入/输出工具(RIOT)是一个工具集，其设计目的在于帮助您从Redis导入导出数据。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;在本节中，我将演示RIOT的CSV导入工具，称之为 &lt;a href=&#34;https://developer.redis.com/riot/index.html#_riot_file&#34;&gt;RIOT文件&lt;/a&gt; 。首先，安装它（我使用Mac，但是您可以参考文档了解其他安装方法）&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;brew install redis-developer/tap/riot-file&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;安装后，测试帮助方法：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;(redisvenv) bash-3.2$ riot-file --help&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The operation couldn’t be completed. Unable to locate a Java Runtime.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Please visit http://www.java.com for information on installing Java.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;是的，您也需要从&lt;a href=&#34;http://www.java.com/&#34;&gt;www.java.com&lt;/a&gt;下载JRE，完成后，继续：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;(redisvenv) bash-3.2$ riot-file import hset --help&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Usage: riot-file import hset [OPTIONS]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Set hashes from input&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-H, --help Show this help message and exit&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-s, --separator=&amp;lt;str&amp;gt; Key separator (default: :)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-r, --remove Remove key or member fields the first time they are used&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--ignore-missing Ignore missing fields&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-p, --keyspace=&amp;lt;str&amp;gt; Keyspace prefix&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-k, --keys=&amp;lt;fields&amp;gt;... Key fields&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--include=&amp;lt;field&amp;gt;... Fields to include&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--exclude=&amp;lt;field&amp;gt;... Fields to exclude&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;现在，我们必须将CSV数据源映射到适当的Hash数据结构。我们原始的CSV文件第一行没有标题。如果我们想加标题，我们甚至可以按照顺序从 MySQL &lt;a href=&#34;https://dev.mysql.com/doc/refman/en/information-schema-tables-table.html&#34;&gt;&lt;code&gt;information_schema&lt;/code&gt;&lt;/a&gt; 中抽取。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;注意：MySQL SELECT INTO OUTFILE不会在导出的数据集添加头，这必须使用正确的SQL语法手动添加，或编辑导出的CSV文件。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; group_concat(COLUMN_NAME &lt;span class=&#34;keyword&#34;&gt;ORDER&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;BY&lt;/span&gt; ORDINAL_POSITION separator &lt;span class=&#34;string&#34;&gt;&amp;#x27;,&amp;#x27;&lt;/span&gt;) &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; information_schema.COLUMNS &lt;span class=&#34;keyword&#34;&gt;WHERE&lt;/span&gt; TABLE_NAME&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;city&amp;#x27;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;AND&lt;/span&gt; TABLE_SCHEMA&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;world&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-------------------------------------------------------------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; group_concat(COLUMN_NAME &lt;span class=&#34;keyword&#34;&gt;ORDER&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;BY&lt;/span&gt; ORDINAL_POSITION separator &lt;span class=&#34;string&#34;&gt;&amp;#x27;,&amp;#x27;&lt;/span&gt;) &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-------------------------------------------------------------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; ID,Name,CountryCode,District,Population                           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-------------------------------------------------------------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.00&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;添加&lt;code&gt;ID,Name,CountryCode,District,Population&lt;/code&gt;到CSV文件的第一行。但是我们仍然可以继续手动执行映射。在这里，我们指定字段在CSV文件中出现的顺序，指定表名（keyspace），及补充字段名（key）(例如&lt;code&gt;city:1234&lt;/code&gt;)。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;riot-file -h 127.0.0.1 -p 4321 import /tmp/city.csv --fields ID Name CountryCode District Population hmset --keyspace city --keys ID&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;或者，如果CSV文件有从MySQL获得的头，我们可以添加&lt;code&gt;--header&lt;/code&gt;参数来使用手动添加的CSV头。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;riot-file -h 127.0.0.1 -p 4321 import /tmp/city.csv --header hmset --keyspace city --keys ID&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;使用-RIOT-DB-从MySQL导入&#34;&gt;使用 RIOT DB 从MySQL导入&lt;/h2&gt;
+&lt;p&gt;为了从没有中间转储备份导入MySQL，您可以编码一个方案，来连接源数据库和目标Redis库，或者简单地使用&lt;a href=&#34;https://developer.redis.com/riot/index.html#_riot_db&#34;&gt;RIOT DB&lt;/a&gt; 。下面来安装它：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;brew install redis-developer/tap/riot-db&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;然后像往常一样导入，指定表名和列名，提供正确的连接信息，显然，需要定义导入数据集的查询语句。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;riot-db -h 127.0.0.1 -p 4321 import &amp;quot;SELECT * FROM city&amp;quot; --url jdbc:mysql://root:Oracle1*@127.0.0.1:3306/world hmset --keyspace city --keys ID&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;导出并以RESP格式做大量插入&#34;&gt;导出并以RESP格式做大量插入&lt;/h2&gt;
+&lt;p&gt;到目前为止，我已经探索了一些逻辑方法，但是对于大量插入，最高速度需要达到百万个键，有一种不同的方法，即使用redis-cli的管道模式，读取数据的同时，立即发送到服务器。特别地，使用这种方法，我们将使用&lt;a href=&#34;https://redis.io/topics/protocol&#34;&gt;Redis协议(RESP)&lt;/a&gt; 。关于大量插入的更多信息请参阅&lt;a href=&#34;https://redis.io/topics/mass-insert&#34;&gt;这里&lt;/a&gt; 。&lt;/p&gt;
+&lt;p&gt;它可能导出RESP格式的表，并转瞬流到Redis服务器。让我们看看它是如何工作的。我们能使用SQL来生成数据，并以这种格式发送到Redis服务器：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;*&amp;lt;args&amp;gt;&amp;lt;cr&amp;gt;&amp;lt;lf&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;$&amp;lt;len0&amp;gt;&amp;lt;cr&amp;gt;&amp;lt;lf&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;lt;arg0&amp;gt;&amp;lt;cr&amp;gt;&amp;lt;lf&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;$&amp;lt;len1&amp;gt;&amp;lt;cr&amp;gt;&amp;lt;lf&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;lt;arg1&amp;gt;&amp;lt;cr&amp;gt;&amp;lt;lf&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;$&amp;lt;lenN&amp;gt;&amp;lt;cr&amp;gt;&amp;lt;lf&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;lt;argN&amp;gt;&amp;lt;cr&amp;gt;&amp;lt;lf&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;这里：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;args 是参数的数量&lt;/li&gt;
+&lt;li&gt;lenN 是参数跟随的长度&lt;/li&gt;
+&lt;li&gt;argN 是参数&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;假设我们要为MySQL表中的每一行添加一个Hash，每个Hash将插入4个字段，在RESP协议中生成转储的SQL语句将是这样的：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; CONCAT(&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;quot;*10\r\n&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;$&amp;#x27;&lt;/span&gt;, LENGTH(redis_cmd), &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,redis_cmd, &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;$&amp;#x27;&lt;/span&gt;, LENGTH(redis_key), &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,redis_key, &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;$&amp;#x27;&lt;/span&gt;, LENGTH(hkey1), &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,hkey1, &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;$&amp;#x27;&lt;/span&gt;, LENGTH(hval1), &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;, hval1, &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;$&amp;#x27;&lt;/span&gt;, LENGTH(hkey2), &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,hkey2, &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;$&amp;#x27;&lt;/span&gt;, LENGTH(hval2), &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;, hval2, &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;$&amp;#x27;&lt;/span&gt;, LENGTH(hkey3), &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,hkey3, &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;$&amp;#x27;&lt;/span&gt;, LENGTH(hval3), &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;, hval3, &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;$&amp;#x27;&lt;/span&gt;, LENGTH(hkey4), &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,hkey4, &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;$&amp;#x27;&lt;/span&gt;, LENGTH(hval4), &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;, hval4, &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; (&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;HSET&amp;#x27;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; redis_cmd, CONCAT(&lt;span class=&#34;string&#34;&gt;&amp;#x27;city:&amp;#x27;&lt;/span&gt;,ID) &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; redis_key,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;Name&amp;#x27;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; hkey1, Name &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; hval1,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;CountryCode&amp;#x27;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; hkey2, CountryCode &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; hval2,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;District&amp;#x27;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; hkey3, District &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; hval3,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;Population&amp;#x27;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; hkey4, Population &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; hval4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; world.city&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ) &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; t;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;保存SQL到&lt;code&gt;resp.sql&lt;/code&gt;文件，并用Redis的管道模式从MySQL流到Redis：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;bash-3.2$ mysql -h 127.0.0.1 -uroot -p -Dworld --skip-column-names --raw &amp;lt;/tmp/resp.sql |redis-cli -p 4321 --pipe&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enter password:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;All data transferred. Waiting for the last reply...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Last reply received from server.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;errors: 0, replies: 4079&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;数据已经导入到Redis服务器！&lt;/p&gt;
+&lt;h2 id=&#34;使用-Redis-的-MySQL-连接器：redis-connect-mysql&#34;&gt;使用 Redis 的 MySQL 连接器：redis-connect-mysql&lt;/h2&gt;
+&lt;p&gt;最后一节，我将介绍如何使用Redis连接套件，特别是 &lt;a href=&#34;https://github.com/redis-field-engineering/redis-connect-dist/tree/main/connectors/mysql#redis-connect-mysql&#34;&gt;redis-connect-mysql&lt;/a&gt; 。您可以阅读这份文档：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;redis-connect-mysql第一次连接MySQL时，它会读取所有模式的一致性快照。当快照创建完成，连接器将连续发送MySQL的变更并生成相应的insert,update或delete事件。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;因此，它不仅仅是一个迁移工具，还是一个连接异构数据库的复制和传输工具。Redis CDC （变更数据捕捉）曾在RedisConf 2021上演示，所以请查看演示的详细内容。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;译者注：这段视频在油管上，此处跳过。&lt;br&gt;
+&lt;a href=&#34;https://www.youtube.com/embed/VrkZjh0REgU?feature=oembed&#34;&gt;RedisCDC: Seamless database migrations and continuous changed-data replication, Redis Labs&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;我现在没有运行使用RedisCDC的示例，但是请查看&lt;a href=&#34;https://github.com/redis-field-engineering/redis-connect-dist/tree/main/connectors/mysql#setting-up-mysql-source&#34;&gt;代码库&lt;/a&gt; 来了解如何操作它。&lt;/p&gt;
+&lt;h2 id=&#34;清理&#34;&gt;清理&lt;/h2&gt;
+&lt;p&gt;为了移除那些导入的Hash值，您可以执行下面的命令：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;redis-cli -p &amp;lt;PORT&amp;gt; --scan --pattern city:* -i 0.01 | xargs redis-cli -p &amp;lt;PORT&amp;gt; unlink&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;现在，您能从MySQL导出一张表，或者从其他的关系型数据库，任何可以导出CSV的数据库，或者RIOT DB，或者RedisCDC能连接的多种数据库。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;支持RedisCDC的连接器在 &lt;a href=&#34;https://github.com/redis-field-engineering/redis-connect-dist/tree/main/connectors&#34;&gt;这里&lt;/a&gt; ，支持 RIOT DB的连接器在&lt;a href=&#34;https://developer.redis.com/riot/index.html#_drivers&#34;&gt;这里&lt;/a&gt; 。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;接下来，您可能想知道您能用这些创建在Redis实例中的哈希值做些什么。所以我在下篇文章中，将分享一些例子，关于在Redis中存储、检索、更改、删除、索引和检索数据的命令。&lt;/p&gt;
+&lt;p&gt;那么现在呢? 你可能想知道你可以用这些在Redis实例中创建的哈希值做什么。所以在下一篇文章中，我将分享几个在Redis中存储、检索、更改、删除、索引和搜索数据的命令示例。别走开，我很快就会写的！&lt;/p&gt;
+">
+<meta name="keywords" content="shawnyan,database,oracle,mysql,tidb,postgresql,ai,llm,agent">
+<meta name="author" content="Shawn Yan">
+
+<!-- Open Graph -->
+
+    <meta property="og:type" content="post">
+    <meta property="og:title" content="[译] 迁移 MySQL 的表到 Redis">
+    <meta property="og:url" content="https://shawnyan.cn/2022/mysql/fanyi-migrate-a-mysql-table-to-redis/index.html">
+    <meta property="og:site_name" content="少安事务所">
+    <meta property="og:description" content="&lt;blockquote&gt;
+&lt;p&gt;原文链接：&lt;a href=&#34;https://www.mortensi.com/2021/12/migrate-a-mysql-table-to-redis/&#34;&gt;https://www.mortensi.com/2021/12/migrate-a-mysql-table-to-redis/&lt;/a&gt;&lt;br&gt;
+原文作者：Admin&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;img alt=&#34;1.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220316-fd6c4619-fa42-45c6-9549-f29f79a406e0.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;在这篇文章中，我将列出一些从MySQL逻辑复制一张表到Redis的一些选项。我将使用经典的&lt;code&gt;world&lt;/code&gt;数据库运行示例。 &lt;code&gt;world&lt;/code&gt;数据库可以在这里&lt;a href=&#34;https://downloads.mysql.com/docs/world-db.zip&#34;&gt;下载&lt;/a&gt; ，所以如果您想尝试这些示例，只需将它导入到您的MySQL实例中。&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; use world;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Database changed&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;show&lt;/span&gt; tables;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; Tables_in_world &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; city            &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; country         &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; countrylanguage &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-----------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;3&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.01&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;有多种方法可以将表格导入Redis，让我们来看看其中的几种。在下面的例子中，我将选择一个&lt;a href=&#34;https://redis.io/topics/data-types-intro#redis-hashes&#34;&gt;Hash&lt;/a&gt; 数据类型，最类似于Redis的传统表行。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Redis哈希是字符串字段和字符串值之间的映射，所以它们是表示对象的完美数据类型(例如，一个用户有许多字段，如名字、姓氏、年龄等)&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;使用-SELECT-INTO-OUTFILE-导出CSV格式，使用Python导入&#34;&gt;使用 SELECT INTO OUTFILE 导出CSV格式，使用Python导入&lt;/h2&gt;
+&lt;p&gt;为了从MySQL导出数据并将其导入Redis，我们可以使用MySQL &lt;a href=&#34;https://dev.mysql.com/doc/refman/en/select-into.html&#34;&gt;SELECT into OUTFILE&lt;/a&gt; 功能，它可以生成一个格式化的输出文件。特别是，我将确保字段用逗号分隔。让我们试一试：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;INTO&lt;/span&gt; OUTFILE &lt;span class=&#34;string&#34;&gt;&amp;#x27;/tmp/city.csv&amp;#x27;&lt;/span&gt; FIELDS TERMINATED &lt;span class=&#34;keyword&#34;&gt;BY&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;,&amp;#x27;&lt;/span&gt; ENCLOSED &lt;span class=&#34;keyword&#34;&gt;BY&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;&amp;quot;&amp;#x27;&lt;/span&gt; LINES TERMINATED &lt;span class=&#34;keyword&#34;&gt;BY&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;n&amp;#x27;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; world.city;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;ERROR &lt;span class=&#34;number&#34;&gt;1290&lt;/span&gt; (HY000): The MySQL server &lt;span class=&#34;keyword&#34;&gt;is&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;running&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;with&lt;/span&gt; the &lt;span class=&#34;comment&#34;&gt;--secure-file-priv option so it cannot execute this statement&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;噢，MySQL默认配置禁止导出数据到文件系统。让我们在配置文件my.cnf中修复它：&lt;/p&gt;
+&lt;figure class=&#34;highlight yaml&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;[&lt;span class=&#34;string&#34;&gt;mysqld&lt;/span&gt;]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;secure_file_priv=/tmp&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;现在我可以导出：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; &lt;span class=&#34;operator&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;INTO&lt;/span&gt; OUTFILE &lt;span class=&#34;string&#34;&gt;&amp;#x27;/tmp/city.csv&amp;#x27;&lt;/span&gt; FIELDS TERMINATED &lt;span class=&#34;keyword&#34;&gt;BY&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;,&amp;#x27;&lt;/span&gt; ENCLOSED &lt;span class=&#34;keyword&#34;&gt;BY&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;&amp;quot;&amp;#x27;&lt;/span&gt; LINES TERMINATED &lt;span class=&#34;keyword&#34;&gt;BY&lt;/span&gt; &lt;span class=&#34;string&#34;&gt;&amp;#x27;n&amp;#x27;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; world.city;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Query OK, &lt;span class=&#34;number&#34;&gt;4079&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;rows&lt;/span&gt; affected (&lt;span class=&#34;number&#34;&gt;0.01&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;这是示例：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&amp;quot;1&amp;quot;,&amp;quot;Kabul&amp;quot;,&amp;quot;AFG&amp;quot;,&amp;quot;Kabol&amp;quot;,&amp;quot;1780000&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;quot;2&amp;quot;,&amp;quot;Qandahar&amp;quot;,&amp;quot;AFG&amp;quot;,&amp;quot;Qandahar&amp;quot;,&amp;quot;237500&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;quot;3&amp;quot;,&amp;quot;Herat&amp;quot;,&amp;quot;AFG&amp;quot;,&amp;quot;Herat&amp;quot;,&amp;quot;186800&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;quot;4&amp;quot;,&amp;quot;Mazar-e-Sharif&amp;quot;,&amp;quot;AFG&amp;quot;,&amp;quot;Balkh&amp;quot;,&amp;quot;127800&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;quot;5&amp;quot;,&amp;quot;Amsterdam&amp;quot;,&amp;quot;NLD&amp;quot;,&amp;quot;Noord-Holland&amp;quot;,&amp;quot;731200&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;quot;6&amp;quot;,&amp;quot;Rotterdam&amp;quot;,&amp;quot;NLD&amp;quot;,&amp;quot;Zuid-Holland&amp;quot;,&amp;quot;593321&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;quot;7&amp;quot;,&amp;quot;Haag&amp;quot;,&amp;quot;NLD&amp;quot;,&amp;quot;Zuid-Holland&amp;quot;,&amp;quot;440900&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;quot;8&amp;quot;,&amp;quot;Utrecht&amp;quot;,&amp;quot;NLD&amp;quot;,&amp;quot;Utrecht&amp;quot;,&amp;quot;234323&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;现在数据是CSV格式，我能使用一个简单的Python脚本导入它，下面是个可用的示例（参考说明设置 Python &lt;a href=&#34;https://www.mortensi.com/2021/12/connect-to-redis-with-python/&#34;&gt;环境&lt;/a&gt; 以连接到Redis）。&lt;/p&gt;
+&lt;figure class=&#34;highlight python&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;comment&#34;&gt;#!/usr/bin/python3&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;import&lt;/span&gt; redis&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;from&lt;/span&gt; csv &lt;span class=&#34;keyword&#34;&gt;import&lt;/span&gt; reader&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;r = redis.Redis(host=&lt;span class=&#34;string&#34;&gt;&amp;#x27;127.0.0.1&amp;#x27;&lt;/span&gt;, port=&lt;span class=&#34;number&#34;&gt;4321&lt;/span&gt;, password=&lt;span class=&#34;string&#34;&gt;&amp;#x27;&amp;#x27;&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;with&lt;/span&gt; &lt;span class=&#34;built_in&#34;&gt;open&lt;/span&gt;(&lt;span class=&#34;string&#34;&gt;&amp;#x27;/tmp/city.csv&amp;#x27;&lt;/span&gt;, &lt;span class=&#34;string&#34;&gt;&amp;#x27;r&amp;#x27;&lt;/span&gt;) &lt;span class=&#34;keyword&#34;&gt;as&lt;/span&gt; cities:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    csv_reader = reader(cities)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;    &lt;span class=&#34;keyword&#34;&gt;for&lt;/span&gt; row &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; csv_reader:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;        r.hset(&lt;span class=&#34;string&#34;&gt;&amp;quot;city:&amp;quot;&lt;/span&gt; + row[&lt;span class=&#34;number&#34;&gt;0&lt;/span&gt;],  mapping=&amp;#123; &lt;span class=&#34;string&#34;&gt;&amp;quot;Name&amp;quot;&lt;/span&gt; : row[&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt;], &lt;span class=&#34;string&#34;&gt;&amp;quot;CountryCode&amp;quot;&lt;/span&gt; : row[&lt;span class=&#34;number&#34;&gt;2&lt;/span&gt;], &lt;span class=&#34;string&#34;&gt;&amp;quot;District&amp;quot;&lt;/span&gt; : row[&lt;span class=&#34;number&#34;&gt;3&lt;/span&gt;], &lt;span class=&#34;string&#34;&gt;&amp;quot;Population&amp;quot;&lt;/span&gt; : row[&lt;span class=&#34;number&#34;&gt;4&lt;/span&gt;] &amp;#125;)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;让我们检查下是否正确导入：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;127.0.0.1:4321&amp;gt; SCAN 0 MATCH city:* COUNT 5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1) &amp;quot;3072&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2) 1) &amp;quot;city:2316&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   2) &amp;quot;city:749&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   3) &amp;quot;city:570&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   4) &amp;quot;city:3625&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   5) &amp;quot;city:3328&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;   6) &amp;quot;city:1771&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;我也可以验证Hash项的内容：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;127.0.0.1:4321&amp;gt; HGETALL city:4059&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;1) &amp;quot;Name&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2) &amp;quot;Cary&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3) &amp;quot;CountryCode&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4) &amp;quot;USA&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5) &amp;quot;District&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6) &amp;quot;North Carolina&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7) &amp;quot;Population&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8) &amp;quot;91213&amp;quot;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;使用mysqldump导出CSV格式&#34;&gt;使用mysqldump导出CSV格式&lt;/h2&gt;
+&lt;p&gt;备份工具 &lt;a href=&#34;https://dev.mysql.com/doc/refman/en/mysqldump.html&#34;&gt;mysqldump&lt;/a&gt; 可作为客户端，可以从远端导出数据，而不需要修改让任何服务器配置。可以此来代替&lt;code&gt;SELECT INTO OUTFILE&lt;/code&gt;，对有些人来说，它可能代表一个安全问题，因为它是在服务器本身导出行数据到文件系统，并需要启用&lt;a href=&#34;https://dev.mysql.com/doc/refman/en/server-system-variables.html#sysvar_secure_file_priv&#34;&gt;secure_file_priv&lt;/a&gt; 。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysqldump --host=127.0.0.1 --user=root --password --tab=/tmp --fields-enclosed-by=&amp;#x27;&amp;quot;&amp;#x27; --fields-terminated-by=&amp;#x27;,&amp;#x27; --lines-terminated-by=&amp;#x27;n&amp;#x27; world city&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;一旦文件导出（mysqldump导出两个文件，表定义保存在&lt;code&gt;city.sql&lt;/code&gt;文件，数据以CSV格式保存在&lt;code&gt;city.txt&lt;/code&gt;文件），数据可以按照说明导入。&lt;/p&gt;
+&lt;h2 id=&#34;使用RIOT导入CSV备份&#34;&gt;使用RIOT导入CSV备份&lt;/h2&gt;
+&lt;p&gt;假设你有一个MySQL表的CSV备份，事实上，CSV可以来自于任何数据源，比如Excel表格，Postgres等等。如果你不想编码来导入到Redis，你可以使用RIOT（Redis输入输出工具），用于将异构数据源迁移到Redis。&lt;/p&gt;
+&lt;img alt=&#34;2.png&#34; src=&#34;https://oss-emcsprod-public.modb.pro/image/editor/20220316-bb2a5ad4-295d-497a-8ceb-21576775435f.png&#34; referrerpolicy=&#34;no-referrer&#34;/&gt;
+&lt;p&gt;Redis输入输出工具: RIOT&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Redis输入/输出工具(RIOT)是一个工具集，其设计目的在于帮助您从Redis导入导出数据。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;在本节中，我将演示RIOT的CSV导入工具，称之为 &lt;a href=&#34;https://developer.redis.com/riot/index.html#_riot_file&#34;&gt;RIOT文件&lt;/a&gt; 。首先，安装它（我使用Mac，但是您可以参考文档了解其他安装方法）&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;brew install redis-developer/tap/riot-file&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;安装后，测试帮助方法：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;(redisvenv) bash-3.2$ riot-file --help&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;The operation couldn’t be completed. Unable to locate a Java Runtime.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Please visit http://www.java.com for information on installing Java.&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;是的，您也需要从&lt;a href=&#34;http://www.java.com/&#34;&gt;www.java.com&lt;/a&gt;下载JRE，完成后，继续：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;(redisvenv) bash-3.2$ riot-file import hset --help&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Usage: riot-file import hset [OPTIONS]&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Set hashes from input&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-H, --help Show this help message and exit&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-s, --separator=&amp;lt;str&amp;gt; Key separator (default: :)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-r, --remove Remove key or member fields the first time they are used&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--ignore-missing Ignore missing fields&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-p, --keyspace=&amp;lt;str&amp;gt; Keyspace prefix&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;-k, --keys=&amp;lt;fields&amp;gt;... Key fields&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--include=&amp;lt;field&amp;gt;... Fields to include&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;--exclude=&amp;lt;field&amp;gt;... Fields to exclude&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;现在，我们必须将CSV数据源映射到适当的Hash数据结构。我们原始的CSV文件第一行没有标题。如果我们想加标题，我们甚至可以按照顺序从 MySQL &lt;a href=&#34;https://dev.mysql.com/doc/refman/en/information-schema-tables-table.html&#34;&gt;&lt;code&gt;information_schema&lt;/code&gt;&lt;/a&gt; 中抽取。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;注意：MySQL SELECT INTO OUTFILE不会在导出的数据集添加头，这必须使用正确的SQL语法手动添加，或编辑导出的CSV文件。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;mysql&lt;span class=&#34;operator&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; group_concat(COLUMN_NAME &lt;span class=&#34;keyword&#34;&gt;ORDER&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;BY&lt;/span&gt; ORDINAL_POSITION separator &lt;span class=&#34;string&#34;&gt;&amp;#x27;,&amp;#x27;&lt;/span&gt;) &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; information_schema.COLUMNS &lt;span class=&#34;keyword&#34;&gt;WHERE&lt;/span&gt; TABLE_NAME&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;city&amp;#x27;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;AND&lt;/span&gt; TABLE_SCHEMA&lt;span class=&#34;operator&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;world&amp;#x27;&lt;/span&gt;;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-------------------------------------------------------------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; group_concat(COLUMN_NAME &lt;span class=&#34;keyword&#34;&gt;ORDER&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;BY&lt;/span&gt; ORDINAL_POSITION separator &lt;span class=&#34;string&#34;&gt;&amp;#x27;,&amp;#x27;&lt;/span&gt;) &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-------------------------------------------------------------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt; ID,Name,CountryCode,District,Population                           &lt;span class=&#34;operator&#34;&gt;|&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;operator&#34;&gt;+&lt;/span&gt;&lt;span class=&#34;comment&#34;&gt;-------------------------------------------------------------------+&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;number&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;type&#34;&gt;row&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;in&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;set&lt;/span&gt; (&lt;span class=&#34;number&#34;&gt;0.00&lt;/span&gt; sec)&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;添加&lt;code&gt;ID,Name,CountryCode,District,Population&lt;/code&gt;到CSV文件的第一行。但是我们仍然可以继续手动执行映射。在这里，我们指定字段在CSV文件中出现的顺序，指定表名（keyspace），及补充字段名（key）(例如&lt;code&gt;city:1234&lt;/code&gt;)。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;riot-file -h 127.0.0.1 -p 4321 import /tmp/city.csv --fields ID Name CountryCode District Population hmset --keyspace city --keys ID&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;或者，如果CSV文件有从MySQL获得的头，我们可以添加&lt;code&gt;--header&lt;/code&gt;参数来使用手动添加的CSV头。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;riot-file -h 127.0.0.1 -p 4321 import /tmp/city.csv --header hmset --keyspace city --keys ID&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;使用-RIOT-DB-从MySQL导入&#34;&gt;使用 RIOT DB 从MySQL导入&lt;/h2&gt;
+&lt;p&gt;为了从没有中间转储备份导入MySQL，您可以编码一个方案，来连接源数据库和目标Redis库，或者简单地使用&lt;a href=&#34;https://developer.redis.com/riot/index.html#_riot_db&#34;&gt;RIOT DB&lt;/a&gt; 。下面来安装它：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;brew install redis-developer/tap/riot-db&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;然后像往常一样导入，指定表名和列名，提供正确的连接信息，显然，需要定义导入数据集的查询语句。&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;riot-db -h 127.0.0.1 -p 4321 import &amp;quot;SELECT * FROM city&amp;quot; --url jdbc:mysql://root:Oracle1*@127.0.0.1:3306/world hmset --keyspace city --keys ID&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;导出并以RESP格式做大量插入&#34;&gt;导出并以RESP格式做大量插入&lt;/h2&gt;
+&lt;p&gt;到目前为止，我已经探索了一些逻辑方法，但是对于大量插入，最高速度需要达到百万个键，有一种不同的方法，即使用redis-cli的管道模式，读取数据的同时，立即发送到服务器。特别地，使用这种方法，我们将使用&lt;a href=&#34;https://redis.io/topics/protocol&#34;&gt;Redis协议(RESP)&lt;/a&gt; 。关于大量插入的更多信息请参阅&lt;a href=&#34;https://redis.io/topics/mass-insert&#34;&gt;这里&lt;/a&gt; 。&lt;/p&gt;
+&lt;p&gt;它可能导出RESP格式的表，并转瞬流到Redis服务器。让我们看看它是如何工作的。我们能使用SQL来生成数据，并以这种格式发送到Redis服务器：&lt;/p&gt;
+&lt;figure class=&#34;highlight plaintext&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;*&amp;lt;args&amp;gt;&amp;lt;cr&amp;gt;&amp;lt;lf&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;$&amp;lt;len0&amp;gt;&amp;lt;cr&amp;gt;&amp;lt;lf&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;lt;arg0&amp;gt;&amp;lt;cr&amp;gt;&amp;lt;lf&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;$&amp;lt;len1&amp;gt;&amp;lt;cr&amp;gt;&amp;lt;lf&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;lt;arg1&amp;gt;&amp;lt;cr&amp;gt;&amp;lt;lf&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;$&amp;lt;lenN&amp;gt;&amp;lt;cr&amp;gt;&amp;lt;lf&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;lt;argN&amp;gt;&amp;lt;cr&amp;gt;&amp;lt;lf&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;这里：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;args 是参数的数量&lt;/li&gt;
+&lt;li&gt;lenN 是参数跟随的长度&lt;/li&gt;
+&lt;li&gt;argN 是参数&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;假设我们要为MySQL表中的每一行添加一个Hash，每个Hash将插入4个字段，在RESP协议中生成转储的SQL语句将是这样的：&lt;/p&gt;
+&lt;figure class=&#34;highlight sql&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;17&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt; CONCAT(&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&amp;quot;*10\r\n&amp;quot;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;$&amp;#x27;&lt;/span&gt;, LENGTH(redis_cmd), &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,redis_cmd, &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;$&amp;#x27;&lt;/span&gt;, LENGTH(redis_key), &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,redis_key, &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;$&amp;#x27;&lt;/span&gt;, LENGTH(hkey1), &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,hkey1, &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;$&amp;#x27;&lt;/span&gt;, LENGTH(hval1), &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;, hval1, &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;$&amp;#x27;&lt;/span&gt;, LENGTH(hkey2), &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,hkey2, &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;$&amp;#x27;&lt;/span&gt;, LENGTH(hval2), &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;, hval2, &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;$&amp;#x27;&lt;/span&gt;, LENGTH(hkey3), &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,hkey3, &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;$&amp;#x27;&lt;/span&gt;, LENGTH(hval3), &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;, hval3, &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;$&amp;#x27;&lt;/span&gt;, LENGTH(hkey4), &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,hkey4, &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;,&lt;span class=&#34;string&#34;&gt;&amp;#x27;$&amp;#x27;&lt;/span&gt;, LENGTH(hval4), &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;, hval4, &lt;span class=&#34;string&#34;&gt;&amp;#x27;\r\n&amp;#x27;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; (&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;keyword&#34;&gt;SELECT&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;HSET&amp;#x27;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; redis_cmd, CONCAT(&lt;span class=&#34;string&#34;&gt;&amp;#x27;city:&amp;#x27;&lt;/span&gt;,ID) &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; redis_key,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;Name&amp;#x27;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; hkey1, Name &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; hval1,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;CountryCode&amp;#x27;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; hkey2, CountryCode &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; hval2,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;District&amp;#x27;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; hkey3, District &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; hval3,&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;string&#34;&gt;&amp;#x27;Population&amp;#x27;&lt;/span&gt; &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; hkey4, Population &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; hval4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; &lt;span class=&#34;keyword&#34;&gt;FROM&lt;/span&gt; world.city&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt; ) &lt;span class=&#34;keyword&#34;&gt;AS&lt;/span&gt; t;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;保存SQL到&lt;code&gt;resp.sql&lt;/code&gt;文件，并用Redis的管道模式从MySQL流到Redis：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;bash-3.2$ mysql -h 127.0.0.1 -uroot -p -Dworld --skip-column-names --raw &amp;lt;/tmp/resp.sql |redis-cli -p 4321 --pipe&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Enter password:&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;All data transferred. Waiting for the last reply...&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;Last reply received from server.&lt;/span&gt;&lt;br&gt;&lt;span class=&#34;line&#34;&gt;errors: 0, replies: 4079&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;数据已经导入到Redis服务器！&lt;/p&gt;
+&lt;h2 id=&#34;使用-Redis-的-MySQL-连接器：redis-connect-mysql&#34;&gt;使用 Redis 的 MySQL 连接器：redis-connect-mysql&lt;/h2&gt;
+&lt;p&gt;最后一节，我将介绍如何使用Redis连接套件，特别是 &lt;a href=&#34;https://github.com/redis-field-engineering/redis-connect-dist/tree/main/connectors/mysql#redis-connect-mysql&#34;&gt;redis-connect-mysql&lt;/a&gt; 。您可以阅读这份文档：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;redis-connect-mysql第一次连接MySQL时，它会读取所有模式的一致性快照。当快照创建完成，连接器将连续发送MySQL的变更并生成相应的insert,update或delete事件。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;因此，它不仅仅是一个迁移工具，还是一个连接异构数据库的复制和传输工具。Redis CDC （变更数据捕捉）曾在RedisConf 2021上演示，所以请查看演示的详细内容。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;译者注：这段视频在油管上，此处跳过。&lt;br&gt;
+&lt;a href=&#34;https://www.youtube.com/embed/VrkZjh0REgU?feature=oembed&#34;&gt;RedisCDC: Seamless database migrations and continuous changed-data replication, Redis Labs&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;我现在没有运行使用RedisCDC的示例，但是请查看&lt;a href=&#34;https://github.com/redis-field-engineering/redis-connect-dist/tree/main/connectors/mysql#setting-up-mysql-source&#34;&gt;代码库&lt;/a&gt; 来了解如何操作它。&lt;/p&gt;
+&lt;h2 id=&#34;清理&#34;&gt;清理&lt;/h2&gt;
+&lt;p&gt;为了移除那些导入的Hash值，您可以执行下面的命令：&lt;/p&gt;
+&lt;figure class=&#34;highlight shell&#34;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&#34;gutter&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;1&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#34;code&#34;&gt;&lt;pre&gt;&lt;span class=&#34;line&#34;&gt;redis-cli -p &amp;lt;PORT&amp;gt; --scan --pattern city:* -i 0.01 | xargs redis-cli -p &amp;lt;PORT&amp;gt; unlink&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结&lt;/h2&gt;
+&lt;p&gt;现在，您能从MySQL导出一张表，或者从其他的关系型数据库，任何可以导出CSV的数据库，或者RIOT DB，或者RedisCDC能连接的多种数据库。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;支持RedisCDC的连接器在 &lt;a href=&#34;https://github.com/redis-field-engineering/redis-connect-dist/tree/main/connectors&#34;&gt;这里&lt;/a&gt; ，支持 RIOT DB的连接器在&lt;a href=&#34;https://developer.redis.com/riot/index.html#_drivers&#34;&gt;这里&lt;/a&gt; 。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;接下来，您可能想知道您能用这些创建在Redis实例中的哈希值做些什么。所以我在下篇文章中，将分享一些例子，关于在Redis中存储、检索、更改、删除、索引和检索数据的命令。&lt;/p&gt;
+&lt;p&gt;那么现在呢? 你可能想知道你可以用这些在Redis实例中创建的哈希值做什么。所以在下一篇文章中，我将分享几个在Redis中存储、检索、更改、删除、索引和搜索数据的命令示例。别走开，我很快就会写的！&lt;/p&gt;
+">
+    <meta property="og:locale" content="en">
+    
+        <meta property="og:image" content="/images/og-image.jpg">
+    
+
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/img/favicon.ico">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+
+<!-- Theme CSS -->
+
+<link rel="stylesheet" href="/css/oracle-ace.css">
+
+
+<!-- Custom Fonts -->
+
+
+
+<!-- Analytics -->
+
+
+<meta name="generator" content="Hexo 8.1.2"><link rel="alternate" href="/atom.xml" title="少安事务所" type="application/atom+xml">
+</head>
+<body class="oracle-ace-theme">
+    <!-- Preloader -->
+    
+        
+<div class="preloader" id="preloader">
+    <div class="preloader-content">
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">
+            Oracle ACE
+        </p>
+    </div>
+</div>
+
+
+    
+
+    <!-- Scroll Progress Bar -->
+    
+        
+<div class="scroll-progress-bar" id="scroll-progress-bar">
+    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+</div>
+
+
+    
+
+    <!-- Navigation -->
+    
+<nav class="navbar" id="navbar">
+    <div class="navbar-container">
+        <!-- Logo -->
+        <a href="/" class="navbar-logo">
+            
+                少安<span class="logo-highlight">事务所</span>
+            
+        </a>
+
+        <!-- Desktop Navigation -->
+        <div class="navbar-menu">
+            
+                
+                    
+                    <a href="/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-house"></i>
+                        
+                        <span>Home</span>
+                    </a>
+                
+                    
+                    <a href="/blogs" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-book-open"></i>
+                        
+                        <span>Blogs</span>
+                    </a>
+                
+                    
+                    <a href="/tags" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-tags"></i>
+                        
+                        <span>Tags</span>
+                    </a>
+                
+                    
+                    <a href="/categories" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-folder"></i>
+                        
+                        <span>Categories</span>
+                    </a>
+                
+                    
+                    <a href="/about/" class="navbar-link ">
+                        
+                            <i class="fa-solid fa-user"></i>
+                        
+                        <span>About</span>
+                    </a>
+                
+            
+            
+            <!-- Search -->
+            
+                <button class="navbar-search-btn" id="search-btn" aria-label="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+            <span class="toggle-bar"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="navbar-mobile" id="navbar-mobile">
+        
+            
+                
+                <a href="/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-house"></i>
+                    
+                    <span>Home</span>
+                </a>
+            
+                
+                <a href="/blogs" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-book-open"></i>
+                    
+                    <span>Blogs</span>
+                </a>
+            
+                
+                <a href="/tags" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-tags"></i>
+                    
+                    <span>Tags</span>
+                </a>
+            
+                
+                <a href="/categories" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-folder"></i>
+                    
+                    <span>Categories</span>
+                </a>
+            
+                
+                <a href="/about/" class="navbar-mobile-link ">
+                    
+                        <i class="fa-solid fa-user"></i>
+                    
+                    <span>About</span>
+                </a>
+            
+        
+    </div>
+</nav>
+
+
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Post Template -->
+<div class="post-container">
+    <div class="container">
+        <div class="post-wrapper">
+            <!-- Main Content -->
+            <article class="post-content">
+                <!-- Post Header -->
+                <header class="post-header">
+                    
+                        <div class="post-categories">
+                            
+                                <a href="/categories/mysql/" class="category-badge">
+                                    MySQL
+                                </a>
+                            
+                                <a href="/categories/mysql/translate/" class="category-badge">
+                                    Translate
+                                </a>
+                            
+                        </div>
+                    
+                    
+                    <h1 class="post-title">[译] 迁移 MySQL 的表到 Redis</h1>
+                    
+                    <div class="post-meta">
+                        <span class="meta-item">
+                            <i class="fa-regular fa-calendar"></i>
+                            2022-03-16
+                        </span>
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-file-word"></i>
+                                2.7k words
+                            </span>
+                            <span class="meta-item">
+                                <i class="fa-regular fa-clock"></i>
+                                12 min read
+                            </span>
+                        
+                        
+                            <span class="meta-item">
+                                <i class="fa-regular fa-eye"></i>
+                                <span id="busuanzi_value_page_pv"></span> views
+                            </span>
+                        
+                    </div>
+                </header>
+
+                <!-- Post Body -->
+                <div class="post-body">
+                    <blockquote>
+<p>原文链接：<a target="_blank" rel="noopener" href="https://www.mortensi.com/2021/12/migrate-a-mysql-table-to-redis/">https://www.mortensi.com/2021/12/migrate-a-mysql-table-to-redis/</a><br>
+原文作者：Admin</p>
+</blockquote>
+<img alt="1.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20220316-fd6c4619-fa42-45c6-9549-f29f79a406e0.png" referrerpolicy="no-referrer"/>
+<p>在这篇文章中，我将列出一些从MySQL逻辑复制一张表到Redis的一些选项。我将使用经典的<code>world</code>数据库运行示例。 <code>world</code>数据库可以在这里<a target="_blank" rel="noopener" href="https://downloads.mysql.com/docs/world-db.zip">下载</a> ，所以如果您想尝试这些示例，只需将它导入到您的MySQL实例中。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">mysql<span class="operator">&gt;</span> use world;</span><br><span class="line">Database changed</span><br><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">show</span> tables;</span><br><span class="line"><span class="operator">+</span><span class="comment">-----------------+</span></span><br><span class="line"><span class="operator">|</span> Tables_in_world <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-----------------+</span></span><br><span class="line"><span class="operator">|</span> city            <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> country         <span class="operator">|</span></span><br><span class="line"><span class="operator">|</span> countrylanguage <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-----------------+</span></span><br><span class="line"><span class="number">3</span> <span class="keyword">rows</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.01</span> sec)</span><br></pre></td></tr></table></figure>
+<p>有多种方法可以将表格导入Redis，让我们来看看其中的几种。在下面的例子中，我将选择一个<a target="_blank" rel="noopener" href="https://redis.io/topics/data-types-intro#redis-hashes">Hash</a> 数据类型，最类似于Redis的传统表行。</p>
+<blockquote>
+<p>Redis哈希是字符串字段和字符串值之间的映射，所以它们是表示对象的完美数据类型(例如，一个用户有许多字段，如名字、姓氏、年龄等)</p>
+</blockquote>
+<h2 id="使用-SELECT-INTO-OUTFILE-导出CSV格式，使用Python导入">使用 SELECT INTO OUTFILE 导出CSV格式，使用Python导入</h2>
+<p>为了从MySQL导出数据并将其导入Redis，我们可以使用MySQL <a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/en/select-into.html">SELECT into OUTFILE</a> 功能，它可以生成一个格式化的输出文件。特别是，我将确保字段用逗号分隔。让我们试一试：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">INTO</span> OUTFILE <span class="string">&#x27;/tmp/city.csv&#x27;</span> FIELDS TERMINATED <span class="keyword">BY</span> <span class="string">&#x27;,&#x27;</span> ENCLOSED <span class="keyword">BY</span> <span class="string">&#x27;&quot;&#x27;</span> LINES TERMINATED <span class="keyword">BY</span> <span class="string">&#x27;n&#x27;</span> <span class="keyword">FROM</span> world.city;</span><br><span class="line">ERROR <span class="number">1290</span> (HY000): The MySQL server <span class="keyword">is</span> <span class="keyword">running</span> <span class="keyword">with</span> the <span class="comment">--secure-file-priv option so it cannot execute this statement</span></span><br></pre></td></tr></table></figure>
+<p>噢，MySQL默认配置禁止导出数据到文件系统。让我们在配置文件my.cnf中修复它：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[<span class="string">mysqld</span>]</span><br><span class="line"><span class="string">secure_file_priv=/tmp</span></span><br></pre></td></tr></table></figure>
+<p>现在我可以导出：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">INTO</span> OUTFILE <span class="string">&#x27;/tmp/city.csv&#x27;</span> FIELDS TERMINATED <span class="keyword">BY</span> <span class="string">&#x27;,&#x27;</span> ENCLOSED <span class="keyword">BY</span> <span class="string">&#x27;&quot;&#x27;</span> LINES TERMINATED <span class="keyword">BY</span> <span class="string">&#x27;n&#x27;</span> <span class="keyword">FROM</span> world.city;</span><br><span class="line">Query OK, <span class="number">4079</span> <span class="keyword">rows</span> affected (<span class="number">0.01</span> sec)</span><br></pre></td></tr></table></figure>
+<p>这是示例：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&quot;1&quot;,&quot;Kabul&quot;,&quot;AFG&quot;,&quot;Kabol&quot;,&quot;1780000&quot;</span><br><span class="line">&quot;2&quot;,&quot;Qandahar&quot;,&quot;AFG&quot;,&quot;Qandahar&quot;,&quot;237500&quot;</span><br><span class="line">&quot;3&quot;,&quot;Herat&quot;,&quot;AFG&quot;,&quot;Herat&quot;,&quot;186800&quot;</span><br><span class="line">&quot;4&quot;,&quot;Mazar-e-Sharif&quot;,&quot;AFG&quot;,&quot;Balkh&quot;,&quot;127800&quot;</span><br><span class="line">&quot;5&quot;,&quot;Amsterdam&quot;,&quot;NLD&quot;,&quot;Noord-Holland&quot;,&quot;731200&quot;</span><br><span class="line">&quot;6&quot;,&quot;Rotterdam&quot;,&quot;NLD&quot;,&quot;Zuid-Holland&quot;,&quot;593321&quot;</span><br><span class="line">&quot;7&quot;,&quot;Haag&quot;,&quot;NLD&quot;,&quot;Zuid-Holland&quot;,&quot;440900&quot;</span><br><span class="line">&quot;8&quot;,&quot;Utrecht&quot;,&quot;NLD&quot;,&quot;Utrecht&quot;,&quot;234323&quot;</span><br></pre></td></tr></table></figure>
+<p>现在数据是CSV格式，我能使用一个简单的Python脚本导入它，下面是个可用的示例（参考说明设置 Python <a target="_blank" rel="noopener" href="https://www.mortensi.com/2021/12/connect-to-redis-with-python/">环境</a> 以连接到Redis）。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#!/usr/bin/python3</span></span><br><span class="line"><span class="keyword">import</span> redis</span><br><span class="line"><span class="keyword">from</span> csv <span class="keyword">import</span> reader</span><br><span class="line"></span><br><span class="line">r = redis.Redis(host=<span class="string">&#x27;127.0.0.1&#x27;</span>, port=<span class="number">4321</span>, password=<span class="string">&#x27;&#x27;</span>)</span><br><span class="line"></span><br><span class="line"><span class="keyword">with</span> <span class="built_in">open</span>(<span class="string">&#x27;/tmp/city.csv&#x27;</span>, <span class="string">&#x27;r&#x27;</span>) <span class="keyword">as</span> cities:</span><br><span class="line">    csv_reader = reader(cities)</span><br><span class="line">    <span class="keyword">for</span> row <span class="keyword">in</span> csv_reader:</span><br><span class="line">        r.hset(<span class="string">&quot;city:&quot;</span> + row[<span class="number">0</span>],  mapping=&#123; <span class="string">&quot;Name&quot;</span> : row[<span class="number">1</span>], <span class="string">&quot;CountryCode&quot;</span> : row[<span class="number">2</span>], <span class="string">&quot;District&quot;</span> : row[<span class="number">3</span>], <span class="string">&quot;Population&quot;</span> : row[<span class="number">4</span>] &#125;)</span><br></pre></td></tr></table></figure>
+<p>让我们检查下是否正确导入：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:4321&gt; SCAN 0 MATCH city:* COUNT 5</span><br><span class="line">1) &quot;3072&quot;</span><br><span class="line">2) 1) &quot;city:2316&quot;</span><br><span class="line">   2) &quot;city:749&quot;</span><br><span class="line">   3) &quot;city:570&quot;</span><br><span class="line">   4) &quot;city:3625&quot;</span><br><span class="line">   5) &quot;city:3328&quot;</span><br><span class="line">   6) &quot;city:1771&quot;</span><br></pre></td></tr></table></figure>
+<p>我也可以验证Hash项的内容：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:4321&gt; HGETALL city:4059</span><br><span class="line">1) &quot;Name&quot;</span><br><span class="line">2) &quot;Cary&quot;</span><br><span class="line">3) &quot;CountryCode&quot;</span><br><span class="line">4) &quot;USA&quot;</span><br><span class="line">5) &quot;District&quot;</span><br><span class="line">6) &quot;North Carolina&quot;</span><br><span class="line">7) &quot;Population&quot;</span><br><span class="line">8) &quot;91213&quot;</span><br></pre></td></tr></table></figure>
+<h2 id="使用mysqldump导出CSV格式">使用mysqldump导出CSV格式</h2>
+<p>备份工具 <a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/en/mysqldump.html">mysqldump</a> 可作为客户端，可以从远端导出数据，而不需要修改让任何服务器配置。可以此来代替<code>SELECT INTO OUTFILE</code>，对有些人来说，它可能代表一个安全问题，因为它是在服务器本身导出行数据到文件系统，并需要启用<a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/en/server-system-variables.html#sysvar_secure_file_priv">secure_file_priv</a> 。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysqldump --host=127.0.0.1 --user=root --password --tab=/tmp --fields-enclosed-by=&#x27;&quot;&#x27; --fields-terminated-by=&#x27;,&#x27; --lines-terminated-by=&#x27;n&#x27; world city</span><br></pre></td></tr></table></figure>
+<p>一旦文件导出（mysqldump导出两个文件，表定义保存在<code>city.sql</code>文件，数据以CSV格式保存在<code>city.txt</code>文件），数据可以按照说明导入。</p>
+<h2 id="使用RIOT导入CSV备份">使用RIOT导入CSV备份</h2>
+<p>假设你有一个MySQL表的CSV备份，事实上，CSV可以来自于任何数据源，比如Excel表格，Postgres等等。如果你不想编码来导入到Redis，你可以使用RIOT（Redis输入输出工具），用于将异构数据源迁移到Redis。</p>
+<img alt="2.png" src="https://oss-emcsprod-public.modb.pro/image/editor/20220316-bb2a5ad4-295d-497a-8ceb-21576775435f.png" referrerpolicy="no-referrer"/>
+<p>Redis输入输出工具: RIOT</p>
+<blockquote>
+<p>Redis输入/输出工具(RIOT)是一个工具集，其设计目的在于帮助您从Redis导入导出数据。</p>
+</blockquote>
+<p>在本节中，我将演示RIOT的CSV导入工具，称之为 <a target="_blank" rel="noopener" href="https://developer.redis.com/riot/index.html#_riot_file">RIOT文件</a> 。首先，安装它（我使用Mac，但是您可以参考文档了解其他安装方法）</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">brew install redis-developer/tap/riot-file</span><br></pre></td></tr></table></figure>
+<p>安装后，测试帮助方法：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">(redisvenv) bash-3.2$ riot-file --help</span><br><span class="line">The operation couldn’t be completed. Unable to locate a Java Runtime.</span><br><span class="line">Please visit http://www.java.com for information on installing Java.</span><br></pre></td></tr></table></figure>
+<p>是的，您也需要从<a target="_blank" rel="noopener" href="http://www.java.com/">www.java.com</a>下载JRE，完成后，继续：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">(redisvenv) bash-3.2$ riot-file import hset --help</span><br><span class="line">Usage: riot-file import hset [OPTIONS]</span><br><span class="line">Set hashes from input</span><br><span class="line">-H, --help Show this help message and exit</span><br><span class="line">-s, --separator=&lt;str&gt; Key separator (default: :)</span><br><span class="line">-r, --remove Remove key or member fields the first time they are used</span><br><span class="line">--ignore-missing Ignore missing fields</span><br><span class="line">-p, --keyspace=&lt;str&gt; Keyspace prefix</span><br><span class="line">-k, --keys=&lt;fields&gt;... Key fields</span><br><span class="line">--include=&lt;field&gt;... Fields to include</span><br><span class="line">--exclude=&lt;field&gt;... Fields to exclude</span><br></pre></td></tr></table></figure>
+<p>现在，我们必须将CSV数据源映射到适当的Hash数据结构。我们原始的CSV文件第一行没有标题。如果我们想加标题，我们甚至可以按照顺序从 MySQL <a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/en/information-schema-tables-table.html"><code>information_schema</code></a> 中抽取。</p>
+<blockquote>
+<p>注意：MySQL SELECT INTO OUTFILE不会在导出的数据集添加头，这必须使用正确的SQL语法手动添加，或编辑导出的CSV文件。</p>
+</blockquote>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">SELECT</span> group_concat(COLUMN_NAME <span class="keyword">ORDER</span> <span class="keyword">BY</span> ORDINAL_POSITION separator <span class="string">&#x27;,&#x27;</span>) <span class="keyword">FROM</span> information_schema.COLUMNS <span class="keyword">WHERE</span> TABLE_NAME<span class="operator">=</span><span class="string">&#x27;city&#x27;</span> <span class="keyword">AND</span> TABLE_SCHEMA<span class="operator">=</span><span class="string">&#x27;world&#x27;</span>;</span><br><span class="line"><span class="operator">+</span><span class="comment">-------------------------------------------------------------------+</span></span><br><span class="line"><span class="operator">|</span> group_concat(COLUMN_NAME <span class="keyword">ORDER</span> <span class="keyword">BY</span> ORDINAL_POSITION separator <span class="string">&#x27;,&#x27;</span>) <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-------------------------------------------------------------------+</span></span><br><span class="line"><span class="operator">|</span> ID,Name,CountryCode,District,Population                           <span class="operator">|</span></span><br><span class="line"><span class="operator">+</span><span class="comment">-------------------------------------------------------------------+</span></span><br><span class="line"><span class="number">1</span> <span class="type">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure>
+<p>添加<code>ID,Name,CountryCode,District,Population</code>到CSV文件的第一行。但是我们仍然可以继续手动执行映射。在这里，我们指定字段在CSV文件中出现的顺序，指定表名（keyspace），及补充字段名（key）(例如<code>city:1234</code>)。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">riot-file -h 127.0.0.1 -p 4321 import /tmp/city.csv --fields ID Name CountryCode District Population hmset --keyspace city --keys ID</span><br></pre></td></tr></table></figure>
+<p>或者，如果CSV文件有从MySQL获得的头，我们可以添加<code>--header</code>参数来使用手动添加的CSV头。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">riot-file -h 127.0.0.1 -p 4321 import /tmp/city.csv --header hmset --keyspace city --keys ID</span><br></pre></td></tr></table></figure>
+<h2 id="使用-RIOT-DB-从MySQL导入">使用 RIOT DB 从MySQL导入</h2>
+<p>为了从没有中间转储备份导入MySQL，您可以编码一个方案，来连接源数据库和目标Redis库，或者简单地使用<a target="_blank" rel="noopener" href="https://developer.redis.com/riot/index.html#_riot_db">RIOT DB</a> 。下面来安装它：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">brew install redis-developer/tap/riot-db</span><br></pre></td></tr></table></figure>
+<p>然后像往常一样导入，指定表名和列名，提供正确的连接信息，显然，需要定义导入数据集的查询语句。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">riot-db -h 127.0.0.1 -p 4321 import &quot;SELECT * FROM city&quot; --url jdbc:mysql://root:Oracle1*@127.0.0.1:3306/world hmset --keyspace city --keys ID</span><br></pre></td></tr></table></figure>
+<h2 id="导出并以RESP格式做大量插入">导出并以RESP格式做大量插入</h2>
+<p>到目前为止，我已经探索了一些逻辑方法，但是对于大量插入，最高速度需要达到百万个键，有一种不同的方法，即使用redis-cli的管道模式，读取数据的同时，立即发送到服务器。特别地，使用这种方法，我们将使用<a target="_blank" rel="noopener" href="https://redis.io/topics/protocol">Redis协议(RESP)</a> 。关于大量插入的更多信息请参阅<a target="_blank" rel="noopener" href="https://redis.io/topics/mass-insert">这里</a> 。</p>
+<p>它可能导出RESP格式的表，并转瞬流到Redis服务器。让我们看看它是如何工作的。我们能使用SQL来生成数据，并以这种格式发送到Redis服务器：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">*&lt;args&gt;&lt;cr&gt;&lt;lf&gt;</span><br><span class="line">$&lt;len0&gt;&lt;cr&gt;&lt;lf&gt;</span><br><span class="line">&lt;arg0&gt;&lt;cr&gt;&lt;lf&gt;</span><br><span class="line">$&lt;len1&gt;&lt;cr&gt;&lt;lf&gt;</span><br><span class="line">&lt;arg1&gt;&lt;cr&gt;&lt;lf&gt;</span><br><span class="line">...</span><br><span class="line">$&lt;lenN&gt;&lt;cr&gt;&lt;lf&gt;</span><br><span class="line">&lt;argN&gt;&lt;cr&gt;&lt;lf&gt;</span><br></pre></td></tr></table></figure>
+<p>这里：</p>
+<ul>
+<li>args 是参数的数量</li>
+<li>lenN 是参数跟随的长度</li>
+<li>argN 是参数</li>
+</ul>
+<p>假设我们要为MySQL表中的每一行添加一个Hash，每个Hash将插入4个字段，在RESP协议中生成转储的SQL语句将是这样的：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> CONCAT(</span><br><span class="line">&quot;*10\r\n&quot;,</span><br><span class="line"><span class="string">&#x27;$&#x27;</span>, LENGTH(redis_cmd), <span class="string">&#x27;\r\n&#x27;</span>,redis_cmd, <span class="string">&#x27;\r\n&#x27;</span>,<span class="string">&#x27;$&#x27;</span>, LENGTH(redis_key), <span class="string">&#x27;\r\n&#x27;</span>,redis_key, <span class="string">&#x27;\r\n&#x27;</span>,</span><br><span class="line"><span class="string">&#x27;$&#x27;</span>, LENGTH(hkey1), <span class="string">&#x27;\r\n&#x27;</span>,hkey1, <span class="string">&#x27;\r\n&#x27;</span>,<span class="string">&#x27;$&#x27;</span>, LENGTH(hval1), <span class="string">&#x27;\r\n&#x27;</span>, hval1, <span class="string">&#x27;\r\n&#x27;</span></span><br><span class="line"><span class="string">&#x27;$&#x27;</span>, LENGTH(hkey2), <span class="string">&#x27;\r\n&#x27;</span>,hkey2, <span class="string">&#x27;\r\n&#x27;</span>,<span class="string">&#x27;$&#x27;</span>, LENGTH(hval2), <span class="string">&#x27;\r\n&#x27;</span>, hval2, <span class="string">&#x27;\r\n&#x27;</span></span><br><span class="line"><span class="string">&#x27;$&#x27;</span>, LENGTH(hkey3), <span class="string">&#x27;\r\n&#x27;</span>,hkey3, <span class="string">&#x27;\r\n&#x27;</span>,<span class="string">&#x27;$&#x27;</span>, LENGTH(hval3), <span class="string">&#x27;\r\n&#x27;</span>, hval3, <span class="string">&#x27;\r\n&#x27;</span></span><br><span class="line"><span class="string">&#x27;$&#x27;</span>, LENGTH(hkey4), <span class="string">&#x27;\r\n&#x27;</span>,hkey4, <span class="string">&#x27;\r\n&#x27;</span>,<span class="string">&#x27;$&#x27;</span>, LENGTH(hval4), <span class="string">&#x27;\r\n&#x27;</span>, hval4, <span class="string">&#x27;\r\n&#x27;</span></span><br><span class="line">)</span><br><span class="line"><span class="keyword">FROM</span> (</span><br><span class="line"> <span class="keyword">SELECT</span></span><br><span class="line"><span class="string">&#x27;HSET&#x27;</span> <span class="keyword">AS</span> redis_cmd, CONCAT(<span class="string">&#x27;city:&#x27;</span>,ID) <span class="keyword">AS</span> redis_key,</span><br><span class="line"><span class="string">&#x27;Name&#x27;</span> <span class="keyword">AS</span> hkey1, Name <span class="keyword">AS</span> hval1,</span><br><span class="line"><span class="string">&#x27;CountryCode&#x27;</span> <span class="keyword">AS</span> hkey2, CountryCode <span class="keyword">AS</span> hval2,</span><br><span class="line"><span class="string">&#x27;District&#x27;</span> <span class="keyword">AS</span> hkey3, District <span class="keyword">AS</span> hval3,</span><br><span class="line"><span class="string">&#x27;Population&#x27;</span> <span class="keyword">AS</span> hkey4, Population <span class="keyword">AS</span> hval4</span><br><span class="line"> <span class="keyword">FROM</span> world.city</span><br><span class="line"> ) <span class="keyword">AS</span> t;</span><br></pre></td></tr></table></figure>
+<p>保存SQL到<code>resp.sql</code>文件，并用Redis的管道模式从MySQL流到Redis：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">bash-3.2$ mysql -h 127.0.0.1 -uroot -p -Dworld --skip-column-names --raw &lt;/tmp/resp.sql |redis-cli -p 4321 --pipe</span><br><span class="line">Enter password:</span><br><span class="line">All data transferred. Waiting for the last reply...</span><br><span class="line">Last reply received from server.</span><br><span class="line">errors: 0, replies: 4079</span><br></pre></td></tr></table></figure>
+<p>数据已经导入到Redis服务器！</p>
+<h2 id="使用-Redis-的-MySQL-连接器：redis-connect-mysql">使用 Redis 的 MySQL 连接器：redis-connect-mysql</h2>
+<p>最后一节，我将介绍如何使用Redis连接套件，特别是 <a target="_blank" rel="noopener" href="https://github.com/redis-field-engineering/redis-connect-dist/tree/main/connectors/mysql#redis-connect-mysql">redis-connect-mysql</a> 。您可以阅读这份文档：</p>
+<blockquote>
+<p>redis-connect-mysql第一次连接MySQL时，它会读取所有模式的一致性快照。当快照创建完成，连接器将连续发送MySQL的变更并生成相应的insert,update或delete事件。</p>
+</blockquote>
+<p>因此，它不仅仅是一个迁移工具，还是一个连接异构数据库的复制和传输工具。Redis CDC （变更数据捕捉）曾在RedisConf 2021上演示，所以请查看演示的详细内容。</p>
+<blockquote>
+<p>译者注：这段视频在油管上，此处跳过。<br>
+<a target="_blank" rel="noopener" href="https://www.youtube.com/embed/VrkZjh0REgU?feature=oembed">RedisCDC: Seamless database migrations and continuous changed-data replication, Redis Labs</a></p>
+</blockquote>
+<p>我现在没有运行使用RedisCDC的示例，但是请查看<a target="_blank" rel="noopener" href="https://github.com/redis-field-engineering/redis-connect-dist/tree/main/connectors/mysql#setting-up-mysql-source">代码库</a> 来了解如何操作它。</p>
+<h2 id="清理">清理</h2>
+<p>为了移除那些导入的Hash值，您可以执行下面的命令：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">redis-cli -p &lt;PORT&gt; --scan --pattern city:* -i 0.01 | xargs redis-cli -p &lt;PORT&gt; unlink</span><br></pre></td></tr></table></figure>
+<h2 id="总结">总结</h2>
+<p>现在，您能从MySQL导出一张表，或者从其他的关系型数据库，任何可以导出CSV的数据库，或者RIOT DB，或者RedisCDC能连接的多种数据库。</p>
+<blockquote>
+<p>支持RedisCDC的连接器在 <a target="_blank" rel="noopener" href="https://github.com/redis-field-engineering/redis-connect-dist/tree/main/connectors">这里</a> ，支持 RIOT DB的连接器在<a target="_blank" rel="noopener" href="https://developer.redis.com/riot/index.html#_drivers">这里</a> 。</p>
+</blockquote>
+<p>接下来，您可能想知道您能用这些创建在Redis实例中的哈希值做些什么。所以我在下篇文章中，将分享一些例子，关于在Redis中存储、检索、更改、删除、索引和检索数据的命令。</p>
+<p>那么现在呢? 你可能想知道你可以用这些在Redis实例中创建的哈希值做什么。所以在下一篇文章中，我将分享几个在Redis中存储、检索、更改、删除、索引和搜索数据的命令示例。别走开，我很快就会写的！</p>
+
+                </div>
+
+                <!-- Post Tags -->
+                
+                    <div class="post-tags">
+                        <i class="fa-solid fa-tags"></i>
+                        
+                            <a href="/tags/mysql/" class="tag-link">
+                                mysql
+                            </a>
+                        
+                            <a href="/tags/%E8%AF%91%E6%96%87/" class="tag-link">
+                                译文
+                            </a>
+                        
+                            <a href="/tags/redis/" class="tag-link">
+                                redis
+                            </a>
+                        
+                    </div>
+                
+
+                <!-- Post Copyright -->
+                
+                    <!-- Post Copyright -->
+<div class="post-copyright">
+    <div class="copyright-header">
+        <i class="fa-regular fa-copyright"></i>
+        Copyright Notice
+    </div>
+    <div class="copyright-content">
+        <p>
+            <strong>Author:</strong>
+            <a href="/">Shawn Yan</a>
+        </p>
+        <p>
+            <strong>Link:</strong>
+            <a href="https://shawnyan.cn/2022/mysql/fanyi-migrate-a-mysql-table-to-redis/index.html">https://shawnyan.cn/2022/mysql/fanyi-migrate-a-mysql-table-to-redis/index.html</a>
+        </p>
+        <p>
+            <strong>License:</strong>
+            All articles on this site are original unless otherwise stated. Please indicate the source when reprinting!
+        </p>
+    </div>
+</div>
+
+                
+
+                <!-- Post Navigation -->
+                <!-- Post Navigation -->
+<nav class="post-nav" aria-label="Post Navigation">
+    
+        <a href="/2022/modb/fanyi-oracle-mongodb-api/" class="post-nav-prev">
+            <span class="nav-label">
+                <i class="fa-solid fa-arrow-left"></i>
+                Previous
+            </span>
+            <span class="nav-title">[译] 甲骨文发布Oracle数据库对MongoDB的接口</span>
+        </a>
+    
+
+    
+        <a href="/2022/postgresql/fanyi-pg-15-jsonb-toaster/" class="post-nav-next">
+            <span class="nav-label">
+                Next
+                <i class="fa-solid fa-arrow-right"></i>
+            </span>
+            <span class="nav-title">[译] 一个TOAST适配所有：JSONB TOASTER | PG 15 特性预览</span>
+        </a>
+    
+</nav>
+
+
+                <!-- Comments -->
+                
+            </article>
+
+            <!-- TOC Sidebar -->
+            
+                <aside class="toc-sidebar">
+                    <div class="toc-wrapper">
+                        <div class="toc-header">
+                            <i class="fa-solid fa-list"></i>
+                            Table of Contents
+                        </div>
+                        <div class="toc-body">
+                            <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8-SELECT-INTO-OUTFILE-%E5%AF%BC%E5%87%BACSV%E6%A0%BC%E5%BC%8F%EF%BC%8C%E4%BD%BF%E7%94%A8Python%E5%AF%BC%E5%85%A5"><span class="toc-text">使用 SELECT INTO OUTFILE 导出CSV格式，使用Python导入</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8mysqldump%E5%AF%BC%E5%87%BACSV%E6%A0%BC%E5%BC%8F"><span class="toc-text">使用mysqldump导出CSV格式</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8RIOT%E5%AF%BC%E5%85%A5CSV%E5%A4%87%E4%BB%BD"><span class="toc-text">使用RIOT导入CSV备份</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8-RIOT-DB-%E4%BB%8EMySQL%E5%AF%BC%E5%85%A5"><span class="toc-text">使用 RIOT DB 从MySQL导入</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AF%BC%E5%87%BA%E5%B9%B6%E4%BB%A5RESP%E6%A0%BC%E5%BC%8F%E5%81%9A%E5%A4%A7%E9%87%8F%E6%8F%92%E5%85%A5"><span class="toc-text">导出并以RESP格式做大量插入</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8-Redis-%E7%9A%84-MySQL-%E8%BF%9E%E6%8E%A5%E5%99%A8%EF%BC%9Aredis-connect-mysql"><span class="toc-text">使用 Redis 的 MySQL 连接器：redis-connect-mysql</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B8%85%E7%90%86"><span class="toc-text">清理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol>
+                        </div>
+                    </div>
+                </aside>
+            
+        </div>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <!-- About -->
+            <div class="footer-section">
+                <h3 class="footer-logo">
+                    
+                        少安<span class="logo-highlight">事务所</span>
+                    
+                </h3>
+                <p class="footer-description">
+                    ShawnYan&#39;s Tech Blog, about Oracle, MySQL, TiDB, and other databases.
+                </p>
+                
+                    <div class="footer-social">
+                        
+                            <a href="https://github.com/shawn0915" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="GitHub">
+                                <i class="fa-brands fa-github"></i>
+                            </a>
+                        
+                            <a href="https://twitter.com/mysqloffice" target="_blank" rel="noopener noreferrer" 
+                               class="social-link" aria-label="Twitter">
+                                <i class="fa-brands fa-twitter"></i>
+                            </a>
+                        
+                    </div>
+                
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    
+                        
+                            
+                            <li>
+                                <a href="/">
+                                    
+                                        <i class="fa-solid fa-house"></i>
+                                    
+                                    Home
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/blogs">
+                                    
+                                        <i class="fa-solid fa-book-open"></i>
+                                    
+                                    Blogs
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/tags">
+                                    
+                                        <i class="fa-solid fa-tags"></i>
+                                    
+                                    Tags
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/categories">
+                                    
+                                        <i class="fa-solid fa-folder"></i>
+                                    
+                                    Categories
+                                </a>
+                            </li>
+                        
+                            
+                            <li>
+                                <a href="/about/">
+                                    
+                                        <i class="fa-solid fa-user"></i>
+                                    
+                                    About
+                                </a>
+                            </li>
+                        
+                    
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div class="footer-section">
+                <h4 class="footer-title">Contact</h4>
+                <div class="footer-contact">
+                    <p><i class="fa-brands fa-weixin"></i> WeChat: 少安事务所</p>
+                    
+                        <div class="footer-wechat-qr">
+                            <img src="/img/wechat.jpg" alt="微信公众号二维码" referrerpolicy="no-referrer" />
+                        </div>
+                    
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                &copy; 2026 Shawn Yan. 
+                All rights reserved
+            </div>
+            
+            
+                <div class="footer-runtime">
+                    <i class="fa-solid fa-heart" style="color: #C74634;"></i>
+                    Running for <span id="runtime"></span>
+                </div>
+            
+
+            
+                <div class="footer-stats">
+                    <span>188 posts</span>
+                    
+                        <span class="stats-separator">|</span>
+                        <span id="busuanzi_container_site_pv">
+                            <span id="busuanzi_value_site_pv"></span> views
+                        </span>
+                    
+                </div>
+            
+        </div>
+    </div>
+</footer>
+
+
+    <!-- Side Tools -->
+    
+        <!-- Side Tools -->
+<div class="side-tools" id="side-tools">
+    <button class="tool-btn scroll-top" id="scroll-top" aria-label="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    
+    
+        <button class="tool-btn search-toggle" id="search-toggle" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+    
+    
+    <button class="tool-btn toc-toggle" id="toc-toggle" aria-label="Table of Contents">
+        <i class="fa-solid fa-list"></i>
+    </button>
+</div>
+
+    
+
+    <!-- Scripts -->
+    <!-- jQuery (for compatibility) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+
+<!-- Theme JavaScript -->
+
+<script src="/js/oracle-ace.js"></script>
+
+
+<!-- Website Counter -->
+
+    <script async src=""></script>
+
+
+<!-- Search -->
+
+    <!-- Local Search -->
+
+<div class="search-overlay" id="search-overlay">
+    <div class="search-container">
+        <div class="search-header">
+            <input type="text" 
+                   class="search-input" 
+                   id="search-input" 
+                   placeholder="Search posts..."
+                   autocomplete="off">
+            <button class="search-close" id="search-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    (function() {
+        var searchOverlay = document.getElementById('search-overlay');
+        var searchInput = document.getElementById('search-input');
+        var searchResults = document.getElementById('search-results');
+        var searchClose = document.getElementById('search-close');
+        var searchBtn = document.getElementById('search-btn');
+        var searchToggle = document.getElementById('search-toggle');
+        
+        var searchData = [];
+        
+        // Load search data
+        
+        fetch('/search.json')
+            .then(function(response) { return response.json(); })
+            .then(function(data) { searchData = data; });
+        
+        
+        // Open search
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Close search
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+        
+        // Event listeners
+        if (searchBtn) searchBtn.addEventListener('click', openSearch);
+        if (searchToggle) searchToggle.addEventListener('click', openSearch);
+        searchClose.addEventListener('click', closeSearch);
+        
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === searchOverlay) closeSearch();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchOverlay.classList.contains('active')) {
+                closeSearch();
+            }
+        });
+        
+        // Search functionality
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var query = searchInput.value.trim().toLowerCase();
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+                
+                var results = searchData.filter(function(item) {
+                    return item.title.toLowerCase().includes(query) ||
+                           item.content.toLowerCase().includes(query);
+                }).slice(0, 10);
+                
+                searchResults.innerHTML = results.map(function(item) {
+                    return '<a href="' + item.url + '" class="search-result-item">' +
+                           '<h4>' + item.title + '</h4>' +
+                           '<p>' + item.content.substring(0, 150) + '...</p>' +
+                           '</a>';
+                }).join('') || '<p class="search-no-results">No posts found</p>';
+            }, 300);
+        });
+    })();
+</script>
+
+
+
+
+<!-- Runtime -->
+
+    <script>
+        function updateRuntime() {
+            const start = new Date('2017/1/1 00:00:00');
+            const now = new Date();
+            const diff = now - start;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('runtime').textContent = 
+                days + 'days ' + 
+                hours + 'hours ' + 
+                minutes + 'minutes ' + 
+                seconds + 'seconds';
+        }
+        
+        updateRuntime();
+        setInterval(updateRuntime, 1000);
+    </script>
+
+
+<!-- Lazy Load Images -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(img => imageObserver.observe(img));
+        });
+    </script>
+
+
+<!-- Mermaid -->
+
+
+<!-- Custom Scripts -->
+
+
+</body>
+</html>
