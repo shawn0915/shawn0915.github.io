@@ -1,6 +1,6 @@
 /**
- * Kingbase KVA Theme - Main JavaScript
- * Based on Kingbase official Design System
+ * Oracle ACE Theme - Main JavaScript
+ * Based on Oracle.com Design System
  */
 
 (function() {
